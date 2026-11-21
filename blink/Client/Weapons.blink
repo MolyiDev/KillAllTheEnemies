@@ -1,0 +1,18 @@
+import "../Types/Vec.blink"
+
+-- Pull the trigger at a point (what the crosshair is over). Only the intent: the server shoots from the character's
+-- own head, with its own seed and spread, and checks the gun, the rate and that the character stands.
+event Fire {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Vec.Type)
+}
+
+-- Buy the next weapon upgrade (GunsCore.LADDER). Only the intent: the step, its price and the Gold are the server's.
+event Upgrade {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

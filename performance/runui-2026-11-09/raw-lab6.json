@@ -1,0 +1,187 @@
+{
+ "label": "lab6",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794200349,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794200351,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200351,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794200352,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200352,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"lab6\"}",
+   "peer": "server",
+   "timestamp": 1794200353,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"lab6\"}",
+   "peer": "server",
+   "timestamp": 1794200353,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200353,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794200353,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.11143259897581,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":1,\"frames\":181,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794200355,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.240227653448912,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":1,\"frames\":152,\"case\":\"2000 visible, hot written a new value\"}",
+   "peer": "client",
+   "timestamp": 1794200359,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.971384486449617,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":1,\"frames\":168,\"case\":\"2000 visible, hot written its same value\"}",
+   "peer": "client",
+   "timestamp": 1794200362,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.944699977364765,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":1,\"frames\":169,\"case\":\"2000 visible, nothing written\"}",
+   "peer": "client",
+   "timestamp": 1794200365,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":10.958778157911665,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":2,\"frames\":183,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794200369,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.2069157351271,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":2,\"frames\":153,\"case\":\"2000 visible, hot written a new value\"}",
+   "peer": "client",
+   "timestamp": 1794200372,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.958445827033194,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":2,\"frames\":168,\"case\":\"2000 visible, hot written its same value\"}",
+   "peer": "client",
+   "timestamp": 1794200375,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.946086849396428,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":2,\"frames\":168,\"case\":\"2000 visible, nothing written\"}",
+   "peer": "client",
+   "timestamp": 1794200379,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":10.877803788595909,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":3,\"frames\":185,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794200382,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.146106531125268,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":3,\"frames\":153,\"case\":\"2000 visible, hot written a new value\"}",
+   "peer": "client",
+   "timestamp": 1794200385,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.985600027920944,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":3,\"frames\":168,\"case\":\"2000 visible, hot written its same value\"}",
+   "peer": "client",
+   "timestamp": 1794200389,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.960957127268472,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":3,\"frames\":168,\"case\":\"2000 visible, nothing written\"}",
+   "peer": "client",
+   "timestamp": 1794200392,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":10.905479916128451,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":4,\"frames\":184,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794200395,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.093836333409146,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":4,\"frames\":154,\"case\":\"2000 visible, hot written a new value\"}",
+   "peer": "client",
+   "timestamp": 1794200399,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.869852094960637,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":4,\"frames\":169,\"case\":\"2000 visible, hot written its same value\"}",
+   "peer": "client",
+   "timestamp": 1794200402,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.966595825340067,\"label\":\"lab6\",\"phase\":\"lab\",\"round\":4,\"frames\":168,\"case\":\"2000 visible, nothing written\"}",
+   "peer": "client",
+   "timestamp": 1794200405,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 10.963 ms     +0.0 us  empty\",\"label\":\"lab6\"}",
+   "peer": "client",
+   "timestamp": 1794200406,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 13.172 ms  +2208.9 us  2000 visible, hot written a new value\",\"label\":\"lab6\"}",
+   "peer": "client",
+   "timestamp": 1794200406,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.946 ms   +983.5 us  2000 visible, hot written its same value\",\"label\":\"lab6\"}",
+   "peer": "client",
+   "timestamp": 1794200406,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.955 ms   +991.9 us  2000 visible, nothing written\",\"label\":\"lab6\"}",
+   "peer": "client",
+   "timestamp": 1794200406,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"lab6\"}",
+   "peer": "client",
+   "timestamp": 1794200406,
+   "type": "MessageOutput"
+  }
+ ]
+}

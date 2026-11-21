@@ -1,0 +1,17 @@
+-- The run's beats (Game/Server/Services/MatchService). Fired to everybody.
+
+-- The run began: lift the loading screen.
+event MatchStarted {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- Everybody is down. (roundsCleared, secondsUntilReturnToLobby)
+event MatchEnded {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, f32)
+}

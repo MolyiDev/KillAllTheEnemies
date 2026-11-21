@@ -1,0 +1,121 @@
+{
+ "label": "s3f0-2",
+ "flags": "",
+ "count": "8000",
+ "entries": [
+  {
+   "message": "GamebeastSDK: Gamebeast SDK is out of date! Please update to the latest version. v0.9.1 -> v1.0.0",
+   "peer": "server",
+   "timestamp": 1793275617,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1793275618,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "DataStoreService: InternalServerError: An internal server error occurred. API: UpdateAsync, Data Store: Studio",
+   "peer": "server",
+   "timestamp": 1793275619,
+   "type": "MessageError"
+  },
+  {
+   "message": "[DocumentService Retry] Attempt 1 failed: 502: API Services rejected request with error. Error code: 0 Reason: An internal server error occurred. \nat\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Retry:32 function Retry\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.SaveUtil:155 function updateAsync\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Document:380 function Open\nServerScriptService.GlobalServer.Services.DatabaseService:1274\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Lifecycles:33\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:62 function runCallback\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:68 function yielder\n",
+   "peer": "server",
+   "timestamp": 1793275619,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1793275620,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "DataStoreService: InternalServerError: An internal server error occurred. API: UpdateAsync, Data Store: Studio",
+   "peer": "server",
+   "timestamp": 1793275620,
+   "type": "MessageError"
+  },
+  {
+   "message": "[DocumentService Retry] Attempt 2 failed: 502: API Services rejected request with error. Error code: 0 Reason: An internal server error occurred. \nat\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Retry:32 function Retry\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.SaveUtil:155 function updateAsync\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Document:380 function Open\nServerScriptService.GlobalServer.Services.DatabaseService:1274\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Lifecycles:33\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:62 function runCallback\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:68 function yielder\n",
+   "peer": "server",
+   "timestamp": 1793275620,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1793275620,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"placeId\":137835287157016,\"flags\":\"\",\"label\":\"s3f0-2\"}",
+   "peer": "server",
+   "timestamp": 1793275625,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.101706199999171,\"endDist\":{\"total\":8000,\"mid\":2970,\"far\":4,\"near\":5026},\"heartbeatTimeMedianMs\":6.847658194601536,\"phase\":\"result\",\"heartbeatDtMedianMs\":13.019188307225705,\"enemies\":8000,\"label\":\"s3f0-2\",\"metrics\":{\"bytes\":1496291,\"absRows\":9711,\"filterMs\":61.98610000319604,\"commitRows\":666582,\"commitMs\":777.9908999818872,\"aoiTickMs\":140.2509999988979,\"workerMs\":41579.546,\"packets\":92,\"AddedEvents\":1543,\"workerJobs\":1472},\"name\":\"8000-bees\",\"heartbeatTimeMeanMs\":8.103229129525318,\"heartbeatTimeP95Ms\":16.050437465310098,\"startDist\":{\"total\":8000,\"mid\":2651,\"far\":3897,\"near\":1452},\"heartbeatDtP95Ms\":64.0328973531723,\"sendKbpsMean\":126.9562201248972}",
+   "peer": "server",
+   "timestamp": 1793275644,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":5917,\"updateMeanMs\":6.723534782615603,\"receiveKbpsMean\":0,\"frames\":483,\"updateMedianMs\":6.527499999720021,\"updateP95Ms\":9.490099999311497,\"bytes\":1485085,\"medianMs\":16.37740060687065,\"p99Ms\":57.02409893274307,\"focusLost\":false,\"animated\":0,\"label\":\"s3f0-2\",\"viewport\":[1919,1080],\"resident\":5962,\"phase\":\"8000-bees\",\"p95Ms\":44.55159977078438,\"packets\":91}",
+   "peer": "client",
+   "timestamp": 1793275644,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":5962,\"serverDetail\":[],\"checked\":5890,\"bad\":0,\"badRows\":[],\"maxErr\":0.024997711181640626,\"badIds\":[],\"serverEnemies\":5890},\"name\":\"8000-bees\",\"label\":\"s3f0-2\"}",
+   "peer": "server",
+   "timestamp": 1793275645,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.033303199999864,\"endDist\":{\"total\":8000,\"mid\":2226,\"far\":3682,\"near\":2092},\"heartbeatTimeMedianMs\":6.035687401890755,\"phase\":\"result\",\"heartbeatDtMedianMs\":14.964797534048558,\"enemies\":8000,\"label\":\"s3f0-2\",\"metrics\":{\"DamagedEvents\":71860,\"absRows\":9164,\"filterMs\":52.259399999456949,\"commitRows\":644474,\"commitMs\":700.8921999840823,\"aoiTickMs\":147.14080001067488,\"workerMs\":19461.111,\"packets\":89,\"workerJobs\":2848,\"AddedEvents\":692,\"bytes\":930088},\"name\":\"8000-charm\",\"heartbeatTimeMeanMs\":6.046332898432521,\"heartbeatTimeP95Ms\":6.667722947895527,\"startDist\":{\"total\":8000,\"mid\":1729,\"far\":5530,\"near\":741},\"heartbeatDtP95Ms\":62.42639943957329,\"sendKbpsMean\":92.58462524414063}",
+   "peer": "server",
+   "timestamp": 1793275665,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":4656,\"updateMeanMs\":3.8746700228989905,\"receiveKbpsMean\":0,\"frames\":437,\"updateMedianMs\":3.7382000009529294,\"updateP95Ms\":5.32050000037998,\"bytes\":921479,\"medianMs\":21.26839943230152,\"p99Ms\":40.13190045952797,\"focusLost\":false,\"animated\":0,\"label\":\"s3f0-2\",\"viewport\":[1919,1080],\"resident\":4853,\"phase\":\"8000-charm\",\"p95Ms\":35.99179908633232,\"packets\":88}",
+   "peer": "client",
+   "timestamp": 1793275665,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":4853,\"serverDetail\":[],\"checked\":4576,\"bad\":0,\"badRows\":[],\"maxErr\":0.02500152587890625,\"badIds\":[],\"serverEnemies\":4576},\"name\":\"8000-charm\",\"label\":\"s3f0-2\"}",
+   "peer": "server",
+   "timestamp": 1793275667,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.060686000000715,\"endDist\":{\"total\":8000,\"mid\":2133,\"far\":3617,\"near\":2250},\"heartbeatTimeMedianMs\":11.126176454126835,\"phase\":\"result\",\"heartbeatDtMedianMs\":15.001559630036354,\"enemies\":8000,\"label\":\"s3f0-2\",\"metrics\":{\"DamagedEvents\":45792,\"absRows\":16526,\"filterMs\":54.760199986048977,\"commitRows\":681890,\"commitMs\":796.6692999889347,\"aoiTickMs\":132.6480000061565,\"workerMs\":39228.322,\"packets\":94,\"workerJobs\":6016,\"AddedEvents\":703,\"bytes\":1038459},\"name\":\"8000-mixed\",\"heartbeatTimeMeanMs\":11.132900395890332,\"heartbeatTimeP95Ms\":12.601475231349469,\"startDist\":{\"total\":8000,\"mid\":1790,\"far\":5447,\"near\":763},\"heartbeatDtP95Ms\":72.05105572938919,\"sendKbpsMean\":94.00186750623915}",
+   "peer": "server",
+   "timestamp": 1793275685,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":4820,\"updateMeanMs\":4.388074424569472,\"receiveKbpsMean\":0,\"frames\":391,\"updateMedianMs\":4.312200000640587,\"updateP95Ms\":5.834800000229734,\"bytes\":1029361,\"medianMs\":23.760199546813966,\"p99Ms\":48.28140139579773,\"focusLost\":false,\"animated\":0,\"label\":\"s3f0-2\",\"viewport\":[1919,1080],\"resident\":4884,\"phase\":\"8000-mixed\",\"p95Ms\":45.31199857592583,\"packets\":93}",
+   "peer": "client",
+   "timestamp": 1793275685,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":4884,\"serverDetail\":[],\"checked\":4777,\"bad\":0,\"badRows\":[],\"maxErr\":0.02500152587890625,\"badIds\":[],\"serverEnemies\":4777},\"name\":\"8000-mixed\",\"label\":\"s3f0-2\"}",
+   "peer": "server",
+   "timestamp": 1793275687,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"s3f0-2\"}",
+   "peer": "server",
+   "timestamp": 1793275688,
+   "type": "MessageOutput"
+  }
+ ]
+}

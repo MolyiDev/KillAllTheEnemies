@@ -1,0 +1,15 @@
+-- START while preparing, SKIP WAVE once a wave has run RoundCore.SKIP_AFTER_SECONDS. Ignored otherwise.
+event VoteStart {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- Auto-skip on or off (saved, GDD 10).
+event SetAutoSkip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: boolean
+}

@@ -1,0 +1,8 @@
+src/Global/Client/Network.luau
+src/Global/Server/Network.luau
+src/Global/Types/NetworkTypes.luau
+src/Global/Client/NetworkMeta.luau
+src/Global/Server/NetworkMeta.luau
+src/Global/Types/NetworkMetaTypes.luau
+src/PlayerModule
+src/Global/Shared/TopbarPlus

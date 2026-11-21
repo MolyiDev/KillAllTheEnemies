@@ -1,0 +1,292 @@
+[
+  {
+    "gridPopulated": true,
+    "running": false,
+    "paused": false,
+    "phase": "boot",
+    "placeId": 137835287157016,
+    "characters": 0,
+    "waited": 3.9999940781854093e-07,
+    "peer": "server"
+  },
+  {
+    "placeVersion": 0,
+    "positionTransport": "RemoteEvent",
+    "phase": "ready",
+    "placeId": 137835287157016,
+    "characters": 1,
+    "enemies": 0,
+    "peer": "server"
+  },
+  {
+    "seconds": 7.002770600000076,
+    "phase": "result",
+    "heartbeatMedianMs": 4.00214409455657,
+    "enemies": 510,
+    "heartbeatP99Ms": 6.010488141328096,
+    "name": "500-parallel",
+    "metrics": {
+      "packMs": 135.6594000117184,
+      "filterMs": 3.936299990527914,
+      "packRecordCalls": 1679,
+      "positionRecords": 34375,
+      "positionPackets": 68,
+      "positionBytes": 275136
+    },
+    "matchingGround": 510,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 5.999586079269648,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 275136,
+    "frameP95Ms": 5.381400231271982,
+    "frames": 1679,
+    "updateMedianMs": 0.7430000005115289,
+    "enemyScale": 1,
+    "updateP95Ms": 0.9393999989697477,
+    "residentEnemies": 510,
+    "focusLostDuringSample": false,
+    "phase": "500-parallel",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 34375,
+    "paused": false,
+    "frameP99Ms": 6.076999939978123,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 68,
+    "visibleEnemies": 510,
+    "frameMedianMs": 4.250700119882822,
+    "peer": "client"
+  },
+  {
+    "seconds": 7.001979900000151,
+    "phase": "result",
+    "heartbeatMedianMs": 4.001596011221409,
+    "enemies": 566,
+    "heartbeatP99Ms": 7.1216970682144165,
+    "name": "500-direct",
+    "metrics": {
+      "directCommitMs": 31.883899991953513,
+      "directComputeMs": 358.98839999208576,
+      "filterMs": 4.764600009366404,
+      "positionPackets": 68,
+      "directTicks": 68,
+      "positionRecords": 37256,
+      "positionBytes": 298184
+    },
+    "matchingGround": 566,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 6.000719964504242,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 298184,
+    "frameP95Ms": 6.105099804699421,
+    "frames": 1663,
+    "updateMedianMs": 0.8111999995890073,
+    "enemyScale": 1,
+    "updateP95Ms": 1.032800000757561,
+    "residentEnemies": 566,
+    "focusLostDuringSample": false,
+    "phase": "500-direct",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 37256,
+    "paused": false,
+    "frameP99Ms": 7.543100044131279,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 68,
+    "visibleEnemies": 566,
+    "frameMedianMs": 4.0998999029397964,
+    "peer": "client"
+  },
+  {
+    "seconds": 7.000347600000168,
+    "phase": "result",
+    "heartbeatMedianMs": 5.00266021117568,
+    "enemies": 1500,
+    "heartbeatP99Ms": 9.000342339277267,
+    "name": "1500-parallel",
+    "metrics": {
+      "packMs": 373.0091999295837,
+      "filterMs": 10.488899999472778,
+      "packRecordCalls": 1368,
+      "positionRecords": 103500,
+      "positionPackets": 69,
+      "positionBytes": 828138
+    },
+    "matchingGround": 1500,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 7.011003792285919,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 828138,
+    "frameP95Ms": 5.938299931585789,
+    "frames": 1368,
+    "updateMedianMs": 2.2535000007337658,
+    "enemyScale": 1,
+    "updateP95Ms": 2.8026999989378965,
+    "residentEnemies": 1500,
+    "focusLostDuringSample": false,
+    "phase": "1500-parallel",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 103500,
+    "paused": false,
+    "frameP99Ms": 6.4651998691260815,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 69,
+    "visibleEnemies": 1500,
+    "frameMedianMs": 5.085700191557407,
+    "peer": "client"
+  },
+  {
+    "seconds": 7.003528799999913,
+    "phase": "result",
+    "heartbeatMedianMs": 5.000554956495762,
+    "enemies": 1500,
+    "heartbeatP99Ms": 26.088615879416466,
+    "name": "1500-direct",
+    "metrics": {
+      "directCommitMs": 91.76839999963704,
+      "directComputeMs": 1411.194999993313,
+      "filterMs": 10.907700014286092,
+      "positionPackets": 68,
+      "directTicks": 68,
+      "positionRecords": 102000,
+      "positionBytes": 816136
+    },
+    "matchingGround": 1500,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 19.188441336154938,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 816136,
+    "frameP95Ms": 19.371800124645233,
+    "frames": 1142,
+    "updateMedianMs": 2.265600000100676,
+    "enemyScale": 1,
+    "updateP95Ms": 2.6901999990514014,
+    "residentEnemies": 1500,
+    "focusLostDuringSample": false,
+    "phase": "1500-direct",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 102000,
+    "paused": false,
+    "frameP99Ms": 27.0346999168396,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 68,
+    "visibleEnemies": 1500,
+    "frameMedianMs": 5.066600162535906,
+    "peer": "client"
+  },
+  {
+    "seconds": 7.0146515000014915,
+    "phase": "result",
+    "heartbeatMedianMs": 9.005364030599594,
+    "enemies": 3000,
+    "heartbeatP99Ms": 17.038097605109215,
+    "name": "3000-parallel",
+    "metrics": {
+      "packMs": 445.583699935014,
+      "filterMs": 19.563199994081515,
+      "packRecordCalls": 738,
+      "positionRecords": 201000,
+      "positionPackets": 67,
+      "positionBytes": 1608134
+    },
+    "matchingGround": 3000,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 15.011579729616642,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 1608134,
+    "frameP95Ms": 11.327199637889862,
+    "frames": 738,
+    "updateMedianMs": 4.788000000189641,
+    "enemyScale": 1,
+    "updateP95Ms": 5.824699999720906,
+    "residentEnemies": 3000,
+    "focusLostDuringSample": false,
+    "phase": "3000-parallel",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 201000,
+    "paused": false,
+    "frameP99Ms": 12.221800163388252,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 67,
+    "visibleEnemies": 3000,
+    "frameMedianMs": 9.364999830722809,
+    "peer": "client"
+  },
+  {
+    "seconds": 7.046044900000197,
+    "phase": "result",
+    "heartbeatMedianMs": 9.020592086017132,
+    "enemies": 3000,
+    "heartbeatP99Ms": 71.03201746940613,
+    "name": "3000-direct",
+    "metrics": {
+      "directCommitMs": 193.38820001212298,
+      "directComputeMs": 3442.406199998004,
+      "filterMs": 20.247799997378024,
+      "positionPackets": 67,
+      "directTicks": 67,
+      "positionRecords": 201000,
+      "positionBytes": 1608134
+    },
+    "matchingGround": 3000,
+    "enemyTimeScale": 1,
+    "paused": false,
+    "heartbeatP95Ms": 62.86083161830902,
+    "peer": "server"
+  },
+  {
+    "positionBytes": 1608134,
+    "frameP95Ms": 63.40809911489487,
+    "frames": 429,
+    "updateMedianMs": 4.830400001083035,
+    "enemyScale": 1,
+    "updateP95Ms": 5.379399999583256,
+    "residentEnemies": 3000,
+    "focusLostDuringSample": false,
+    "phase": "3000-direct",
+    "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+    "positionRecords": 201000,
+    "paused": false,
+    "frameP99Ms": 71.07289880514145,
+    "viewport": [
+      1900,
+      570
+    ],
+    "positionPackets": 67,
+    "visibleEnemies": 3000,
+    "frameMedianMs": 9.22439992427826,
+    "peer": "client"
+  },
+  {
+    "phase": "done",
+    "peer": "server"
+  }
+]

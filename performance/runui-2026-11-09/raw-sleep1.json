@@ -1,0 +1,91 @@
+{
+ "label": "sleep1",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794200212,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794200214,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794200215,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200215,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200215,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"sleep1\"}",
+   "peer": "server",
+   "timestamp": 1794200216,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"sleep1\"}",
+   "peer": "server",
+   "timestamp": 1794200216,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200217,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794200217,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"rest\",\"label\":\"sleep1\",\"states\":[\"AbilitiesUI=true\",\"AugmentGui=true\",\"Command Executor=false\",\"CursorUI=true\",\"DamageNumbers=true\",\"DebugGui=true\",\"DialogueUI=false\",\"FocusBrackets=true\",\"Freecam=true\",\"HealthPlayerUI=true\",\"InGameTutorialSide=false\",\"InfoGui=false\",\"InteractableProximityUI=true\",\"KeyBindsUI=true\",\"KickUI=false\",\"KickUIBackdrop=false\",\"LevelBarUI=true\",\"MinimapUI=true\",\"OffScreenIndicatorUI=true\",\"PassiveChangesUI=true\",\"PauseUI=false\",\"PlayersInfoUI=true\",\"QuestDisplayUI=true\",\"QuestStowGui=true\",\"RarityImpactScreen=true\",\"RestartRadialUI=false\",\"RestartRadialUI=false\",\"RewardConfettiGui=true\",\"SelectionBackdropGui=true\",\"SelfReviveUI=false\",\"SelfStatsGui=true\",\"SettingsUI=false\",\"SettingsUIBackdrop=false\",\"ShieldPlayerUI=true\",\"TimerBarUI=true\",\"TimerGui=true\",\"TimersUI=true\",\"TopbarCentered=true\",\"TopbarCenteredClipped=true\",\"TopbarStandard=true\",\"TopbarStandardClipped=true\",\"UpgradeGui=true\",\"WinBoxUI=false\",\"docks=true\"]}",
+   "peer": "client",
+   "timestamp": 1794200228,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"mark\",\"label\":\"sleep1\",\"at\":24,\"what\":\"appear\"}",
+   "peer": "client",
+   "timestamp": 1794200228,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"mark\",\"label\":\"sleep1\",\"at\":380,\"what\":\"disappear\"}",
+   "peer": "client",
+   "timestamp": 1794200229,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"trace\",\"label\":\"sleep1\",\"runs\":[\"-/- x24 (from 1)\",\"V/E x590 (from 25)\",\"-/E x480 (from 615)\",\"-/- x127 (from 1095)\"]}",
+   "peer": "client",
+   "timestamp": 1794200233,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"sleep1\"}",
+   "peer": "client",
+   "timestamp": 1794200233,
+   "type": "MessageOutput"
+  }
+ ]
+}

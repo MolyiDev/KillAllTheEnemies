@@ -1,0 +1,22 @@
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+sourcemap.json
+pesde.lock
+wally.lock
+
+**/.pesde/
+**/luau_packages/
+**/lune_packages/
+**/roblox_packages/
+**/Packages/
+
+# Local Open Cloud credentials for Tripwire
+.env
+/Assets/
+
+# Built places (rojo build ... -o game.rbxl / lobby.rbxl)
+/game.rbxl
+/lobby.rbxl
+/research/

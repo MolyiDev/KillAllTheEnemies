@@ -1,0 +1,7 @@
+-- The console's keybind is bound only for a player the server gave a conch role (GlobalCommandsService).
+event AccessGranted {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

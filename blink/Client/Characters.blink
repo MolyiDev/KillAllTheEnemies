@@ -1,0 +1,8 @@
+import "../Types/CharacterInstanceId.blink"
+
+event CharacterReady {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type)
+}

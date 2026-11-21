@@ -1,0 +1,13 @@
+-- The camera, for the server's per-player cull of the position stream (AOIService). Sent at a fixed 20 Hz
+-- (CameraSyncController), not per rendered frame: frame-based it ran at 80 Hz on a 240 Hz client for no gain
+-- (performance/audit-2026-10-21/REPORT.md).
+-- camX/camY/camZ: f32 world position (cone origin).
+-- yaw:            i16 mapped to [-pi, pi] via /32767*pi.
+-- pitch:          i16 mapped to [-pi/2, pi/2] via /32767*(pi/2).
+-- threshold:      u16 mapped to [0, 1] via /65535; squared on the server.
+event CameraSync {
+	from: Client,
+	type: Unreliable,
+	call: ManyAsync,
+	data: (f32, f32, f32, i16, i16, u16)
+}

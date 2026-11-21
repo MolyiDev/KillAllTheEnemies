@@ -1,0 +1,163 @@
+{
+ "label": "lab1",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794196321,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794196322,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196322,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794196323,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196323,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"lab1\"}",
+   "peer": "server",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"lab1\"}",
+   "peer": "server",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     1.4  flat 0 hidden siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     1.4  flat 0 visible siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    13.7  flat 50 hidden siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    15.5  flat 50 visible siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    50.0  flat 200 hidden siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    56.6  flat 200 visible siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"   204.9  flat 800 hidden siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"   231.5  flat 800 visible siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     6.6  200 hidden in a sibling holder Frame, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     5.5  200 hidden in a holder with Visible=false, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     1.4  200 hidden in another ScreenGui, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     1.6  200 hidden siblings, target inside its own Frame, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"     5.3  200 in 14 groups of ~14 (hidden), write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    60.4  flat 200 visible, write 20 then read once\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    12.4  flat 20 visible only, write 20 then read once\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"lab\",\"line\":\"    50.0  200 Frames (not text) hidden siblings, write 1\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"lab1\"}",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794196324,
+   "type": "MessageWarning"
+  }
+ ]
+}

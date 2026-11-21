@@ -1,0 +1,11 @@
+-- ==# META network #== --
+-- The second Blink network, on its own RemoteScope ("Meta_BLINK_*" remotes) with its own 256-event id space. It holds
+-- the cold menu / profile / lobby domains, so the main network keeps its budget for hot gameplay events.
+
+option RemoteScope = "Meta"
+option TypesOutput = "../src/Global/Types/NetworkMetaTypes.luau"
+option ClientOutput = "../src/Global/Client/NetworkMeta.luau"
+option ServerOutput = "../src/Global/Server/NetworkMeta.luau"
+
+import "./Meta/Server"
+import "./Meta/Client"

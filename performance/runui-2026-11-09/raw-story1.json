@@ -1,0 +1,79 @@
+{
+ "label": "story1",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794200778,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794200780,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200780,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794200781,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200781,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"story1\"}",
+   "peer": "server",
+   "timestamp": 1794200782,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"story1\"}",
+   "peer": "server",
+   "timestamp": 1794200782,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794200782,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794200782,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"mounted\",\"ok\":true,\"label\":\"story1\"}",
+   "peer": "client",
+   "timestamp": 1794200790,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"sides\",\"sides\":{\"12 Hz\":\"354 of 1441 frames written, 32622 writes\",\"Every frame\":\"1440 of 1441 frames written, 54656 writes\"},\"label\":\"story1\"}",
+   "peer": "client",
+   "timestamp": 1794200798,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"story1\"}",
+   "peer": "client",
+   "timestamp": 1794200798,
+   "type": "MessageOutput"
+  }
+ ]
+}

@@ -1,0 +1,79 @@
+{
+ "label": "s2A-1",
+ "flags": "A",
+ "count": "8000",
+ "entries": [
+  {
+   "message": "GamebeastSDK: Gamebeast SDK is out of date! Please update to the latest version. v0.9.1 -> v1.0.0",
+   "peer": "server",
+   "timestamp": 1793271450,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1793271451,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1793271453,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1793271453,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"placeId\":137835287157016,\"flags\":\"A\",\"label\":\"s2A-1\"}",
+   "peer": "server",
+   "timestamp": 1793271456,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.024562400001742,\"endDist\":{\"total\":8000,\"mid\":3522,\"far\":653,\"near\":3825},\"heartbeatTimeMedianMs\":3.717588260769844,\"phase\":\"result\",\"heartbeatDtMedianMs\":14.020649716258049,\"enemies\":8000,\"label\":\"s2A-1\",\"metrics\":{\"bytes\":1961206,\"absRows\":245127,\"filterMs\":64.20040000557492,\"commitRows\":759905,\"commitMs\":1000.4415999956109,\"aoiTickMs\":139.56870000765776,\"workerMs\":16725.585,\"packets\":95,\"workerJobs\":1520},\"name\":\"8000-spin\",\"heartbeatTimeMeanMs\":3.765945346019803,\"heartbeatTimeP95Ms\":4.851935431361198,\"startDist\":{\"total\":8000,\"mid\":2369,\"far\":4536,\"near\":1095},\"heartbeatDtP95Ms\":37.83317655324936,\"sendKbpsMean\":168.1828175594932}",
+   "peer": "server",
+   "timestamp": 1793271475,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":4662,\"updateMeanMs\":6.310461897155151,\"receiveKbpsMean\":0,\"frames\":622,\"updateMedianMs\":6.19130000086443,\"updateP95Ms\":7.830300000932766,\"bytes\":1961206,\"medianMs\":15.04989992827177,\"p99Ms\":25.002600625157358,\"focusLost\":false,\"animated\":0,\"label\":\"s2A-1\",\"viewport\":[1919,1080],\"resident\":8000,\"phase\":\"8000-spin\",\"p95Ms\":22.32390083372593,\"packets\":95}",
+   "peer": "client",
+   "timestamp": 1793271475,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":8000,\"serverDetail\":[],\"checked\":4877,\"bad\":0,\"badRows\":[],\"maxErr\":0.024999618530273439,\"badIds\":[],\"serverEnemies\":4877},\"name\":\"8000-spin\",\"label\":\"s2A-1\"}",
+   "peer": "server",
+   "timestamp": 1793271477,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.011673099999826,\"endDist\":{\"total\":8000,\"mid\":1613,\"far\":4987,\"near\":1400},\"heartbeatTimeMedianMs\":2.7447242755442859,\"phase\":\"result\",\"heartbeatDtMedianMs\":12.000516057014466,\"enemies\":8000,\"label\":\"s2A-1\",\"metrics\":{\"bytes\":1148638,\"absRows\":143556,\"filterMs\":52.8083999925002,\"commitRows\":760000,\"commitMs\":1099.1335000071559,\"aoiTickMs\":167.2377000013512,\"workerMs\":13305.82,\"packets\":95,\"AddedEvents\":1554,\"workerJobs\":1520},\"name\":\"8000-spread\",\"heartbeatTimeMeanMs\":2.763921680036552,\"heartbeatTimeP95Ms\":3.4104399383068086,\"startDist\":{\"total\":8000,\"mid\":949,\"far\":6849,\"near\":202},\"heartbeatDtP95Ms\":34.01802107691765,\"sendKbpsMean\":97.9070950558311}",
+   "peer": "server",
+   "timestamp": 1793271495,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":4505,\"updateMeanMs\":4.511850134398413,\"receiveKbpsMean\":0,\"frames\":744,\"updateMedianMs\":4.514999998718849,\"updateP95Ms\":5.822700000862824,\"bytes\":1148638,\"medianMs\":12.516000308096409,\"p99Ms\":21.902399137616159,\"focusLost\":false,\"animated\":0,\"label\":\"s2A-1\",\"viewport\":[1919,1080],\"resident\":4527,\"phase\":\"8000-spread\",\"p95Ms\":20.115699619054796,\"packets\":95}",
+   "peer": "client",
+   "timestamp": 1793271495,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":4527,\"serverDetail\":[],\"checked\":4469,\"bad\":0,\"badRows\":[],\"maxErr\":0.02500152587890625,\"badIds\":[],\"serverEnemies\":4469},\"name\":\"8000-spread\",\"label\":\"s2A-1\"}",
+   "peer": "server",
+   "timestamp": 1793271497,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"s2A-1\"}",
+   "peer": "server",
+   "timestamp": 1793271497,
+   "type": "MessageOutput"
+  }
+ ]
+}

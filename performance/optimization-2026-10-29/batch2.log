@@ -1,0 +1,21 @@
+=== base-1 () 07:55:42
+s2base-1: 12 lines, 0 errors, done=True
+=== A-1 (A) 07:57:24
+s2A-1: 12 lines, 0 errors, done=True
+=== E-1 (E) 07:59:06
+s2E-1: 12 lines, 0 errors, done=True
+=== F-1 (F) 08:00:48
+s2F-1: 12 lines, 0 errors, done=True
+=== all-1 (A,B,C,D,E,F) 08:02:30
+s2all-1: 12 lines, 0 errors, done=True
+=== all-2 (A,B,C,D,E,F) 08:04:12
+s2all-2: 12 lines, 0 errors, done=True
+=== F-2 (F) 08:05:54
+s2F-2: 12 lines, 0 errors, done=True
+=== E-2 (E) 08:07:35
+s2E-2: 12 lines, 0 errors, done=True
+=== A-2 (A) 08:09:17
+s2A-2: 12 lines, 0 errors, done=True
+=== base-2 () 08:10:59
+s2base-2: 12 lines, 0 errors, done=True
+=== finished 08:12:41

@@ -1,0 +1,33 @@
+=== base-1 () 07:28:02
+base-1: 12 lines, 0 errors, done=True
+=== A-1 (A) 07:30:05
+A-1: 12 lines, 0 errors, done=True
+=== AB-1 (A,B) 07:31:47
+AB-1: 12 lines, 0 errors, done=True
+=== ABC-1 (A,B,C) 07:33:29
+ABC-1: 12 lines, 0 errors, done=True
+=== ABCD-1 (A,B,C,D) 07:35:11
+ABCD-1: 12 lines, 0 errors, done=True
+=== E-1 (E) 07:36:53
+E-1: 12 lines, 0 errors, done=True
+=== F-1 (F) 07:38:35
+F-1: 12 lines, 0 errors, done=True
+=== all-1 (A,B,C,D,E,F) 07:40:17
+all-1: 12 lines, 0 errors, done=True
+=== all-2 (A,B,C,D,E,F) 07:42:00
+all-2: 12 lines, 0 errors, done=True
+=== F-2 (F) 07:43:42
+F-2: 12 lines, 0 errors, done=True
+=== E-2 (E) 07:45:24
+E-2: 12 lines, 0 errors, done=True
+=== ABCD-2 (A,B,C,D) 07:47:06
+ABCD-2: 12 lines, 0 errors, done=True
+=== ABC-2 (A,B,C) 07:48:48
+ABC-2: 12 lines, 0 errors, done=True
+=== AB-2 (A,B) 07:50:30
+AB-2: 12 lines, 0 errors, done=True
+=== A-2 (A) 07:52:12
+A-2: 12 lines, 0 errors, done=True
+=== base-2 () 07:53:56
+base-2: 12 lines, 0 errors, done=True
+=== finished 07:55:38

@@ -1,0 +1,8 @@
+-- The client finished loading the place and its listeners are up. MatchService waits for this from every
+-- expected player (or a timeout) before the first wave.
+event GameLoaded {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

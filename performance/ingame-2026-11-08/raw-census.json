@@ -1,0 +1,91 @@
+{
+ "label": "census",
+ "arms": "[{\"n\":300,\"seconds\":2}]",
+ "count": "300",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794194419,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794194421,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194421,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794194422,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194422,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"census\"}",
+   "peer": "server",
+   "timestamp": 1794194423,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"boot\"}",
+   "peer": "client",
+   "timestamp": 1794194423,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"cap\",\"ok\":false}",
+   "peer": "client",
+   "timestamp": 1794194423,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194423,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794194423,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"census\",\"arm\":{\"seconds\":2,\"n\":300},\"enemies\":292}",
+   "peer": "server",
+   "timestamp": 1794194429,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"census\"}",
+   "peer": "server",
+   "timestamp": 1794194429,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"census\",\"map\":{\"BorderCollisionW:Part\":[1,1,0],\"Blocks:Model\":[1,368,368],\"Borders:Model\":[1,500,0],\"Props:Model\":[1,892,892],\"BorderCollisionE:Part\":[1,1,0],\"BorderCollisionS:Part\":[1,1,0],\"Slopes:Model\":[1,32,32],\"Fills:Model\":[1,170,170],\"BorderCollisionN:Part\":[1,1,0],\"InteractableProps:Model\":[1,168,168]},\"census\":{\"Temporal:Folder\":[4,3],\"Enemies:Folder\":[312,312],\"Drops:Folder\":[5,0],\"Characters:Folder\":[21,16],\"Terrain:Terrain\":[1,0],\"Map:Model\":[2134,2130]},\"label\":\"census\"}",
+   "peer": "client",
+   "timestamp": 1794194429,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"n\":300,\"seconds\":2},\"animStepMedianMs\":0.11860000086016953,\"camDist\":13.97326946258545,\"label\":\"census\",\"frames\":480,\"p95Ms\":5.087600089609623,\"x_edgeCells\":20,\"meanMs\":4.165987500164192,\"animStepP95Ms\":0.15110000094864518,\"phase\":\"arm\",\"focusLost\":false,\"animated\":59,\"animStepMeanMs\":0.12127243582312014,\"renderCpuMedianMs\":0.0023409000132232906,\"viewport\":[1919,1080],\"x_shimmerMsPerFrame\":0.004434374970211745,\"visible\":146,\"medianMs\":4.134899936616421}",
+   "peer": "client",
+   "timestamp": 1794194429,
+   "type": "MessageOutput"
+  }
+ ]
+}

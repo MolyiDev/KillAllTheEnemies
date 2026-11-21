@@ -1,0 +1,24 @@
+-- Step off the pad you are queued on. Stepping out of its zone does the same without this.
+event LeavePad {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- The Play button: put me on a free pad as its host, or into an open party if none is free.
+event Play {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- The host's party, once picked. Only the host of a pad still being chosen is heard.
+-- (maxPlayers, map (MapsCore.LIST), isFriendsOnly)
+event StartParty {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8, boolean)
+}

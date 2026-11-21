@@ -1,0 +1,115 @@
+{
+ "label": "shim-slice",
+ "arms": "[{\"walk\":true,\"n\":0,\"minimapAnim\":true},{\"n\":0,\"minimapAnim\":false},{\"n\":0,\"minimapAnim\":true}]",
+ "count": "0",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794194208,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794194209,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794194210,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "AnalyticsService: LogCustomEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794194210,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194210,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194210,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"shim-slice\"}",
+   "peer": "server",
+   "timestamp": 1794194211,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"boot\"}",
+   "peer": "client",
+   "timestamp": 1794194211,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"cap\",\"ok\":false}",
+   "peer": "client",
+   "timestamp": 1794194211,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794194212,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794194212,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"minimapAnim\":true,\"walk\":true,\"n\":0},\"animStepMedianMs\":0.09940000018104911,\"camDist\":12.881776809692383,\"label\":\"shim-slice\",\"frames\":1441,\"p95Ms\":4.948100075125694,\"x_edgeCells\":80,\"meanMs\":4.165848375360774,\"animStepP95Ms\":0.13560000297729858,\"phase\":\"arm\",\"focusLost\":false,\"animated\":0,\"animStepMeanMs\":0.10229432375806047,\"renderCpuMedianMs\":0.0018284000689163805,\"viewport\":[1919,1080],\"x_shimmerMsPerFrame\":0.014045593334994642,\"visible\":0,\"medianMs\":4.259900189936161}",
+   "peer": "client",
+   "timestamp": 1794194248,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"shim-slice\",\"arm\":{\"minimapAnim\":true,\"n\":0,\"walk\":true},\"enemies\":0}",
+   "peer": "server",
+   "timestamp": 1794194249,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"shim-slice\",\"arm\":{\"minimapAnim\":false,\"n\":0},\"enemies\":0}",
+   "peer": "server",
+   "timestamp": 1794194259,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"n\":0,\"minimapAnim\":false},\"animStepMedianMs\":0.09800000043469481,\"camDist\":13.377670288085938,\"label\":\"shim-slice\",\"frames\":1441,\"p95Ms\":4.929299931973219,\"x_edgeCells\":80,\"meanMs\":4.166514780773089,\"animStepP95Ms\":0.13199999739299529,\"phase\":\"arm\",\"focusLost\":false,\"animated\":0,\"animStepMeanMs\":0.101421708446725,\"renderCpuMedianMs\":0.0018494999967515469,\"viewport\":[1919,1080],\"x_shimmerMsPerFrame\":0,\"visible\":0,\"medianMs\":4.297299776226282}",
+   "peer": "client",
+   "timestamp": 1794194259,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"n\":0,\"minimapAnim\":true},\"animStepMedianMs\":0.09809999755816534,\"camDist\":13.377670288085938,\"label\":\"shim-slice\",\"frames\":1441,\"p95Ms\":4.943800158798695,\"x_edgeCells\":80,\"meanMs\":4.166575992127039,\"animStepP95Ms\":0.13419999959296548,\"phase\":\"arm\",\"focusLost\":false,\"animated\":0,\"animStepMeanMs\":0.10149645586946674,\"renderCpuMedianMs\":0.0018539999146014453,\"viewport\":[1919,1080],\"x_shimmerMsPerFrame\":0.01389236642150121,\"visible\":0,\"medianMs\":4.273599945008755}",
+   "peer": "client",
+   "timestamp": 1794194269,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"shim-slice\",\"arm\":{\"minimapAnim\":true,\"n\":0},\"enemies\":0}",
+   "peer": "server",
+   "timestamp": 1794194270,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"shim-slice\"}",
+   "peer": "server",
+   "timestamp": 1794194270,
+   "type": "MessageOutput"
+  }
+ ]
+}

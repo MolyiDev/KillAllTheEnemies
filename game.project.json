@@ -1,0 +1,308 @@
+{
+    "name": "Game",
+    // Rojo serves only into the new Game place. The OLD Game place is 104435679031452: kept only to read its
+    // code and instances with Tripwire (pick it by placeId in list_studios), never to serve into.
+    "servePlaceIds": [
+        113327793187086
+    ],
+    "globIgnorePaths": [
+        "**/package.json",
+        "**/tsconfig.json"
+    ],
+    "tree": {
+        "$className": "DataModel",
+        "Workspace": {
+            "$className": "Workspace",
+            "$ignoreUnknownInstances": true,
+            "Characters": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            "Temporal": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            "Enemies": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            "Defenses": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            "Telegraphs": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            }
+        },
+        "Lighting": {
+            "$className": "Lighting",
+            "$ignoreUnknownInstances": true,
+            "$properties": {
+                "Ambient": [
+                    0.32549,
+                    0.25098,
+                    0.384314
+                ],
+                "Brightness": 2,
+                "ColorShift_Bottom": [
+                    0,
+                    0,
+                    0
+                ],
+                "ColorShift_Top": [
+                    0.647059,
+                    0.576471,
+                    0.478431
+                ],
+                "EnvironmentDiffuseScale": 0,
+                "EnvironmentSpecularScale": 0,
+                "GlobalShadows": true,
+                "LightingStyle": "Soft",
+                "OutdoorAmbient": [
+                    0.470588,
+                    0.470588,
+                    0.470588
+                ],
+                "PrioritizeLightingQuality": true,
+                "ExposureCompensation": 0.05
+            },
+            "Atmosphere": {
+                "$className": "Atmosphere",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Density": 0.25,
+                    "Offset": 1,
+                    "Color": [
+                        0.780392,
+                        0.780392,
+                        0.780392
+                    ],
+                    "Decay": [
+                        0.415686,
+                        0.439216,
+                        0.490196
+                    ],
+                    "Glare": 0,
+                    "Haze": 0
+                }
+            },
+            "Bloom": {
+                "$className": "BloomEffect",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Enabled": true,
+                    "Intensity": 0.1,
+                    "Size": 6,
+                    "Threshold": 1.789
+                }
+            },
+            "Blur": {
+                "$className": "BlurEffect",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Size": 0
+                }
+            },
+            "ColorCorrection": {
+                "$className": "ColorCorrectionEffect",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Brightness": 0.15,
+                    "Contrast": 0.15,
+                    "Enabled": true,
+                    "Saturation": 0.85,
+                    "TintColor": [
+                        1,
+                        1,
+                        1
+                    ]
+                }
+            },
+            "ColorGrading": {
+                "$className": "ColorGradingEffect",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Enabled": true,
+                    "TonemapperPreset": "Retro"
+                }
+            },
+            "DepthOfField": {
+                "$className": "DepthOfFieldEffect",
+                "$ignoreUnknownInstances": true
+            },
+            "SunRays": {
+                "$className": "SunRaysEffect",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Enabled": true,
+                    "Intensity": 0.1,
+                    "Spread": 1
+                }
+            }
+        },
+        "ReplicatedFirst": {
+            "$className": "ReplicatedFirst",
+            "$ignoreUnknownInstances": true,
+            "GlobalFirstShared": {
+                "$path": "src/Global/FirstShared"
+            },
+            "FirstShared": {
+                "$path": "src/Game/FirstShared"
+            }
+        },
+        "ReplicatedStorage": {
+            "$ignoreUnknownInstances": true,
+            "Animations": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            // The burst templates (enemyImpacts) are place instances: the folder is Rojo's, what is in it is Studio's.
+            "Effects": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true
+            },
+            "Packages": {
+                "$path": "Packages"
+            },
+            "Shared": {
+                "$path": "src/Game/Shared"
+            },
+            "GlobalShared": {
+                "$path": "src/Global/Shared"
+            },
+            "Data": {
+                "$path": "src/Global/Data"
+            },
+            "Types": {
+                "$path": "src/Global/Types"
+            },
+            "Sounds": {
+                "$path": "sounds/Sounds.rbxmx"
+            },
+            "Models": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true,
+                "Enemies": {
+                    "$className": "Folder",
+                    "$ignoreUnknownInstances": true
+                },
+                // The old Game place's gun models, exported as they were (tools/oldplaces/export.luau). Rojo's, so a
+                // change made in Studio is lost: change the .rbxm instead.
+                "Guns": {
+                    "$path": "Assets/models/Guns"
+                }
+            }
+        },
+        "ServerStorage": {
+            "$className": "ServerStorage",
+            // ServerStorage.Maps (a Model per MapsCore name) is place-owned, built in Studio and saved with the place.
+            // Only generated maps are mapped here, and Maps ignores unknown instances so the Studio-built ones stay.
+            // Never remove the Maps node while Rojo is connected: that deletes the whole folder from Studio.
+            "$ignoreUnknownInstances": true,
+            "Maps": {
+                "$className": "Folder",
+                "$ignoreUnknownInstances": true,
+                "Baseplate": {
+                    "$path": "Assets/models/Maps/testcourse.rbxm"
+                }
+            }
+        },
+        "ServerScriptService": {
+            "$ignoreUnknownInstances": true,
+            "GlobalServer": {
+                "$path": "src/Global/Server"
+            },
+            "Server": {
+                "$path": "src/Game/Server"
+            }
+        },
+        "StarterGui": {
+            "$className": "StarterGui",
+            "$ignoreUnknownInstances": true,
+            "$properties": {
+                "ScreenOrientation": "LandscapeSensor",
+                "VirtualCursorMode": {
+                    "Enum": 2
+                }
+            }
+        },
+        "StarterPlayer": {
+            "$properties": {
+                "EnableMouseLockOption": false,
+                "CreateDefaultPlayerModule": false,
+                "CharacterWalkSpeed": 22
+            },
+            // No Animate here: Roblox's default one animates the R6 body with Roblox's own clips (they play in any game).
+            "StarterCharacterScripts": {
+                "$ignoreUnknownInstances": true
+            },
+            "StarterPlayerScripts": {
+                "$ignoreUnknownInstances": true,
+                "GlobalClient": {
+                    "$path": "src/Global/Client"
+                },
+                "Client": {
+                    "$path": "src/Game/Client"
+                },
+                "RbxCharacterSounds": {
+                    "$className": "LocalScript",
+                    "$ignoreUnknownInstances": false,
+                    "$properties": {
+                        "Enabled": false
+                    },
+                    "AtomicBinding": {
+                        "$className": "LocalScript",
+                        "$ignoreUnknownInstances": false
+                    }
+                },
+                "PlayerModule": {
+                    "$path": "src/PlayerModule",
+                    "$ignoreUnknownInstances": false
+                },
+                "PlayerScriptsLoader": {
+                    "$path": "src/PlayerScriptsLoader.client.luau"
+                }
+            }
+        },
+        "SoundService": {
+            "$className": "SoundService",
+            "$ignoreUnknownInstances": true,
+            "Ambient": {
+                "$className": "SoundGroup",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Volume": 0.5
+                }
+            },
+            "Effects": {
+                "$className": "SoundGroup",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Volume": 0.5
+                }
+            },
+            "Music": {
+                "$className": "SoundGroup",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Volume": 0.5
+                }
+            },
+            "UI": {
+                "$className": "SoundGroup",
+                "$ignoreUnknownInstances": true,
+                "$properties": {
+                    "Volume": 0.5
+                }
+            }
+        },
+        "Players": {
+            "$className": "Players",
+            "$properties": {
+                "CharacterAutoLoads": false
+            },
+            "$ignoreUnknownInstances": true
+        }
+    }
+}

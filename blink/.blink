@@ -1,0 +1,5 @@
+option TypesOutput = "../src/Global/Types/NetworkTypes.luau"
+option ClientOutput = "../src/Global/Client/Network.luau"
+option ServerOutput = "../src/Global/Server/Network.luau"
+import "./Client/Client"
+import "./Server/Server"

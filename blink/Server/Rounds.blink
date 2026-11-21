@@ -1,0 +1,58 @@
+-- The rounds (Game/Server/Services/RoundService). Fired to everybody unless said otherwise.
+
+-- Preparation before a round opened. (round, seconds, isBossRound)
+event Preparing {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, f32, boolean)
+}
+
+-- (round, bodies still to kill across every open round: more than this round's after a skip)
+event Started {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, u16)
+}
+
+-- Bodies still to kill this round, spawned or still to come (the boss included), at most ten times a second while
+-- it changes. Started carries the round's total, Cleared means 0.
+event Remaining {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16
+}
+
+event Cleared {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16)
+}
+
+-- The START or SKIP WAVE count: (votes, needed). Auto-skip counts as a vote for both once the vote opens
+-- (START after the first round).
+event Votes {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}
+
+-- To each player: what clearing the round paid him. (round, gold, gems, xpPercent)
+event Rewards {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, u32, u32, f32)
+}
+
+-- To a player who is down after a clear: the revive he may buy for the next round. (productId)
+event ReviveOffer {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (f64)
+}

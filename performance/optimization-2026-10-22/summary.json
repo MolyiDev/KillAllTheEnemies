@@ -1,0 +1,115 @@
+{
+  "final_labels": [
+    "after-final-native"
+  ],
+  "scenes": {
+    "1500-ground": {
+      "before_runs": 1,
+      "after_runs": 1,
+      "fields": {
+        "medianMs": {
+          "before_mean_of_run_summaries": 5.24490000680089,
+          "after_mean_of_run_summaries": 4.375900141894817,
+          "reduction_percent": 16.568473446190946
+        },
+        "p95Ms": {
+          "before_mean_of_run_summaries": 6.469499785453081,
+          "after_mean_of_run_summaries": 5.799099802970886,
+          "reduction_percent": 10.362470124655
+        },
+        "updateMedianMs": {
+          "before_mean_of_run_summaries": 2.1010999989812262,
+          "after_mean_of_run_summaries": 1.3758999994024634,
+          "reduction_percent": 34.51525391130337
+        },
+        "approximateCapturedFps": {
+          "before": 187.39048805886463,
+          "after": 222.9787397017383,
+          "increase_percent": 18.991493117673297,
+          "method": "client frame count divided by server capture duration; replication timing adds uncertainty"
+        }
+      }
+    },
+    "3000-ground": {
+      "before_runs": 2,
+      "after_runs": 1,
+      "fields": {
+        "medianMs": {
+          "before_mean_of_run_summaries": 9.51400026679039,
+          "after_mean_of_run_summaries": 8.068899624049664,
+          "reduction_percent": 15.189201200519209
+        },
+        "p95Ms": {
+          "before_mean_of_run_summaries": 12.78640003874898,
+          "after_mean_of_run_summaries": 13.00210040062666,
+          "reduction_percent": -1.6869514579866296
+        },
+        "updateMedianMs": {
+          "before_mean_of_run_summaries": 4.475450001336867,
+          "after_mean_of_run_summaries": 3.003799996804446,
+          "reduction_percent": 32.882726968077456
+        },
+        "approximateCapturedFps": {
+          "before": 100.71385139995512,
+          "after": 114.98984984597331,
+          "increase_percent": 14.174811356707352,
+          "method": "client frame count divided by server capture duration; replication timing adds uncertainty"
+        }
+      }
+    },
+    "1500-mixed": {
+      "before_runs": 2,
+      "after_runs": 1,
+      "fields": {
+        "medianMs": {
+          "before_mean_of_run_summaries": 6.912850076332688,
+          "after_mean_of_run_summaries": 6.463800091296434,
+          "reduction_percent": 6.495873338460678
+        },
+        "p95Ms": {
+          "before_mean_of_run_summaries": 16.461800783872604,
+          "after_mean_of_run_summaries": 7.908999919891357,
+          "reduction_percent": 51.95543899644507
+        },
+        "updateMedianMs": {
+          "before_mean_of_run_summaries": 2.310250001755776,
+          "after_mean_of_run_summaries": 1.8621999988681637,
+          "reduction_percent": 19.394005088068255
+        },
+        "approximateCapturedFps": {
+          "before": 122.23242741243644,
+          "after": 151.15711823713883,
+          "increase_percent": 23.663680282732802,
+          "method": "client frame count divided by server capture duration; replication timing adds uncertainty"
+        }
+      }
+    },
+    "3000-mixed": {
+      "before_runs": 2,
+      "after_runs": 1,
+      "fields": {
+        "medianMs": {
+          "before_mean_of_run_summaries": 11.952949687838554,
+          "after_mean_of_run_summaries": 10.134199634194374,
+          "reduction_percent": 15.21590988954513
+        },
+        "p95Ms": {
+          "before_mean_of_run_summaries": 74.21300187706947,
+          "after_mean_of_run_summaries": 17.62630045413971,
+          "reduction_percent": 76.24903991441164
+        },
+        "updateMedianMs": {
+          "before_mean_of_run_summaries": 4.8944000009214506,
+          "after_mean_of_run_summaries": 3.9041000018187333,
+          "reduction_percent": 20.23332786278762
+        },
+        "approximateCapturedFps": {
+          "before": 36.93261522598486,
+          "after": 90.74092118367774,
+          "increase_percent": 145.69319185345614,
+          "method": "client frame count divided by server capture duration; replication timing adds uncertainty"
+        }
+      }
+    }
+  }
+}

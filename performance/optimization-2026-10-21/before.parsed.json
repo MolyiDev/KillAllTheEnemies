@@ -1,0 +1,237 @@
+{
+  "scene": [
+    {
+      "gridPopulated": true,
+      "running": false,
+      "paused": false,
+      "phase": "boot",
+      "placeId": 137835287157016,
+      "characters": 0,
+      "waited": 5.000001692678779e-07,
+      "peer": "server"
+    },
+    {
+      "placeVersion": 0,
+      "positionTransport": "RemoteEvent",
+      "phase": "ready",
+      "placeId": 137835287157016,
+      "characters": 1,
+      "enemies": 0,
+      "peer": "server"
+    },
+    {
+      "seconds": 8.001423699999577,
+      "phase": "result",
+      "heartbeatMedianMs": 5.014180205762386,
+      "enemies": 1500,
+      "heartbeatP99Ms": 9.020790457725525,
+      "name": "1500-baseline-1",
+      "metrics": {
+        "packMs": 411.4429000983364,
+        "filterMs": 11.85520000399265,
+        "packRecordCalls": 1443,
+        "positionRecords": 117000,
+        "positionPackets": 78,
+        "positionBytes": 936156
+      },
+      "matchingGround": 1500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 7.991671562194824,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 936156,
+      "frameP95Ms": 6.4523001201450825,
+      "frames": 1443,
+      "updateMedianMs": 2.1962999999232125,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 2.7401999996072846,
+      "residentEnemies": 1500,
+      "focusLostDuringSample": false,
+      "phase": "1500-baseline-1",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 117000,
+      "animatedEnemies": 1500,
+      "positionPackets": 78,
+      "paused": false,
+      "frameP99Ms": 6.912400014698505,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 1500,
+      "frameMedianMs": 5.485699977725744,
+      "peer": "client"
+    },
+    {
+      "seconds": 8.008632700000817,
+      "phase": "result",
+      "heartbeatMedianMs": 10.000919923186302,
+      "enemies": 3000,
+      "heartbeatP99Ms": 19.038120284676552,
+      "name": "3000-baseline-2",
+      "metrics": {
+        "packMs": 495.20509998001216,
+        "filterMs": 22.819200003141304,
+        "packRecordCalls": 773,
+        "positionRecords": 231000,
+        "positionPackets": 77,
+        "positionBytes": 1848154
+      },
+      "matchingGround": 3000,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 17.010148614645004,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 1848154,
+      "frameP95Ms": 12.626700103282928,
+      "frames": 773,
+      "updateMedianMs": 4.7386999995069345,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 6.466699998782133,
+      "residentEnemies": 3000,
+      "focusLostDuringSample": false,
+      "phase": "3000-baseline-2",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 231000,
+      "animatedEnemies": 3000,
+      "positionPackets": 77,
+      "paused": false,
+      "frameP99Ms": 14.136199839413166,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 3000,
+      "frameMedianMs": 10.108999907970428,
+      "peer": "client"
+    },
+    {
+      "seconds": 8.000700500000676,
+      "phase": "result",
+      "heartbeatMedianMs": 6.009120028465986,
+      "enemies": 1500,
+      "heartbeatP99Ms": 10.938383638858795,
+      "name": "1500-baseline-3",
+      "metrics": {
+        "packMs": 412.2099000378512,
+        "filterMs": 11.631800016402849,
+        "packRecordCalls": 1226,
+        "positionRecords": 115500,
+        "positionPackets": 77,
+        "positionBytes": 924154
+      },
+      "matchingGround": 1500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 9.00021567940712,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 924154,
+      "frameP95Ms": 7.350800093263388,
+      "frames": 1226,
+      "updateMedianMs": 2.347899999222136,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 2.929700000095181,
+      "residentEnemies": 1500,
+      "focusLostDuringSample": false,
+      "phase": "1500-baseline-3",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 115500,
+      "animatedEnemies": 1500,
+      "positionPackets": 77,
+      "paused": false,
+      "frameP99Ms": 7.980099879205227,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 1500,
+      "frameMedianMs": 6.461800076067448,
+      "peer": "client"
+    },
+    {
+      "seconds": 8.002271499999551,
+      "phase": "result",
+      "heartbeatMedianMs": 10.000839829444885,
+      "enemies": 3000,
+      "heartbeatP99Ms": 19.81011964380741,
+      "name": "3000-baseline-4",
+      "metrics": {
+        "packMs": 492.4704999812093,
+        "filterMs": 22.11929999793938,
+        "packRecordCalls": 768,
+        "positionRecords": 228000,
+        "positionPackets": 76,
+        "positionBytes": 1824152
+      },
+      "matchingGround": 3000,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 17.006510868668556,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 1824152,
+      "frameP95Ms": 12.587900273501873,
+      "frames": 769,
+      "updateMedianMs": 4.820199999812758,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 6.17210000018531,
+      "residentEnemies": 3000,
+      "focusLostDuringSample": false,
+      "phase": "3000-baseline-4",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 228000,
+      "animatedEnemies": 3000,
+      "positionPackets": 76,
+      "paused": false,
+      "frameP99Ms": 14.204300008714199,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 3000,
+      "frameMedianMs": 10.16439963132143,
+      "peer": "client"
+    },
+    {
+      "phase": "done",
+      "peer": "server"
+    }
+  ],
+  "workers": {
+    "1500-baseline-1": {
+      "ms": 3259.645999994973,
+      "rows": 117000,
+      "jobs": 1248
+    },
+    "3000-baseline-2": {
+      "ms": 7812.854999974661,
+      "rows": 231000,
+      "jobs": 1232
+    },
+    "1500-baseline-3": {
+      "ms": 3106.5678999566444,
+      "rows": 115500,
+      "jobs": 1232
+    },
+    "3000-baseline-4": {
+      "ms": 7783.65229998235,
+      "rows": 228000,
+      "jobs": 1216
+    }
+  }
+}

@@ -1,0 +1,283 @@
+{
+ "label": "lab3",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794196922,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794196924,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196924,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794196925,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196925,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"lab3\"}",
+   "peer": "server",
+   "timestamp": 1794196926,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"lab3\"}",
+   "peer": "server",
+   "timestamp": 1794196926,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196926,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794196926,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.474265163498267,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":175,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794196929,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.819826677543662,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":146,\"case\":\"hot + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196932,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.267577507271526,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":178,\"case\":\"hot + 2000 hidden static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196935,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.247909757694819,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":164,\"case\":\"hot alone + 2000 visible static in another gui\"}",
+   "peer": "client",
+   "timestamp": 1794196939,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.634938784703916,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":147,\"case\":\"hot transparency + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196942,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.269221331424467,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":164,\"case\":\"UIScale over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196945,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.38874111758785,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":163,\"case\":\"Size of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196949,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.180950910304534,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":165,\"case\":\"Position of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196952,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.233818446749082,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":1,\"frames\":179,\"case\":\"hot among 200 hidden siblings\"}",
+   "peer": "client",
+   "timestamp": 1794196955,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.201944983460838,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":180,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794196959,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.487604040427497,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":149,\"case\":\"hot + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196962,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.124851398211158,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":181,\"case\":\"hot + 2000 hidden static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196965,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.215490300546993,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":165,\"case\":\"hot alone + 2000 visible static in another gui\"}",
+   "peer": "client",
+   "timestamp": 1794196969,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.57799327328197,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":148,\"case\":\"hot transparency + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196972,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.961038678973205,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":168,\"case\":\"UIScale over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196975,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.129430754491724,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":166,\"case\":\"Size of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196979,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.00561843524199,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":168,\"case\":\"Position of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794196982,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.127723324009115,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":2,\"frames\":180,\"case\":\"hot among 200 hidden siblings\"}",
+   "peer": "client",
+   "timestamp": 1794196985,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.14995967473279,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":181,\"case\":\"empty\"}",
+   "peer": "client",
+   "timestamp": 1794196989,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.457439546067042,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":149,\"case\":\"hot + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196992,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.053700020516312,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":182,\"case\":\"hot + 2000 hidden static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794196995,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.031759882713864,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":167,\"case\":\"hot alone + 2000 visible static in another gui\"}",
+   "peer": "client",
+   "timestamp": 1794196999,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.589292601052975,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":148,\"case\":\"hot transparency + 2000 visible static in one gui\"}",
+   "peer": "client",
+   "timestamp": 1794197002,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":13.949655195505454,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":145,\"case\":\"UIScale over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794197005,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":12.320602466011556,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":164,\"case\":\"Size of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794197009,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.817071756676717,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":170,\"case\":\"Position of a frame over 500 visible\"}",
+   "peer": "client",
+   "timestamp": 1794197012,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"meanMs\":11.04794010765605,\"label\":\"lab3\",\"phase\":\"lab\",\"round\":3,\"frames\":182,\"case\":\"hot among 200 hidden siblings\"}",
+   "peer": "client",
+   "timestamp": 1794197015,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.273 ms     +0.0 us  empty\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 13.587 ms  +2313.4 us  hot + 2000 visible static in one gui\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.148 ms   -125.4 us  hot + 2000 hidden static in one gui\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 12.164 ms   +891.0 us  hot alone + 2000 visible static in another gui\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 13.601 ms  +2327.4 us  hot transparency + 2000 visible static in one gui\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 12.672 ms  +1398.2 us  UIScale over 500 visible\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 12.279 ms  +1005.5 us  Size of a frame over 500 visible\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.999 ms   +726.1 us  Position of a frame over 500 visible\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"result\",\"line\":\" 11.136 ms   -137.3 us  hot among 200 hidden siblings\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"lab3\"}",
+   "peer": "client",
+   "timestamp": 1794197016,
+   "type": "MessageOutput"
+  }
+ ]
+}

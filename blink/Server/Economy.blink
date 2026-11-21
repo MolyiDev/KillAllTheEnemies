@@ -1,0 +1,17 @@
+import "../Types/Vec.blink"
+
+-- To one player: his run Gold, after every change.
+event Gold {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u32)
+}
+
+-- To the killer: Gold already credited, drawn as coins popping out of where the body fell. (position, amount)
+event Coins {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Vec.Type, u16)
+}

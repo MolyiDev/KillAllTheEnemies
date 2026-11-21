@@ -1,0 +1,359 @@
+{
+  "scene": [
+    {
+      "gridPopulated": true,
+      "running": false,
+      "paused": false,
+      "phase": "boot",
+      "placeId": 137835287157016,
+      "characters": 0,
+      "waited": 3.0000046535860747e-07,
+      "peer": "server"
+    },
+    {
+      "placeVersion": 0,
+      "positionTransport": "RemoteEvent",
+      "phase": "ready",
+      "placeId": 137835287157016,
+      "characters": 1,
+      "enemies": 0,
+      "peer": "server"
+    },
+    {
+      "seconds": 7.002396300000328,
+      "phase": "result",
+      "heartbeatMedianMs": 4.002431873232126,
+      "enemies": 500,
+      "heartbeatP99Ms": 6.010301876813173,
+      "name": "500-parallel",
+      "metrics": {
+        "packMs": 146.6432000615896,
+        "filterMs": 3.9049000060913386,
+        "packRecordCalls": 1681,
+        "positionRecords": 34000,
+        "positionPackets": 68,
+        "positionBytes": 272136
+      },
+      "matchingGround": 500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 5.999099928885698,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 272136,
+      "frameP95Ms": 5.249899812042713,
+      "frames": 1681,
+      "updateMedianMs": 0.7146999996621162,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 0.9219999992637895,
+      "residentEnemies": 500,
+      "focusLostDuringSample": false,
+      "phase": "500-parallel",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 34000,
+      "animatedEnemies": 500,
+      "positionPackets": 68,
+      "paused": false,
+      "frameP99Ms": 5.85860013961792,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 500,
+      "frameMedianMs": 4.149999935179949,
+      "peer": "client"
+    },
+    {
+      "seconds": 7.003887100001521,
+      "phase": "result",
+      "heartbeatMedianMs": 4.001880064606667,
+      "enemies": 500,
+      "heartbeatP99Ms": 6.009294185787439,
+      "name": "500-reuse",
+      "metrics": {
+        "packMs": 149.23809999527293,
+        "filterMs": 4.025500002171611,
+        "packRecordCalls": 1680,
+        "positionRecords": 34000,
+        "positionPackets": 68,
+        "positionBytes": 272136
+      },
+      "matchingGround": 500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 5.996903870254755,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 272136,
+      "frameP95Ms": 5.296899937093258,
+      "frames": 1681,
+      "updateMedianMs": 0.7107000001269625,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 0.9224000004905974,
+      "residentEnemies": 500,
+      "focusLostDuringSample": false,
+      "phase": "500-reuse",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 34000,
+      "animatedEnemies": 500,
+      "positionPackets": 68,
+      "paused": false,
+      "frameP99Ms": 5.885300226509571,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 500,
+      "frameMedianMs": 4.163600038737059,
+      "peer": "client"
+    },
+    {
+      "seconds": 7.002051499999652,
+      "phase": "result",
+      "heartbeatMedianMs": 5.018198862671852,
+      "enemies": 1500,
+      "heartbeatP99Ms": 9.029969573020935,
+      "name": "1500-parallel",
+      "metrics": {
+        "packMs": 365.5182000438799,
+        "filterMs": 10.668999997506035,
+        "packRecordCalls": 1253,
+        "positionRecords": 103500,
+        "positionPackets": 69,
+        "positionBytes": 828138
+      },
+      "matchingGround": 1500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 7.933068089187145,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 828138,
+      "frameP95Ms": 6.371799856424332,
+      "frames": 1252,
+      "updateMedianMs": 2.1916999994573416,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 2.748299999439041,
+      "residentEnemies": 1500,
+      "focusLostDuringSample": false,
+      "phase": "1500-parallel",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 103500,
+      "animatedEnemies": 1500,
+      "positionPackets": 69,
+      "paused": false,
+      "frameP99Ms": 6.897499784827232,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 1500,
+      "frameMedianMs": 5.534499883651733,
+      "peer": "client"
+    },
+    {
+      "seconds": 7.001457300000766,
+      "phase": "result",
+      "heartbeatMedianMs": 5.01149520277977,
+      "enemies": 1500,
+      "heartbeatP99Ms": 9.019880555570126,
+      "name": "1500-reuse",
+      "metrics": {
+        "packMs": 374.9289000315912,
+        "filterMs": 10.487400004421943,
+        "packRecordCalls": 1276,
+        "positionRecords": 102000,
+        "positionPackets": 68,
+        "positionBytes": 816136
+      },
+      "matchingGround": 1500,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 7.947823964059353,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 816136,
+      "frameP95Ms": 6.269500125199556,
+      "frames": 1276,
+      "updateMedianMs": 2.171000000089407,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 2.688700000362587,
+      "residentEnemies": 1500,
+      "focusLostDuringSample": false,
+      "phase": "1500-reuse",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 102000,
+      "animatedEnemies": 1500,
+      "positionPackets": 68,
+      "paused": false,
+      "frameP99Ms": 6.9102998822927475,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 1500,
+      "frameMedianMs": 5.425599869340658,
+      "peer": "client"
+    },
+    {
+      "seconds": 7.0010523999990255,
+      "phase": "result",
+      "heartbeatMedianMs": 10.000470094382763,
+      "enemies": 3000,
+      "heartbeatP99Ms": 18.039366230368614,
+      "name": "3000-parallel",
+      "metrics": {
+        "packMs": 445.3083000262268,
+        "filterMs": 19.573099994886434,
+        "packRecordCalls": 682,
+        "positionRecords": 201000,
+        "positionPackets": 67,
+        "positionBytes": 1608134
+      },
+      "matchingGround": 3000,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 16.024384647607803,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 1608134,
+      "frameP95Ms": 12.082399800419807,
+      "frames": 682,
+      "updateMedianMs": 4.718700000012177,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 6.132599999546073,
+      "residentEnemies": 3000,
+      "focusLostDuringSample": false,
+      "phase": "3000-parallel",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 201000,
+      "animatedEnemies": 3000,
+      "positionPackets": 67,
+      "paused": false,
+      "frameP99Ms": 13.503200374543667,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 3000,
+      "frameMedianMs": 10.09059976786375,
+      "peer": "client"
+    },
+    {
+      "seconds": 7.0080037000007,
+      "phase": "result",
+      "heartbeatMedianMs": 10.004140436649323,
+      "enemies": 3000,
+      "heartbeatP99Ms": 18.00161972641945,
+      "name": "3000-reuse",
+      "metrics": {
+        "packMs": 451.5079999982845,
+        "filterMs": 19.69900000221969,
+        "packRecordCalls": 683,
+        "positionRecords": 201000,
+        "positionPackets": 67,
+        "positionBytes": 1608134
+      },
+      "matchingGround": 3000,
+      "enemyTimeScale": 1,
+      "paused": false,
+      "heartbeatP95Ms": 16.014864668250084,
+      "peer": "server"
+    },
+    {
+      "positionBytes": 1608134,
+      "frameP95Ms": 12.122300453484058,
+      "frames": 683,
+      "updateMedianMs": 4.7945999995135935,
+      "forcedAnimationRange": 1000,
+      "enemyScale": 1,
+      "updateP95Ms": 5.976399999781279,
+      "residentEnemies": 3000,
+      "focusLostDuringSample": false,
+      "phase": "3000-reuse",
+      "limitation": "Focus not forced; frame-rate caps and background throttling can floor frame times",
+      "positionRecords": 201000,
+      "animatedEnemies": 3000,
+      "positionPackets": 67,
+      "paused": false,
+      "frameP99Ms": 12.779599986970425,
+      "viewport": [
+        1900,
+        570
+      ],
+      "forcedRenderRange": 1000,
+      "visibleEnemies": 3000,
+      "frameMedianMs": 10.10079961270094,
+      "peer": "client"
+    },
+    {
+      "phase": "done",
+      "peer": "server"
+    }
+  ],
+  "workers": {
+    "500-parallel": {
+      "cpuMs": 590.1198000137811,
+      "rows": 34000,
+      "jobs": 1088,
+      "workers": 16,
+      "msPerJob": 0.5423895220714899,
+      "cpuMsPer1000Rows": 17.356464706287678
+    },
+    "500-reuse": {
+      "cpuMs": 594.1515000085928,
+      "rows": 34000,
+      "jobs": 1088,
+      "workers": 16,
+      "msPerJob": 0.5460951286843684,
+      "cpuMsPer1000Rows": 17.475044117899788
+    },
+    "1500-parallel": {
+      "cpuMs": 2666.3825999658,
+      "rows": 103500,
+      "jobs": 1104,
+      "workers": 16,
+      "msPerJob": 2.4152016304038044,
+      "cpuMsPer1000Rows": 25.762150724307247
+    },
+    "1500-reuse": {
+      "cpuMs": 2504.5454000046448,
+      "rows": 102000,
+      "jobs": 1088,
+      "workers": 16,
+      "msPerJob": 2.301971875004269,
+      "cpuMsPer1000Rows": 24.554366666712205
+    },
+    "3000-parallel": {
+      "cpuMs": 6347.103899986905,
+      "rows": 201000,
+      "jobs": 1072,
+      "workers": 16,
+      "msPerJob": 5.920805876853456,
+      "cpuMsPer1000Rows": 31.577631343218435
+    },
+    "3000-reuse": {
+      "cpuMs": 6156.198300008327,
+      "rows": 201000,
+      "jobs": 1072,
+      "workers": 16,
+      "msPerJob": 5.742722294783888,
+      "cpuMsPer1000Rows": 30.6278522388474
+    }
+  }
+}

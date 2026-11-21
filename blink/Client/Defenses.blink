@@ -1,0 +1,17 @@
+import "../Types/DataId.blink"
+import "../Types/Vec.blink"
+
+-- Place a defense: what, where (foot centre), and quarter turns. Reach, footprint, limit and Gold are the server's.
+event Place {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type, Vec.Type, u8)
+}
+
+event Upgrade {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16)
+}

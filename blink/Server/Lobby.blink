@@ -1,0 +1,34 @@
+-- The queue pads (Lobby/Server/Services/LobbyService). Fired to everybody: every player sees every pad.
+-- (pad, phase (PadsCore.EPhase), playersOnIt, maxPlayers, map (MapsCore.LIST), isFriendsOnly, hostUserId,
+-- secondsLeft). hostUserId 0 is no host; secondsLeft < 0 is no countdown running.
+event PadState {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8, u8, u8, u8, boolean, f64, f32)
+}
+
+-- You are on this pad now (0 is no pad), so the client shows Leave, and the host's menu while it is his to pick.
+event PadJoined {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8)
+}
+
+-- To one player whose step onto a pad, or Play, was refused. (pad, reason (PadsCore.ERefusal))
+event PadRefused {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}
+
+-- To one player: his best completed round on each map, in MapsCore.LIST order, so the menu can show which maps
+-- are open and what the rest need.
+event MapRecords {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16[]
+}

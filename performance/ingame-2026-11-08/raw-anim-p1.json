@@ -1,0 +1,187 @@
+{
+ "label": "anim-p1",
+ "arms": "[{\"anim\":100},{\"anim\":60},{\"anim\":40},{\"anim\":25},{\"anim\":0},{\"anim\":0},{\"anim\":25},{\"anim\":40},{\"anim\":60},{\"anim\":100}]",
+ "count": "1500",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794193493,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794193494,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794193495,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794193495,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794193495,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"anim-p1\"}",
+   "peer": "server",
+   "timestamp": 1794193496,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"boot\"}",
+   "peer": "client",
+   "timestamp": 1794193496,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794193497,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794193497,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":100}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1396,\"p95Ms\":5.9369998052716259,\"animated\":652,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":718,\"medianMs\":4.050000105053186,\"meanMs\":4.300607446905354}",
+   "peer": "client",
+   "timestamp": 1794193506,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":100},\"enemies\":1484}",
+   "peer": "server",
+   "timestamp": 1794193507,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":60},\"enemies\":1483}",
+   "peer": "server",
+   "timestamp": 1794193517,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":60}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1437,\"p95Ms\":5.381599999964237,\"animated\":470,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":718,\"medianMs\":4.06000018119812,\"meanMs\":4.17463361203318}",
+   "peer": "client",
+   "timestamp": 1794193517,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":40},\"enemies\":1481}",
+   "peer": "server",
+   "timestamp": 1794193528,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":40}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1431,\"p95Ms\":5.545400083065033,\"animated\":355,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":724,\"medianMs\":4.040999803692102,\"meanMs\":4.194872604148068}",
+   "peer": "client",
+   "timestamp": 1794193528,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":25}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1440,\"p95Ms\":5.736799910664558,\"animated\":226,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":711,\"medianMs\":4.027499817311764,\"meanMs\":4.170999794506416}",
+   "peer": "client",
+   "timestamp": 1794193538,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":25},\"enemies\":1482}",
+   "peer": "server",
+   "timestamp": 1794193539,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":0},\"enemies\":1479}",
+   "peer": "server",
+   "timestamp": 1794193549,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":0}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1441,\"p95Ms\":5.406999960541725,\"animated\":0,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":715,\"medianMs\":4.022500012069941,\"meanMs\":4.1656775170928139}",
+   "peer": "client",
+   "timestamp": 1794193549,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":0}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1439,\"p95Ms\":5.9056999161839489,\"animated\":0,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":721,\"medianMs\":3.9936997927725317,\"meanMs\":4.1726554518719569}",
+   "peer": "client",
+   "timestamp": 1794193559,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":0},\"enemies\":1480}",
+   "peer": "server",
+   "timestamp": 1794193560,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":25},\"enemies\":1484}",
+   "peer": "server",
+   "timestamp": 1794193570,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":25}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1440,\"p95Ms\":5.45130018144846,\"animated\":236,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":721,\"medianMs\":4.060700070112944,\"meanMs\":4.169138893646757}",
+   "peer": "client",
+   "timestamp": 1794193570,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":40}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1441,\"p95Ms\":5.581500008702278,\"animated\":350,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":727,\"medianMs\":4.039499908685684,\"meanMs\":4.166279321453695}",
+   "peer": "client",
+   "timestamp": 1794193580,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":40},\"enemies\":1485}",
+   "peer": "server",
+   "timestamp": 1794193581,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":60},\"enemies\":1481}",
+   "peer": "server",
+   "timestamp": 1794193591,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":60}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1441,\"p95Ms\":5.571799818426371,\"animated\":470,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":718,\"medianMs\":4.034500103443861,\"meanMs\":4.167866479963489}",
+   "peer": "client",
+   "timestamp": 1794193591,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"anim-p1\",\"arm\":{\"anim\":100},\"enemies\":1483}",
+   "peer": "server",
+   "timestamp": 1794193602,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"anim-p1\"}",
+   "peer": "server",
+   "timestamp": 1794193602,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":\"{\\\"anim\\\":100}\",\"camDist\":13.97326946258545,\"label\":\"anim-p1\",\"phase\":\"arm\",\"frames\":1441,\"p95Ms\":5.477500148117542,\"animated\":651,\"focusLost\":false,\"viewport\":[1919,1080],\"visible\":715,\"medianMs\":4.055200144648552,\"meanMs\":4.165650798120303}",
+   "peer": "client",
+   "timestamp": 1794193602,
+   "type": "MessageOutput"
+  }
+ ]
+}

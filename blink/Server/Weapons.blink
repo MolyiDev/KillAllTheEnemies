@@ -1,0 +1,36 @@
+import "../Types/CharacterInstanceId.blink"
+import "../Types/DataId.blink"
+import "../Types/Vec.blink"
+
+-- To the owner: the gun now in hand (its shot count starts again), and the step of GunsCore.LADDER he is on, which
+-- only rises by buying the next. (gunId, step)
+event Equipped {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type, u8)
+}
+
+-- To everybody else: a shot, for its tracers, flash and sound. (shooter, aim point, seed). The pellets are re-derived
+-- from the seed, so a shotgun blast is one message, not eighteen end points.
+event Shot {
+	from: Server,
+	type: Unreliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, Vec.Type, u16)
+}
+
+-- Every armed character's aim, for the arms that point where they look: (character, pitch, yaw), angles as i16 over
+-- [-pi, pi]. A few times a second to everybody; the owner poses its own from its live camera.
+struct Aim {
+	Character: CharacterInstanceId.Type,
+	Pitch: i16,
+	Yaw: i16,
+}
+
+event Aims {
+	from: Server,
+	type: Unreliable,
+	call: SingleAsync,
+	data: (Aim[])
+}

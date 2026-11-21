@@ -1,0 +1,8 @@
+-- ==# Server -> Client (Meta scope) #== --
+-- Domain files live in ../Server beside the main network's; they are imported here instead of from
+-- ../Server/Server.blink, so they compile into the Meta network.
+
+import "../Server/Configs.blink"
+import "../Server/Profile.blink"
+import "../Server/Lobby.blink"
+import "../Server/Console.blink"

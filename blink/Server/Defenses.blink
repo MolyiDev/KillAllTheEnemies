@@ -1,0 +1,35 @@
+import "../Types/DataId.blink"
+import "../Types/EnemyInstanceId.blink"
+import "../Types/Player.blink"
+import "../Types/Vec.blink"
+
+-- To everybody. The model replicates on its own; these carry what it cannot. (id, dataId, owner, foot centre)
+event Placed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, DataId.Type, Player.Type, Vec.Type)
+}
+
+event Removed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16)
+}
+
+-- (id, health, maxHealth)
+event Health {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, f32, f32)
+}
+
+-- A turret fired at an enemy, for its bolt. Unreliable: a missed bolt is a missed picture, not a missed hit.
+event Shot {
+	from: Server,
+	type: Unreliable,
+	call: SingleAsync,
+	data: (u16, EnemyInstanceId.Type)
+}

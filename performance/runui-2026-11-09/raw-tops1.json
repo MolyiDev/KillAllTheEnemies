@@ -1,0 +1,181 @@
+{
+ "label": "tops1",
+ "arms": "[]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794199876,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794199878,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794199878,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794199879,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794199879,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"tops1\"}",
+   "peer": "server",
+   "timestamp": 1794199880,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"tops1\"}",
+   "peer": "server",
+   "timestamp": 1794199880,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794199880,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794199880,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"InfoScreen:Frame vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"InfoGui\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Settings:Frame vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"SettingsUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Backdrop:TextButton vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"SettingsUIBackdrop\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"PixelRadial:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"PixelRadial bgT=1.00 size=104, 104\",\"PixelRadial.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"RestartRadialUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Kick:Frame vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"KickUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Backdrop:TextButton vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"KickUIBackdrop\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"PauseBanner:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"PauseBanner bgT=1.00 size=464, 280\",\"PauseBanner.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"PauseUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"ReviveCard:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"ReviveCard bgT=1.00 size=448, 204\",\"ReviveCard.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"SelfReviveUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"DialogueCard:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"DialogueCard bgT=1.00 size=1919, 1080\",\"DialogueCard.Rings bgT=1.00 size=928, 120\",\"DialogueCard.Rings.Rings bgT=1.00 size=0, 0\",\"DialogueCard.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"DialogueUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"TutorialPrompt:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"TutorialPrompt bgT=1.00 size=171, 192\",\"TutorialPrompt.Rings bgT=1.00 size=3, 78\",\"TutorialPrompt.Rings.Rings bgT=1.00 size=0, 0\",\"TutorialPrompt.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"InGameTutorialSide\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Impact:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"Impact bgT=1.00 size=1919, 1080\",\"Impact.RarityImpact bgT=1.00 size=1919, 1080\",\"Impact.Vignette bgT=1.00 size=1919, 1080\"],\"enabled\":true,\"gui\":\"RarityImpactScreen\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Container:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"Container bgT=1.00 size=1919, 1022\",\"Container.Buttons bgT=1.00 size=863.549988, 86.8700027\",\"Container.Frame bgT=1.00 size=1919, 1022\",\"Container.Frame.RewardCard bgT=1.00 size=402.98999, 511\",\"Container.Frame.RewardCard.Body bgT=1.00 size=402.98999, 511\",\"Container.Frame.RewardCard.Body.Shadow bgT=0.45 size=402.98999, 511\"],\"enabled\":true,\"gui\":\"AugmentGui\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Stage:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"Stage bgT=1.00 size=1919, 1022\",\"Stage.Container bgT=1.00 size=1919, 1022\",\"Stage.Container.Buttons bgT=1.00 size=863.549988, 86.8700027\"],\"enabled\":true,\"gui\":\"UpgradeGui\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"ConfettiLayer:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"ConfettiLayer bgT=1.00 size=1919, 1080\",\"ConfettiLayer.Confetti bgT=1.00 size=1919, 1080\"],\"enabled\":true,\"gui\":\"RewardConfettiGui\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"QuestStow:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"QuestStow bgT=1.00 size=1919, 1080\",\"QuestStow.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"QuestStowGui\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"Container:Frame vis=true\"],\"label\":\"tops1\",\"shown\":[\"Container bgT=1.00 size=228, 799.200012\",\"Container.List bgT=1.00 size=228, 799.200012\",\"Container.Motes bgT=1.00 size=0, 0\"],\"enabled\":true,\"gui\":\"PassiveChangesUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[],\"label\":\"tops1\",\"shown\":[],\"enabled\":true,\"gui\":\"OffScreenIndicatorUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"tops\":[\"WinBoxScreen:Frame vis=false\"],\"label\":\"tops1\",\"shown\":[],\"enabled\":false,\"gui\":\"WinBoxUI\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"label\":\"tops1\",\"all\":[\"ShieldPlayerUI\",\"InfoGui\",\"FocusBrackets\",\"DialogueUI\",\"docks\",\"DamageNumbers\",\"SelectionBackdropGui\",\"OffScreenIndicatorUI\",\"CursorUI\",\"Freecam\",\"Command Executor(off)\",\"LevelBarUI\",\"TimerBarUI\",\"RewardConfettiGui\",\"RarityImpactScreen\",\"UpgradeGui\",\"AugmentGui\",\"InteractableProximityUI\",\"WinBoxUI(off)\",\"PauseUI\",\"RestartRadialUI\",\"RestartRadialUI\",\"QuestDisplayUI\",\"QuestStowGui\",\"SelfReviveUI\",\"TopbarCenteredClipped\",\"TopbarStandardClipped\",\"TopbarStandard\",\"TopbarCentered\",\"SelfStatsGui\",\"DebugGui\",\"TimersUI\",\"SettingsUIBackdrop\",\"SettingsUI\",\"KickUIBackdrop\",\"KickUI\",\"InGameTutorialSide\",\"PassiveChangesUI\",\"PlayersInfoUI\",\"MinimapUI\",\"HealthPlayerUI\",\"TimerGui\",\"AbilitiesUI\",\"KeyBindsUI\"]}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"done\",\"label\":\"tops1\"}",
+   "peer": "client",
+   "timestamp": 1794199890,
+   "type": "MessageOutput"
+  }
+ ]
+}

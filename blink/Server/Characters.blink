@@ -1,0 +1,26 @@
+import "../Types/CharacterInstanceId.blink"
+import "../Types/Player.blink"
+
+-- A character was given its network id. Every client answers CharacterReady, and only once all of them have
+-- does the server register it (CharacterService), so no id goes out on another event before clients know it.
+event Added {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, CharacterInstanceId.Type)
+}
+
+event Removed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type)
+}
+
+-- (character, currentHealth, maxHealth)
+event Health {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, f32, f32)
+}

@@ -1,0 +1,5011 @@
+{
+ "label": "shake-smoke",
+ "flags": "A,B,C,D,E,F",
+ "count": "2000",
+ "entries": [
+  {
+   "message": "GamebeastSDK: Gamebeast SDK is out of date! Please update to the latest version. v0.9.1 -> v1.0.0",
+   "peer": "server",
+   "timestamp": 1793268945,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1793268946,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1793268948,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1793268948,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"placeId\":137835287157016,\"flags\":\"A,B,C,D,E,F\",\"label\":\"shake-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793268951,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268952,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268953,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268954,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268955,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268956,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268957,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Unable to increment the value for key \"workerUs\" because it does not exist in the SharedTable.",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageError"
+  },
+  {
+   "message": "Stack Begin",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Script 'ServerScriptService.Server.Actors.EnemiesActor.Parallel.Work', Line 78",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "Stack End",
+   "peer": "server",
+   "timestamp": 1793268958,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.0052553000005,\"endDist\":{\"total\":2000,\"mid\":767,\"far\":732,\"near\":501},\"heartbeatTimeMedianMs\":0.28024509083479645,\"phase\":\"result\",\"heartbeatDtMedianMs\":4.002232104539871,\"enemies\":2000,\"label\":\"shake-smoke\",\"metrics\":{\"bytes\":225839,\"absRows\":2981,\"filterMs\":13.707699990845868,\"commitRows\":132105,\"deltaRows\":40323,\"aoiTickMs\":49.53449999629811,\"workerMs\":2472.239,\"RemovedEvents\":150,\"packets\":94,\"workerJobs\":1520,\"AddedEvents\":379,\"commitMs\":198.51560001006875},\"name\":\"2000-ground\",\"heartbeatTimeMeanMs\":0.2847289893598553,\"heartbeatTimeP95Ms\":0.4527501587290317,\"startDist\":{\"total\":2000,\"mid\":347,\"far\":1584,\"near\":69},\"heartbeatDtP95Ms\":6.009527947753668,\"sendKbpsMean\":20.059703373908996}",
+   "peer": "server",
+   "timestamp": 1793268968,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":1239,\"updateMeanMs\":0.6572657435121659,\"receiveKbpsMean\":0,\"frames\":2347,\"updateMedianMs\":0.6209000002854737,\"updateP95Ms\":1.0320000001229346,\"bytes\":225839,\"medianMs\":4.119799938052893,\"p99Ms\":10.39309985935688,\"focusLost\":false,\"animated\":0,\"label\":\"shake-smoke\",\"viewport\":[1919,1080],\"resident\":1244,\"phase\":\"2000-ground\",\"p95Ms\":5.196299869567156,\"packets\":94}",
+   "peer": "client",
+   "timestamp": 1793268968,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"checked\":1238,\"maxErr\":0.024997711181640626,\"resident\":1244,\"bad\":0,\"serverEnemies\":2000},\"name\":\"2000-ground\",\"label\":\"shake-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793268970,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.000523599999724,\"endDist\":{\"total\":2000,\"mid\":588,\"far\":776,\"near\":636},\"heartbeatTimeMedianMs\":0.41356985457241537,\"phase\":\"result\",\"heartbeatDtMedianMs\":4.0024397894740109,\"enemies\":2000,\"label\":\"shake-smoke\",\"metrics\":{\"bytes\":294911,\"absRows\":3118,\"filterMs\":16.244800010099426,\"commitRows\":181710,\"deltaRows\":53915,\"aoiTickMs\":51.55700000432262,\"workerMs\":5208.027,\"RemovedEvents\":11,\"packets\":98,\"workerJobs\":3136,\"AddedEvents\":235,\"commitMs\":209.07390000320448},\"name\":\"2000-mixed\",\"heartbeatTimeMeanMs\":0.42537714587196109,\"heartbeatTimeP95Ms\":0.660437042824924,\"startDist\":{\"total\":2000,\"mid\":482,\"far\":1320,\"near\":198},\"heartbeatDtP95Ms\":8.999684825539589,\"sendKbpsMean\":25.511316776275636}",
+   "peer": "server",
+   "timestamp": 1793268988,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":1303,\"updateMeanMs\":0.9965195312946977,\"receiveKbpsMean\":0,\"frames\":2304,\"updateMedianMs\":0.9667000012996141,\"updateP95Ms\":1.425500000550528,\"bytes\":294911,\"medianMs\":4.099300131201744,\"p99Ms\":8.864900097250939,\"focusLost\":false,\"animated\":0,\"label\":\"shake-smoke\",\"viewport\":[1919,1080],\"resident\":1305,\"phase\":\"2000-mixed\",\"p95Ms\":6.963999941945076,\"packets\":98}",
+   "peer": "client",
+   "timestamp": 1793268988,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"checked\":1302,\"maxErr\":10.499725341796875,\"resident\":1305,\"bad\":2,\"serverEnemies\":2000},\"name\":\"2000-mixed\",\"label\":\"shake-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793268989,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"shake-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793268990,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SMOKE] {\"releaseCounts\":{\"before\":30,\"after\":32,\"during\":24,\"visibleAfter\":31},\"label\":\"shake-smoke\",\"camera-hide-reenter\":{\"passed\":false,\"error\":\"Players.MolyiEZ.PlayerScripts.BallarcBench:67: enemy remained visible behind camera\"},\"client-restart-cleanup\":{\"passed\":true},\"release-and-return\":{\"passed\":true},\"freeze-resume\":{\"passed\":false,\"error\":\"Players.MolyiEZ.PlayerScripts.BallarcBench:48: frozen CFrame moved\"},\"manual-pause-resume\":{\"passed\":true}}",
+   "peer": "client",
+   "timestamp": 1793268999,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"clientResponded\":true,\"phase\":\"smoke-done\",\"label\":\"shake-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793269000,
+   "type": "MessageOutput"
+  }
+ ]
+}

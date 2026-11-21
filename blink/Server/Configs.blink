@@ -1,0 +1,19 @@
+-- ==# Server -> Client #== --
+-- Roblox ConfigService is server-only, so the server sends each config key's
+-- value to clients as a JSON string ("" when the key is not set).
+
+event ConfigsLoaded {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: (string[], string[])
+    -- keys[], jsonValues[] (parallel)
+}
+
+event ConfigChanged {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: (string, string)
+    -- key, jsonValue
+}

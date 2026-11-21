@@ -1,0 +1,14 @@
+-- ==# Server -> Client #== --
+--
+-- The main (hot gameplay) network, shared by both places. ROOM FOR 256 RELIABLE EVENTS, BOTH DIRECTIONS TOGETHER:
+-- Blink writes an event id as one byte and numbers reliable events in one run across client-to-server and
+-- server-to-client; the 257th generates without an error and breaks at runtime. Cold menu / profile / lobby domains
+-- go on the Meta network (../Meta.blink), which has its own 256.
+
+import "./Game.blink"
+import "./Rounds.blink"
+import "./Characters.blink"
+import "./Enemies.blink"
+import "./Economy.blink"
+import "./Defenses.blink"
+import "./Weapons.blink"

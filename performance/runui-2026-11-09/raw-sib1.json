@@ -1,0 +1,121 @@
+{
+ "label": "sib1",
+ "arms": "[{\"n\":400,\"outer\":120,\"fight\":true,\"seconds\":6,\"name\":\"fight\"}]",
+ "count": "1200",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1794196566,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1794196568,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "AnalyticsService: LogFunnelStepEvent event fired.",
+   "peer": "server",
+   "timestamp": 1794196568,
+   "type": "MessageInfo"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196568,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"label\":\"sib1\"}",
+   "peer": "server",
+   "timestamp": 1794196569,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196569,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"boot\",\"label\":\"sib1\"}",
+   "peer": "client",
+   "timestamp": 1794196569,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1794196570,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[IconsCore] Failed to load minimap icon : Failed to load texture rbxassetid://",
+   "peer": "client",
+   "timestamp": 1794196570,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"layout\",\"label\":\"sib1\",\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"cost\":{\"RarityImpactScreen\":{\"top\":1.6999983927235008,\"depth\":3,\"deep\":12.000000424450264,\"n\":56},\"SelectionBackdropGui\":{\"top\":1.6999983927235008,\"depth\":1,\"deep\":1.3999997463542969,\"n\":1},\"TopbarStandard\":{\"top\":1.7999991541728378,\"depth\":12,\"deep\":5.099998816149309,\"n\":305},\"SelfReviveUI\":{\"top\":1.7999991541728378,\"depth\":10,\"deep\":2.1999985619913788,\"n\":46},\"SelfStatsGui\":{\"top\":2.0000006770715119,\"depth\":9,\"deep\":2.0000006770715119,\"n\":217},\"QuestStowGui\":{\"top\":1.7000020307023079,\"depth\":2,\"deep\":1.6000012692529709,\"n\":2},\"DialogueUI\":{\"top\":1.7000020307023079,\"depth\":9,\"deep\":2.0000006770715119,\"n\":61},\"ShieldPlayerUI\":{\"top\":3.9999977161642166,\"depth\":6,\"deep\":5.199999577598646,\"n\":144},\"TimerBarUI\":{\"top\":1.6999983927235008,\"depth\":1,\"deep\":1.3999997463542969,\"n\":1},\"RewardConfettiGui\":{\"top\":1.8999999156221748,\"depth\":3,\"deep\":10.49999991664663,\"n\":37},\"TopbarStandardClipped\":{\"top\":5.199999577598646,\"depth\":6,\"deep\":5.699999746866524,\"n\":98},\"LevelBarUI\":{\"top\":1.7999991541728378,\"depth\":6,\"deep\":4.699999408330768,\"n\":100},\"SettingsUI\":{\"top\":1.7000020307023079,\"depth\":15,\"deep\":1.8999999156221748,\"n\":932},\"docks\":{\"top\":1.6999983927235008,\"depth\":2,\"deep\":2.2999993234407158,\"n\":2},\"KeyBindsUI\":{\"top\":1.7999991541728378,\"depth\":5,\"deep\":1.7999991541728378,\"n\":168},\"DebugGui\":{\"top\":1.7999991541728378,\"depth\":2,\"deep\":2.0999978005420418,\"n\":23},\"OffScreenIndicatorUI\":{\"top\":1.3999997463542969,\"depth\":-1,\"deep\":-1,\"n\":0},\"SettingsUIBackdrop\":{\"top\":1.6999983927235008,\"depth\":2,\"deep\":1.5000005078036339,\"n\":3},\"TopbarCenteredClipped\":{\"top\":1.7000020307023079,\"depth\":1,\"deep\":1.3999997463542969,\"n\":1},\"PauseUI\":{\"top\":1.7999991541728378,\"depth\":9,\"deep\":2.0999978005420418,\"n\":40},\"FocusBrackets\":{\"top\":2.0000006770715119,\"depth\":2,\"deep\":5.900001269765198,\"n\":17},\"UpgradeGui\":{\"top\":1.7000020307023079,\"depth\":11,\"deep\":2.1000014385208489,\"n\":190},\"InGameTutorialSide\":{\"top\":1.7999991541728378,\"depth\":10,\"deep\":2.0999978005420418,\"n\":102},\"Freecam\":{\"top\":1.3999997463542969,\"depth\":-1,\"deep\":-1,\"n\":1},\"RestartRadialUI\":{\"top\":1.7999991541728378,\"depth\":3,\"deep\":51.89999865251593,\"n\":322},\"InteractableProximityUI\":{\"top\":1.6999983927235008,\"depth\":8,\"deep\":2.9000002541579308,\"n\":49},\"KickUIBackdrop\":{\"top\":1.6999983927235008,\"depth\":1,\"deep\":1.3999997463542969,\"n\":2},\"QuestDisplayUI\":{\"top\":1.7000020307023079,\"depth\":9,\"deep\":2.0999978005420418,\"n\":32},\"AbilitiesUI\":{\"top\":1.7000020307023079,\"depth\":1,\"deep\":1.5000005078036339,\"n\":2},\"TimerGui\":{\"top\":2.2999993234407158,\"depth\":10,\"deep\":2.4000000848900528,\"n\":85},\"HealthPlayerUI\":{\"top\":3.9000005926936867,\"depth\":6,\"deep\":8.400002116104588,\"n\":120},\"MinimapUI\":{\"top\":2.7999994927085938,\"depth\":10,\"deep\":2.0999978005420418,\"n\":207},\"PlayersInfoUI\":{\"top\":2.0000006770715119,\"depth\":9,\"deep\":2.6999987312592568,\"n\":80},\"PassiveChangesUI\":{\"top\":1.7000020307023079,\"depth\":2,\"deep\":2.0999978005420418,\"n\":4},\"KickUI\":{\"top\":1.6999983927235008,\"depth\":8,\"deep\":2.0000006770715119,\"n\":56},\"DamageNumbers\":{\"top\":49.99999873689376,\"depth\":1,\"deep\":50.499998906161639,\"n\":400},\"CursorUI\":{\"top\":2.7999994927085938,\"depth\":4,\"deep\":3.5000011848751457,\"n\":57},\"TimersUI\":{\"top\":1.7999991541728378,\"depth\":1,\"deep\":1.5000005078036339,\"n\":2},\"TopbarCentered\":{\"top\":1.7000020307023079,\"depth\":2,\"deep\":2.2000021999701859,\"n\":3},\"InfoGui\":{\"top\":1.7000020307023079,\"depth\":16,\"deep\":2.1000014385208489,\"n\":1374},\"AugmentGui\":{\"top\":1.7999991541728378,\"depth\":10,\"deep\":2.0999978005420418,\"n\":367}}}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"worldGuis\":0,\"byRoot\":[\"25.94 AugmentGui\",\"3.11 CursorUI\",\"1.63 TimerBarUI\",\"0.85 Command Executor\",\"0.80 TimerGui\",\"0.62 FocusBrackets\",\"0.53 SelfStatsGui\",\"0.29 DebugGui\",\"0.19 DamageNumbers\"],\"phase\":\"arm\",\"frames\":1408,\"dirtyRootsPerFrame\":4.403409090909091,\"label\":\"sib1\",\"byProp\":[\"15.03 BackgroundTransparency\",\"11.55 Position\",\"1.81 Scale\",\"1.08 BackgroundColor\",\"1.08 BackgroundColor3\",\"1.00 ImageColor3\",\"0.63 ImageTransparency\",\"0.59 Text\",\"0.59 ContentText\",\"0.38 Visible\",\"0.14 Size\",\"0.09 TextTransparency\",\"0.00 TextColor\",\"0.00 TextColor3\"],\"siblingTop\":[\"39.97 AugmentGui.Container.Frame.RewardCard.Motes [40]\",\"18.42 CursorUI.PixelCursor [35]\",\"12.09 Frame.RewardCard.Body.Outline.Bezel.Well.Sheen [61]\",\"10.65 DamageNumbers [200]\",\"3.94 TimerGui.RunClock.Clock.Slab.Outline.Bezel.Well [5]\",\"3.17 CursorUI.PixelCursor.Dot [6]\",\"2.11 Command Executor.Frame.Frame [5]\",\"1.00 TimerBarUI [1]\",\"0.97 FocusBrackets.Focus [16]\",\"0.50 Container.Souls.Slab.Outline.Bezel.Well.IconPanel [1]\",\"0.33 DebugGui.Container [7]\",\"0.05 SelfStatsGui.Container.Kills.Slab.Outline.Bezel.Well [6]\",\"0.05 SelfStatsGui.Container.Souls.Slab.Outline.Bezel.Well [6]\",\"0.01 RunClock.Clock.Slab.Outline.Bezel.Well.Bar [1]\"],\"siblingsPerFrame\":93.24786931818182,\"layoutWritesPerFrame\":14.468039772727274}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"list\":[\"12.00 RewardCard.Body.Outline.Bezel.Well.Sheen.Sheen:BackgroundTransparency\",\"9.40 RewardCard.Body.Outline.Bezel.Well.Sheen.Sheen:Position\",\"3.03 AugmentGui.Container.Frame.RewardCard.Motes.Mote:BackgroundTransparency\",\"1.22 AugmentGui.Container.Frame.RewardCard.Motes.Mote:Position\",\"1.06 CursorUI.PixelCursor.Dot.Ink:BackgroundColor3\",\"1.06 CursorUI.PixelCursor.Dot.Ink:BackgroundColor\",\"1.00 TimerBarUI.Glow:ImageColor3\",\"0.78 Clock.Slab.Outline.Bezel.Well.Time.UIScale:Scale\",\"0.63 TimerBarUI.Glow:ImageTransparency\",\"0.53 CursorUI.PixelCursor.Dot.UIScale:Scale\",\"0.50 Slab.Outline.Bezel.Well.IconPanel.Icon.UIScale:Scale\",\"0.42 Command Executor.Frame.Frame.TextLabel:ContentText\",\"0.42 Command Executor.Frame.Frame.TextLabel:Text\",\"0.31 FocusBrackets.Focus.Mark:Position\",\"0.31 FocusBrackets.Focus.Shadow:Position\",\"0.17 RewardCard.Body.Outline.Bezel.Well.Sheen.Sheen:Visible\",\"0.11 DebugGui.Container.Enemies:Text\",\"0.11 DebugGui.Container.Enemies:ContentText\",\"0.11 CursorUI.PixelCursor.ArmInk:Position\",\"0.11 CursorUI.PixelCursor.ArmCore:Position\",\"0.09 DamageNumbers.TextLabel:TextTransparency\",\"0.09 DamageNumbers.TextLabel:Position\",\"0.08 AugmentGui.Container.Frame.RewardCard.Motes.Mote:Visible\",\"0.06 CursorUI.PixelCursor.ArmInk:Size\",\"0.06 CursorUI.PixelCursor.ArmInk:Visible\",\"0.06 CursorUI.PixelCursor.ArmCore:Size\",\"0.06 CursorUI.PixelCursor.ArmCore:Visible\",\"0.02 AugmentGui.Container.Frame.RewardCard.Motes.Mote:BackgroundColor\",\"0.02 AugmentGui.Container.Frame.RewardCard.Motes.Mote:BackgroundColor3\",\"0.02 DebugGui.Container.Projectiles:ContentText\"],\"part\":1,\"label\":\"sib1\",\"phase\":\"elements\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"list\":[\"0.02 DebugGui.Container.Projectiles:Text\",\"0.02 DebugGui.Container.Drops:Text\",\"0.02 DebugGui.Container.Drops:ContentText\",\"0.01 Clock.Slab.Outline.Bezel.Well.Bar.Fill:Size\",\"0.01 Container.Souls.Slab.Outline.Bezel.Well.Count:ContentText\",\"0.01 Container.Kills.Slab.Outline.Bezel.Well.Count:Text\",\"0.01 DamageNumbers.TextLabel:Visible\",\"0.01 Container.Souls.Slab.Outline.Bezel.Well.Count:Text\",\"0.01 Container.Kills.Slab.Outline.Bezel.Well.Count:ContentText\",\"0.00 RunClock.Clock.Slab.Outline.Bezel.Well.Time:Text\",\"0.00 RunClock.Clock.Slab.Outline.Bezel.Well.Time:ContentText\",\"0.00 DebugGui.Container.FPS:ContentText\",\"0.00 DebugGui.Container.FPS:Text\",\"0.00 DamageNumbers.TextLabel:ContentText\",\"0.00 DamageNumbers.TextLabel:TextColor\",\"0.00 DamageNumbers.TextLabel:TextColor3\",\"0.00 DamageNumbers.TextLabel:Size\",\"0.00 DamageNumbers.TextLabel:Text\",\"0.00 AugmentGui.Container.Frame.RewardCard.Motes.Mote:Size\"],\"part\":31,\"label\":\"sib1\",\"phase\":\"elements\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"census\",\"guis\":{\"AbilitiesUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":0,\"desc\":2,\"scales\":0,\"strokes\":0,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1},\"DialogueUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":4,\"text\":3,\"desc\":61,\"scales\":5,\"strokes\":2,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":3,\"textScaled\":0,\"gui\":48},\"InfoGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":158,\"desc\":1374,\"scales\":65,\"strokes\":93,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":9,\"textScaled\":31,\"gui\":1037},\"DamageNumbers:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":200,\"desc\":400,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":200},\"Command Executor:ScreenGui\":{\"enabled\":false,\"canvas\":0,\"shown\":6,\"text\":6,\"desc\":35,\"scales\":0,\"strokes\":0,\"layouts\":7,\"aspect\":0,\"gradients\":0,\"autoSize\":11,\"textScaled\":0,\"gui\":14},\"HealthPlayerUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":11,\"text\":2,\"desc\":120,\"scales\":3,\"strokes\":2,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":2,\"textScaled\":0,\"gui\":113},\"AugmentGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":38,\"text\":13,\"desc\":367,\"scales\":12,\"strokes\":12,\"layouts\":3,\"aspect\":7,\"gradients\":0,\"autoSize\":3,\"textScaled\":2,\"gui\":312},\"CursorUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":10,\"text\":0,\"desc\":57,\"scales\":1,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":56},\"InGameTutorialSide:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":4,\"text\":4,\"desc\":102,\"scales\":8,\"strokes\":4,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":3,\"textScaled\":0,\"gui\":84},\"FocusBrackets:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":17,\"text\":0,\"desc\":17,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":17},\"Freecam:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":0,\"desc\":1,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":0},\"DebugGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":5,\"desc\":23,\"scales\":0,\"strokes\":5,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":6}},\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"label\":\"sib1\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"census\",\"guis\":{\"KeyBindsUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":33,\"text\":22,\"desc\":168,\"scales\":11,\"strokes\":22,\"layouts\":12,\"aspect\":0,\"gradients\":0,\"autoSize\":23,\"textScaled\":0,\"gui\":89},\"KickUIBackdrop:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":1,\"desc\":2,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1},\"InteractableProximityUI:BillboardGui\":{\"enabled\":true,\"canvas\":1,\"shown\":3,\"text\":1,\"desc\":49,\"scales\":7,\"strokes\":1,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":40},\"OffScreenIndicatorUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":0,\"desc\":0,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":0},\"QuestStowGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":0,\"desc\":2,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":2},\"MinimapUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":73,\"text\":9,\"desc\":207,\"scales\":19,\"strokes\":8,\"layouts\":0,\"aspect\":1,\"gradients\":0,\"autoSize\":6,\"textScaled\":1,\"gui\":166},\"PlayersInfoUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":4,\"desc\":80,\"scales\":3,\"strokes\":1,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":71},\"PauseUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":2,\"desc\":40,\"scales\":4,\"strokes\":1,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":33},\"KickUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":6,\"desc\":56,\"scales\":1,\"strokes\":4,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":45},\"PassiveChangesUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":3,\"text\":0,\"desc\":4,\"scales\":0,\"strokes\":0,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":3},\"LevelBarUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":7,\"text\":0,\"desc\":100,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":100},\"QuestDisplayUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":6,\"text\":1,\"desc\":32,\"scales\":1,\"strokes\":1,\"layouts\":4,\"aspect\":0,\"gradients\":0,\"autoSize\":4,\"textScaled\":1,\"gui\":25}},\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"label\":\"sib1\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"census\",\"guis\":{\"TimerGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":27,\"text\":2,\"desc\":85,\"scales\":5,\"strokes\":2,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":76},\"RewardConfettiGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":0,\"desc\":37,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":37},\"TimersUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":0,\"desc\":2,\"scales\":0,\"strokes\":0,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1},\"SettingsUIBackdrop:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":1,\"desc\":3,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":2},\"SettingsUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":0,\"text\":69,\"desc\":932,\"scales\":17,\"strokes\":38,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":800},\"RarityImpactScreen:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":3,\"text\":0,\"desc\":56,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":56},\"SelectionBackdropGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":0,\"desc\":1,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1},\"SelfStatsGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":52,\"text\":5,\"desc\":217,\"scales\":9,\"strokes\":4,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":3,\"textScaled\":1,\"gui\":197},\"SelfReviveUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":2,\"desc\":46,\"scales\":3,\"strokes\":2,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":39},\"ShieldPlayerUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":10,\"text\":2,\"desc\":144,\"scales\":3,\"strokes\":2,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":2,\"textScaled\":0,\"gui\":137},\"RestartRadialUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":0,\"desc\":322,\"scales\":1,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":321},\"TimerBarUI:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":0,\"desc\":1,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1}},\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"label\":\"sib1\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"phase\":\"census\",\"guis\":{\"WinBoxUI:ScreenGui\":{\"enabled\":false,\"canvas\":0,\"shown\":0,\"text\":8,\"desc\":231,\"scales\":6,\"strokes\":5,\"layouts\":0,\"aspect\":2,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":182},\"docks:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":0,\"desc\":2,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":2},\"TopbarCenteredClipped:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":1,\"text\":0,\"desc\":1,\"scales\":0,\"strokes\":0,\"layouts\":0,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":1},\"TopbarStandardClipped:ScreenGui\":{\"enabled\":true,\"canvas\":6,\"shown\":26,\"text\":12,\"desc\":98,\"scales\":0,\"strokes\":0,\"layouts\":12,\"aspect\":0,\"gradients\":0,\"autoSize\":30,\"textScaled\":0,\"gui\":49},\"TopbarStandard:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":80,\"text\":18,\"desc\":305,\"scales\":8,\"strokes\":0,\"layouts\":20,\"aspect\":8,\"gradients\":16,\"autoSize\":6,\"textScaled\":0,\"gui\":177},\"UpgradeGui:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":3,\"text\":7,\"desc\":190,\"scales\":9,\"strokes\":7,\"layouts\":2,\"aspect\":6,\"gradients\":0,\"autoSize\":0,\"textScaled\":1,\"gui\":154},\"TopbarCentered:ScreenGui\":{\"enabled\":true,\"canvas\":0,\"shown\":2,\"text\":0,\"desc\":3,\"scales\":0,\"strokes\":0,\"layouts\":1,\"aspect\":0,\"gradients\":0,\"autoSize\":0,\"textScaled\":0,\"gui\":2}},\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"label\":\"sib1\"}",
+   "peer": "client",
+   "timestamp": 1794196579,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"arm-done\",\"label\":\"sib1\",\"arm\":{\"outer\":120,\"name\":\"fight\",\"seconds\":6,\"fight\":true,\"n\":400},\"enemies\":375}",
+   "peer": "server",
+   "timestamp": 1794196580,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"sib1\"}",
+   "peer": "server",
+   "timestamp": 1794196580,
+   "type": "MessageOutput"
+  }
+ ]
+}

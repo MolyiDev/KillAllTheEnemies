@@ -1,0 +1,214 @@
+diff --git a/src/Survivors/Server/Services/AOIService.luau b/src/Survivors/Server/Services/AOIService.luau
+index 7c76066..92357ec 100644
+--- a/src/Survivors/Server/Services/AOIService.luau
++++ b/src/Survivors/Server/Services/AOIService.luau
+@@ -1,11 +1,15 @@
+ local ReplicatedStorage = game:GetService("ReplicatedStorage")
++local RunService = game:GetService("RunService")
+ local ServerScriptService = game:GetService("ServerScriptService")
+ local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
+ local Network = require(ServerScriptService.GlobalServer.Network)
+ local Ignis = require(ReplicatedStorage.Packages.Ignis)
+ local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
+ local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
++local EnemyWorldRef = require(ReplicatedStorage.GlobalShared.ECS.References.EnemyWorldRef)
+ local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
++local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
++local EnemyPacker = require(ReplicatedStorage.Shared.Packers.EnemyPacker)
+ local ESettings = require(ReplicatedStorage.Types.Enums.Settings.ESettings)
+ local ESettingsVisual = require(ReplicatedStorage.Types.Enums.Settings.ESettingsVisual)
+ 
+@@ -25,6 +29,18 @@ local NO_FRUSTUM = -1
+ -- Map is ~1320 studs wide; 100k gives generous headroom for any legitimate camera position.
+ local MAX_CAM_COORD = 1e5
+ 
++-- Merge every category's position rows for a frame into one packet per player.
++local MERGE_SENDS = false
++-- Unsubscribe enemies a player hasn't been sent a position for in RELEASE_TIME
++-- (left their view), so the client returns their rigs. Enemies within
++-- KEEP_DISTANCE of the camera are kept so a threat behind the player can't pop in late.
++local RELEASE_OFFSCREEN = false
++local RELEASE_TIME = 3
++local KEEP_DISTANCE_SQ = 60 * 60
++
++local UpdateEnemiesEvent = ReplicatedStorage.Events.UpdateEnemies :: RemoteEvent
++local ServerNetworkEnemies = Network.Server.Enemies
++
+ type TPlayerAOIState = {
+ 	renderDistance: number,
+ 	renderDistanceSq: number,
+@@ -38,6 +54,11 @@ type TPlayerAOIState = {
+ 	thresholdSq: number,
+ 	dropAnimations: boolean,
+ 	knownEnemies: { [number]: boolean },
++	-- See EnemyPacker.TSendState.
++	sentAt: { [number]: number },
++	sentQ: buffer,
++	-- GameClock when each known enemy was subscribed; with sentAt, drives release.
++	seenAt: { [number]: number },
+ }
+ 
+ -- Per-player state. Read directly by the 4 position-update actors (read-only from their threads).
+@@ -50,6 +71,25 @@ local enemySubscribers: { [number]: { [Player]: boolean } } = {}
+ local tickPlayer: Player = nil :: any
+ local tickOnNewlySubscribed: ((Player, number) -> ())? = nil
+ 
++-- Rows staged by SendPositions this frame (MERGE_SENDS), flushed once per Heartbeat.
++local pendingIds: { number } = {}
++local pendingPositions: { vector } = {}
++
++local function sendNow(instanceIds: { number }, positions: { vector })
++	local now = TimeCore.GameClock
++	for player, state in playerAOIStates do
++		local filtered = EnemyPacker.PackFiltered(instanceIds, positions, state, now)
++		if filtered then UpdateEnemiesEvent:FireClient(player, filtered) end
++	end
++end
++
++-- Drops every per-enemy record a player holds, so the next position it gets is absolute.
++local function forget(state: TPlayerAOIState, instanceId: number)
++	state.knownEnemies[instanceId] = nil
++	state.sentAt[instanceId] = nil
++	state.seenAt[instanceId] = nil
++end
++
+ local function tickSpatialHashCallback(enemyEntity: any)
+ 	local instanceId = EnemyWorld:get(enemyEntity, Components.InstanceId) :: number
+ 	if not instanceId then return end
+@@ -75,6 +115,7 @@ local function tickSpatialHashCallback(enemyEntity: any)
+ 
+ 	-- Newly visible: subscribe and notify caller.
+ 	state.knownEnemies[instanceId] = true
++	state.seenAt[instanceId] = TimeCore.GameClock
+ 	local subs = enemySubscribers[instanceId]
+ 	if not subs then
+ 		subs = {}
+@@ -104,6 +145,9 @@ function AOIService.OnPlayerConnected(player: Player)
+ 		thresholdSq = NO_FRUSTUM, -- no frustum filter until first CameraSync
+ 		dropAnimations = true,
+ 		knownEnemies = {},
++		sentAt = {},
++		sentQ = if EnemyPacker.DELTA_POSITIONS then EnemyPacker.CreateBaseline() else buffer.create(0),
++		seenAt = {},
+ 	}
+ end
+ 
+@@ -279,6 +323,7 @@ function AOIService.Subscribe(player: Player, instanceId: number)
+ 	local state = playerAOIStates[player]
+ 	if not state then return end
+ 	state.knownEnemies[instanceId] = true
++	state.seenAt[instanceId] = TimeCore.GameClock
+ 	local subs = enemySubscribers[instanceId]
+ 	if not subs then
+ 		subs = {}
+@@ -317,7 +362,7 @@ function AOIService.PopSubscribedPlayers(instanceId: number): { Player }
+ 	local result = {}
+ 	for player in subs do
+ 		local state = playerAOIStates[player]
+-		if state then state.knownEnemies[instanceId] = nil end
++		if state then forget(state, instanceId) end
+ 		result[#result + 1] = player
+ 	end
+ 	enemySubscribers[instanceId] = nil
+@@ -331,7 +376,7 @@ function AOIService.PopSubscribedPlayersInto(instanceId: number, reuseArr: { Pla
+ 	if not subs then return reuseArr end
+ 	for player in subs do
+ 		local state = playerAOIStates[player]
+-		if state then state.knownEnemies[instanceId] = nil end
++		if state then forget(state, instanceId) end
+ 		reuseArr[#reuseArr + 1] = player
+ 	end
+ 	enemySubscribers[instanceId] = nil
+@@ -345,7 +390,7 @@ function AOIService.OnEnemyRemoved(instanceId: number)
+ 	if not subs then return end
+ 	for player in subs do
+ 		local state = playerAOIStates[player]
+-		if state then state.knownEnemies[instanceId] = nil end
++		if state then forget(state, instanceId) end
+ 	end
+ 	enemySubscribers[instanceId] = nil
+ end
+@@ -429,7 +474,7 @@ function AOIService.PopSubscribedPlayersMultiple(instanceIds: { number }, result
+ 		if not subs then continue end
+ 		for player in subs do
+ 			local state = playerAOIStates[player]
+-			if state then state.knownEnemies[instanceId] = nil end
++			if state then forget(state, instanceId) end
+ 			local list = result[player]
+ 			if not list then
+ 				list = {}
+@@ -441,13 +486,61 @@ function AOIService.PopSubscribedPlayersMultiple(instanceIds: { number }, result
+ 	end
+ end
+ 
++-- Sends enemy positions to every player who has them subscribed and in view.
++-- `instanceIds` / `positions` are aligned and may be reused by the caller right after.
++function AOIService.SendPositions(instanceIds: { number }, positions: { vector })
++	if #instanceIds == 0 then return end
++	if not MERGE_SENDS then
++		sendNow(instanceIds, positions)
++		return
++	end
++	local n = #pendingIds
++	table.move(instanceIds, 1, #instanceIds, n + 1, pendingIds)
++	table.move(positions, 1, #positions, n + 1, pendingPositions)
++end
++
++RunService.Heartbeat:Connect(function()
++	if #pendingIds == 0 then return end
++	sendNow(pendingIds, pendingPositions)
++	table.clear(pendingIds)
++	table.clear(pendingPositions)
++end)
++
++-- Releases enemies the player hasn't been sent in RELEASE_TIME (outside their view),
++-- telling the client to drop them. They re-subscribe through Tick on re-entering view.
++local function releaseOffscreen(player: Player, state: TPlayerAOIState, now: number)
++	local sentAt, seenAt = state.sentAt, state.seenAt
++	for instanceId in state.knownEnemies do
++		local sent = sentAt[instanceId]
++		if sent and now - sent < RELEASE_TIME then continue end
++		local seen = seenAt[instanceId]
++		if seen and now - seen < RELEASE_TIME then continue end
++		local entity = EnemyWorldRef:Search(instanceId)
++		local pos = if entity then EnemyWorld:get(entity, Components.Position) :: vector? else nil
++		if pos then
++			local dx = pos.x - state.camX
++			local dz = pos.z - state.camZ
++			if dx * dx + dz * dz <= KEEP_DISTANCE_SQ then
++				seenAt[instanceId] = now
++				continue
++			end
++		end
++		forget(state, instanceId)
++		local subs = enemySubscribers[instanceId]
++		if subs then subs[player] = nil end
++		ServerNetworkEnemies.Removed.Fire(player, instanceId)
++	end
++end
++
+ -- Scans the enemy spatial hash for each player and calls `onNewlySubscribed(player, instanceId)`
+ -- for every (player, enemy) pair that just entered the player's view.
+ -- Run at a reduced rate (e.g. every 0.25 s) from EnemiesService to catch players who
+ -- walked into range of already-existing enemies. New spawns subscribe at spawn time directly.
+ function AOIService.Tick(onNewlySubscribed: (Player, number) -> ())
+ 	tickOnNewlySubscribed = onNewlySubscribed
++	local now = TimeCore.GameClock
+ 	for player, state in playerAOIStates do
++		if RELEASE_OFFSCREEN then releaseOffscreen(player, state, now) end
+ 		tickPlayer = player
+ 		EnemiesCore.EnemiesSpatialHash:QueryRadiusAsPoints(
+ 			state.camX,
+@@ -461,8 +554,12 @@ end
+ 
+ AOIService.OnGameRestarting = function()
+ 	table.clear(enemySubscribers)
++	table.clear(pendingIds)
++	table.clear(pendingPositions)
+ 	for _, state in playerAOIStates do
+ 		table.clear(state.knownEnemies)
++		table.clear(state.sentAt)
++		table.clear(state.seenAt)
+ 	end
+ end
+ 

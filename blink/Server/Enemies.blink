@@ -1,0 +1,107 @@
+import "../Types/CharacterInstanceId.blink"
+import "../Types/EnemyInstanceId.blink"
+import "../Types/DataId.blink"
+import "../Types/Vec.blink"
+
+type Damage = f32
+
+-- Lifecycle goes only to the players SUBSCRIBED to the body (AOIService): the first time it came into their view,
+-- they were sent Added, and from then on everything about it. (enemy, dataId, feet, isArriving): isArriving on the
+-- spawn itself, false for a body that walked into view, which must not drop in again.
+event Added {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type, DataId.Type, Vec.Type, boolean)
+}
+
+-- Gone without dying (run reset, fell off the map): no death clip, no credit.
+event Removed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type)
+}
+
+-- (killer, enemy, damage, overkill). killer 0 is nobody: a blast, the environment. Overkill is a blow worth several
+-- times the body's max health, so it comes apart instead of falling over; decided here because only the server knows
+-- the max health a round's scale gave it.
+event Killed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, EnemyInstanceId.Type, Damage, boolean)
+}
+
+event KilledMultiple {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, EnemyInstanceId.Type[], Damage, boolean)
+}
+
+event Damaged {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, EnemyInstanceId.Type, Damage)
+}
+
+event DamagedMultiple {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (CharacterInstanceId.Type, EnemyInstanceId.Type[], Damage)
+}
+
+-- An enemy began a wind-up, so the client plays that attack's clip. (enemy, index into TEnemy.Attacks)
+event AttackStarted {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type, u8)
+}
+
+-- A ground warning, to everybody (EnemyAttacksService). The area drawn is exactly the area that hurts.
+-- (telegraphId, ETelegraphs kind, centre on the floor, yaw, size, width, wind-up seconds, ring speed or 0, a boss's,
+-- an explosion's); size and width as TelegraphCore.Distance takes them.
+event Telegraph {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16, u8, Vec.Type, f32, f32, f32, f32, f32, boolean, boolean)
+}
+
+-- The warning resolved, or was taken back (its exploder died). (telegraphId)
+event TelegraphEnded {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u16)
+}
+
+-- The round's boss bar, to everybody. (dataId, health, maxHealth); dataId 0 takes the bar away.
+event BossHealth {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type, f32, f32)
+}
+
+-- The position stream, one EnemyPacker buffer per player per movement tick, culled to that player's camera.
+-- Reliable and whole: see EnemyPacker's header for why it is not split into unreliable chunks.
+event Positions {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: buffer
+}
+
+-- Every enemy type the run can spawn, sent once at the start so the client builds templates and warms rig reserves
+-- before the first round lands instead of on its first spawn.
+event TypesForMatch {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type[])
+}

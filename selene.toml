@@ -1,0 +1,26 @@
+std = "roblox"
+
+exclude = [
+	# Blink-generated, PlayerModule (Roblox-shipped) and TopbarPlus (vendored, carries local changes) — not authored here.
+	"src/Global/Server/Network.luau",
+	"src/Global/Client/Network.luau",
+	"src/Global/Types/NetworkTypes.luau",
+	"src/Global/Server/NetworkMeta.luau",
+	"src/Global/Client/NetworkMeta.luau",
+	"src/Global/Types/NetworkMetaTypes.luau",
+	"src/PlayerModule/**",
+	"src/Global/Shared/TopbarPlus/**",
+]
+
+[config]
+multiple_statements = { one_line_if = "allow" }
+# Unused-parameter rule: function parameters that match shared interface
+# signatures (quest module callbacks, controller hooks, etc.) often go
+# unused in specific implementations. List the common names here so we
+# don't flag legitimate signature-conformance — truly dead module-level
+# state still gets reported.
+unused_variable = { ignore_pattern = "^_|^(circleId|questId|questTimer|durationSeconds|circlePosition|didSucceed|anySucceeded|actionName|state|dt|player|char|isDead|inputObject|newSubject|enabled|gpe|sunk|action|input|mouseWheel|claimType|isReady|hostId|totalPlayers|roundNumber|entity|pos|characterInstanceId|colorIndex|caught|attempt|dataId|query)$" }
+
+[lints]
+incorrect_standard_library_use = "allow"
+mixed_table = "allow"

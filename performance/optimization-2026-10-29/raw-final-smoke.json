@@ -1,0 +1,103 @@
+{
+ "label": "final-smoke",
+ "flags": "final",
+ "count": "2000",
+ "entries": [
+  {
+   "message": "Survivors Version: 0",
+   "peer": "client",
+   "timestamp": 1793272971,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "GamebeastSDK: Gamebeast SDK is out of date! Please update to the latest version. v0.9.1 -> v1.0.0",
+   "peer": "server",
+   "timestamp": 1793272971,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "DataStoreService: InternalServerError: An internal server error occurred. API: UpdateAsync, Data Store: Studio",
+   "peer": "server",
+   "timestamp": 1793272972,
+   "type": "MessageError"
+  },
+  {
+   "message": "[DocumentService Retry] Attempt 1 failed: 502: API Services rejected request with error. Error code: 0 Reason: An internal server error occurred. \nat\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Retry:32 function Retry\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.SaveUtil:155 function updateAsync\nReplicatedStorage.Packages._Index.anthony0br_documentservice@1.2.2.documentservice.Document:380 function Open\nServerScriptService.GlobalServer.Services.DatabaseService:1274\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Lifecycles:33\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:62 function runCallback\nReplicatedStorage.Packages._Index.molyidev_ignis@0.1.2.ignis.Signal:68 function yielder\n",
+   "peer": "server",
+   "timestamp": 1793272972,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid://203785492 failed due to: Asset type does not match requested type",
+   "peer": "server",
+   "timestamp": 1793272973,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "ContentId: rbxassetid:// failed due to: Request asset was not found",
+   "peer": "client",
+   "timestamp": 1793272974,
+   "type": "MessageWarning"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"ready\",\"placeId\":137835287157016,\"flags\":\"final\",\"label\":\"final-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793272976,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.001982799998587,\"endDist\":{\"total\":2000,\"mid\":883,\"far\":36,\"near\":1081},\"heartbeatTimeMedianMs\":0.30998833244666459,\"phase\":\"result\",\"heartbeatDtMedianMs\":4.002292174845934,\"enemies\":2000,\"label\":\"final-smoke\",\"metrics\":{\"bytes\":383477,\"absRows\":5488,\"filterMs\":16.639599994960009,\"commitRows\":165663,\"commitMs\":211.52140000413056,\"aoiTickMs\":39.888699999210079,\"workerMs\":2861.651,\"packets\":97,\"AddedEvents\":405,\"workerJobs\":1552},\"name\":\"2000-ground\",\"heartbeatTimeMeanMs\":0.317844949058109,\"heartbeatTimeP95Ms\":0.49199536442756655,\"startDist\":{\"total\":2000,\"mid\":613,\"far\":1102,\"near\":285},\"heartbeatDtP95Ms\":7.003618869930506,\"sendKbpsMean\":33.92357139587402}",
+   "peer": "server",
+   "timestamp": 1793272994,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":1450,\"updateMeanMs\":1.0311130167100807,\"receiveKbpsMean\":0,\"frames\":2274,\"updateMedianMs\":1.0005999993154547,\"updateP95Ms\":1.5027999997982989,\"bytes\":383477,\"medianMs\":4.152200184762478,\"p99Ms\":13.185500167310238,\"focusLost\":false,\"animated\":0,\"label\":\"final-smoke\",\"viewport\":[1919,1080],\"resident\":1533,\"phase\":\"2000-ground\",\"p95Ms\":5.730099976062775,\"packets\":97}",
+   "peer": "client",
+   "timestamp": 1793272994,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":1533,\"serverDetail\":[],\"checked\":1457,\"bad\":0,\"badRows\":[],\"maxErr\":0.024990081787109376,\"badIds\":[],\"serverEnemies\":1457},\"name\":\"2000-ground\",\"label\":\"final-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793272995,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"seconds\":10.003008700001374,\"endDist\":{\"total\":2000,\"mid\":572,\"far\":795,\"near\":633},\"heartbeatTimeMedianMs\":0.44151843758299949,\"phase\":\"result\",\"heartbeatDtMedianMs\":4.00301581248641,\"enemies\":2000,\"label\":\"final-smoke\",\"metrics\":{\"bytes\":297605,\"absRows\":5561,\"filterMs\":15.870400004132535,\"commitRows\":180504,\"commitMs\":209.61799998622156,\"aoiTickMs\":45.13129999941157,\"workerMs\":5312.288,\"packets\":98,\"AddedEvents\":234,\"workerJobs\":3136},\"name\":\"2000-mixed\",\"heartbeatTimeMeanMs\":0.45272592378160139,\"heartbeatTimeP95Ms\":0.6806310848332942,\"startDist\":{\"total\":2000,\"mid\":486,\"far\":1320,\"near\":194},\"heartbeatDtP95Ms\":9.954559616744519,\"sendKbpsMean\":27.10878896713257}",
+   "peer": "server",
+   "timestamp": 1793273013,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_CLIENT] {\"visible\":1289,\"updateMeanMs\":0.9902547135933959,\"receiveKbpsMean\":0,\"frames\":2217,\"updateMedianMs\":0.9744999988470227,\"updateP95Ms\":1.3742999999521999,\"bytes\":297605,\"medianMs\":4.254600033164024,\"p99Ms\":9.04299970716238,\"focusLost\":false,\"animated\":0,\"label\":\"final-smoke\",\"viewport\":[1919,1080],\"resident\":1307,\"phase\":\"2000-mixed\",\"p95Ms\":7.439900189638138,\"packets\":98}",
+   "peer": "client",
+   "timestamp": 1793273013,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"check\",\"result\":{\"resident\":1307,\"serverDetail\":[],\"checked\":1302,\"bad\":0,\"badRows\":[],\"maxErr\":0.024997711181640626,\"badIds\":[],\"serverEnemies\":1302},\"name\":\"2000-mixed\",\"label\":\"final-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793273015,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"phase\":\"done\",\"label\":\"final-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793273015,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SERVER] {\"clientResponded\":true,\"phase\":\"smoke-done\",\"label\":\"final-smoke\"}",
+   "peer": "server",
+   "timestamp": 1793273027,
+   "type": "MessageOutput"
+  },
+  {
+   "message": "[BALLARC_BENCH_SMOKE] {\"releaseCounts\":{\"before\":30,\"after\":32,\"during\":30,\"visibleAfter\":28},\"label\":\"final-smoke\",\"camera-hide-reenter\":{\"passed\":true},\"client-restart-cleanup\":{\"passed\":true},\"release-and-return\":{\"passed\":true},\"freeze-resume\":{\"passed\":true},\"manual-pause-resume\":{\"passed\":true}}",
+   "peer": "client",
+   "timestamp": 1793273027,
+   "type": "MessageOutput"
+  }
+ ]
+}
