@@ -6,3 +6,35 @@ event GameLoaded {
 	call: SingleAsync,
 	data: ()
 }
+
+-- PLAY AGAIN on the results: the run starts over once everybody here has voted.
+event VotePlayAgain {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- LOBBY on the results: this player leaves now instead of waiting out the countdown.
+event LeaveToLobby {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- A purchase prompt opened from the results is up (or was closed): the countdown waits for it.
+event SetBuying {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: boolean
+}
+
+-- WATCH AD on the results: the server shows this player a rewarded video whose reward is the doubling.
+event WatchAd {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

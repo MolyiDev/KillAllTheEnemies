@@ -7,7 +7,9 @@ for i, sg in game:GetService("StarterGui"):GetChildren() do
 	root.Size = roblox.UDim2.fromScale(1, 1)
 	root.BackgroundColor3 = roblox.Color3.fromRGB(40, 40, 60)
 	root.BorderSizePixel = 0
-	for _, c in sg:GetChildren() do c:Clone().Parent = root end
+	for _, c in sg:GetChildren() do
+		c:Clone().Parent = root
+	end
 	for _, d in root:GetDescendants() do
 		if d.ClassName == "ImageLabel" then
 			d.BackgroundTransparency = 0.88

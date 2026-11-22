@@ -6,7 +6,8 @@ streaks his panel faces carry into a texture laid over every panel.
     python3 tools/uimatt/icons.py --upload PanelTexture
 
 
-Reads the PNGs rur saved beside the In-Game HUD render (Assets/ui/UIMatt/renders/15_In_Game_HUD/assets) and writes
+Reads the PNGs rur saved beside the In-Game HUD render (Assets/ui/UIMatt/renders/15_In_Game_HUD/assets; a file
+named with its folder is read from that screen's render instead) and writes
 Assets/ui/hud/Icons.png (128 px cells, 4 across) and Icons.json (name -> cell). Each icon is a coverage mask: how
 much of a pixel is the glyph's colour against the panel behind it, so the anti-aliased edge survives. The designer's
 image ids are private to another account and never referenced; the atlas is uploaded by group 34796361.
@@ -36,7 +37,11 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-SOURCE = os.path.join(ROOT, "Assets", "ui", "UIMatt", "renders", "15_In_Game_HUD", "assets")
+RENDERS = os.path.join(ROOT, "Assets", "ui", "UIMatt", "renders")
+SOURCE = os.path.join(RENDERS, "15_In_Game_HUD", "assets")
+RESULTS = "19_Round_Results/assets/"
+SETTINGS = "07_Settings/assets/"
+CONFIRM = "08_Settings_Reset_Confirm/assets/"
 OUT = os.path.join(ROOT, "Assets", "ui", "hud")
 CELL = 128
 PAD = 6
@@ -61,6 +66,11 @@ def pink(a):
     return np.clip((a[..., 0] - a[..., 1] - 100) / 100, 0, 1)
 
 
+# The confirm's warning red, which `pink` takes at four fifths; its tile's dark red face stays out.
+def red(a):
+    return np.clip((a[..., 0] - a[..., 1] - 90) / 80, 0, 1)
+
+
 def green(a):
     return np.clip((a[..., 1] - a[..., 0] - 60) / 110, 0, 1)
 
@@ -71,6 +81,15 @@ def gold(a):
 
 def dark(a):
     return np.clip((200 - a[..., 0]) / 140, 0, 1)
+
+
+# White on a bright face (the violet and steel slabs), where `white` would take the face too.
+def bright(a):
+    return np.clip((a[..., :3].min(-1) - 215) / (250 - 215), 0, 1)
+
+
+def blue(a):
+    return np.clip((a[..., 2] - a[..., 0] - 90) / 70, 0, 1)
 
 
 # name: (file, coverage, crop box in the source's pixels, and a box inside it to blank: the count badge's corner)
@@ -87,11 +106,28 @@ ICONS = {
     "Shotgun": ("111485632705697.png", white, (144, 87, 290, 242)),
     "Airstrike": ("97897316009467.png", white, (149, 91, 289, 231)),
     "Pack": ("96646665217373.png", white, (95, 87, 166, 139)),
+    # The results (Round Results).
+    "Skull": (RESULTS + "104386502506343.png", pink, (0, 0, 48, 56)),
+    "Stopwatch": (RESULTS + "94909205766457.png", gold, (30, 40, 98, 116)),
+    "Gem": (RESULTS + "110701547367116.png", blue, (80, 140, 210, 250)),
+    "Robux": (RESULTS + "120333389261265.png", bright, (268, 86, 326, 148)),
+    "Advert": (RESULTS + "100421269701855.png", bright, (160, 92, 216, 142)),
+    "Arrow": (RESULTS + "134036027972997.png", white, (218, 132, 264, 180)),
+    "Replay": (RESULTS + "114440233802906.png", white, (200, 124, 258, 190)),
+    "Revive": (RESULTS + "129357551429107.png", white, (230, 120, 310, 198)),
+    # The settings (Settings, Settings - Reset Confirm).
+    "Reset": (SETTINGS + "118009714755116.png", gold, (80, 69, 130, 113)),
+    "Pencil": (SETTINGS + "139649818264337.png", pink, (600, 24, 648, 72)),
+    "Warning": (CONFIRM + "95928634624098.png", red, (464, 105, 560, 190)),
+    "Music": (SETTINGS + "85445603148106.png", pink, (0, 0, 28, 30)),
+    "Camera": (SETTINGS + "114795113817787.png", pink, (0, 0, 28, 30)),
+    "Profile": (SETTINGS + "104283121581154.png", pink, (0, 0, 28, 30)),
 }
 
 
 def cut(file, coverage, box, blank=None):
-    rgba = np.asarray(Image.open(os.path.join(SOURCE, file)).convert("RGBA")).astype(float)
+    path = os.path.join(RENDERS, file) if "/" in file else os.path.join(SOURCE, file)
+    rgba = np.asarray(Image.open(path).convert("RGBA")).astype(float)
     if blank:
         rgba = rgba.copy()
         rgba[blank[1] : blank[3], blank[0] : blank[2], 3] = 0

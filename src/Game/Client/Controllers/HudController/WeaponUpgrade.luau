@@ -11,7 +11,7 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local GunPicture = require(script.Parent.GunPicture)
 local Hotbar = require(script.Parent.Hotbar)
-local Motion = require(script.Parent.Motion)
+local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -69,8 +69,6 @@ local CAPTION_TEXT = 20
 local NAME_TEXT = 58
 local PIP = 14
 local PIP_GAP = 8
-local SPEND_TEXT = 34
-local SPEND_RISE = 40
 
 -- Seconds since the last buy (huge at rest).
 local function since(state: Types.THudState): number
@@ -87,7 +85,7 @@ end
 
 -- The bought gun, from the card's picture to the gun's slot. `from` is the card picture's centre, `size` its side and
 -- `tilt` its rotation.
-local function flight(state: Types.THudState, from: UDim2, size: number, tilt: number): ViewportFrame
+local function flight(state: Types.THudState, from: UDim2, size: number, tilt: number): Frame
 	local hang = from + THROW_OFFSET
 	local pull = hang + PULL_OFFSET
 	local finish = Hotbar.GUN_SLOT
@@ -97,6 +95,11 @@ local function flight(state: Types.THudState, from: UDim2, size: number, tilt: n
 		local held = state.Weapon.Held()
 		return if held then GunPicture.FromGun(held.Gun) else nil
 	end, {
+		Rotation = function()
+			local isPull, k = stage(since(state))
+			return if isPull then Motion.Lerp(THROW_TURN, Hotbar.GUN_TILT, k) else Motion.Lerp(tilt, THROW_TURN, k)
+		end,
+	}, {
 		Name = "Flight",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Size = UDim2.fromOffset(size, size),
@@ -109,10 +112,6 @@ local function flight(state: Types.THudState, from: UDim2, size: number, tilt: n
 			local isPull, k = stage(since(state))
 			if not isPull then return from:Lerp(hang, k) end
 			return hang:Lerp(pull, k):Lerp(pull:Lerp(finish, k), k)
-		end,
-		Rotation = function()
-			local isPull, k = stage(since(state))
-			return if isPull then Motion.Lerp(THROW_TURN, 0, k) else Motion.Lerp(tilt, THROW_TURN, k)
 		end,
 		create("UIScale")({
 			Scale = function()
@@ -243,44 +242,6 @@ local function banner(state: Types.THudState): CanvasGroup
 	})
 end
 
--- The price leaving the money plate as the counter drops by it.
-local function spend(state: Types.THudState): TextLabel
-	local progress = function(): number
-		return Motion.Progress(since(state), 0, Timing.SPEND)
-	end
-
-	return create("TextLabel")({
-		Name = "Spend",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Size = UDim2.fromOffset(200, SPEND_TEXT),
-		BackgroundTransparency = 1,
-		FontFace = Font.Display,
-		TextSize = SPEND_TEXT,
-		TextColor3 = Palette.Gold,
-		ZIndex = 2,
-		Visible = function()
-			local t = since(state)
-			return t >= 0 and t < Timing.SPEND
-		end,
-		Position = function()
-			return Hotbar.MONEY_TOP + UDim2.fromOffset(0, -math.round(SPEND_RISE * Motion.Decelerate(progress())))
-		end,
-		TextTransparency = function()
-			return Motion.Accelerate(math.clamp(progress() * 2 - 1, 0, 1))
-		end,
-		Text = function()
-			local held = state.Weapon.Held()
-			return if held then `-${Components.Commas(held.Price)}` else ""
-		end,
-		create("UIScale")({
-			Scale = function()
-				local k = 1 - math.clamp(progress() * 4, 0, 1)
-				return 1 + 0.3 * k * k
-			end,
-		}),
-	})
-end
-
 -- The overlay. `from` is the weapon card picture's centre, `size` its side and `tilt` its rotation (Upgrades).
 function WeaponUpgrade.Build(state: Types.THudState, from: UDim2, size: number, tilt: number): Frame
 	return create("Frame")({
@@ -293,7 +254,12 @@ function WeaponUpgrade.Build(state: Types.THudState, from: UDim2, size: number, 
 			return state.Phase() ~= "Ended"
 		end,
 		banner(state),
-		spend(state),
+		Hotbar.Spend(function()
+			return since(state)
+		end, function()
+			local held = state.Weapon.Held()
+			return if held then held.Price else 0
+		end, Timing.SPEND),
 		flight(state, from, size, tilt),
 	})
 end

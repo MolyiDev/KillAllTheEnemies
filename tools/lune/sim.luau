@@ -195,6 +195,7 @@ local tick
 tick = {
 	Dt = 0.1,
 	CharacterFeet = feet,
+	Lures = {},
 	BarricadeIds = { 7 },
 	BarricadeCenters = { vector.create(bx, 0, bz) },
 	BarricadeHalves = { vector.create(5, 2.5, 1) },

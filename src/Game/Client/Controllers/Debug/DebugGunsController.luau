@@ -12,7 +12,7 @@ local gunFx = require(script.Parent.Parent.Parent.Utils.gunFx)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local EGunsIds = require(ReplicatedStorage.Types.Enums.Data.EGunsIds)
 local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local CommandTypes = require(ReplicatedStorage.Types.CommandTypes)
@@ -271,9 +271,7 @@ local function fire(cell: TCell, kind: string)
 		local result = sightCast(from, direction * gun.Range, castParams)
 		local to = if result then result.Position else from + direction * gun.Range
 		local isBody = result ~= nil and result.Instance == cell.body
-		local normal = if result and not isBody then result.Normal else nil
-		local surface = if result and not isBody then gunFx.SurfaceColor(result) else nil
-		gunFx.Shot(kit, from, to, normal, surface, isBody, false)
+		gunFx.Shot(kit, from, to, if isBody then nil else result, isBody, false)
 	end
 	gunFx.Muzzle(kit, cell.muzzle, false)
 end

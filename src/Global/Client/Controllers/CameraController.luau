@@ -98,8 +98,10 @@ local CameraController = {}
 CameraController.IsLocked = false
 -- The body is turned to face the aim (the mouse is locked and the body alive), so a walk is a strafe.
 CameraController.IsFacingAim = false
--- Scales every shake and recoil kick (0 turns them off); the hook for a Screen Shake setting.
+-- Scales every shake (0 turns them off), for the Reduce Camera Shake setting. A weapon's kick is not a shake: it stays.
 CameraController.ShakeMultiplier = 1
+-- A menu that needs the cursor is up: nothing here locks the mouse while this is true.
+CameraController.IsMouseFreed = false
 -- The camera as framed, before the cosmetic layers: where the player is actually looking.
 CameraController.AimCFrame = CFrame.identity
 
@@ -115,7 +117,8 @@ local recoilRollCoupling = 0.25
 local recoilX, recoilXVel, recoilY, recoilYVel = 0, 0, 0, 0
 
 local isMouseLocked = false
--- The dot, and what was last written to it.
+-- The dot, and what was last written to it. Off once a place draws its own crosshair on the mouse (HideDot).
+local isDotWanted = true
 local dot: Frame? = nil
 local isDotVisible = true
 local dotMouse = Vector2.zero
@@ -159,8 +162,17 @@ end
 
 -- Kicks the view up by `upImpulse` and sideways by `sideImpulse` (studs a second); it springs back on its own.
 function CameraController.AddRecoil(upImpulse: number, sideImpulse: number)
-	recoilYVel += upImpulse * CameraController.ShakeMultiplier
-	recoilXVel += sideImpulse * CameraController.ShakeMultiplier
+	recoilYVel += upImpulse
+	recoilXVel += sideImpulse
+end
+
+-- Takes the dot away for good, for a place that draws its own crosshair where the dot would be. Safe before or after
+-- this controller's OnStart.
+function CameraController.HideDot()
+	isDotWanted = false
+	local frame = dot
+	dot = nil
+	if frame and frame.Parent then frame.Parent:Destroy() end
 end
 
 -- Turns the view to face `target` on the next frame; the PlayerModule carries on from there.
@@ -269,7 +281,7 @@ end
 -- rotation, and would otherwise hand back a stale one. While locked the body is turned by faceAim, not by it.
 local function applyLock()
 	local isFirstPerson = firstPersonBlend > 0.5
-	local shouldLockMouse = CameraController.IsLocked or isFirstPerson
+	local shouldLockMouse = (CameraController.IsLocked or isFirstPerson) and not CameraController.IsMouseFreed
 	if shouldLockMouse then
 		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
@@ -386,6 +398,7 @@ local function sizeDot()
 end
 
 local function createDot()
+	if not isDotWanted then return end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Cursor"
 	-- The mouse location counts from the window's top, under the top bar.
@@ -406,7 +419,10 @@ local function createDot()
 
 	dot = frame
 	sizeDot()
-	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+	local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+	-- HideDot while waiting for the PlayerGui has already destroyed it.
+	if dot ~= frame then return end
+	gui.Parent = playerGui
 end
 
 CameraController.OnSelfCharacterAdded = function(character)
@@ -456,7 +472,9 @@ CameraController.OnStart = function()
 	createDot()
 	UserInputService.MouseIconEnabled = false
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(sizeDot)
-	RunService.PreRender:Connect(update)
+	-- Just after the PlayerModule's camera (bound at Camera), whose framing it lays its layers on, and before every
+	-- PreRender connection, so whatever reads the view there sees it as it is drawn.
+	RunService:BindToRenderStep("CameraController", Enum.RenderPriority.Camera.Value + 1, update)
 end
 
 return Ignis.Register(CameraController)

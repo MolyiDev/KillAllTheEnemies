@@ -44,6 +44,8 @@ local GRAVITY = Workspace.Gravity
 -- A body pressed against a player stops at this radius around him. Melee reach is measured from it (sweepSwing).
 local PLAYER_COLLISION_RADIUS = 2
 local WALL_RADIUS_SCALE = 0.5
+-- A neighbour floor this much lower is a ledge (walls below). Under the shortest stair riser, 0.6.
+local LEDGE_DROP = 0.5
 -- Bodies that fall this far under the lowest floor are gone (thrown off the map).
 local FALL_OUT_DEPTH = 40
 
@@ -63,6 +65,8 @@ local CROWD_GAP = 1
 local POINT_BLANK = 8
 local POINT_BLANK_SQ = POINT_BLANK * POINT_BLANK
 local AGGRO_SPREAD = 0.15
+-- A lure's path cost is cut to this share, so a body in its reach goes for it ahead of any player in sight.
+local LURE_PULL = 0.05
 local SAME_LEVEL = ArenaCore.MAX_STEP + 1
 
 local SWING_UNDERREACH = 2
@@ -77,8 +81,10 @@ local INV_SQRT2 = 1 / sqrt(2)
 
 export type TTick = {
 	Dt: number,
-	-- Living characters' feet, keyed by character id.
+	-- Living characters' feet, keyed by character id. A lure's feet are in here too, under its own id.
 	CharacterFeet: { [number]: vector },
+	-- Which of those are lures (EnemyMovementService.SetLure), by the square of how far each draws bodies from.
+	Lures: { [number]: number },
 	-- Barricades, parallel arrays: id, centre (feet level), half-size (x, height, z).
 	BarricadeIds: { number },
 	BarricadeCenters: { vector },
@@ -372,6 +378,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 	local barricadeField = NavService.BarricadeField
 	local hasBarricadeField = barricadeField ~= nil and barricadeField.IsReady
 	local charFeet = tick.CharacterFeet
+	local lures = tick.Lures
 	local barricadeCount = tick.BarricadeCount
 	local barricadeCenters = tick.BarricadeCenters
 	local dt = tick.Dt
@@ -410,6 +417,9 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		for id, feet in charFeet do
 			local dx, dz = feet.x - pos.x, feet.z - pos.z
 			local flatSq = dx * dx + dz * dz
+			-- A lure is nothing to a body out of its reach.
+			local lureSq = lures[id]
+			if lureSq and flatSq > lureSq then continue end
 			if flatSq < fallbackSq then
 				fallbackSq = flatSq
 				fallbackId = id
@@ -430,7 +440,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 				end
 			end
 
-			local score = cost * (1 + AGGRO_SPREAD * (aggroCounts[id] or 0))
+			local score = if lureSq then cost * LURE_PULL else cost * (1 + AGGRO_SPREAD * (aggroCounts[id] or 0))
 			if score < bestScore then
 				bestScore = score
 				targetId = id
@@ -484,12 +494,21 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		end
 
 		local isPointBlank = toLen <= POINT_BLANK and abs(targetY - pos.y) <= SAME_LEVEL
-		if grid and node ~= NO_NODE and not isPointBlank and targetId ~= 0 then
+		-- The route's field and this node's cost on it, kept for the walls below even when walking straight.
+		local routeDist: buffer? = nil
+		local routeHere = NAV_INF
+		if grid and node ~= NO_NODE and targetId ~= 0 then
 			local field = if targetId > 0 then characterFields[targetId] else barricadeField
-			if field and field.IsReady then
-				local fx, fz, here = fieldDirection(field.Dist, node)
-				if here ~= NAV_INF and (fx ~= 0 or fz ~= 0) then
-					walkDirX, walkDirZ = fx, fz
+			local dist = if field and field.IsReady then field.Dist else nil
+			local here = if dist then readu32(dist, node * 4) else NAV_INF
+			if dist and here ~= NAV_INF then
+				routeDist = dist
+				routeHere = here
+				if not isPointBlank then
+					local fx, fz = fieldDirection(dist, node)
+					if fx ~= 0 or fz ~= 0 then
+						walkDirX, walkDirZ = fx, fz
+					end
 				end
 			end
 		end
@@ -557,14 +576,22 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 
 		-- Walls: a neighbour cell this floor has no open link into (a cliff, a post, a ledge too high to drop, a
 		-- barricade) is a square to slide along. The into-wall part of the velocity is projected out.
+		-- A ledge the route does not drop off is one too, unless a force is shoving the body: an open-sided stair
+		-- otherwise sheds its climbers into the pit beside it, pushed off by the crowd or walking straight off its side
+		-- at a player on the rim, and they climb and fall in a loop.
 		if grid and node ~= NO_NODE then
 			local wallRadius = radius * WALL_RADIUS_SCALE
 			local cell = readu32(grid.NodeCell, node * 4)
 			local cellX = cell % navWidth
 			local cellZ = cell // navWidth
+			local ledgeY = readf32(navHeights, node * 4) - LEDGE_DROP
+			local holdsLedges = routeDist ~= nil and not hasForce
 			for d = 1, 8 do
 				local link = readi32(navLinks, node * 32 + (d - 1) * 4)
-				if link ~= NO_NODE and readu8(navBlocked, link) == 0 then continue end
+				if link ~= NO_NODE and readu8(navBlocked, link) == 0 then
+					if not holdsLedges or readf32(navHeights, link * 4) >= ledgeY then continue end
+					if readu32(routeDist :: buffer, link * 4) < routeHere then continue end
+				end
 				local wx = navOriginX + (cellX + DIR_DX[d]) * navCell
 				local wz = navOriginZ + (cellZ + DIR_DZ[d]) * navCell
 				local wnx, wnz, pen = resolveCircleSquare(pos.x, pos.z, wallRadius, wx, wz, navHalfCell)

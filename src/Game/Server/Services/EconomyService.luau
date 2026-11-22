@@ -12,6 +12,8 @@ local ServerNetworkEconomy = Network.Server.Economy
 local EconomyService = {}
 
 local gold: { [Player]: number } = {}
+-- The Gems each player's play has earned this run, the 2x pass included.
+local runGems: { [Player]: number } = {}
 
 local function sendGold(player: Player)
 	ServerNetworkEconomy.Gold.Fire(player, gold[player] or 0)
@@ -40,17 +42,26 @@ end
 -- pack grant their advertised amount (GDD 19).
 function EconomyService.AddGameplayGems(player: Player, amount: number)
 	if amount <= 0 then return end
+	local granted = 0
 	local isGranted = DatabaseService.Update(player, function(profile)
 		local scale = if profile.Entitlements.DoubleGems then 2 else 1
-		profile.Gems += math.floor(amount * scale)
+		granted = math.floor(amount * scale)
+		profile.Gems += granted
 		return true
 	end)
+	if not isGranted then return end
 
-	if isGranted then DatabaseService.SaveAsync(player) end
+	runGems[player] = (runGems[player] or 0) + granted
+	DatabaseService.SaveAsync(player)
 end
 
--- A new run: everyone back to zero Gold.
+function EconomyService.GetRunGems(player: Player): number
+	return runGems[player] or 0
+end
+
+-- A new run: everyone back to zero Gold, and nothing earned yet.
 function EconomyService.ResetRun()
+	table.clear(runGems)
 	for player in gold do
 		gold[player] = 0
 		sendGold(player)
@@ -64,6 +75,7 @@ end :: TPlayerEvents.OnPlayerConnected
 
 EconomyService.OnPlayerDisconnected = function(player: Player)
 	gold[player] = nil
+	runGems[player] = nil
 end :: TPlayerEvents.OnPlayerDisconnected
 
 return Ignis.Register(EconomyService)

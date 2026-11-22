@@ -17,6 +17,7 @@ local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.
 local BodyPoseController = require(script.Parent.BodyPoseController)
 local MatchController = require(script.Parent.MatchController)
 local TweensController = require(script.Parent.TweensController)
+local UpgradePickController = require(script.Parent.UpgradePickController)
 local ViewmodelController = require(script.Parent.ViewmodelController)
 local gunFx = require(script.Parent.Parent.Utils.gunFx)
 local gunSlide = require(script.Parent.Parent.Utils.gunSlide)
@@ -26,11 +27,13 @@ local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local ESoundsIds = require(ReplicatedStorage.Types.Enums.Sounds.ESoundsIds)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -141,6 +144,11 @@ WeaponController.Step = 0
 WeaponController.UpgradedAt = -math.huge
 WeaponController.UpgradeAskedAt = -math.huge
 WeaponController.UpgradeDeniedAt = -math.huge
+-- This frame: a gun is in living hands, and the crosshair's ray is on a body (not the assist's pick).
+WeaponController.IsArmed = false
+WeaponController.IsOnEnemy = false
+-- os.clock of the local player's last shot.
+WeaponController.FiredAt = -math.huge
 
 local LocalPlayer = Players.LocalPlayer
 local LADDER = GunsCore.LADDER
@@ -190,6 +198,30 @@ function WeaponController.Upgrade()
 	ClientNetworkWeapons.Upgrade.Fire()
 end
 
+local function getPointer(): Vector2
+	local camera = Workspace.CurrentCamera
+	local center = camera.ViewportSize / 2
+	if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter or not UserInputService.MouseEnabled then
+		return center
+	end
+
+	local mouse = UserInputService:GetMouseLocation()
+	local size = camera.ViewportSize
+	if mouse.X < 0 or mouse.Y < 0 or mouse.X > size.X or mouse.Y > size.Y then return center end
+	return mouse
+end
+
+-- The ray through the crosshair (a free cursor's point, or the screen's centre): where it starts and its unit
+-- direction, from the view before shake and recoil (CameraController.AimCFrame), as the gun's own aim is.
+function WeaponController.PointerRay(): (Vector3, Vector3)
+	local camera = Workspace.CurrentCamera
+	local view = CameraController.AimCFrame
+	local center = camera.ViewportSize * 0.5
+	local focal = center.Y / math.tan(math.rad(camera.FieldOfView) * 0.5)
+	local toPointer = (getPointer() - center) / focal
+	return view.Position, (view.LookVector + view.RightVector * toPointer.X - view.UpVector * toPointer.Y).Unit
+end
+
 -- Gathers the body if it is in front of `origin` along `direction` (or straddles it) within `rangeSq` (a parked body
 -- sits far away and is left out by the range).
 local function addBodyAhead(
@@ -234,19 +266,6 @@ local function castLine(
 	if body > 0 then return origin + unit * distance, nil, body end
 
 	return origin + unit * length, wall, 0
-end
-
-local function getPointer(): Vector2
-	local camera = Workspace.CurrentCamera
-	local center = camera.ViewportSize / 2
-	if UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter or not UserInputService.MouseEnabled then
-		return center
-	end
-
-	local mouse = UserInputService:GetMouseLocation()
-	local size = camera.ViewportSize
-	if mouse.X < 0 or mouse.Y < 0 or mouse.X > size.X or mouse.Y > size.Y then return center end
-	return mouse
 end
 
 -- Keeps the assist's ASSIST_CHECKS lowest scores, best first.
@@ -339,6 +358,7 @@ local function findAim(camera: Camera, pointer: Vector2, gun: TData.TGun, root: 
 	local origin = root.Position + Vector3.yAxis * GunsCore.Tune.EYE_HEIGHT
 	local eye, direction = gatherAim(camera, pointer, origin, gun.Range)
 	local target, _, body = castLine(eye, direction, Tune.AIM_RANGE, 0)
+	WeaponController.IsOnEnemy = body > 0
 	if body > 0 then
 		heldEntity = bodyEntities[body]
 		return target
@@ -422,9 +442,7 @@ local function drawShot(gun: TData.TGun, shooter: Model, from: Vector3, target: 
 	local pierce = gun.Pierce or 0
 	for pellet = 1, pellets do
 		local to, wall, body = castLine(from, pelletDirections[pellet], gun.Range, pierce)
-		local normal = if wall then wall.Normal else nil
-		local surface = if wall and kit then gunFx.SurfaceColor(wall) else nil
-		if kit and gunFx.Shot(kit, from, to, normal, surface, body > 0, isClose) then continue end
+		if kit and gunFx.Shot(kit, from, to, wall, body > 0, isClose) then continue end
 		tracers.Fire(from, to, isClose)
 	end
 end
@@ -446,6 +464,7 @@ end
 local function shoot(gun: TData.TGun, character: Model, tool: Tool, target: Vector3)
 	ClientNetworkWeapons.Fire.Fire(target)
 	shotCount = (shotCount + 1) % 65536
+	WeaponController.FiredAt = os.clock()
 
 	local isClose = ViewmodelController.IsActive
 	local muzzle = ViewmodelController.GetMuzzle() or getMuzzle(tool)
@@ -529,7 +548,9 @@ local function step(dt: number)
 	local root, humanoid = selfRoot, selfHumanoid
 	local isArmed = gun ~= nil and tool ~= nil and root ~= nil and humanoid ~= nil and humanoid.Health > 0
 	BodyPoseController.IsFirstPerson = ViewmodelController.IsActive
+	WeaponController.IsArmed = isArmed
 	if not isArmed then
+		WeaponController.IsOnEnemy = false
 		BodyPoseController.Target = nil
 		ViewmodelController.Target = nil
 		heldEntity = nil
@@ -542,8 +563,11 @@ local function step(dt: number)
 	ViewmodelController.Target = aimPoint
 	faceAim(root :: BasePart, humanoid :: Humanoid, aimPoint, dt)
 
-	if isTriggerDown and now >= nextShotAt then
-		nextShotAt = now + (gun :: TData.TGun).FireInterval
+	-- The server takes no shot from a picker or a stopped match: a trigger held into the pick draws none either.
+	local canShoot = not UpgradePickController.IsPicking and not TimeCore.IsPaused
+	if isTriggerDown and canShoot and now >= nextShotAt then
+		-- The Fire Rate upgrade shortens the interval on both sides (WeaponService).
+		nextShotAt = now + (gun :: TData.TGun).FireInterval / (1 + UpgradePickController.GetStat(EUpgradesIds.FireRate))
 		shoot(gun :: TData.TGun, character :: Model, tool :: Tool, aimPoint)
 	end
 end

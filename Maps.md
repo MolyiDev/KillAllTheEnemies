@@ -26,7 +26,7 @@ below cost a round. Read it before touching `tools/arena/` or building the Hard 
   ring around a player, on a floor that leads to them (`RoundService`).
 - **Invisible means Transparency 1, and only bodies meet it.** Blockers, Caps, trunk boxes, emitter holders
   (`Fuego`, `Luciernagas`), invisible water and the SpawnLocation stop players, but the crosshair, shots, line of
-  sight and every effect's landing pass through them: those rays go through `Shared.Utils.sightCast`, which skips any
+  sight and every effect's landing pass through them: those rays go through `GlobalShared.Utils.sightCast`, which skips any
   part at Transparency 1 (VFX.md §6). So a part meant to stop a bullet must be seen, and a part meant to be hidden
   must be fully transparent: at 0.99 it is a wall nobody sees that still eats shots.
 - **Studio places keep their template Baseplate and SpawnLocation**: delete them in the arena place, or players spawn

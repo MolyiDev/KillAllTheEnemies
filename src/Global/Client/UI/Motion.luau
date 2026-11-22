@@ -1,4 +1,4 @@
--- The HUD's curves (UI.md 5c): a thing that MOVES in arrives on easeOutBack and leaves on easeInBack, a thing that
+-- The UI's curves (UI.md 5c): a thing that MOVES in arrives on easeOutBack and leaves on easeInBack, a thing that
 -- APPEARS eases out with no overshoot, and a panel arrives decelerating and leaves accelerating. Every gesture is
 -- driven by hand from a start time and a length, so it lands ON its number rather than creeping toward it.
 local Motion = {}
@@ -40,6 +40,12 @@ end
 function Motion.Bump(t: number): number
 	if t <= 0 or t >= 1 then return 0 end
 	return math.sin(math.pi * t)
+end
+
+-- A swing that starts at rest, goes out, comes back past the middle and dies as `t` runs 0 to 1.
+function Motion.Swing(t: number): number
+	if t <= 0 or t >= 1 then return 0 end
+	return math.sin(t * math.pi * 3) * (1 - t) * (1 - t)
 end
 
 -- 1 at `at`, falling to 0 over `seconds`: a flash or a punch.

@@ -80,12 +80,13 @@ event TelegraphEnded {
 	data: (u16)
 }
 
--- The round's boss bar, to everybody. (dataId, health, maxHealth); dataId 0 takes the bar away.
+-- The round's boss bar, to everybody, with the two who have taken the most off it. (dataId, health, maxHealth, first's
+-- UserId, first's damage, second's UserId, second's damage); a UserId of 0 is nobody, dataId 0 takes the bar away.
 event BossHealth {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (DataId.Type, f32, f32)
+	data: (DataId.Type, f32, f32, f64, f32, f64, f32)
 }
 
 -- The position stream, one EnemyPacker buffer per player per movement tick, culled to that player's camera.

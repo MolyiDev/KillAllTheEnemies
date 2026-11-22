@@ -1,19 +1,20 @@
 -- A shot's look for a gun whose data names an effect kit (TGun.Fx), toy style: the flash and casing at the muzzle, the
 -- bullet (a Neon bar shedding glowing pixels that taper behind it, the Comet), and where it lands, timed to the bullet's arrival (a flash, a square ring, glowing
--- pixels and a puff of the wall's own colour, and its stud bricks thrown off, bouncing and sinking away). Purely a
--- picture: hits are WeaponService's, and the enemy's own burst comes from its damage events. A kit's look is its
--- templates at ReplicatedStorage.Effects.<kit>, a place instance made by Assets/effects/pistol and Assets/effects/guns
--- (their READMEs); this module clones them and says how many each layer throws (LOOKS). Step is the owner's to call
--- once a frame (WeaponController).
+-- pixels and a puff of the wall's own colour, and its stud bricks thrown off, bouncing and sinking away, with its
+-- material's impact sound). Purely presentation: hits are WeaponService's, and the enemy's own burst comes from its
+-- damage events. A kit's look is its templates at ReplicatedStorage.Effects.<kit>, a place instance made by
+-- Assets/effects/pistol and Assets/effects/guns (their READMEs); this module clones them and says how many each layer
+-- throws (LOOKS). Step is the owner's to call once a frame (WeaponController).
 --
--- Bullets are Client/Utils/motorParts, bricks and casings Client/Utils/thrownPieces: nothing here is simulated by the
+-- Bullets are GlobalClient/Utils/motorParts, bricks and casings GlobalClient/Utils/thrownPieces: nothing here is simulated by the
 -- engine; Step works out where each one is and writes its joint. Multi-part bullets, Orbit parts and streaks are drawn
 -- only by the benches' losing looks (SetBullet, pistolBenchLooks) and go with them.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local motorParts = require(script.Parent.motorParts)
-local thrownPieces = require(script.Parent.thrownPieces)
+local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
+local motorParts = require(script.Parent.Parent.Parent.GlobalClient.Utils.motorParts)
+local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")
 
@@ -27,6 +28,8 @@ local LEAD = 1 / 60
 -- The impact layers that take the hit surface's colour.
 local TINTED = table.freeze({ Puffs = true, Pixels = true })
 local WHITE = Color3.new(1, 1, 1)
+-- A hit that is neither a part nor terrain.
+local DEFAULT_SURFACE = Color3.new(0.7, 0.7, 0.7)
 local ONE = NumberRange.new(1)
 -- What a look that names none throws and where its casing leaves.
 local DEFAULT_DEBRIS = NumberRange.new(3)
@@ -53,6 +56,11 @@ local Tune = table.freeze({
 	BURST_SLOTS = 6,
 	MAX_BURSTS_PER_FRAME = 8,
 	BURST_RANGE = 250,
+	-- A landing on the arena plays Sounds.Impacts.<bag> at the impact point (its Sounds' Min and Max decide how far it
+	-- carries): the bag its material names, else Brick, since every map is built of Plastic bricks.
+	IMPACT_SOUND_GROUP = "Impacts",
+	IMPACT_SOUND = "Brick",
+	IMPACT_SOUNDS = table.freeze({ [Enum.Material.Glass] = "Glass" }),
 	-- Budgets, sized for four players on the fastest guns (four miniguns are 67 shots a second, four shotguns fired
 	-- together 72 pellets): a bullet is one part for ~0.3 s; thrown bricks are capped by count (and
 	-- by distance, and a hit throws fewer of them as the cap fills: thrownPieces.Allowed). Casings have a cap of
@@ -330,8 +338,8 @@ type TFlight = {
 	Length: number,
 	Speed: number,
 	Born: number,
-	Normal: Vector3?,
-	Surface: Color3?,
+	-- What it lands on, read when it gets there (gunFx.Shot's `wall`).
+	Wall: RaycastResult?,
 	IsBody: boolean,
 	HasLanded: boolean,
 	FloorParams: RaycastParams?,
@@ -646,13 +654,6 @@ function gunFx.Muzzle(kitName: string, muzzle: Attachment, isClose: boolean): bo
 	return true
 end
 
--- What a ray hit, as a colour: a part's own, or a terrain material's.
-function gunFx.SurfaceColor(result: RaycastResult): Color3
-	local hit = result.Instance
-	if hit:IsA("Terrain") then return hit:GetMaterialColor(result.Material) end
-	return if hit:IsA("BasePart") then hit.Color else Color3.new(0.7, 0.7, 0.7)
-end
-
 local function newBurst(pool: TBurstPool, kit: TKit): TBurst
 	local copy = pool.Template:Clone()
 	local emitters, least, most, tinted = {}, {}, {}, {}
@@ -715,20 +716,37 @@ local function scatter(
 	end
 end
 
+-- What a ray hit, as a colour: a part's own, or a terrain material's.
+local function surfaceColor(result: RaycastResult): Color3
+	local hit = result.Instance
+	if hit:IsA("Terrain") then return hit:GetMaterialColor(result.Material) end
+	return if hit:IsA("BasePart") then hit.Color else DEFAULT_SURFACE
+end
+
 local function land(flight: TFlight, now: number)
+	local at = flight.From + flight.Unit * flight.Length
+	local wall = flight.Wall
+	-- The sound is not held to the bursts' budget: a frame past its eighth burst still hears its misses, and
+	-- SoundsCore merges the ones on one frame.
+	if wall then
+		local sound = Tune.IMPACT_SOUNDS[wall.Material] or Tune.IMPACT_SOUND
+		SoundsCore.PlayWorldRandom(Tune.IMPACT_SOUND_GROUP, sound, at)
+	end
+
 	if burstsThisFrame >= Tune.MAX_BURSTS_PER_FRAME then return end
 	local kit = flight.Kit
-	local pool = if flight.IsBody then kit.Hit else kit.Impact
-	local out = if flight.IsBody then -flight.Unit else flight.Normal
+	local isBody = flight.IsBody
+	local pool = if isBody then kit.Hit else kit.Impact
+	local out = if isBody then -flight.Unit elseif wall then wall.Normal else nil
 	if not pool or not out then return end
-	local at = flight.From + flight.Unit * flight.Length
 	local distance = distanceFromCamera(at)
 	if distance > Tune.BURST_RANGE then return end
 
 	burstsThisFrame += 1
 	local burst = takeBurst(pool, kit)
 	burst.Attachment.CFrame = facing(at, out)
-	local surface = flight.Surface
+	-- Read here, not when fired: only a burst that draws needs the wall's colour.
+	local surface = if wall then surfaceColor(wall) else nil
 	if surface then
 		local tint = tintOf(surface)
 		for _, emitter in burst.Tinted do
@@ -737,7 +755,7 @@ local function land(flight: TFlight, now: number)
 	end
 	emit(burst.Emitters, burst.Least, burst.Most)
 	if distance <= Tune.IMPACT_LIGHT_NEAR then flashLight(burst.Light, Tune.IMPACT_LIGHT_BRIGHTNESS, now) end
-	if flight.IsBody or not surface then return end
+	if not surface then return end
 
 	local wanted = random:NextInteger(kit.BricksLeast, kit.BricksMost)
 	local count = thrownPieces.Allowed(pieces, wanted, distance)
@@ -765,15 +783,14 @@ local function takeMovers(shape: TBullet): { motorParts.TMover }?
 	return movers
 end
 
--- One bullet from `from` to `to`: its parts and streak, and when it gets there, an impact on a surface with `normal`
--- (and `surface`'s colour), a burst on a body, or nothing at the end of its range. False when the kit's templates are
--- not in the place.
+-- One bullet from `from` to `to`: its parts and streak, and when it gets there, an impact on `wall` (the ray's result
+-- on the arena; nil when it ends on a body or at the end of its range), a burst on a body, or nothing. False when the
+-- kit's templates are not in the place.
 function gunFx.Shot(
 	kitName: string,
 	from: Vector3,
 	to: Vector3,
-	normal: Vector3?,
-	surface: Color3?,
+	wall: RaycastResult?,
 	isBody: boolean,
 	isClose: boolean
 ): boolean
@@ -806,8 +823,7 @@ function gunFx.Shot(
 		Length = length,
 		Speed = random:NextNumber(kit.SpeedLeast, kit.SpeedMost),
 		Born = os.clock() - LEAD,
-		Normal = normal,
-		Surface = surface,
+		Wall = wall,
 		IsBody = isBody,
 		HasLanded = false,
 		FloorParams = gunFx.FloorParams,

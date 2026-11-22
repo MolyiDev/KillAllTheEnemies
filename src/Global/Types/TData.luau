@@ -189,4 +189,71 @@ export type TGun = {
 	Shake: number?,
 }
 
+-- ============================== Classes ==============================
+
+-- What an ability does, which picks the code that casts it (AbilityService) and draws it (AbilityController).
+--   Decoy          a doll thrown to a spot: every enemy within Radius of it goes for it until it pops, and the pop
+--                  blasts what is round it.
+--   FoamCannon     a cone of foam: what it catches is held where it stands and takes more damage.
+--   OrbitalCannon  a beam from the sky, called on a spot, then going after a boss or the thickest crowd on its own.
+export type TAbilityKind = "Decoy" | "FoamCannon" | "OrbitalCannon"
+
+export type TAbility = {
+	Kind: TAbilityKind,
+	Name: string,
+	-- Run Gold each cast costs. An ultimate has none: it is paid for in kills (ChargeKills).
+	Cost: number?,
+	-- Seconds between two casts. An ultimate has none: it fills from kills (ChargeKills).
+	Cooldown: number?,
+	ChargeKills: number?,
+	-- How far from the caster it reaches (flat studs): the throw, the cone's length, the beam's leash.
+	Range: number,
+	-- Decoy: how far it draws enemies from. OrbitalCannon: the beam's reach round its middle.
+	Radius: number,
+	-- Seconds it lasts once it is out: the doll standing, the foam set, the beam burning.
+	Duration: number,
+
+	-- Decoy: the blows it takes before it pops, and how long it is in the air.
+	Blows: number?,
+	FlightSeconds: number?,
+	-- Decoy: the pop's blow on every body within BlastRadius of it (flat studs).
+	Damage: number?,
+	BlastRadius: number?,
+
+	-- FoamCannon: the cone's full width, and what a foamed body's damage is multiplied by.
+	AngleDeg: number?,
+	DamageTaken: number?,
+
+	-- OrbitalCannon: seconds the mark shows before the beam lands, how fast the beam moves (studs a second),
+	-- seconds between its blows, and the share of a boss's max health each blow takes (anything else it overkills).
+	TargetSeconds: number?,
+	Speed: number?,
+	TickSeconds: number?,
+	BossShare: number?,
+}
+
+-- Two abilities and an ultimate (PlanAbilities.md). A slot is an index into Abilities, the ultimate the one after.
+export type TClass = {
+	Id: number,
+	Name: string,
+	Abilities: { TAbility },
+	Ultimate: TAbility,
+}
+
+-- A run upgrade, picked one of three after a cleared wave (UpgradesService). It lasts the run and is never saved.
+export type TUpgrade = {
+	Id: number,
+	Name: string,
+	-- Its picture: a cell of the HUD's icon atlas (GlobalClient.UI.Icons).
+	Icon: string,
+	-- What one Common pick adds to the stat; a rarer card adds UpgradesCore.MULTIPLIERS times it.
+	Value: number,
+	-- How many times it can be picked in a run.
+	MaxLevel: number,
+	-- The card's line, with %d where the card's own amount goes (Value times its rarity, times PercentScale).
+	Description: string,
+	-- 100 where the stat is a share shown as a percentage, 1 where it is shown as it is.
+	PercentScale: number,
+}
+
 return nil

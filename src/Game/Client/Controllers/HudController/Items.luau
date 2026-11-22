@@ -7,7 +7,9 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local Motion = require(script.Parent.Motion)
+local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
+local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -39,6 +41,10 @@ local SHEEN_SECONDS = 0.7
 -- The move out to the spot: a little past and back, the one flourish here.
 local PROMPT_SPRING = 0.42
 local PROMPT_DAMPING = 0.68
+-- Under the hand: how far the brackets stand off and open, and how much the glyph grows with the card's rise.
+local BRACKETS = 8
+local BRACKETS_OPEN = 4
+local GLYPH_RISE = 0.12
 
 local Items = {}
 
@@ -49,12 +55,11 @@ type TItem = {
 	Home: Vector2,
 	IsPrompted: () -> boolean,
 	Count: () -> number,
-	Buy: () -> (),
+	ProductId: number,
 }
 
-local function card(state: Types.THudState, item: TItem): TextButton
-	local isHovered = vide.source(false)
-	local isPressed = vide.source(false)
+local function card(state: Types.THudState, actions: Types.TActions, item: TItem): TextButton
+	local hand = Hand.React("Take")
 	local emphasis, configure = spring(function()
 		return if item.IsPrompted() then 1 else 0
 	end, PROMPT_SPRING, PROMPT_DAMPING)
@@ -65,11 +70,6 @@ local function card(state: Types.THudState, item: TItem): TextButton
 			configure({ position = emphasis() })
 		end)
 	end)
-
-	local press = spring(function()
-		if isPressed() then return 0.93 end
-		return if isHovered() then 1.05 else 1
-	end, 0.17, 0.82)
 
 	local wave = function(): number
 		local e = emphasis()
@@ -94,23 +94,14 @@ local function card(state: Types.THudState, item: TItem): TextButton
 		ZIndex = function()
 			return if emphasis() > 0.05 then 3 else 1
 		end,
-		Activated = item.Buy,
-		MouseEnter = function()
-			isHovered(true)
+		Activated = function()
+			hand.Commit()
+			actions.BuyProduct(item.ProductId)
 		end,
-		MouseLeave = function()
-			isHovered(false)
-			isPressed(false)
-		end,
-		MouseButton1Down = function()
-			isPressed(true)
-		end,
-		MouseButton1Up = function()
-			isPressed(false)
-		end,
+		hand.Events,
 		create("UIScale")({
 			Scale = function()
-				return (1 + (GROWN - 1) * emphasis() + BREATH * wave()) * press()
+				return (1 + (GROWN - 1) * emphasis() + BREATH * wave()) * hand.Scale()
 			end,
 		}),
 		Components.Card({
@@ -119,12 +110,18 @@ local function card(state: Types.THudState, item: TItem): TextButton
 			Marks = true,
 			GlowTransparency = function()
 				local e = math.clamp(emphasis(), 0, 1)
-				return 0.7 - 0.4 * e - 0.12 * wave()
+				return 0.7 - math.max(0.4 * e + 0.12 * wave(), 0.4 * hand.Light())
 			end,
-			Brackets = 8,
+			Brackets = function()
+				return BRACKETS + BRACKETS_OPEN * hand.Rise()
+			end,
+			BracketTransparency = function()
+				return 0.65 - 0.35 * hand.Light()
+			end,
 		}, {
 			Name = "Face",
 			Size = UDim2.fromScale(1, 1),
+			Hand.WashLayer(hand, 4, 3),
 		}),
 		-- The light running across a card that is asking, cut at the card's edges (the face's brackets stand outside
 		-- it, so the face itself cannot clip).
@@ -134,9 +131,12 @@ local function card(state: Types.THudState, item: TItem): TextButton
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
 			ZIndex = 3,
-			Components.Sheen(function()
-				return if emphasis() > 0.5 then sheenAt() else 0
-			end, 3),
+			Components.Sheen(
+				Hand.Sheen(hand, function()
+					return if emphasis() > 0.5 then sheenAt() else 0
+				end),
+				3
+			),
 		}),
 		Components.Icon(item.Name, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -146,7 +146,7 @@ local function card(state: Types.THudState, item: TItem): TextButton
 			ZIndex = 2,
 			create("UIScale")({
 				Scale = function()
-					return 1 + 0.06 * wave()
+					return 1 + 0.06 * wave() + GLYPH_RISE * hand.Rise()
 				end,
 			}),
 		}),
@@ -191,7 +191,7 @@ local function card(state: Types.THudState, item: TItem): TextButton
 	}) :: TextButton
 end
 
--- Nothing holds a stock of either item yet (their products are not made), so both badges read 0.
+-- A buy is used at once, so nothing holds a stock of either item: both badges read 0.
 local function noCount(): number
 	return 0
 end
@@ -206,23 +206,23 @@ function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
 			local phase = state.Phase()
 			return phase == "Preparing" or phase == "Fighting"
 		end,
-		card(state, {
+		card(state, actions, {
 			Name = "HealAll",
 			Label = "HEAL ALL",
 			Accent = Palette.Green,
 			Home = CARD / 2,
 			IsPrompted = state.IsHealPrompted,
 			Count = noCount,
-			Buy = actions.BuyHealAll,
+			ProductId = EProducts.HealAll,
 		}),
-		card(state, {
+		card(state, actions, {
 			Name = "NukeAll",
 			Label = "NUKE ALL",
 			Accent = Palette.Gold,
 			Home = Vector2.new(CARD.X * 1.5 + GAP, CARD.Y / 2),
 			IsPrompted = state.IsNukePrompted,
 			Count = noCount,
-			Buy = actions.BuyNukeAll,
+			ProductId = EProducts.NukeAll,
 		}),
 	})
 end

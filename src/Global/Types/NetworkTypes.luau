@@ -152,6 +152,11 @@ export type Client_Characters_CharacterInstanceId_Type = number
 export type Client_Defenses_DataId_Type = number
 export type Client_Defenses_Vec_Type = Vector3
 export type Client_Weapons_Vec_Type = Vector3
+export type Client_Abilities_Vec_Type = Vector3
+export type Server_Game_DataId_Type = number
+export type Server_Game_Player_Type = Player
+export type Server_Game_Vec_Type = Vector3
+export type Server_Game_Results = { Wave: number, IsNewBest: boolean, SquadKills: number, SecondsSurvived: number, Gems: number, DoubleProductId: number, ReviveProductId: number, ReturnSeconds: number }
 export type Server_Characters_CharacterInstanceId_Type = number
 export type Server_Characters_Player_Type = Player
 export type Server_Enemies_CharacterInstanceId_Type = number
@@ -168,6 +173,14 @@ export type Server_Weapons_CharacterInstanceId_Type = number
 export type Server_Weapons_DataId_Type = number
 export type Server_Weapons_Vec_Type = Vector3
 export type Server_Weapons_Aim = { Character: number, Pitch: number, Yaw: number }
+export type Server_Abilities_CharacterInstanceId_Type = number
+export type Server_Abilities_EnemyInstanceId_Type = number
+export type Server_Abilities_DataId_Type = number
+export type Server_Abilities_Vec_Type = Vector3
+export type Server_Upgrades_DataId_Type = number
+export type Server_Upgrades_Player_Type = Player
+export type Server_Upgrades_Card = { Id: number, Level: number, Rarity: number }
+export type Server_Upgrades_Hand = { Cards: { { Id: number, Level: number, Rarity: number } }, Round: number, RerollPrice: number, Seconds: number, IsReroll: boolean }
 
 
 
@@ -193,9 +206,21 @@ return {
 			Vec = {
 			},
 		},
+		Abilities = {
+			Vec = {
+			},
+		},
+		Upgrades = {
+		},
 	},
 	Server = {
 		Game = {
+			DataId = {
+			},
+			Player = {
+			},
+			Vec = {
+			},
 		},
 		Rounds = {
 		},
@@ -235,6 +260,22 @@ return {
 			DataId = {
 			},
 			Vec = {
+			},
+		},
+		Abilities = {
+			CharacterInstanceId = {
+			},
+			EnemyInstanceId = {
+			},
+			DataId = {
+			},
+			Vec = {
+			},
+		},
+		Upgrades = {
+			DataId = {
+			},
+			Player = {
 			},
 		},
 	},

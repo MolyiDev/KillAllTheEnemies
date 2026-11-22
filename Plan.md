@@ -75,8 +75,8 @@ to `research/OldGame` / `research/OldLobby` (CLAUDE.md, Tooling) and reviewed on
 what is unsafe (file:line), a port plan onto this architecture and the assets it uses. The headlines:
 
 - **Guns ported 2026-11-20** (Review-Combat 4.6 steps 1, 2 and 4: data, server fire, tracers, recoil, arms aiming, first person). Still to do from it: lag rewind (a fixed pad today), the loadout and swapping, ammo if wanted, the upgrade cards, classes. **Combat's fire flow is the model**: the client sends intent (direction, time),
-  the server re-casts every pellet, rewinds enemy positions to what the client saw, decides damage and headshots
-  (x1.5) and batches it. Fix on the way: the 8-stud client muzzle (shoots through thin walls), the client-chosen
+  the server re-casts every pellet, rewinds enemy positions to what the client saw, decides damage and batches
+  it. Fix on the way: the 8-stud client muzzle (shoots through thin walls), the client-chosen
   spread seed, the client's ADS flag, client-side dashes. 20 guns, 9 classes / 36 abilities, 12 upgrade cards; ammo
   and reload exist but are switched off, every gun is automatic, the free Starter SMG out-damages every Common and
   Rare. Order: Review-Combat 4.6 (one pistol against the crowd first, then prediction / tracers / recoil, lag
@@ -101,9 +101,7 @@ what is unsafe (file:line), a port plan onto this architecture and the assets it
 2. **Class roster**: Survive a Million Monkeys' 7 or the old place's 9 (Review-Combat 1.2, Review-Lobby 1.3).
 3. **In-run upgrades**: Gold spent in a shop (the HUD's buyable upgrades), the old bar-fill pick 1 of 3 (UIMatt's
    Upgrade Selection after a wave), or both.
-4. **Headshots** under the one-`DamageMultiple`-per-volley rule: two calls per volley (body and head figures), or a
-   per-body amount.
-5. **Gun models**: several look like CS:GO skins; check where they came from before uploading them again.
+4. **Gun models**: several look like CS:GO skins; check where they came from before uploading them again.
 
 ### Maps
 

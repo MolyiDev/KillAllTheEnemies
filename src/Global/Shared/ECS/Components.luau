@@ -42,6 +42,8 @@ local Components = {
 	Data = jecs.component() :: jecs.Id<TData.TEnemy>,
 	-- Seconds of spawn immunity left. Removed when it runs out, so the immune set is its own small archetype.
 	Immunity = jecs.component() :: jecs.Id<number>,
+	-- What every blow on the body is multiplied by while it is set in foam (AbilityService). Removed when it ends.
+	Brittle = jecs.component() :: jecs.Id<number>,
 
 	-- Enemy, client
 	CFrame = jecs.component() :: jecs.Id<CFrame>,

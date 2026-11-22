@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
@@ -14,7 +15,6 @@ local Bar = require(script.Parent.Bar)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
-local source = vide.source
 local spring = vide.spring
 local Color = Theme.Color
 local Font = Theme.Font
@@ -55,6 +55,11 @@ local function eased(color: () -> Color3): () -> Color3
 	return animated
 end
 
+-- What the hand lays over a button's face, under its words: the white it washes over it and its glint.
+local function handLayers(hand: Hand.TReaction): { Frame }
+	return { Hand.WashLayer(hand, 0), Components.Sheen(hand.Glint, 0) }
+end
+
 -- A line between two parts of the panel, in the panel's edge colour.
 local function line(props: { [any]: any }): Frame
 	return create("Frame")({
@@ -85,14 +90,16 @@ local function tile(props: {
 	IsLocked: (() -> boolean)?,
 	Pick: () -> (),
 }): TextButton
-	local isHovered = source(false)
 	local isTileLocked = props.IsLocked or function()
 		return false
 	end
+	local hand = Hand.React("Operate", function()
+		return not isTileLocked()
+	end)
 	local fill = eased(function()
 		if isTileLocked() then return Color.Locked end
 		if props.IsPicked() then return props.Color end
-		return if isHovered() then Color.Edge else Color.Surface
+		return if hand.IsHovered() then Color.Edge else Color.Surface
 	end)
 
 	return Components.Button({
@@ -101,14 +108,11 @@ local function tile(props: {
 		BackgroundColor3 = fill,
 		Activated = function()
 			if isTileLocked() then return end
+			hand.Commit()
 			props.Pick()
 		end,
-		MouseEnter = function()
-			isHovered(true)
-		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
+		hand.Events,
+		handLayers(hand),
 		Components.Edge(eased(function()
 			if props.IsPicked() and not isTileLocked() then return props.Color:Lerp(Color.Text, 0.45) end
 			return Color.Edge
@@ -164,7 +168,8 @@ local function initials(name: string): string
 end
 
 local function header(actions: Types.TLobbyActions): Frame
-	local isHovered = source(false)
+	local hand = Hand.React("Operate")
+	local isHovered = hand.IsHovered
 	return create("Frame")({
 		Size = UDim2.new(1, 0, 0, HEADER_HEIGHT),
 		BackgroundTransparency = 1,
@@ -176,19 +181,20 @@ local function header(actions: Types.TLobbyActions): Frame
 		}),
 		Components.Button({
 			Name = "Close",
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -12, 0.5, 0),
+			-- Placed by its middle, so it grows from there.
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -12 - 22, 0.5, 0),
 			Size = UDim2.fromOffset(44, 44),
 			BackgroundColor3 = eased(function()
 				return if isHovered() then Color.Boss else Color.Ink
 			end),
-			Activated = actions.Leave,
-			MouseEnter = function()
-				isHovered(true)
+			Activated = function()
+				hand.Commit()
+				actions.Leave()
 			end,
-			MouseLeave = function()
-				isHovered(false)
-			end,
+			hand.Events,
+			create("UIScale")({ Scale = hand.Scale }),
+			handLayers(hand),
 			Components.Edge(Color.Boss),
 			Text({
 				Size = UDim2.fromScale(1, 1),
@@ -206,7 +212,9 @@ end
 
 local function mapRow(state: Types.TLobbyState, actions: Types.TLobbyActions, index: number): TextButton
 	local map = MapsCore.LIST[index]
-	local isHovered = source(false)
+	local hand = Hand.React("Operate", function()
+		return not isLocked(state, map)
+	end)
 	local function isPicked(): boolean
 		return state.PickMap() == index
 	end
@@ -216,18 +224,15 @@ local function mapRow(state: Types.TLobbyState, actions: Types.TLobbyActions, in
 		LayoutOrder = index,
 		Size = UDim2.new(1, 0, 0, MAP_ROW_HEIGHT),
 		BackgroundColor3 = eased(function()
-			return if isPicked() or isHovered() then Color.Surface else Color.Ink
+			return if isPicked() or hand.IsHovered() then Color.Surface else Color.Ink
 		end),
 		Activated = function()
 			if isLocked(state, map) then return end
+			hand.Commit()
 			actions.PickMap(index)
 		end,
-		MouseEnter = function()
-			isHovered(true)
-		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
+		hand.Events,
+		handLayers(hand),
 		-- The picked row's accent bar.
 		create("Frame")({
 			Size = UDim2.new(0, 6, 1, 0),
@@ -535,10 +540,10 @@ local function accessHalf(state: Types.TLobbyState): Frame
 end
 
 local function footer(state: Types.TLobbyState, actions: Types.TLobbyActions): Frame
-	local isHovered = source(false)
 	local function canCreate(): boolean
 		return not isLocked(state, pickedMap(state))
 	end
+	local hand = Hand.React("Operate", canCreate)
 
 	return create("Frame")({
 		AnchorPoint = Vector2.new(0, 1),
@@ -568,20 +573,21 @@ local function footer(state: Types.TLobbyState, actions: Types.TLobbyActions): F
 		}),
 		Components.Button({
 			Name = "Create",
-			AnchorPoint = Vector2.new(1, 1),
-			Position = UDim2.fromScale(1, 1),
+			-- Placed by its middle, so it grows from there.
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -CREATE_WIDTH / 2, 1, -(FOOTER_HEIGHT - LINE) / 2),
 			Size = UDim2.new(0, CREATE_WIDTH, 1, -LINE),
 			BackgroundColor3 = eased(function()
 				if not canCreate() then return Color.Locked end
-				return if isHovered() then Color.ActionEdge else Color.Action
+				return if hand.IsHovered() then Color.ActionEdge else Color.Action
 			end),
-			Activated = actions.StartParty,
-			MouseEnter = function()
-				isHovered(true)
+			Activated = function()
+				hand.Commit()
+				actions.StartParty()
 			end,
-			MouseLeave = function()
-				isHovered(false)
-			end,
+			hand.Events,
+			create("UIScale")({ Scale = hand.Scale }),
+			handLayers(hand),
 			Text({
 				Size = UDim2.fromScale(1, 1),
 				FontFace = Font.Mono,

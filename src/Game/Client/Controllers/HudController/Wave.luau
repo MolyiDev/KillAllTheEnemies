@@ -1,6 +1,6 @@
 --!nonstrict
--- The top of the screen (UIMatt.md, In-Game HUD): the wave plate in the middle with the boss strip under it, and SKIP
--- WAVE with its vote count and auto-skip on the right. Every rect is the designer's drawn one, at 1080.
+-- The top of the screen (UIMatt.md, In-Game HUD): the wave plate in the middle with the boss strip under it (BossBar),
+-- and SKIP WAVE with its vote count and auto-skip on the right. Every rect is the designer's drawn one, at 1080.
 --
 -- One plate carries the whole round. While a wave is fought it reads WAVE n and the boss strip hangs under it; when the
 -- wave is cleared the title lifts out, the plate takes his NEXT WAVE IN plate's shape and words, the strip slides back
@@ -9,10 +9,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
-local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local Motion = require(script.Parent.Motion)
+local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local BossBar = require(script.Parent.BossBar)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -37,22 +38,6 @@ local Layout = table.freeze({
 	COUNT = 98,
 	COUNT_GAP = 15,
 	COUNT_TEXT = 67,
-	-- The boss strip, its top 12 under the plate's bottom.
-	BOSS = Vector2.new(460, 76),
-	BOSS_TOP = 116,
-	PORTRAIT = Vector2.new(11, 9),
-	PORTRAIT_SIZE = 55,
-	CROWN = 41,
-	TAG = Vector2.new(82, 12),
-	TAG_SIZE = Vector2.new(101, 24),
-	TAG_TEXT = 12,
-	TAG_PAD = 14,
-	NAME = Vector2.new(190, 10),
-	NAME_SIZE = 26,
-	BAR = Vector2.new(82, 50),
-	BAR_SIZE = Vector2.new(354, 10),
-	BAR_SEGMENTS = 4,
-	BAR_GAP = 7,
 	-- The skip block, x from the screen's right edge to each piece's left.
 	SKIP = Vector2.new(545, 15),
 	SKIP_SIZE = Vector2.new(302, 74),
@@ -76,7 +61,8 @@ local Layout = table.freeze({
 local TRACK_EDGE = Color3.fromRGB(110, 90, 180)
 local TRACK_FACE = Color3.fromRGB(34, 28, 62)
 local KNOB = Color3.fromRGB(152, 150, 172)
-local SEGMENT = Color3.fromRGB(49, 44, 66)
+-- How far the knob leans toward the other side under the hand, as a share of its travel.
+local KNOB_LEAN = 0.14
 
 -- Seconds, each gesture timed from the phase change that starts it.
 local Timing = table.freeze({
@@ -92,9 +78,6 @@ local Timing = table.freeze({
 	FLASH = 0.5,
 	-- A shockwave's life.
 	RING = 0.45,
-	BOSS_OUT = 0.24,
-	BOSS_IN = 0.46,
-	BOSS_IN_DELAY = 0.22,
 	TICK = 0.34,
 	SHEEN = 0.7,
 	PUNCH = 0.3,
@@ -105,8 +88,9 @@ local HOT_SECONDS = 3
 -- How far a shockwave grows past its element, in px.
 local RING_REACH = 20
 local COUNT_RING_REACH = 24
-local HOVER_SPRING = 0.17
-local HOVER_DAMPING = 0.82
+-- SKIP WAVE's brackets stand off it this far, and open this much more under the hand.
+local SKIP_BRACKETS = 5
+local SKIP_BRACKETS_OPEN = 3
 
 local Wave = {}
 
@@ -422,192 +406,13 @@ local function plate(state: Types.THudState): { Instance }
 	return { plateFrame, countdown }
 end
 
--- ============================== The boss strip ==============================
-
--- His bar: four segments sharing one pink fill, `share` of the way along, with a white `trail` behind it.
-local function bar(share: () -> number, trail: () -> number): Frame
-	local count = Layout.BAR_SEGMENTS
-	local segments = table.create(count)
-	for index = 1, count do
-		local function part(value: number): number
-			return math.clamp(value * count - (index - 1), 0, 1)
-		end
-
-		segments[index] = create("Frame")({
-			LayoutOrder = index,
-			Size = UDim2.new(1 / count, -math.round(Layout.BAR_GAP * (count - 1) / count), 1, 0),
-			BackgroundColor3 = SEGMENT,
-			BorderSizePixel = 0,
-			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			create("Frame")({
-				Name = "Trail",
-				Size = function()
-					return UDim2.fromScale(part(trail()), 1)
-				end,
-				BackgroundColor3 = Palette.White,
-				BorderSizePixel = 0,
-				BackgroundTransparency = function()
-					return if part(trail()) > 0 then 0 else 1
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			}),
-			create("Frame")({
-				Name = "Fill",
-				Size = function()
-					return UDim2.fromScale(part(share()), 1)
-				end,
-				BackgroundColor3 = Palette.Pink,
-				BorderSizePixel = 0,
-				BackgroundTransparency = function()
-					return if part(share()) > 0 then 0 else 1
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			}),
-		})
-	end
-
-	return create("Frame")({
-		Name = "Bar",
-		Position = UDim2.fromOffset(Layout.BAR.X, Layout.BAR.Y),
-		Size = UDim2.fromOffset(Layout.BAR_SIZE.X, Layout.BAR_SIZE.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-		create("UIListLayout")({
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, Layout.BAR_GAP),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-		segments,
-	})
-end
-
-local function bossStrip(state: Types.THudState): Frame
-	local phase = state.Phase
-	local isBossUp = derive(function()
-		return state.BossName() ~= ""
-	end)
-
-	local name = function()
-		return if isBossUp() then state.BossName() else state.NextBossName()
-	end
-
-	local health = function()
-		local maxHealth = state.BossMaxHealth()
-		return if maxHealth > 0 then math.clamp(state.BossHealth() / maxHealth, 0, 1) else 0
-	end
-
-	-- What was just lost, draining after the fill so a hit reads as a bite.
-	local trail = spring(health, 0.6, 1)
-
-	-- With no boss up, the bar is the way to the next one: the waves of its cycle already cleared.
-	local share = function(): number
-		if isBossUp() then return health() end
-		return ((state.Round() - 1) % RoundCore.BOSS_EVERY) / RoundCore.BOSS_EVERY
-	end
-
-	-- 1 hanging under the plate, 0 tucked up behind it.
-	local shown = function(): number
-		local now, at = state.Now(), state.PhaseAt()
-		local current = phase()
-		if current == "Fighting" then
-			if state.PreviousPhase() == "Fighting" then return 1 end
-			return Motion.OutBack(Progress(now, at, Timing.BOSS_IN, Timing.BOSS_IN_DELAY))
-		end
-		if current == "Preparing" and state.PreviousPhase() == "Fighting" then
-			return 1 - Motion.InBack(Progress(now, at, Timing.BOSS_OUT))
-		end
-		return 0
-	end
-
-	-- A window from the plate's bottom down, so the strip comes out from behind the plate.
-	local windowTop = Layout.TOP + Layout.PLATE.Y - 4
-	local hidden = -(Layout.BOSS.Y + 10)
-	local resting = Layout.BOSS_TOP - windowTop
-	return create("Frame")({
-		Name = "BossWindow",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, windowTop),
-		Size = UDim2.fromOffset(Layout.BOSS.X + 60, resting + Layout.BOSS.Y + 30),
-		BackgroundTransparency = 1,
-		ClipsDescendants = true,
-		ZIndex = 2,
-		Visible = function()
-			return shown() > 0.001 and name() ~= ""
-		end,
-		Panel({ Brackets = 6 }, {
-			Name = "Boss",
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = function()
-				return UDim2.new(0.5, 0, 0, math.round(Lerp(hidden, resting, shown())))
-			end,
-			Size = UDim2.fromOffset(Layout.BOSS.X, Layout.BOSS.Y),
-
-			Components.Card({ Accent = Palette.Pink, Tint = 0.3, GlowTransparency = 0.7 }, {
-				Name = "Portrait",
-				Position = UDim2.fromOffset(Layout.PORTRAIT.X, Layout.PORTRAIT.Y),
-				Size = UDim2.fromOffset(Layout.PORTRAIT_SIZE, Layout.PORTRAIT_SIZE),
-				ZIndex = 2,
-				Components.Brackets(7, nil, 21),
-				Components.Icon("Boss", {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5),
-					Size = Components.GlyphBox(Layout.CROWN),
-					ImageColor3 = Palette.Pink,
-					ZIndex = 2,
-				}),
-			}),
-			create("Frame")({
-				Name = "Tag",
-				Position = UDim2.fromOffset(Layout.TAG.X, Layout.TAG.Y),
-				Size = UDim2.fromOffset(Layout.TAG_SIZE.X, Layout.TAG_SIZE.Y),
-				BackgroundColor3 = Palette.Pink,
-				BorderSizePixel = 0,
-				ZIndex = 2,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-				label({
-					Position = UDim2.fromOffset(Layout.TAG_PAD, 0),
-					Size = UDim2.new(1, -Layout.TAG_PAD, 1, 0),
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextSize = Layout.TAG_TEXT,
-					Text = function()
-						return if isBossUp() then "BOSS" else "NEXT BOSS"
-					end,
-				}),
-			}),
-			label({
-				Name = "Name",
-				Position = UDim2.fromOffset(Layout.NAME.X, Layout.NAME.Y),
-				Size = UDim2.fromOffset(Layout.BOSS.X - Layout.NAME.X - 12, Layout.NAME_SIZE),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				TextYAlignment = Enum.TextYAlignment.Top,
-				TextSize = Layout.NAME_SIZE,
-				TextTruncate = Enum.TextTruncate.AtEnd,
-				ZIndex = 2,
-				Text = function()
-					return string.upper(name())
-				end,
-			}),
-			-- A boss's bar shows the bite it just took in white behind the fill.
-			bar(share, function()
-				return if isBossUp() then math.max(trail(), health()) else 0
-			end),
-		}),
-	})
-end
-
 -- ============================== Skip ==============================
 
 -- His SKIP WAVE slab. It is grey and filling while it cools down (through the countdown and the wave's opening seconds)
 -- and turns green, with a punch and a sweep of light, when the vote opens.
 local function skipButton(state: Types.THudState, actions: Types.TActions): TextButton
 	local isLive = state.CanSkip
-
-	local isHovered = vide.source(false)
-	local isPressed = vide.source(false)
-	local hover = spring(function()
-		if isPressed() then return 0.95 end
-		return if isHovered() and isLive() then 1.035 else 1
-	end, HOVER_SPRING, HOVER_DAMPING)
+	local hand = Hand.React("Operate", isLive)
 
 	local punch = function()
 		local k = Motion.Fade(state.Now(), state.SkipOpenedAt(), Timing.PUNCH)
@@ -627,23 +432,15 @@ local function skipButton(state: Types.THudState, actions: Types.TActions): Text
 		AutoButtonColor = false,
 		Text = "",
 		ZIndex = 2,
-		Activated = actions.VoteStart,
-		MouseEnter = function()
-			isHovered(true)
+		Activated = function()
+			hand.Commit()
+			actions.VoteStart()
 		end,
-		MouseLeave = function()
-			isHovered(false)
-			isPressed(false)
-		end,
-		MouseButton1Down = function()
-			isPressed(true)
-		end,
-		MouseButton1Up = function()
-			isPressed(false)
-		end,
+		hand.Events,
+		Components.ButtonSounds,
 		create("UIScale")({
 			Scale = function()
-				return hover() + punch()
+				return hand.Scale() + punch()
 			end,
 		}),
 		Components.Slab({
@@ -653,9 +450,11 @@ local function skipButton(state: Types.THudState, actions: Types.TActions): Text
 			Marks = true,
 			GlowTransparency = function()
 				if not isLive() then return 1 end
-				return if isHovered() then 0.45 else 0.6
+				return 0.6 - 0.3 * hand.Light()
 			end,
-			Brackets = 5,
+			Brackets = function()
+				return SKIP_BRACKETS + SKIP_BRACKETS_OPEN * hand.Rise()
+			end,
 		}, {
 			Name = "Face",
 			Size = UDim2.fromScale(1, 1),
@@ -678,21 +477,13 @@ local function skipButton(state: Types.THudState, actions: Types.TActions): Text
 					end,
 				}),
 			}),
-			-- Lighter under the hand.
-			create("Frame")({
-				Name = "Hover",
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Palette.White,
-				BorderSizePixel = 0,
-				ZIndex = 3,
-				BackgroundTransparency = function()
-					return if isHovered() and isLive() then 0.88 else 1
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
-			}),
-			Components.Sheen(function()
-				return Progress(state.Now(), state.SkipOpenedAt(), Timing.SHEEN)
-			end, 4),
+			Hand.WashLayer(hand, 3, 4),
+			Components.Sheen(
+				Hand.Sheen(hand, function()
+					return Progress(state.Now(), state.SkipOpenedAt(), Timing.SHEEN)
+				end),
+				4
+			),
 		}),
 		create("Frame")({
 			Name = "Content",
@@ -758,30 +549,47 @@ end
 
 local function autoSkip(state: Types.THudState, actions: Types.TActions): TextButton
 	local isOn = state.IsAutoSkip
-	local isHovered = vide.source(false)
+	local hand = Hand.React("Operate")
 	local knob = spring(function()
 		return if isOn() then 1 else 0
 	end, 0.2, 0.72)
+	-- Under the hand the knob leans toward the side a click would send it.
+	local lean = function(): number
+		return (if isOn() then -KNOB_LEAN else KNOB_LEAN) * hand.Rise()
+	end
 
+	-- Placed by its middle, so it grows from there.
 	return create("TextButton")({
 		Name = "AutoSkip",
-		Position = UDim2.new(1, -Layout.AUTO.X, 0, Layout.AUTO.Y),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -Layout.AUTO.X + Layout.AUTO_SIZE.X / 2, 0, Layout.AUTO.Y + Layout.AUTO_SIZE.Y / 2),
 		Size = UDim2.fromOffset(Layout.AUTO_SIZE.X, Layout.AUTO_SIZE.Y),
 		BackgroundTransparency = 1,
 		AutoButtonColor = false,
 		Text = "",
-		Activated = actions.ToggleAutoSkip,
-		MouseEnter = function()
-			isHovered(true)
+		Activated = function()
+			hand.Commit()
+			actions.ToggleAutoSkip()
 		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
+		hand.Events,
+		Components.ButtonSounds,
+		create("UIScale")({ Scale = hand.Scale }),
 		Panel({
 			Stroke = function()
-				return if isHovered() then Palette.Pink else Palette.EdgePink
+				return Palette.EdgePink:Lerp(Palette.Pink, hand.Light())
 			end,
-		}, { Size = UDim2.fromScale(1, 1) }),
+			-- His dark drop shadow at rest, warming to a pink glow under the hand.
+			Glow = function()
+				return Color3.new():Lerp(Palette.Pink, hand.Light())
+			end,
+			GlowTransparency = function()
+				return 0.6 - 0.15 * hand.Light()
+			end,
+		}, {
+			Size = UDim2.fromScale(1, 1),
+			Hand.WashLayer(hand, 3, 3),
+			Components.Sheen(hand.Glint, 3),
+		}),
 		label({
 			Position = UDim2.fromOffset(Layout.AUTO_LABEL, 0),
 			Size = UDim2.fromScale(0.6, 1),
@@ -816,7 +624,7 @@ local function autoSkip(state: Types.THudState, actions: Types.TActions): TextBu
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = function()
 					local travel = Layout.TRACK.X - Layout.KNOB.X - 2 * Layout.KNOB_INSET
-					return UDim2.new(0, math.round(Layout.KNOB_INSET + travel * knob()), 0.5, 0)
+					return UDim2.new(0, math.round(Layout.KNOB_INSET + travel * (knob() + lean())), 0.5, 0)
 				end,
 				Size = UDim2.fromOffset(Layout.KNOB.X, Layout.KNOB.Y),
 				BorderSizePixel = 0,
@@ -850,7 +658,7 @@ function Wave.Build(state: Types.THudState, actions: Types.TActions): Frame
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		plate(state),
-		bossStrip(state),
+		BossBar.Build(state),
 		skipBlock(state, actions),
 	})
 end

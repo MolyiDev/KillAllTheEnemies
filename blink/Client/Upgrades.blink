@@ -1,0 +1,15 @@
+-- Takes a card of the hand that is up, by its place in it (1 to 3).
+event Pick {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Pays for a new hand in place of the one that is up.
+event Reroll {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

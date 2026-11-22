@@ -3,4 +3,5 @@ return table.freeze({
 	UI = "UI",
 	Effects = "Effects",
 	Ambient = "Ambient",
+	Music = "Music",
 })

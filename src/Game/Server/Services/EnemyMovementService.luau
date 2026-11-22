@@ -47,9 +47,11 @@ local WalkQuery = EnemyWorld:query(
 local FrozenQuery =
 	EnemyWorld:query(Components.InstanceId, Components.Position, Components.Yaw):with(Tags.Enemy):cached()
 
--- Only a character every client knows (it has its InstanceId) and that is alive can be a target.
+-- Only a character every client knows (it has its InstanceId), alive, and not picking an upgrade can be a target. A
+-- picker is not one at all: the crowd neither walks to them nor swings at them, it goes for the others.
 local CharactersQuery = World:query(Components.HumanoidRootPart, Components.Humanoid, Components.InstanceId)
 	:with(Tags.Character, Tags.Alive)
+	:without(Tags.Picking)
 	:cached()
 
 -- Targets are led by this much of their velocity, so a crowd meets a runner ahead.
@@ -66,10 +68,14 @@ EnemyMovementService.IsRunning = false
 
 -- The studs each shoved body still has to travel, for a Mass of 1.
 local pushes: { [any]: vector } = {}
+-- Spots the crowd goes for as it goes for a character (SetLure), by an id no character has.
+type TLure = { Feet: vector, OnStruck: (damage: number) -> () }
+local lures: { [number]: TLure } = {}
 local aggroCounts: { [number]: number } = {}
 local tick: enemiesUpdate.TTick = {
 	Dt = TimeCore.FIXED_DT,
 	CharacterFeet = {},
+	Lures = {},
 	BarricadeIds = {},
 	BarricadeCenters = {},
 	BarricadeHalves = {},
@@ -87,6 +93,12 @@ local tick: enemiesUpdate.TTick = {
 		local damage = (EnemyWorld:get(enemy, Components.Damage) or 0) * damageScale
 		if targetId < 0 then
 			DefenseService.Damage(-targetId, damage)
+			return
+		end
+
+		local lure = lures[targetId]
+		if lure then
+			lure.OnStruck(damage)
 			return
 		end
 
@@ -114,6 +126,21 @@ function EnemyMovementService.Push(enemyEntities: { any }, direction: Vector3, s
 		if not EnemyWorld:contains(enemyEntity) or EnemyWorld:has(enemyEntity, Tags.Boss) then continue end
 		pushes[enemyEntity] = (pushes[enemyEntity] or vector.zero) + shove
 	end
+end
+
+-- Stands a lure at `feet` (a point on the nav grid's floor): every body within `radius` flat studs goes for it ahead
+-- of any player, by path as it would for a character, and swings at it; each blow that lands calls `onStruck`. `id`
+-- must be one no character has (theirs stop at 1000). It stands until ClearLure.
+function EnemyMovementService.SetLure(id: number, feet: vector, radius: number, onStruck: (damage: number) -> ())
+	lures[id] = { Feet = feet, OnStruck = onStruck }
+	tick.Lures[id] = radius * radius
+end
+
+function EnemyMovementService.ClearLure(id: number)
+	if not lures[id] then return end
+	lures[id] = nil
+	tick.Lures[id] = nil
+	NavService.RemoveCharacter(id)
 end
 
 -- This tick's part of every shove, written as the Force the movement update reads (a velocity, for a Mass of 1).
@@ -180,6 +207,13 @@ local function gatherTargets()
 		local at = getCharacterFeet(rootPart, humanoid, TARGET_LEAD_SECONDS)
 		feet[characterId] = at
 		if nav then NavService.SetCharacterNode(characterId, ArenaCore.NodeAt(nav, at.x, at.y, at.z, 0.75)) end
+	end
+
+	-- A lure is a target like a character: its feet, and a flowfield of its own to be walked down.
+	for id, lure in lures do
+		local at = lure.Feet
+		feet[id] = at
+		if nav then NavService.SetCharacterNode(id, ArenaCore.NodeAt(nav, at.x, at.y, at.z, 0.75)) end
 	end
 
 	tick.BarricadeCount = DefenseService.GetBarricades(tick.BarricadeIds, tick.BarricadeCenters, tick.BarricadeHalves)

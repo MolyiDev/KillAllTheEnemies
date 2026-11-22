@@ -5,13 +5,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
-local source = vide.source
 local spring = vide.spring
 local Color = Theme.Color
 local Font = Theme.Font
@@ -114,7 +114,8 @@ local function status(state: Types.TLobbyState): CanvasGroup
 end
 
 local function playButton(state: Types.TLobbyState, actions: Types.TLobbyActions): TextButton
-	local isHovered = source(false)
+	local hand = Hand.React("Operate")
+	local isHovered = hand.IsHovered
 	local function isQueued(): boolean
 		return state.CurrentPad() ~= 0
 	end
@@ -123,10 +124,11 @@ local function playButton(state: Types.TLobbyState, actions: Types.TLobbyActions
 		return pad ~= nil and pad.Phase() == EPhase.Teleporting
 	end
 
+	-- Placed by its middle, so it grows from there.
 	return Components.Button({
 		Name = "Play",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -BUTTON_BOTTOM),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 1, -BUTTON_BOTTOM - BUTTON_HEIGHT / 2),
 		Size = UDim2.fromOffset(BUTTON_WIDTH, BUTTON_HEIGHT),
 		-- A party on its way cannot be left.
 		Visible = function()
@@ -137,18 +139,17 @@ local function playButton(state: Types.TLobbyState, actions: Types.TLobbyActions
 			return if isHovered() then Color.ActionEdge else Color.Action
 		end, COLOR_PERIOD, 1),
 		Activated = function()
+			hand.Commit()
 			if isQueued() then
 				actions.Leave()
 			else
 				actions.Play()
 			end
 		end,
-		MouseEnter = function()
-			isHovered(true)
-		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
+		hand.Events,
+		create("UIScale")({ Scale = hand.Scale }),
+		Hand.WashLayer(hand, 0),
+		Components.Sheen(hand.Glint, 0),
 		Components.Edge(function()
 			return if isQueued() then Color.BossEdge else Color.ActionEdge
 		end),

@@ -24,13 +24,12 @@ local Tune = table.freeze({
 	ROUND_XP_PERCENT = 4,
 	-- Kill Gold grows slowly with the round so late rounds keep paying for late prices.
 	KILL_GOLD_PER_ROUND = 0.05,
+	SKIP_AFTER_SECONDS = 5,
+	FAST_START_ROUNDS = 5,
 })
 
 RoundCore.BOSS_EVERY = 15
 RoundCore.PREPARE_SECONDS = 5
--- A wave being fought can be skipped by everyone's vote once it has run this long and no boss is up; the next opens
--- beside it (GDD 21).
-RoundCore.SKIP_AFTER_SECONDS = 5
 -- With this many bodies or fewer left to kill, nothing still to come, they are shown to everyone and outlined.
 RoundCore.LAST_SHOWN = 2
 -- Spawns are metered so a round pours in rather than appearing at once; the client attaches up to eight rigs a
@@ -39,6 +38,13 @@ RoundCore.SPAWNS_PER_SECOND = 20
 
 function RoundCore.IsBossRound(round: number): boolean
 	return round > 0 and round % RoundCore.BOSS_EVERY == 0
+end
+
+-- Seconds `round` must run before everyone's vote can skip it (no boss up); the next opens beside it (GDD 21). The
+-- opening waves can be skipped the moment they start, so a party that wants a fast start waits out only the
+-- countdown.
+function RoundCore.GetSkipAfterSeconds(round: number): number
+	return if round <= Tune.FAST_START_ROUNDS then 0 else Tune.SKIP_AFTER_SECONDS
 end
 
 -- Ordinary bodies in `round`. A boss round has these and its boss on top.

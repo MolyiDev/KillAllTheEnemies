@@ -248,7 +248,7 @@ Enemy counts reach the hundreds, so an enemy's effect is costed at a full wave o
 
 ## 6. Engine facts this cost
 
-- **A ray for sight or for where an effect lands is `Shared.Utils.sightCast`, never a raw `Workspace:Raycast` at
+- **A ray for sight or for where an effect lands is `GlobalShared.Utils.sightCast`, never a raw `Workspace:Raycast` at
   the arena.** The arena holds walls nobody sees (Blockers, Caps, emitter holders: Maps.md §1), and raw rays let the
   crosshair aim at thin air, bullets burst on it and their bricks bounce on it (2026-11-20). `sightCast` passes every
   part at Transparency 1 by casting again from just inside it, and returns the visible hit with its distance from the
@@ -2267,8 +2267,8 @@ This is the first effect in this game's own look and the recipe for the next one
 five rounds to find; everything below is what would have made it one.
 
 Where it lives: `src/Game/Client/Utils/gunFx.luau` (called from WeaponController for a gun whose data names a kit,
-`TGun.Fx`; its `LOOKS` says how many each layer of a kit throws), the pooled parts in `Client/Utils/motorParts.luau`,
-the thrown bricks and casings in `Client/Utils/thrownPieces.luau` (shared with the enemy bursts, section 31),
+`TGun.Fx`; its `LOOKS` says how many each layer of a kit throws), the pooled parts in `src/Global/Client/Utils/motorParts.luau`,
+the thrown bricks and casings in `src/Global/Client/Utils/thrownPieces.luau` (shared with the enemy bursts, section 31),
 templates in `ReplicatedStorage.Effects.PistolFx`, sources and every number in `Assets/effects/pistol/` (its README).
 Bench: `pistolbench` (Before, the pick, and the four looks that lost, `Client/Utils/pistolBenchLooks.luau`).
 
@@ -2491,6 +2491,17 @@ pistol kit's five. Bench: `telebench`, unchanged.
 - **A flat square ring inside a circle is 0.7 of its radius** (half side), so its corners stay inside; and it is
   capped (12 studs), or the boss's 40-stud shockwave opens one as wide as the arena. A square shock under the hit's
   white flash is not seen: it lives 0.4 s so it outlasts the flash.
+- **The warning starts as its outline and FILLS** (2026-11-21, asked for: "it doesn't fill itself, it just
+  breathes"). A body drawn full of tiles under a 30% sweep read as already full, pulsing. Now the body is the rim and
+  a 7% wash, and the sweep is a solid fill grown from where the attack comes (a round one's centre, a cone's apex, a
+  line's start at full width, its length only), full as the hit lands. The fill does not pulse: only the outline
+  does. A scaled picture cannot carry tiles (they would swell as it grows), so the fill is flat and the tiles stay at
+  the body's edge.
+- **Two colours out of one tint**: a Texture takes one Color3, but above 1 it brightens. The fill is drawn at 0.25
+  lightness under a white front and tinted with the warning's colour over 0.25: the fill comes out that colour, the
+  front clamps to near white. It draws so in ror; the engine above 4 is not seen yet. The fill's tint holds until
+  the last moments' heat, so a piece keeps its colour too and skips the write (unchanged writes at 40 warnings had
+  risen to 6,600 a second with the steady fill; 2,700 again, the controller 7.3 ms a second).
 - **A texture's tiles scale with its shape**: 26 across made the 40-stud shockwave a floor of 3-stud planks as it
   heated white; 40 across keeps them near the stud's scale.
 - **An explosion is a slam and more**, not another look: 1.6 times the pixels and bricks, a white-hot heart over the
@@ -2542,3 +2553,205 @@ in `Assets/effects/bullets/` (its README).
 - **ror shows a bullet only side-on**: from behind the row (the shooter's view) the muzzle flashes cover it. The
   preview stacks the lanes one over another for a side camera, and holds every lane 22 studs out for a still (stop
   calling `gunFx.Step` and the bullets stay where they are).
+
+## 35. Kill All The Monsters: the feet (built 2026-11-21 from section 30, unjudged, unplayed)
+
+Footsteps, takeoffs and touchdowns for every character, in the lobby and the arena:
+`src/Global/Client/Utils/stepFx.luau`, called by `FootstepsController` at the moments it already plays a step's sound.
+Templates `ReplicatedStorage.Effects.StepFx` (pasted into BOTH places), sources, the table of what each moment draws
+and every number in `Assets/effects/steps/` (its README). No sprite was drawn: the pistol kit's five. No bench.
+
+- **The floor is what is shown**: dust, pixels, rings and bricks all take the colour of the part stood on (dust 35%
+  toward white, light 20%), so a step on sand and one on grass differ with no data.
+- **Three sizes of one idea**: a step is a puff and maybe a pixel, kicked back under the foot that pushed (it is seen
+  a few times a second on every body, so it only says the foot pushed off); a takeoff is a thin ring, dust pushed
+  out, pixels pulled up after the body; a touchdown is the one that is big (a fat shock born white-hot, a late wider
+  ring, rolling dust, pixels, 2 or 3 bricks).
+- **How hard a landing was is how far it came down**: the root's highest point since it left the floor, less where
+  it lands. Velocity was tried first and dropped: its own is already zero by the time the state says Landed, and
+  another player's is not what replicates. Time in the air does not say it either: a jump on the flat is in the air
+  longer than a 20 stud drop and lands at half the speed. Under 1.2 studs (a stair, a state flicker) it is a step.
+- **The floor is what the body collides with** (`RespectCanCollide` on the footstep ray). The user: "the bricks
+  don't come out on landing sometimes". GrassLands lays invisible walk-through `SurfPatch` textures, grass tufts
+  and flowers on its floor; the ray stopped on them, so over a patch nothing was drawn (an invisible floor draws
+  nothing) and over a tuft it was drawn on the tuft. The step's sound read its material off the same wrong part.
+- **Which foot is on the clip**: the game's walk clips' `Footstep` markers carry `Left` / `Right`, and the marker
+  signal hands the value over. Without one (a backpedal steps on learned times, another clip) it is the lower foot.
+- **A landing or a skid that "sometimes" does not come out is the trigger, not the effect** (two rounds lost to
+  it). A soak in ree (450 landings through `stepFx.Land`) threw bricks every time, so the misses were upstream:
+  **the one the user was hitting, found by a probe printing each landing in their own play: the Humanoid says
+  Landed while the root is still 1.1 studs over where it rests, a tenth of a stud past the floor ray, so neither
+  the sound nor the effect had a floor (a landing's ray reaches 3 studs further)**; also a jump onto a ledge as
+  high as it went measured no drop and was drawn as a step (a jump now always lands as one); a body on an edge has its root's centre past it, so the ray under it found nothing (a ball as wide as the
+  body is cast on a miss); an invisible floor drew nothing (the floor seen within 4 studs under it is used); and
+  Jumping straight to Running was not a landing. For the skid: A then D overlap or leave a gap, so the direction
+  passes through nothing and the body has slowed by the time the new way arrives; the old way and its speed are
+  kept from the moment it is let go, for 0.3 s. Soak the effect module first, then suspect the trigger, and put
+  a probe in the user's hands at the first "sometimes": a throwaway LocalScript wrapping the module's functions and
+  printing one line an event, which they play and paste back (Tripwire could not start a playtest of its own).
+- **A hard turn throws the floor the way the body WAS going** (asked for: "I do so much force by changing
+  directions this fast"): told to go more than about 70 degrees off a way it was going at over 5 studs a second,
+  dust and pixels leave low in a fan along the old way, more of them the nearer the turn is to straight back.
+- **Dust along a floor is aimed puff by puff**: an emitter's spread is a cone, never a disc, so each puff's
+  attachment is turned to its own direction round the feet, evenly spaced from a random start (also why they never
+  clump on one side).
+- **The pieces' modules moved for it**: `motorParts`, `thrownPieces` (`src/Global/Client/Utils`) and `sightCast`
+  (`GlobalShared.Utils`) are global now, since the lobby throws bricks too. The lobby has no `Workspace.Arena`: its
+  pieces land on `Workspace.Lobby`.
+- **Budget** (ree, 12 runners and 6 bodies jumping without rest): stepFx 0.83 ms of engine calls a second, its
+  pieces 0.43. 6 steps and 4 bursts a frame, steps within 80 studs, 24 pieces.
+- **Not seen in game yet**: any of it (the templates are not in either place until `step_effects.luau` is pasted);
+  the skid, the foot's side and a remote player's landing in play (a Studio probe ran but its output was lost
+  under the asset-permission flood in the log).
+
+## 36. Kill All The Monsters: NUKE ALL and HEAL ALL (built 2026-11-21 from section 30, unjudged, unplayed)
+
+The two bought items: `src/Game/Client/Utils/nukeFx.luau` and `healFx.luau`, fired by `ItemsController` off
+`Game.NukedAll` / `Game.HealedAll`, with the squad's banner in `HudController/Announce.luau`. Templates
+`ReplicatedStorage.Effects.NukeFx` and `.HealFx`, sources, the tables of what each moment draws and every number in
+`Assets/effects/items/` (its README). No sprite was drawn: the pistol kit's five. Bench: `itembench nuke` (a crowd
+of every type's rig round the player, the nuke set off there every 5 s) and `itembench heal` (a squad of stand-ins
+healed every 4 s), both fired through the game's own signals so the shake, the wash, the sound and the banner are the
+game's; `itembench off` takes it down.
+
+- **A paid moment has to last.** Every body dying on one frame is one flash and an empty arena, and the bursts' cap a
+  frame (6) would draw six of 255. The server kills along a front rolling out from the buyer
+  (`EnemiesCore.NUKE_SPEED`, `NUKE_SECONDS`: 110 studs a second for 1.1 s, then whatever is left), and the client
+  draws that front from the same two numbers, so the crowd comes apart outward over a second, each body as the ring
+  reaches it, with the kills' own sounds rolling out with it. The bodies next to the buyer still die on the next step.
+- **The effect is the hitbox again** (section 33): the front's points are put on the floor that is there by a ray
+  each, so nothing is drawn over a drop or past the map's edge. A dozen rays a frame for a second.
+- **A mushroom in pixels is two bursts**: a stalk thrown straight up and held by Drag (its fastest pixels stop
+  `speed / (drag * ln 2)` up), and a head set off where they stop, a beat later, spilling sideways and sinking, with a
+  flat halo ring. From 70 studs it is what says "nuke"; from under it, it is a column.
+- **Gold held too long over a sky is lemon yellow.** The cloud is gold for its first tenth, then orange, cooling to a
+  dark ember: the cooling is also what makes it read as fire going out rather than a light switched off.
+- **A heal is on the body** (the rule from Last Wave): rings climbing it and pixels floating off it, all riding the
+  body (`LockedToPart`), so a runner keeps them. Only a pool of light and one ring touch the floor. The buyer alone
+  throws a wide ring out, which says who cast it.
+- **Green half-added over blue is aqua.** The HUD's green (51, 217, 128) drew turquoise on a blue shirt and sky;
+  (60, 230, 90) with a deeper (30, 205, 60) for solid shapes reads green.
+- **The world is washed, not the screen**: a ColorCorrectionEffect (white-gold for the blast, pale green for the heal),
+  full on its first frame and gone in half a second, leaves the HUD and the banner readable through the flash.
+- **A banner that fades in has a grey first frame**: its white flash was drawn at the group's 20% and read as fog,
+  and still did with a 0.05 s fade (a frame is a third of that). It is never faded in: solid on its first frame, only
+  its size settles.
+- **A piece driven by the HUD's clock holds its own time still when it is idle**: the clock also runs for other
+  pieces (a prompted item breathes every frame), so the banner's elapsed time is a `derive` clamped at its length,
+  and nothing under it is worked out again while no banner is up.
+- **Measured** (`preview_items.luau` with `Storm`, a nuke set off again the moment its front stops, timed in the
+  emulator): nukeFx 115 us a frame on average while a front rolls, 327 us on the frame of the blast, 64 bricks. It
+  runs for 1.1 s a purchase. The front's three emitters and the brick ranges are read once a frame, not once a point.
+- **Not seen in game yet**: any of it (the templates are not in the place until `item_effects.luau` is pasted); the
+  rolling kills on the real rigs and how their sounds stack over 1.1 s; the wash under the place's own bloom; the
+  shake's size; the sounds, which wait for a listening round (`Assets/sounds/Review/Items`).
+
+## 37. Kill All The Monsters: the Human's abilities (built 2026-11-21 from section 30, unjudged, unplayed)
+
+Decoy, Foam Cannon and Orbital Cannon: `src/Game/Client/Utils/decoyFx.luau`, `foamFx.luau`, `orbitalFx.luau`, said
+when and stepped by `AbilityController`. Templates `ReplicatedStorage.Effects.HumanFx`, sources, what each template is
+for and every number in `Assets/effects/abilities/` (its README). No sprite was drawn: the pistol kit's five. No bench.
+
+- **Three hues, one a gadget**: the decoy a squeaky toy's pink, the foam cream (pale light, so the blocks and the
+  blobs carry it), the cannon white-hot in the mark's red. Agent's picks, each one `kit` constant.
+- **The beam is square**, as every ring here is: two 1 stud Neon cubes under Brick meshes (white core, see-through
+  red round it), stretched to 700 studs through `Scale.Y` and widened through `Scale.X` / `Scale.Z`, so it lands 2.3
+  times as wide and is down to size in a fifth of a second, shivers while it burns and thins to a line as it ends,
+  with no Size write. From 150 studs it still reads as a column to the sky.
+- **A steady layer is counted against the frame's length** (`owed`): sparks, pixels up the beam and bricks are rates
+  a second with the remainder carried, so the burn is the same at 30 and 144 frames a second.
+- **What the beam leaves is paint, not light**: an ember lying flat at `LightEmission` 1 was invisible on sand
+  (additive over a bright floor is white). At 0.25, bigger and nearly opaque, it shows as a red trail.
+- **Foam is blocks that push out of the body**: each starts on the body's middle and goes out to its place past it
+  and back, one after another, round the body and up it. They follow it when it is shoved (written only when its
+  ground CFrame changes), are thrown hard when it dies and dropped when the foam lets go.
+- **A foamed body's tint is its own Highlight** (`EnemiesController.SetStiff`): the fill takes the foam's colour and
+  rests at 0.35 instead of 1, a hit still flashes it to solid, its clips stop and it keeps the way it faced. Nothing
+  adds a Highlight.
+- **The doll is the thrower's avatar, copied on each client**: every script, tool and sound taken out, every part
+  anchored and out of every query, the Humanoid kept only because clothes are drawn through it. Its size is written
+  part by part (Size, and a hat's mesh Scale) only while it changes; standing still it is one `BulkMoveTo` a frame.
+  `Model:ScaleTo` is not in ror's docs, so it is not used.
+- **A copied avatar keeps its own Material and Reflectance**: the doll was repainted as an inflatable (SmoothPlastic,
+  a little Reflectance) and its face came out black. A dynamic head's face is a texture the engine paints onto the
+  skin through the Humanoid, and it stops once the part is not as the avatar loaded it. Only the block doll wears the
+  inflatable's skin now. Reasoned from the avatar's parts (read through Open Cloud), not yet seen in play.
+- **A blow is drawn as wide as it reaches** (`DecoyBlast`): the doll's pop struck 12 studs round it and drew a 9 stud
+  ring at its chest, so it read as doing nothing. Now a fat square shock runs out across the floor to the reach in a
+  quarter of its life and holds there, with a pool of light, a late echo, a short pillar and dust; the doll swells and
+  shakes for its last half second (its time is known on the client, its blows are not), and the views near it shake.
+  The rings are baked to `BLAST_RADIUS` in the generator, which must follow the Decoy's `BlastRadius` in the data.
+- **The caster draws their own spray and beam ahead of the server**, from their own aim: the beam by the same
+  `AbilitiesCore.Chase` the server steps, pulled toward the server's word 1.5 times a second.
+- **ror**: `ROR_REE` wants a folder holding `target/release/ree`; a link to the installed binary there is enough.
+  A preview that calls an effect with its own clock cannot be shifted with a negative start time: give the scene a
+  shorter wind-up instead (`Target`, `Burn`, `Pop`).
+- **Seen in ror only**: the beam's four beats, the foam setting, shattering and crumbling, the doll thrown, struck
+  and popped, all on stand-in bodies and the block doll. **Not seen**: a real avatar's copy (clothes, hats, layered
+  pieces), the foam tint on the real rigs, anything under the place's bloom, and none of it in play.
+- **Budget** (ree `--profile boundary`, engine calls a second): Orbital 2.1 ms through 110 bodies, Foam 0.8 ms on 18,
+  Decoy 2.1 ms a doll (its README has the split). What the cleanup pass found: the beam cast a ray at the floor
+  every frame, standing still or not (now once it has moved half a stud), and wrote its light's Brightness every
+  frame (now only while it changes); the three modules each carried a copy of the same clone-and-emit helpers (now
+  `Utils/burstLayers`); the controller polled for its own character id (now read off the server's State event).
+  Left alone: the doll's `BulkMoveTo` a frame while it sways (0.02 ms a frame a doll). The sounds are named (`Sounds.Abilities.*`) and silent until takes are picked.
+
+## 38. Kill All The Monsters: a bought Gold pack (built 2026-11-21 from sections 30 and 36, unjudged, unplayed)
+
+The two Robux Gold packs: `src/Game/Client/Utils/goldFx.luau` on the buyer (fired by `ItemsController` off
+`Game.GoldBought`), the pack's coins in `CoinsController` on `Client/Utils/coinFlight.luau`'s `Shower`, the stamp and
+the strike in `HudController/Hotbar.luau`. Templates `ReplicatedStorage.Effects.GoldFx`, sources, the table of what
+each moment draws and every number in `Assets/effects/items/` (its README). No sprite was drawn. No bench: the
+console's `goldpack <amount>` runs the server's grant.
+
+- **A bought currency is paid in, not set.** The Gold is on the server at once, and the counter is held back
+  (`CoinsController.PendingGold`, the kill coins' own mechanism) while the pack's coins fly out of the buyer and come
+  home one at a time, so the number climbs in ticks with the coin sound's chain. UI.md 5j's five rules, in the world.
+- **A show with a sound baked to it flies on a clock, not on physics.** The kill coin's flight (drag, a magnet,
+  wherever the taker is this frame) lands when it lands. The pack's coins are closed form: each is told when it lands
+  before it is thrown (`CoinFlight.ThrowShower`: 0.62 s to 1.5 s, the gaps closing), is thrown `1 - e^(-7t)` of its
+  reach, sinks slowly while it hangs and is pulled home down a cubic over its last 0.26 to 0.36 s (hang 0.4 studs a
+  second, pull up to 84 for the small pack and 141 for the big one: `tools/lune/coins.luau`). So the last coin, the HUD's strike, the burst's second beat and the
+  cue's closing hit are one frame at any frame rate.
+- **It rides the buyer.** Every place is from the chest, so a buyer who runs keeps their fountain and the landings
+  keep their beats (`gold_walk`). In the world's frame a runner would leave the coins behind and the last ones would
+  be late.
+- **Two beats, the second smaller.** The burst is the purchase; the strike at 1.5 s is the last coin going in. Between
+  them only the coins move.
+- **The squad sees a jackpot, not the payout.** Coins are the earner's own, so other clients get the burst, the
+  fountain of pixels and the gold bricks bouncing out, and hear the cue from where the buyer stands.
+- **One throw, three callers.** The whole throw (how many, how far, who lands when) is `CoinFlight.ThrowShower`,
+  pure, so the game, the ror preview and the lune check fly the same coins; a copy of its numbers in a preview goes
+  stale the first time one is tuned.
+- **Not seen in game yet**: any of it. In ror the first frame's pool of light and blink of a PointLight white out the
+  sand round the buyer for one frame; if that is too much under the place's bloom, `Wash` and `LIGHT_BRIGHTNESS` are
+  the two numbers. The game's coins (the mesh, their trails) were stood in for by plain discs.
+
+## 39. Kill All The Monsters: an upgrade taken, on the body (built 2026-11-21 from section 30, unjudged, unplayed)
+
+The user: on every upgrade picked, after the UI disappears, the player's body should show a buff, a level-up.
+`src/Game/Client/Utils/upgradeFx.luau`, said and stepped by `UpgradePickController`. Templates
+`ReplicatedStorage.Effects.UpgradeFx`, sources, the table of what each beat draws and every number in
+`Assets/effects/upgrade/` (its README). No sprite was drawn: the pistol kit's five. No bench: the `row` preview stands
+the five rarities.
+
+- **The card's rarity is the colour**: one template Folder a rarity, coloured in the generator (white-hot, a light, the
+  card's colour, a deeper one for the half-lit solid shapes), never recoloured in code. A rarer card also throws more
+  pixels, 20% more a step.
+- **After the screen, not under it**: the taker's own show starts when the curtain has gone (`Closing` to `Closed`), so
+  its first frame is not dimmed. A run of hands shows once, in the rarest card taken. A teammate's starts as their
+  PICKING tag goes, which the server sends at the same moment (`UpgradesCore.SHOW_SECONDS` after the pick).
+- **A level climbs**: three fat square rings run up the body one after another through a column of pixels pulled up
+  round it, and the halo pops over the head as the last ring gets there (0.54 s). The HEALTH level is one ring and a
+  fountain: the two read as one family with different shapes.
+- **Pulled up, held close**: pixels thrown out low then lifted (Lift 20 over Drag 3) stand as a column only if their
+  sideways speed stops near the body. 9 studs a second stops 4 studs out (`speed / (drag ln 2)`); the first draft's 17
+  would have stopped 8 out.
+- **Its sound is its beats**: `Upgrades/LevelUp` (Sounds.md 8) is a zap a ring and a hit on the halo, baked to
+  `CROWN_AT`: move the halo and the cue is rebuilt (`Assets/sounds/Review/UpgradeBody`, `CROWN_MS`).
+- **What the cleanup pass found**: the generator carried its own copy of the item kit's glowing pixels to ride the
+  body; `glow_pixels` takes `locked` now, and every kit built from it comes out byte-identical. A burst kept its end
+  time beside its start; it is worked out from the start. Not worth changing: a cast finds its layers by name (13
+  lookups at most four times a wave), and `Step` is one length check a frame while nothing is up.
+- **Not seen in game yet**: any of it (the templates are not in the place until `upgrade_effects.luau` is pasted);
+  the hues under the place's bloom; first person, where only the floor ring, the column and the spout are in view.

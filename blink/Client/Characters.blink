@@ -6,3 +6,12 @@ event CharacterReady {
 	call: SingleAsync,
 	data: (CharacterInstanceId.Type)
 }
+
+-- Buy the next HEALTH level (Shared/Utils/healthUpgrades). Only the intent: the level, its price and the Gold are the
+-- server's.
+event UpgradeHealth {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

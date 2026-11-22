@@ -191,6 +191,14 @@
                 // change made in Studio is lost: change the .rbxm instead.
                 "Guns": {
                     "$path": "Assets/models/Guns"
+                },
+                // The abilities' models for their cards (Assets/models/Abilities/make_ability_models.py). Rojo's too.
+                "Abilities": {
+                    "$path": "Assets/models/Abilities/ability_models.rbxmx"
+                },
+                // The run upgrades' models for their cards (Assets/models/Upgrades/make_upgrade_models.py). Rojo's too.
+                "Upgrades": {
+                    "$path": "Assets/models/Upgrades/upgrade_models.rbxmx"
                 }
             }
         },

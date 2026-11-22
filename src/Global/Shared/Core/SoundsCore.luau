@@ -6,6 +6,7 @@
 -- mix is tuned there.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ESoundGroups = require(ReplicatedStorage.Types.Enums.Sounds.ESoundGroups)
 local ESoundsIds = require(ReplicatedStorage.Types.Enums.Sounds.ESoundsIds)
@@ -27,6 +28,13 @@ local POOLED_MAX_DIST_SQ = POOLED_MAX_DIST * POOLED_MAX_DIST
 -- neighbouring frames are heard as one hit, not stacked into a blast. Under the fastest gun's FireInterval (0.05 s),
 -- so a held trigger never loses a shot.
 local MERGE_SECONDS = 0.035
+-- What a muffle does to the world's buses (SetMuffled), and how it comes and goes: going under is quick and settles
+-- in, coming up starts slow and breaks the surface.
+local MUFFLED_BUSES = table.freeze({ ESoundGroups.Effects, ESoundGroups.Ambient, ESoundGroups.Music })
+local MUFFLED = table.freeze({ HighGain = -80, MidGain = -15, LowGain = -3 })
+local CLEAR = table.freeze({ HighGain = 0, MidGain = 0, LowGain = 0 })
+local MUFFLE_IN = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local MUFFLE_OUT = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 type TSoundPool = {
 	Sounds: { Sound },
@@ -48,6 +56,9 @@ local takeWeights: { [{ Sound }]: { number } } = {}
 -- Per cue (a pool, a list of pools, a tree node or a UI id): when it last played and how far from the camera (claim).
 local playedAt: { [unknown]: number } = {}
 local playedDistSq: { [unknown]: number } = {}
+local muffleReasons: { [string]: true } = {}
+local muffles: { EqualizerSoundEffect }? = nil
+local isMuffled = false
 
 do
 	local soundGroups: { [string]: SoundGroup } = {}
@@ -299,14 +310,77 @@ function SoundsCore.PlayRandomOnPart(group: string, node: string, part: BasePart
 end
 
 -- ============================== UI ==============================
--- Never played: every UI clip is authored PlayOnRemove, so parenting the clone and destroying it IS the play, and
--- nothing is left to clean up.
-function SoundsCore.PlayUISound(soundId: number)
-	local source = soundsById[soundId]
-	if not source or not claim(soundId, 0) then return end
+-- Flat, on the UI bus. Never played: every UI clip is authored PlayOnRemove, so parenting the clone and destroying it
+-- IS the play, and nothing is left to clean up.
+local function playFlat(source: Sound)
 	local sound = source:Clone()
 	sound.Parent = SoundService
 	sound:Destroy()
+end
+
+function SoundsCore.PlayUISound(soundId: number)
+	local source = soundsById[soundId]
+	if not source or not claim(soundId, 0) then return end
+	playFlat(source)
+end
+
+-- A UI clip by name: `name` is a clip, or a bag of takes to roll. Silent when it is not in the tree.
+function SoundsCore.PlayUINamed(group: string, name: string)
+	local folder = resolveGroup(group)
+	local node = if folder then folder:FindFirstChild(name) else nil
+	if not node then return end
+	local isClip = node:IsA("Sound")
+	local takes = if isClip then nil else getTakes(node)
+	if not takes and not isClip then return end
+	if not claim(node, 0) then return end
+
+	playFlat(if takes then takes[rollIndex(takes)] else node :: Sound)
+end
+
+-- Every UI's hover and click (bags under Sounds.UI), named once here for all their callers.
+function SoundsCore.PlayHover()
+	SoundsCore.PlayUINamed("UI", "HoverHud")
+end
+
+function SoundsCore.PlayClick()
+	SoundsCore.PlayUINamed("UI", "ClickHud")
+end
+
+-- ============================== Muffle ==============================
+-- Under water: the world's buses lose their top and most of their middle and dip a little while anything asks, by a
+-- named reason so two askers never undo each other. The UI bus stays clear, so the menu that asked is heard over the
+-- world it muffles. Each bus gets its own EqualizerSoundEffect, made on first use: the volume settings write the
+-- buses' Volume. Client only.
+local function getMuffles(): { EqualizerSoundEffect }
+	if muffles then return muffles end
+	local made = {}
+	for _, name in MUFFLED_BUSES do
+		local bus = SoundService:FindFirstChild(name)
+		if not bus then continue end
+		local equalizer = Instance.new("EqualizerSoundEffect")
+		equalizer.Name = "Muffle"
+		equalizer.HighGain = 0
+		equalizer.MidGain = 0
+		equalizer.LowGain = 0
+		equalizer.Parent = bus
+		made[#made + 1] = equalizer
+	end
+
+	muffles = made
+	return made
+end
+
+function SoundsCore.SetMuffled(reason: string, isOn: boolean)
+	muffleReasons[reason] = if isOn then true else nil
+	local shouldMuffle = next(muffleReasons) ~= nil
+	if shouldMuffle == isMuffled then return end
+	isMuffled = shouldMuffle
+
+	local info = if shouldMuffle then MUFFLE_IN else MUFFLE_OUT
+	local goal = if shouldMuffle then MUFFLED else CLEAR
+	for _, equalizer in getMuffles() do
+		TweenService:Create(equalizer, info, goal):Play()
+	end
 end
 
 return SoundsCore

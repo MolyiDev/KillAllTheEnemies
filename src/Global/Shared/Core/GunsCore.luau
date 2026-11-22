@@ -29,9 +29,6 @@ GunsCore.LADDER = table.freeze({
 GunsCore.Tune = table.freeze({
 	-- The head's centre over the root on an R6 body: where the server shoots from, so where sight is tested from.
 	EYE_HEIGHT = 1.5,
-	HEADSHOT_MULTIPLIER = 1.5,
-	-- A hit this high up the body (a fraction of its height) is a headshot.
-	HEAD_FRACTION = 0.8,
 	-- What a blast does to everything in its radius but the body it hit, as a share of the pellet's damage.
 	SPLASH_SHARE = 0.75,
 	-- A shotgun's pellet count is the data's; past this a shot is refused as malformed data, not drawn.

@@ -12,25 +12,40 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
+local AbilityController = require(script.Parent.AbilityController)
 local CoinsController = require(script.Parent.CoinsController)
 local DefensePlacementController = require(script.Parent.DefensePlacementController)
 local EnemiesController = require(script.Parent.EnemiesController)
 local HealthController = require(script.Parent.HealthController)
 local MatchController = require(script.Parent.MatchController)
+local UpgradePickController = require(script.Parent.UpgradePickController)
 local WeaponController = require(script.Parent.WeaponController)
+local copyCharacter = require(script.Parent.Parent.Utils.copyCharacter)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one loads a second ProfileController, which
 -- Ignis refuses as already registered (the first playtest of the HUD).
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
+local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
+local AbilitiesCore = require(ReplicatedStorage.Shared.Core.AbilitiesCore)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
+local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local doubleGems = require(ReplicatedStorage.Shared.Utils.doubleGems)
+local healthUpgrades = require(ReplicatedStorage.Shared.Utils.healthUpgrades)
 local TopbarPlus = require(ReplicatedStorage.GlobalShared.TopbarPlus)
+local Announce = require(script.Announce)
+local AvatarPose = require(script.AvatarPose)
+local BarJuice = require(script.BarJuice)
+local BossBar = require(script.BossBar)
+local HealthUpgrade = require(script.HealthUpgrade)
 local Hotbar = require(script.Hotbar)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Items = require(script.Items)
+local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Overhead = require(script.Overhead)
 local Overlays = require(script.Overlays)
+local Results = require(script.Results)
 local Shop = require(script.Shop)
 local Squad = require(script.Squad)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -42,6 +57,7 @@ local Types = require(script.Types)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
+local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local LocalPlayer = Players.LocalPlayer
@@ -49,6 +65,8 @@ local ENEMIES = DataCore.Enemies.ById
 local ALL_ENEMIES = DataCore.Enemies.All
 local DEFENSES = DataCore.Defenses.ById
 local LADDER = GunsCore.LADDER
+-- Everybody's class until the server says otherwise.
+local DEFAULT_CLASS: TData.TClass = AbilitiesCore.ClassOf(nil)
 local source = vide.source
 local create = vide.create
 
@@ -64,18 +82,26 @@ local Tune = table.freeze({
 	-- Under this share of health the edge holds a little red, breathing.
 	LOW_HEALTH_SHARE = 0.3,
 	LOW_HEALTH_EDGE = 0.16,
-	-- The health bar's chip of what was lost waits, then drains at this share of max health a second.
-	TRAIL_HOLD_SECONDS = 0.35,
-	TRAIL_DRAIN_RATE = 0.9,
 	-- The camera this close to the head is first person (Roblox's own zoom-in puts it at the head).
 	FIRST_PERSON_STUDS = 1.5,
 	-- More enemies than this and NUKE ALL asks to be bought; under this share of health, HEAL ALL does.
 	NUKE_PROMPT_ENEMIES = 30,
 	HEAL_PROMPT_SHARE = 0.4,
+	-- The results' way out takes this long; their countdown's bar moves in this many steps, one a pixel.
+	RESULTS_CLOSE_SECONDS = 0.5,
+	RETURN_BAR_STEPS = 193,
 	-- How long Now keeps ticking after anything starts a timed gesture: the longest one is shorter.
 	MOTION_SECONDS = 1.6,
 	-- SKIP WAVE's cooldown fill moves in this many steps, about one a pixel across the button.
 	SKIP_FILL_STEPS = 300,
+	-- An ability's cooldown shade and the ultimate's charge bar move in this many steps, about one a pixel.
+	COOLDOWN_STEPS = 96,
+	CHARGE_STEPS = 114,
+	-- What each ability's slot wears, by kind.
+	ABILITY_ACCENTS = {
+		Decoy = Theme.Palette.Pink,
+		FoamCannon = Theme.Palette.Steel,
+	},
 })
 
 local HudController = {}
@@ -92,6 +118,25 @@ for index, data in DataCore.Defenses.All do
 		IsPlacing = source(false),
 		PlacedAt = source(-math.huge),
 		DeniedAt = source(-math.huge),
+	}
+end
+
+-- The class is the run's, known before the HUD is built (AbilityController starts on the default until the server
+-- says otherwise).
+local abilities = table.create(#AbilityController.Class.Abilities)
+for slot, ability in AbilityController.Class.Abilities do
+	abilities[slot] = {
+		Slot = slot,
+		Name = ability.Name,
+		Kind = ability.Kind,
+		Key = AbilityController.KEYS[slot],
+		Accent = Tune.ABILITY_ACCENTS[ability.Kind] or Theme.Palette.Steel,
+		Cost = ability.Cost or 0,
+		Cooling = source(0),
+		Seconds = source(0),
+		UsedAt = source(-math.huge),
+		DeniedAt = source(-math.huge),
+		ReadyAt = source(-math.huge),
 	}
 end
 
@@ -112,9 +157,20 @@ local state: Types.THudState = {
 	SkipOpenedAt = source(-math.huge),
 	VotesAt = source(-math.huge),
 	IsAutoSkip = source(false),
-	BossName = source(""),
-	BossHealth = source(0),
-	BossMaxHealth = source(0),
+	Boss = {
+		Name = source(""),
+		Bar = BarJuice.NewTrack(),
+		Breaks = BarJuice.NewTrack(),
+		Shares = {
+			{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
+			{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
+		},
+		SwappedAt = source(-math.huge),
+		AppearedAt = source(-math.huge),
+		Broken = source(0),
+		BrokeAt = source(-math.huge),
+		DefeatedAt = source(-math.huge),
+	},
 	NextBossName = source(""),
 	NextBossRound = source(0),
 	Gold = source(0),
@@ -123,7 +179,9 @@ local state: Types.THudState = {
 	GoldDenied = source(0),
 	Health = source(0),
 	MaxHealth = source(0),
-	TrailHealth = source(0),
+	BarHealth = source(0),
+	BarMax = source(0),
+	HealthTrack = BarJuice.NewTrack(),
 	IsDown = source(false),
 	Head = source(nil :: BasePart?),
 	IsFirstPerson = source(false),
@@ -136,8 +194,19 @@ local state: Types.THudState = {
 	EnemyCount = source(0),
 	IsNukePrompted = source(false),
 	IsHealPrompted = source(false),
+	Announce = {
+		Kind = source(""),
+		Name = source(""),
+		Count = source(0),
+		At = source(-math.huge),
+	},
+	GoldPack = {
+		Amount = source(0),
+		At = source(-math.huge),
+	},
 	Gun = source(nil :: any),
 	GunModel = source(nil :: Model?),
+	Avatar = source(nil :: Model?),
 	GunAt = source(-math.huge),
 	Weapon = {
 		Offer = source(LADDER[2] :: GunsCore.TLadderStep?),
@@ -151,25 +220,81 @@ local state: Types.THudState = {
 		DeniedAt = source(-math.huge),
 		ReadyAt = source(-math.huge),
 	},
+	Vital = {
+		Level = source(0),
+		Price = source(healthUpgrades.PRICES[1] :: number?),
+		Paid = source(0),
+		CanAfford = source(false),
+		Clock = source(math.huge),
+		BoughtAt = source(-math.huge),
+		LandAt = source(-math.huge),
+		AskedAt = source(-math.huge),
+		DeniedAt = source(-math.huge),
+		ReadyAt = source(-math.huge),
+		BarAt = source(Hotbar.HEALTH),
+	},
+	Abilities = abilities,
+	Ultimate = {
+		Slot = #abilities + 1,
+		Name = AbilityController.Class.Ultimate.Name,
+		Kind = AbilityController.Class.Ultimate.Kind,
+		Key = AbilityController.ULTIMATE_KEY,
+		Charge = source(0),
+		IsReady = source(false),
+		Burning = source(0),
+		ChargedAt = source(-math.huge),
+		UsedAt = source(-math.huge),
+		DeniedAt = source(-math.huge),
+	},
 	IsReviveOffered = source(false),
 	CanRevive = EProducts.Revive ~= 0,
 	Keys = table.freeze({
 		Skip = MatchController.SKIP_KEY,
 		Turn = DefensePlacementController.TURN_KEY,
 		Upgrade = WeaponController.UPGRADE_KEY,
+		Health = HealthController.UPGRADE_KEY,
 	}),
-	RoundsCleared = source(0),
-	RunGold = source(0),
-	RunGems = source(0),
-	ReturnIn = source(0),
+	Results = {
+		IsOpen = source(false),
+		ToggledAt = source(-math.huge),
+		Clock = source(math.huge),
+		Beat = source(0),
+		Wave = source(0),
+		IsNewBest = source(false),
+		SquadKills = source(0),
+		Seconds = source(0),
+		Gems = source(0),
+		TotalGems = source(0),
+		DoubleRobux = source(0),
+		CanWatchAd = source(false),
+		Avatar = source(nil :: Model?),
+		Doubled = source(0),
+		DoubledAt = source(-math.huge),
+		CanRevive = source(false),
+		ReturnIn = source(0),
+		ReturnShare = source(1),
+		ReturnTickAt = source(-math.huge),
+		IsReturnHeld = source(false),
+		Votes = source(0),
+		VotesNeeded = source(0),
+		HasVoted = source(false),
+		VotesAt = source(-math.huge),
+	},
 }
 
 local squadMembers: { [Player]: Types.TSquadMember } = {}
--- Every other player's humanoid, from OnCharacterAdded (the local player's health is HealthController's).
-local squadHumanoids: { [Player]: Humanoid } = {}
+-- The Gold each squad row shows, before it is floored: it rolls toward the real amount.
+local squadCash: { [Player]: number } = {}
 local squadIcon: any = nil
+local settingsIcon: any = nil
 -- os.clock until which Now keeps ticking (Tune.MOTION_SECONDS past the last gesture that started).
 local motionUntil = -math.huge
+-- os.clock until which the squad's announcement is up.
+local announceUntil = -math.huge
+-- os.clock until which the results' clock runs (the last of their one-off gestures to end), and whether a purchase
+-- prompt opened from them is up.
+local resultsUntil = -math.huge
+local isBuyingFromResults = false
 local runStartedAt = 0
 local lastCountdown = 0
 local lastVotes = 0
@@ -182,10 +307,22 @@ local lastDeniedAt = -math.huge
 local wasAffordable = false
 -- os.clock until which the weapon card or its show is moving (state.Weapon.Clock runs till then).
 local weaponUntil = -math.huge
+-- The same for the HEALTH card: HealthController's stamps as last seen, whether the next level was affordable last
+-- frame, and until when the card or its show is moving.
+local lastHealthUpgradedAt = -math.huge
+local lastHealthAskedAt = -math.huge
+local lastHealthDeniedAt = -math.huge
+local wasHealthAffordable = false
+local vitalUntil = -math.huge
+-- The health bar's own max and health (state.BarMax, BarHealth), and the max it drew when the last level was bought:
+-- the bar grows from that to the truth once the level lands.
+local barMax = 0
+local barGrowsFrom = 0
 -- The Tool the local character holds, kept by its ChildAdded / ChildRemoved.
 local heldModel: Model? = nil
 local selfHumanoid: Humanoid? = nil
-local trailHealth = 0
+-- The health bar's chase, in health.
+local healthChase = BarJuice.NewChase(0)
 local goldShown = 0
 local goldTarget = 0
 local lastPendingGold = 0
@@ -194,6 +331,18 @@ local goldDeniedAt = -math.huge
 -- The round a boss was seen in, so a boss round whose boss is dead points at the next one.
 local bossSeenRound = 0
 local nextBossRound, nextBossName = -1, ""
+-- The boss bar's memory between frames, and what is seen of the boss each frame (one table, refilled).
+local bossMemory = BossBar.NewMemory()
+local bossSeen: BossBar.TBossSeen = {
+	DataId = 0,
+	Name = "",
+	Share = 0,
+	Top = { { UserId = 0, Name = "", Share = 0 }, { UserId = 0, Name = "", Share = 0 } },
+	SelfId = LocalPlayer.UserId,
+	IsRunning = false,
+}
+-- Display names by UserId for the boss bar's damage share, looked up once each.
+local namesById: { [number]: string } = {}
 -- The frame's dt for updateFrame, so the per-frame batch passes a function that captures nothing.
 local frameDt = 0
 
@@ -240,10 +389,11 @@ local function updateRound(now: number, gameNow: number)
 	state.CanSkip(canSkip)
 	-- One cooldown across the countdown and the wave's opening seconds: SKIP WAVE fills from the moment a countdown
 	-- starts. Rounded to the fill's own pixels, so a frame that would not move it writes nothing.
+	local skipCooldownSeconds = RoundCore.PREPARE_SECONDS + RoundCore.GetSkipAfterSeconds(MatchController.Round)
 	local waited = if phase == "Preparing"
 		then RoundCore.PREPARE_SECONDS - (MatchController.PrepareEndsAt - gameNow)
-		else RoundCore.PREPARE_SECONDS + RoundCore.SKIP_AFTER_SECONDS - (MatchController.SkipOpensAt - gameNow)
-	local cooldown = math.clamp(waited / (RoundCore.PREPARE_SECONDS + RoundCore.SKIP_AFTER_SECONDS), 0, 1)
+		else skipCooldownSeconds - (MatchController.SkipOpensAt - gameNow)
+	local cooldown = math.clamp(waited / skipCooldownSeconds, 0, 1)
 	state.SkipProgress(
 		if (phase ~= "Preparing" and phase ~= "Fighting") or isBossUp
 			then 0
@@ -261,9 +411,6 @@ local function updateRound(now: number, gameNow: number)
 
 	local boss = ENEMIES[MatchController.BossDataId]
 	if boss then bossSeenRound = round end
-	state.BossName(if boss then boss.Name else "")
-	state.BossHealth(MatchController.BossHealth)
-	state.BossMaxHealth(MatchController.BossMaxHealth)
 
 	local every = RoundCore.BOSS_EVERY
 	local upcoming = math.max(math.ceil(round / every) * every, every)
@@ -279,6 +426,33 @@ local function updateRound(now: number, gameNow: number)
 
 	state.NextBossRound(nextBossRound)
 	state.NextBossName(nextBossName)
+end
+
+-- One line of the boss's damage share: `damage` taken off a boss of `maxHealth` by `userId` (0 for nobody).
+local function fillShare(line: BossBar.TShareSeen, userId: number, damage: number, maxHealth: number)
+	local name = namesById[userId]
+	if userId ~= 0 and not name then
+		local player = Players:GetPlayerByUserId(userId)
+		name = if player then player.DisplayName else nil
+		namesById[userId] = name
+	end
+
+	line.UserId = if name then userId else 0
+	line.Name = name or ""
+	line.Share = if name and maxHealth > 0 then math.clamp(damage / maxHealth, 0, 1) else 0
+end
+
+-- The boss's bar, from what the server last said about the boss up.
+local function updateBoss(now: number, dt: number)
+	local data = ENEMIES[MatchController.BossDataId]
+	local maxHealth = MatchController.BossMaxHealth
+	bossSeen.DataId = if data then data.Id else 0
+	bossSeen.Name = if data then data.Name else ""
+	bossSeen.Share = if data and maxHealth > 0 then math.clamp(MatchController.BossHealth / maxHealth, 0, 1) else 0
+	fillShare(bossSeen.Top[1], MatchController.BossFirstId, MatchController.BossFirstDamage, maxHealth)
+	fillShare(bossSeen.Top[2], MatchController.BossSecondId, MatchController.BossSecondDamage, maxHealth)
+	bossSeen.IsRunning = MatchController.IsRunning and not MatchController.IsEnded
+	motionUntil = math.max(motionUntil, BossBar.Update(state.Boss, bossMemory, bossSeen, now, dt))
 end
 
 local function updateWallet(now: number, dt: number)
@@ -317,15 +491,24 @@ local function updateHealth(now: number, dt: number)
 		end
 	end
 
-	trailHealth = math.max(trailHealth, health)
-	if now > HealthController.HurtAt + Tune.TRAIL_HOLD_SECONDS then
-		trailHealth = math.max(trailHealth - Tune.TRAIL_DRAIN_RATE * maxHealth * dt, health)
-	end
+	-- A bought level is on its way to the bar until it lands, then the bar grows into it. The max and the health are
+	-- held back by the same amount, so the fill never slides backwards on the one event that made it bigger, and a
+	-- hit taken meanwhile still shows at once.
+	local grown = Motion.Decelerate(Motion.Progress(now, state.Vital.LandAt(), HealthUpgrade.Timing.GROW))
+	barMax = if maxHealth > barGrowsFrom and barGrowsFrom > 0
+		then barGrowsFrom + (maxHealth - barGrowsFrom) * grown
+		else maxHealth
+	local barHealth = math.max(health - (maxHealth - barMax), 0)
+	-- While the bar grows into a bought level its health rises with its length, which is not a heal.
+	local bite = BarJuice.Step(healthChase, barHealth, barMax, dt, now, barMax ~= maxHealth)
+	if bite > 0 then motionUntil = now + Tune.MOTION_SECONDS end
+	BarJuice.Write(state.HealthTrack, healthChase, bite, if barMax > 0 then barHealth / barMax else 0, now)
 
 	local isDown = MatchController.IsRunning and HealthController.IsDown()
 	state.Health(health)
 	state.MaxHealth(maxHealth)
-	state.TrailHealth(trailHealth)
+	state.BarHealth(barHealth)
+	state.BarMax(barMax)
 	state.IsDown(isDown)
 	local head = state.Head()
 	state.IsFirstPerson(
@@ -338,18 +521,6 @@ local function updateHealth(now: number, dt: number)
 		then Tune.LOW_HEALTH_EDGE * (0.75 + 0.25 * math.sin(now * 4))
 		else 0
 	state.Vignette(math.max(hurt, low))
-
-	for player, member in squadMembers do
-		if member.IsSelf then
-			member.Health(health)
-			member.MaxHealth(maxHealth)
-			continue
-		end
-
-		local humanoid = squadHumanoids[player]
-		member.Health(if humanoid then humanoid.Health else 0)
-		member.MaxHealth(if humanoid then humanoid.MaxHealth else 0)
-	end
 
 	-- The nuke is the bigger save, so it asks first.
 	local isNuke = MatchController.IsRunning and not isDown and EnemiesController.Count > Tune.NUKE_PROMPT_ENEMIES
@@ -417,6 +588,66 @@ local function updateWeapon(now: number): boolean
 	return isBought
 end
 
+-- Stamps one of the HEALTH card's gestures, as stampWeapon does the weapon card's.
+local function stampVital(at: vide.Source<number>, now: number)
+	stamp(at, now)
+	vitalUntil = now + HealthUpgrade.Timing.TOTAL
+end
+
+-- Where the middle of the health bar is on the screen, in the HUD's design px: over the head, or above the Gold in
+-- first person.
+local function healthBarPoint(): UDim2
+	local head = state.Head()
+	if not head or state.IsFirstPerson() then return Hotbar.HEALTH end
+
+	local point = Workspace.CurrentCamera:WorldToViewportPoint(head.Position + Overhead.OFFSET)
+	local scale = state.Scale()
+	return UDim2.fromOffset(math.round(point.X / scale), math.round(point.Y / scale))
+end
+
+local function updateVital(now: number)
+	local vital = state.Vital
+	local level = HealthController.Level
+	local price = healthUpgrades.PRICES[level + 1]
+	vital.Level(level)
+	vital.Price(price)
+
+	if HealthController.UpgradedAt ~= lastHealthUpgradedAt then
+		lastHealthUpgradedAt = HealthController.UpgradedAt
+		barGrowsFrom = barMax
+		vital.Paid(healthUpgrades.PRICES[level] or 0)
+		stampVital(vital.BoughtAt, now)
+		vital.LandAt(now + HealthUpgrade.Timing.LAND)
+	end
+
+	if HealthController.UpgradeAskedAt ~= lastHealthAskedAt then
+		lastHealthAskedAt = HealthController.UpgradeAskedAt
+		stampVital(vital.AskedAt, now)
+	end
+
+	if HealthController.UpgradeDeniedAt ~= lastHealthDeniedAt then
+		lastHealthDeniedAt = HealthController.UpgradeDeniedAt
+		stampVital(vital.DeniedAt, now)
+		-- Short of Gold, the counter says so too.
+		if price and MatchController.Gold < price then goldDeniedAt = now end
+	end
+
+	-- The sweep waits for the card to finish dealing the next level in, so it lands on a card at rest.
+	local canAfford = price ~= nil and goldShown >= price
+	vital.CanAfford(canAfford)
+	if not canAfford then
+		wasHealthAffordable = false
+	elseif not wasHealthAffordable and now >= vital.BoughtAt() + HealthUpgrade.Timing.TOTAL then
+		wasHealthAffordable = true
+		stampVital(vital.ReadyAt, now)
+	end
+
+	local isMoving = now < vitalUntil
+	vital.Clock(if isMoving then now else math.huge)
+	-- The bar follows the camera, so what flies to it is told where it is only while something does.
+	if isMoving then vital.BarAt(healthBarPoint()) end
+end
+
 -- `isBought`: the new gun is a bought upgrade, which lands in its slot with its own punch (Hotbar).
 local function updateGun(now: number, isBought: boolean)
 	local gun = WeaponController.Gun
@@ -429,12 +660,135 @@ local function updateGun(now: number, isBought: boolean)
 	state.GunModel(heldModel)
 end
 
-local function updateOverlays(now: number)
+-- Mirrors one of AbilityController's stamps, and keeps Now ticking for the gesture it starts.
+local function mirrorStamp(at: vide.Source<number>, value: number, now: number)
+	if at() == value then return end
+	at(value)
+	motionUntil = now + Tune.MOTION_SECONDS
+end
+
+-- `gameNow` for what runs on the match's clock (cooldowns, the beam), `now` for the HUD's own gestures.
+local function updateAbilities(now: number, gameNow: number)
+	local slots = AbilityController.Slots
+	for _, card in state.Abilities do
+		local slot = slots[card.Slot]
+		if not slot then continue end
+		local left = math.max(slot.ReadyAt - gameNow, 0)
+		local cooling = math.ceil(left / (slot.Ability.Cooldown or 1) * Tune.COOLDOWN_STEPS) / Tune.COOLDOWN_STEPS
+		if cooling == 0 and card.Cooling() > 0 then stamp(card.ReadyAt, now) end
+		card.Cooling(cooling)
+		card.Seconds(math.ceil(left))
+		mirrorStamp(card.UsedAt, slot.UsedAt, now)
+		-- Short of Gold, the counter says so too.
+		if card.DeniedAt() ~= slot.DeniedAt and cooling == 0 and MatchController.Gold < card.Cost then
+			goldDeniedAt = now
+		end
+		mirrorStamp(card.DeniedAt, slot.DeniedAt, now)
+	end
+
+	local ultimate = state.Ultimate
+	local slot = slots[ultimate.Slot]
+	if not slot then return end
+	local needed = slot.Ability.ChargeKills or 1
+	local share = math.clamp(AbilityController.Charge / needed, 0, 1)
+	local beamLeft = AbilityController.BeamUntil - gameNow
+	ultimate.Charge(math.floor(share * Tune.CHARGE_STEPS) / Tune.CHARGE_STEPS)
+	ultimate.IsReady(share >= 1)
+	ultimate.Burning(
+		if beamLeft > 0
+			then math.ceil(beamLeft / math.max(AbilityController.BeamSeconds, 1e-3) * Tune.CHARGE_STEPS) / Tune.CHARGE_STEPS
+			else 0
+	)
+	mirrorStamp(ultimate.ChargedAt, AbilityController.ChargedAt, now)
+	mirrorStamp(ultimate.UsedAt, slot.UsedAt, now)
+	mirrorStamp(ultimate.DeniedAt, slot.DeniedAt, now)
+end
+
+-- The squad screen's rows, from the lines the server sends. A number that goes up while the screen is up is stamped,
+-- for the row's answer to it; with the screen shut nothing rolls and nothing is stamped.
+local function updateSquad(now: number, dt: number)
+	local isOpen = state.IsSquadOpen()
+	local scores = MatchController.Scores
+	for player, member in squadMembers do
+		local score = scores[player]
+		if not score then continue end
+		member.ClassName(AbilitiesCore.ClassOf(score.ClassId).Name)
+		if isOpen and score.Kills > member.Kills() then stamp(member.KilledAt, now) end
+		if isOpen and score.Deaths > member.Deaths() then stamp(member.DiedAt, now) end
+		member.Kills(score.Kills)
+		member.Deaths(score.Deaths)
+
+		-- The local player's is the Gold counter's own number, which already rolls and holds back coins in flight.
+		local shown = squadCash[player] or 0
+		if member.IsSelf then
+			shown = state.GoldShown()
+		elseif not isOpen or score.Gold < shown then
+			shown = score.Gold
+		else
+			shown += (score.Gold - shown) * math.min(dt * Tune.GOLD_ROLL_RATE, 1)
+			if score.Gold - shown < 0.5 then shown = score.Gold end
+		end
+
+		squadCash[player] = shown
+		member.Cash(math.floor(shown))
+	end
+end
+
+local function updateResults(now: number)
+	local results = state.Results
+	local run = MatchController.Results
 	state.IsReviveOffered(MatchController.ReviveProductId ~= 0)
-	state.RoundsCleared(MatchController.RoundsCleared)
-	state.RunGold(MatchController.RunGold)
-	state.RunGems(MatchController.RunGems)
-	state.ReturnIn(math.max(math.ceil(MatchController.ReturnAt - now), 0))
+	if (run ~= nil) ~= results.IsOpen() then
+		results.IsOpen(run ~= nil)
+		results.ToggledAt(now)
+		resultsUntil = now + (if run then Results.Seconds.OPEN else Tune.RESULTS_CLOSE_SECONDS)
+		-- The total as the run ended, which already holds its Gems: what a doubling adds is counted onto it as its
+		-- Gems land, whenever the profile's own number arrives.
+		if run then results.TotalGems(ProfileController.Gems) end
+	end
+
+	results.Beat(if run then now else 0)
+	if not run then
+		results.Clock(if now < resultsUntil then now else math.huge)
+		return
+	end
+
+	-- Each one-off gesture keeps the clock running for as long as it lasts.
+	local left = if run.IsReturnHeld then run.ReturnSeconds else math.max(run.ReturnAt - now, 0)
+	local whole = math.ceil(left)
+	if whole ~= results.ReturnIn() then
+		results.ReturnTickAt(now)
+		resultsUntil = math.max(resultsUntil, now + Results.Seconds.GESTURE)
+	end
+
+	if run.Votes ~= results.Votes() or run.VotesNeeded ~= results.VotesNeeded() then
+		results.VotesAt(now)
+		resultsUntil = math.max(resultsUntil, now + Results.Seconds.GESTURE)
+	end
+
+	if run.DoubledAt ~= results.DoubledAt() then
+		resultsUntil = math.max(resultsUntil, run.DoubledAt + Results.Seconds.DOUBLED)
+	end
+
+	results.Clock(if now < resultsUntil then now else math.huge)
+	results.Wave(run.Wave)
+	results.IsNewBest(run.IsNewBest)
+	results.SquadKills(run.SquadKills)
+	results.Seconds(run.SecondsSurvived)
+	results.Gems(run.Gems)
+	results.DoubleRobux(doubleGems.GetRobux(run.DoubleProductId) or 0)
+	results.CanWatchAd(run.CanWatchAd and run.DoubleProductId ~= 0)
+	results.Doubled(run.Doubled)
+	results.DoubledAt(run.DoubledAt)
+	results.CanRevive(MatchController.ReviveProductId ~= 0)
+	results.ReturnIn(whole)
+	results.ReturnShare(
+		math.ceil(math.clamp(left / run.ReturnTotal, 0, 1) * Tune.RETURN_BAR_STEPS) / Tune.RETURN_BAR_STEPS
+	)
+	results.IsReturnHeld(run.IsReturnHeld)
+	results.Votes(run.Votes)
+	results.VotesNeeded(run.VotesNeeded)
+	results.HasVoted(run.HasVoted)
 end
 
 local function update(dt: number)
@@ -443,13 +797,26 @@ local function update(dt: number)
 	local viewport = Workspace.CurrentCamera.ViewportSize
 	state.Scale(math.clamp(viewport.Y / Theme.DESIGN_HEIGHT, Theme.MIN_SCALE, Theme.MAX_SCALE))
 	updateRound(now, gameNow)
+	updateBoss(now, dt)
 	updateWallet(now, dt)
+	updateVital(now)
 	updateHealth(now, dt)
 	updateDefenses(now)
 	updateGun(now, updateWeapon(now))
-	updateOverlays(now)
-	-- A prompted item breathes for as long as it asks, so the clock runs with it.
-	if now < motionUntil or state.IsNukePrompted() or state.IsHealPrompted() then state.Now(now) end
+	updateAbilities(now, gameNow)
+	updateSquad(now, dt)
+	updateResults(now)
+	-- A prompted item breathes for as long as it asks, and a full ultimate for as long as it waits, so the clock runs
+	-- with them.
+	if
+		now < motionUntil
+		or now < announceUntil
+		or state.IsNukePrompted()
+		or state.IsHealPrompted()
+		or state.Ultimate.IsReady()
+	then
+		state.Now(now)
+	end
 end
 
 local function rebuildSquad()
@@ -466,6 +833,18 @@ end
 
 local function updateFrame()
 	update(frameDt)
+end
+
+-- Opens the purchase prompt for `productId`. Opened from the results, the server is told for as long as it is up: the
+-- countdown to the lobby waits, so nobody is sent away in the middle of paying.
+local function prompt(productId: number)
+	if productId == 0 then return end
+	if MatchController.Results then
+		isBuyingFromResults = true
+		MatchController.SetBuying(true)
+	end
+
+	MarketplaceService:PromptProductPurchase(LocalPlayer, productId)
 end
 
 local actions: Types.TActions = {
@@ -488,19 +867,23 @@ local actions: Types.TActions = {
 		DefensePlacementController.Begin(dataId)
 	end,
 	UpgradeWeapon = WeaponController.Upgrade,
+	UpgradeHealth = HealthController.Upgrade,
+	CastAbility = AbilityController.Cast,
 	Revive = function()
-		local productId = MatchController.ReviveProductId
+		prompt(MatchController.ReviveProductId)
+	end,
+	BuyProduct = function(productId: number)
 		if productId ~= 0 then MarketplaceService:PromptProductPurchase(LocalPlayer, productId) end
-	end,
-	-- Shown before their products exist, as the design lays them out: a click does nothing until EProducts has them.
-	BuyHealAll = function()
-		if EProducts.HealAll ~= 0 then MarketplaceService:PromptProductPurchase(LocalPlayer, EProducts.HealAll) end
-	end,
-	BuyNukeAll = function()
-		if EProducts.NukeAll ~= 0 then MarketplaceService:PromptProductPurchase(LocalPlayer, EProducts.NukeAll) end
 	end,
 	CloseSquad = function()
 		if squadIcon then squadIcon:deselect() end
+	end,
+	PlayAgain = MatchController.VotePlayAgain,
+	LeaveToLobby = MatchController.LeaveToLobby,
+	WatchAd = MatchController.WatchAd,
+	DoubleGems = function()
+		local run = MatchController.Results
+		if run then prompt(run.DoubleProductId) end
 	end,
 }
 
@@ -510,7 +893,7 @@ local function setSquadOpen(isOpen: boolean)
 end
 
 -- Dresses a top bar icon in the HUD's panel (Topbar.luau) and feeds the panel what the hand does to it.
-local function skinTopbarIcon(icon: any, isSelected: vide.Source<boolean>, hasBrackets: boolean)
+local function skinTopbarIcon(icon: any, isSelected: () -> boolean, hasBrackets: boolean)
 	local skin: Types.TTopbarSkin = {
 		HasBrackets = hasBrackets,
 		IsHovered = source(false),
@@ -524,9 +907,13 @@ local function skinTopbarIcon(icon: any, isSelected: vide.Source<boolean>, hasBr
 	icon.viewingEnded:Connect(function()
 		skin.IsHovered(false)
 	end)
-	icon:getInstance("ClickRegion").MouseButton1Down:Connect(function()
+	-- TopbarPlus builds its own button, so it never gets Components.ButtonSounds: the same two sounds, by hand.
+	local clickRegion = icon:getInstance("ClickRegion")
+	clickRegion.MouseButton1Down:Connect(function()
 		stamp(skin.PressedAt, os.clock())
 	end)
+	clickRegion.MouseEnter:Connect(SoundsCore.PlayHover)
+	clickRegion.Activated:Connect(SoundsCore.PlayClick)
 
 	-- TopbarPlus clips the icon (for its dropdowns, which these have none of), which would cut the panel's shadow; it
 	-- clips the button again on every deselect, so this runs after it.
@@ -566,16 +953,31 @@ local function createTopbarIcons()
 
 	skinTopbarIcon(squadIcon, state.IsSquadOpen, true)
 
-	-- The Settings screen (UIMatt.md, Settings) is not ported yet: the icon is in its place and opens nothing.
-	local settingsIcon = TopbarPlus.new()
+	settingsIcon = TopbarPlus.new()
+	settingsIcon
 		:setName("Settings")
 		:setImage(Icons.IMAGE)
 		:modifyTheme({ "IconImage", "ImageRectOffset", offset.Settings })
 		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
 		:setCaption("Settings")
 		:align("Right")
-		:oneClick()
-	skinTopbarIcon(settingsIcon, source(false), false)
+		:bindEvent("selected", SettingsController.Open)
+		:bindEvent("deselected", SettingsController.Close)
+
+	skinTopbarIcon(settingsIcon, SettingsController.IsOpen, false)
+end
+
+-- Puts the banner up: `buyer` used the item `kind` ("Nuke" or "Heal"); `count` is the bodies a nuke kills.
+local function announce(kind: string, buyer: Player, count: number)
+	local now = os.clock()
+	announceUntil = now + Announce.SECONDS
+	vide.batch(function()
+		state.Announce.Kind(kind)
+		state.Announce.Name(buyer.DisplayName)
+		state.Announce.Count(count)
+		state.Announce.At(now)
+		state.Now(now)
+	end)
 end
 
 -- The Tool the character holds, for the gun slot's picture (WeaponService builds it with its model inside).
@@ -590,13 +992,44 @@ local function watchHeldTool(character: Model)
 	character.ChildRemoved:Connect(refresh)
 end
 
+MatchController.OnNukedAll:Connect(function(buyer: Player, _, bodies: number)
+	announce("Nuke", buyer, bodies)
+end)
+
+MarketplaceService.PromptProductPurchaseFinished:Connect(function()
+	if not isBuyingFromResults then return end
+	isBuyingFromResults = false
+	MatchController.SetBuying(false)
+end)
+
+MatchController.OnHealedAll:Connect(function(buyer: Player)
+	announce("Heal", buyer, 0)
+end)
+
+-- The local player's own pack: its stamp goes up over the money plate, in the handler so it is on the frame the
+-- coins leave him.
+MatchController.OnGoldBought:Connect(function(buyer: Player, amount: number)
+	if buyer ~= LocalPlayer then return end
+	local now = os.clock()
+	motionUntil = math.max(motionUntil, now + Hotbar.GOLD_PACK_SECONDS)
+	vide.batch(function()
+		state.GoldPack.Amount(amount)
+		state.GoldPack.At(now)
+		state.Now(now)
+	end)
+end)
+
 HudController.OnPlayerConnected = function(player: Player)
 	squadMembers[player] = {
 		Name = player.DisplayName,
 		UserId = player.UserId,
 		IsSelf = player == LocalPlayer,
-		Health = source(0),
-		MaxHealth = source(0),
+		ClassName = source(DEFAULT_CLASS.Name),
+		Kills = source(0),
+		Deaths = source(0),
+		Cash = source(0),
+		KilledAt = source(-math.huge),
+		DiedAt = source(-math.huge),
 	}
 	rebuildSquad()
 end :: TPlayerEvents.OnPlayerConnected
@@ -604,24 +1037,38 @@ end :: TPlayerEvents.OnPlayerConnected
 HudController.OnPlayerDisconnected = function(player: Player)
 	if not squadMembers[player] then return end
 	squadMembers[player] = nil
-	squadHumanoids[player] = nil
+	squadCash[player] = nil
 	rebuildSquad()
 end :: TPlayerEvents.OnPlayerDisconnected
 
-HudController.OnCharacterAdded = function(character: TCharacter.TCharacter)
-	local player = Players:GetPlayerFromCharacter(character)
-	if player and player ~= LocalPlayer then squadHumanoids[player] = character.Humanoid end
-end :: TCharacterEvents.OnCharacterAdded
+-- The Decoy's card draws the avatar, in the doll's pose, once its clothes and hats are on it. The last copy is kept when the
+-- body goes, so the card is never empty. Yields.
+local function copyAvatar(character: Model)
+	local player = Players.LocalPlayer
+	if not player:HasAppearanceLoaded() then player.CharacterAppearanceLoaded:Wait() end
+	if player.Character ~= character then return end
+	local copy = copyCharacter(character)
+	if not copy then return end
+	AvatarPose.Apply(copy, AvatarPose.DOLL)
 
-HudController.OnCharacterRemoving = function(character: TCharacter.TCharacter)
-	local player = Players:GetPlayerFromCharacter(character)
-	if player and squadHumanoids[player] == character.Humanoid then squadHumanoids[player] = nil end
-end :: TCharacterEvents.OnCharacterRemoving
+	local old = state.Avatar()
+	state.Avatar(copy)
+	if old then old:Destroy() end
+
+	-- The results draw it too, arms folded.
+	local folded = copyCharacter(character)
+	if not folded then return end
+	AvatarPose.Apply(folded, AvatarPose.CROSSED)
+	local oldFolded = state.Results.Avatar()
+	state.Results.Avatar(folded)
+	if oldFolded then oldFolded:Destroy() end
+end
 
 HudController.OnSelfCharacterAdded = function(character: TCharacter.TCharacter)
 	state.Head(character.Head)
 	selfHumanoid = character.Humanoid
 	watchHeldTool(character)
+	task.spawn(copyAvatar, character)
 end :: TCharacterEvents.OnCharacterAdded
 
 HudController.OnSelfCharacterRemoving = function()
@@ -638,11 +1085,20 @@ HudController.OnStart = function()
 	createTopbarIcons()
 	update(0)
 	vide.mount(function()
+		-- The settings screen shuts by its own X too: the icon is let go with it.
+		vide.effect(function()
+			if not SettingsController.IsOpen() and settingsIcon then settingsIcon:deselect() end
+		end)
+
 		-- A list: mount keeps only the first value a component returns.
 		return {
 			create("ScreenGui")({
 				Name = "Hud",
 				ResetOnSpawn = false,
+				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them.
+				Enabled = function()
+					return not UpgradePickController.IsCovering()
+				end,
 				IgnoreGuiInset = true,
 				ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -659,13 +1115,15 @@ HudController.OnStart = function()
 					Overlays.Vignette(state),
 					Wave.Build(state, actions),
 					Items.Build(state, actions),
+					Announce.Build(state),
 					Upgrades.Build(state, actions),
-					Shop.Defenses(state, actions),
+					Shop.Abilities(state, actions),
 					Hotbar.Build(state),
 					WeaponUpgrade.Build(state, Upgrades.WEAPON_PICTURE, Upgrades.PICTURE_SIZE, Upgrades.PICTURE_TILT),
+					HealthUpgrade.Build(state, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE),
 					Squad.Build(state, actions),
 					Overlays.Down(state, actions),
-					Overlays.Results(state),
+					Results.Build(state, actions),
 				}),
 			}),
 			Overhead.Build(state),

@@ -40,6 +40,8 @@ local ENEMIES = DataCore.Enemies.ById
 
 local RiggedQuery = EnemyWorld:query(Components.CFrame, Components.Bone, Components.InstanceId, Components.Data)
 	:cached()
+-- Every body with a model, for reaching its clips (modelTracks).
+local ModelQuery = EnemyWorld:query(Components.InstanceId, Components.Model):cached()
 
 local exp = math.exp
 local sin = math.sin
@@ -112,6 +114,8 @@ local Tune = table.freeze({
 	-- flowers), 80 at the median, where white vanishes on the lines and black on the asphalt.
 	LAST_OUTLINE_COLOR = Color3.fromRGB(255, 0, 255),
 	LAST_OUTLINE_TRANSPARENCY = 0.5,
+	-- A stiff body (SetStiff) keeps this much of its fill showing under its colour between hits.
+	STIFF_TRANSPARENCY = 0.35,
 	-- A body's hit sound plays at most once in this long; the flash still shows every hit.
 	HIT_SOUND_DEBOUNCE = 0.5,
 	-- The crowd's groan: one at a time, from the first visible body the loop reaches, every MIN to MAX seconds of
@@ -121,6 +125,8 @@ local Tune = table.freeze({
 	-- A wind-up snarl at most this often across the crowd: a dozen in reach is a dozen swings a second, and one clear
 	-- snarl says the crowd is winding up where ten overlapping say nothing.
 	ATTACK_SNARL_GAP = 0.25,
+	-- The clips follow an ease of the clock in steps this big (rescaleClips).
+	CLIP_RESCALE_STEP = 0.05,
 })
 
 local IDLE_PRIORITY = Enum.AnimationPriority.Idle
@@ -168,6 +174,8 @@ local flinchAway: { [number]: Vector3 } = {}
 local arrivalEndsAt: { [number]: number } = {}
 -- os.clock of each body's last hit sound (Tune.HIT_SOUND_DEBOUNCE).
 local hitSoundAt: { [number]: number } = {}
+-- Bodies held stiff (SetStiff): the yaw each was caught at, which it keeps until it is let go.
+local stiffYaws: { [number]: number } = {}
 local nextIdleGroan = 0
 local nextAttackSnarl = 0
 -- The volley being sounded (beginVolley).
@@ -192,6 +200,8 @@ local modelTracks: { [Model]: { [Animation]: AnimationTrack } } = {}
 local playingTracks: { [AnimationTrack]: boolean } = {}
 -- The speed a track was started at (an attack clip is stretched to its wind-up), so a thaw restores it.
 local trackSpeeds: { [AnimationTrack]: number } = {}
+-- The rate every clip plays at over its own speed: the match's clock times the enemies' (rescaleClips).
+local clipScale = 1
 -- Each rigged body's Flash, so a hit reaches it with one read (a name lookup on the model costs 10x: measured
 -- 2026-11-20, 8 ns against 82 ns for model.Flash and 103 ns for FindFirstChild).
 local flashHighlights: { [number]: Highlight } = {}
@@ -265,6 +275,32 @@ function EnemiesController.GetCFrame(instanceId: number): CFrame?
 	local cframe = if entity then EnemyWorld:get(entity, Components.CFrame) else nil
 	if not cframe or cframe.Position.X == FAR_AWAY_X then return nil end
 	return cframe
+end
+
+-- Holds a body stiff in `color` (set in foam: its clips stop where they are, it keeps the way it faces, its own
+-- Highlight is tinted and stays lit, and a killing blow breaks it apart instead of dropping it), or lets it go with
+-- nil. The tint is the body's own Highlight: nothing here may add one (EnemiesCore.MAX_ALIVE).
+function EnemiesController.SetStiff(instanceId: number, color: Color3?)
+	local entity = EnemyWorldRef:Search(instanceId)
+	if not entity then return end
+	local isStiff = color ~= nil
+	if isStiff == (stiffYaws[instanceId] ~= nil) then return end
+	stiffYaws[instanceId] = if isStiff then yaws[instanceId] or 0 else nil
+
+	local highlight = flashHighlights[instanceId]
+	if highlight then
+		highlight.FillColor = color or Tune.FLASH_COLOR
+		if not flashTarget[instanceId] then
+			highlight.FillTransparency = if isStiff then Tune.STIFF_TRANSPARENCY else 1
+		end
+	end
+
+	local tracks = modelTracks[EnemyWorld:get(entity, Components.Model) :: any]
+	if not tracks then return end
+	local scale = if isStiff then 0 else clipScale
+	for _, track in tracks do
+		if playingTracks[track] then track:AdjustSpeed(scale * (trackSpeeds[track] or 1)) end
+	end
 end
 
 -- ============================== Rigs ==============================
@@ -399,9 +435,8 @@ end
 
 local function play(track: AnimationTrack, fade: number?, speed: number?)
 	local baseSpeed = speed or 1
-	track:Play(fade, nil, baseSpeed)
+	track:Play(fade, nil, baseSpeed * clipScale)
 	trackSpeeds[track] = baseSpeed
-	if TimeCore.EnemyTimeScale <= 0 then track:AdjustSpeed(0) end
 	playingTracks[track] = true
 end
 
@@ -551,6 +586,7 @@ local function forgetId(instanceId: number)
 	flinchAway[instanceId] = nil
 	hitSoundAt[instanceId] = nil
 	arrivalEndsAt[instanceId] = nil
+	stiffYaws[instanceId] = nil
 end
 
 -- The floor height under a point: the arena only (never an enemy, which all sit at the origin). Off the arena, or
@@ -662,6 +698,8 @@ local function removeEnemy(
 	local cframe = EnemyWorld:get(entity, Components.CFrame)
 	local isOnScreen = cframe ~= nil and cframe.Position.X ~= FAR_AWAY_X
 	local at = if isOnScreen then (cframe :: CFrame).Position else positions[instanceId]
+	-- A body set stiff has nothing loose to fall with: it breaks apart.
+	if stiffYaws[instanceId] and killerId then isOverkill = true end
 
 	if model and enemyData then
 		-- Killed mid-arrival: the corpse falls solid.
@@ -910,12 +948,13 @@ local function update(dt: number)
 	local now = os.clock()
 	for instanceId, highlight in flashTarget do
 		local remaining = flashEndsAt[instanceId] - now
+		local rest = if stiffYaws[instanceId] then Tune.STIFF_TRANSPARENCY else 1
 		if remaining <= 0 or not highlight.Parent then
-			highlight.FillTransparency = 1
+			highlight.FillTransparency = rest
 			flashTarget[instanceId] = nil
 			flashEndsAt[instanceId] = nil
 		else
-			highlight.FillTransparency = 1 - remaining / Tune.FLASH_TIME
+			highlight.FillTransparency = rest * (1 - remaining / Tune.FLASH_TIME)
 		end
 	end
 
@@ -923,7 +962,7 @@ local function update(dt: number)
 	-- the budget is spent by duration, not by how long the body takes to go under. The fall runs on game time, so a
 	-- pause holds it; an enemy freeze does not, since the body is no longer an enemy.
 	local gameDt = TimeCore.GetDeltaTime(dt)
-	local gravity = Workspace.Gravity * Tune.RAGDOLL_GRAVITY_SCALE
+	local gravity = TimeCore.GRAVITY * Tune.RAGDOLL_GRAVITY_SCALE
 
 	for i = #corpses, 1, -1 do
 		local corpse = corpses[i]
@@ -1029,14 +1068,19 @@ local function update(dt: number)
 		if not isShown[instanceId] then
 			isShown[instanceId] = true
 			model = EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
-			if clips.Idle then play(getTrack(model :: TData.TEnemyModel, clips.Idle, IDLE_PRIORITY, true), 0) end
+			if clips.Idle then
+				local idleTrack = getTrack(model :: TData.TEnemyModel, clips.Idle, IDLE_PRIORITY, true)
+				play(idleTrack, 0)
+				if stiffYaws[instanceId] then idleTrack:AdjustSpeed(0) end
+			end
 		end
 
 		-- Walk over idle, switched only on the frame the packet's answer changes. A fresh walk starts at a random
 		-- point so a round that arrived together does not march in step.
+		local stiffYaw = stiffYaws[instanceId]
 		local isMoving = moving[instanceId] == true
 		local walkClip = clips.Walk
-		if isMoving ~= isWalking[instanceId] and walkClip then
+		if isMoving ~= isWalking[instanceId] and walkClip and not stiffYaw then
 			isWalking[instanceId] = isMoving
 			model = model or EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
 			local walkTrack = getTrack(model :: TData.TEnemyModel, walkClip, WALK_PRIORITY, true)
@@ -1049,7 +1093,7 @@ local function update(dt: number)
 		end
 
 		-- Rebuilt only when a packet moved or turned it: an exact compare against what it was built from.
-		local yaw = yaws[instanceId] or 0
+		local yaw = stiffYaw or yaws[instanceId] or 0
 		local target = targetCFrames[instanceId]
 		if not target or targetBuiltFrom[instanceId] ~= targetPos or targetBuiltYaw[instanceId] ~= yaw then
 			target = buildTarget(targetPos, yaw)
@@ -1201,12 +1245,28 @@ MatchController.OnChanged:Connect(function()
 	)
 end)
 
--- A freeze stops every clip where it stands; a thaw lets them all go again.
-TimeCore.OnEnemyTimeScaleChange:Connect(function(scale: number)
-	for track in playingTracks do
-		track:AdjustSpeed(scale * (trackSpeeds[track] or 1))
+-- Every clip at the rate of the match's clock times the enemies': a freeze or a pause stops them where they stand, a
+-- slow motion slows them, and a thaw lets them go again. A body held stiff stays stopped. An ease fires the clock's
+-- change every frame, so the clips follow it in steps (each step is an AdjustSpeed a playing clip), landing on 0 and
+-- 1 exactly.
+local function rescaleClips()
+	local scale = TimeCore.TimeScale * TimeCore.EnemyTimeScale
+	if scale == clipScale then return end
+	if scale ~= 0 and scale ~= 1 and math.abs(scale - clipScale) < Tune.CLIP_RESCALE_STEP then return end
+	clipScale = scale
+
+	for _, instanceId, model in ModelQuery do
+		local tracks = modelTracks[model :: any]
+		if not tracks then continue end
+		local trackScale = if stiffYaws[instanceId] then 0 else scale
+		for _, track in tracks do
+			if playingTracks[track] then track:AdjustSpeed(trackScale * (trackSpeeds[track] or 1)) end
+		end
 	end
-end)
+end
+
+TimeCore.OnEnemyTimeScaleChange:Connect(rescaleClips)
+TimeCore.OnTimeScaleChange:Connect(rescaleClips)
 
 EnemiesController.OnStart = function()
 	-- PreSimulation runs after the Animator has posed the rigs for the frame, so these root writes land last.

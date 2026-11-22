@@ -1,0 +1,57 @@
+import "../Types/DataId.blink"
+import "../Types/Player.blink"
+
+-- The run upgrades (Game/Server/Services/UpgradesService): three cards after a cleared wave, one picked. Each event
+-- goes to the player whose cards they are.
+
+-- A card: the upgrade, the level a pick takes it to (1 is a NEW one) and its ERarities. What it adds is worked out
+-- from those on both sides (UpgradesCore.Amount).
+struct Card {
+	Id: DataId.Type,
+	Level: u8,
+	Rarity: u8,
+}
+
+-- A hand to pick from. Round is the wave whose clear earned it (0 for one given from the console), RerollPrice the
+-- Gold the next redeal costs, Seconds how long until the server picks, IsReroll true when this hand replaces the one
+-- that was up.
+struct Hand {
+	Cards: Card[],
+	Round: u16,
+	RerollPrice: u32,
+	Seconds: f32,
+	IsReroll: boolean,
+}
+
+event Offer {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Hand
+}
+
+-- The hand is closed: (the card taken, 1 to 3, or 0 when it was taken back with the run; true when the server picked
+-- as the time ran out).
+event Picked {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, boolean)
+}
+
+-- A new run: every level is gone.
+event Reset {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- To everybody: a player has a hand up or the card they took is still on their screen (true), or neither now
+-- (false). Rarity is the ERarities of the card just taken, 0 when none was. (player, is picking, rarity)
+event Picking {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, boolean, u8)
+}

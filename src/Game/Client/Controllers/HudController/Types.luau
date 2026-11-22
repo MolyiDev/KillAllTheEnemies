@@ -45,12 +45,172 @@ export type TWeaponUpgrade = {
 	ReadyAt: Source<number>,
 }
 
+-- The HEALTH card and the show of a bought level (HealthUpgrade.Timing). Stamps are os.clock.
+export type THealthUpgrade = {
+	Level: Source<number>,
+	-- The Gold the next level costs (nil once the last is bought) and what the last one bought cost.
+	Price: Source<number?>,
+	Paid: Source<number>,
+	-- The Gold on the counter covers the next level.
+	CanAfford: Source<boolean>,
+	-- os.clock while the card or the show is moving, math.huge otherwise, as the weapon card's is.
+	Clock: Source<number>,
+	-- The server confirmed a buy, the bought level lands in the health bar, the last ask, the last refusal, and when
+	-- the next level last became affordable.
+	BoughtAt: Source<number>,
+	LandAt: Source<number>,
+	AskedAt: Source<number>,
+	DeniedAt: Source<number>,
+	ReadyAt: Source<number>,
+	-- The middle of the health bar on the screen while a show runs, for what flies to it and what is stamped on it.
+	BarAt: Source<UDim2>,
+}
+
+-- One of the class's abilities in the hotbar. Stamps are os.clock.
+export type TAbilitySlot = {
+	Slot: number,
+	Name: string,
+	-- Its picture (the model of its kind).
+	Kind: string,
+	Key: Enum.KeyCode,
+	Accent: Color3,
+	-- Gold a use costs.
+	Cost: number,
+	-- How much of its cooldown is left, 1 to 0 in the slot's own pixels, and in whole seconds.
+	Cooling: Source<number>,
+	Seconds: Source<number>,
+	-- The last use, the last press refused, and the moment its cooldown last ran out.
+	UsedAt: Source<number>,
+	DeniedAt: Source<number>,
+	ReadyAt: Source<number>,
+}
+
+-- The class's ultimate, on its card and the charge bar beside it.
+export type TUltimate = {
+	Slot: number,
+	Name: string,
+	-- Its picture (the model of its kind).
+	Kind: string,
+	Key: Enum.KeyCode,
+	-- The meter, 0 to 1 in the bar's own pixels, and whether it is full.
+	Charge: Source<number>,
+	IsReady: Source<boolean>,
+	-- How much of the ultimate's time is left while it is out, 1 to 0; 0 when it is not.
+	Burning: Source<number>,
+	-- The moment the meter last filled, the last use and the last press refused.
+	ChargedAt: Source<number>,
+	UsedAt: Source<number>,
+	DeniedAt: Source<number>,
+}
+
+-- One player's row on the squad screen.
 export type TSquadMember = {
 	Name: string,
 	UserId: number,
 	IsSelf: boolean,
-	Health: Source<number>,
-	MaxHealth: Source<number>,
+	-- The class they play this run, as its tag reads.
+	ClassName: Source<string>,
+	Kills: Source<number>,
+	Deaths: Source<number>,
+	-- Their run Gold. It rolls toward the real amount while the screen is up.
+	Cash: Source<number>,
+	-- os.clock their kills and their deaths last went up with the screen up.
+	KilledAt: Source<number>,
+	DiedAt: Source<number>,
+}
+
+-- The results, up while a wiped run is held (Results.luau). Stamps are os.clock.
+export type TResults = {
+	IsOpen: Source<boolean>,
+	-- When they last went up or came down.
+	ToggledAt: Source<number>,
+	-- os.clock while one of their one-off gestures is running (Results.Seconds), math.huge otherwise: every gesture
+	-- reads as finished, and a screen at rest redraws nothing for it.
+	Clock: Source<number>,
+	-- os.clock for as long as they are up, 0 otherwise, for the few things that never rest (REVIVE's heart, the lights
+	-- on the buttons that are bought).
+	Beat: Source<number>,
+	Wave: Source<number>,
+	IsNewBest: Source<boolean>,
+	SquadKills: Source<number>,
+	-- Whole seconds the run lasted.
+	Seconds: Source<number>,
+	-- The Gems the run had earned as it ended, and the profile's Gems then (which already held them).
+	Gems: Source<number>,
+	TotalGems: Source<number>,
+	-- What doubling them costs in Robux, 0 with nothing to double or once it is done.
+	DoubleRobux: Source<number>,
+	-- An ad that pays the doubling can be shown right now.
+	CanWatchAd: Source<boolean>,
+	-- A copy of the player's own avatar with its arms folded, once there is one.
+	Avatar: Source<Model?>,
+	-- The Gems a doubling bought here added (0 before one), and when.
+	Doubled: Source<number>,
+	DoubledAt: Source<number>,
+	-- A revive is sold here.
+	CanRevive: Source<boolean>,
+	-- The countdown to the lobby: whole seconds left, the share of it left in the bar's own pixels, when it last
+	-- ticked down, and whether it is waiting for somebody's purchase.
+	ReturnIn: Source<number>,
+	ReturnShare: Source<number>,
+	ReturnTickAt: Source<number>,
+	IsReturnHeld: Source<boolean>,
+	-- PLAY AGAIN's count, whether the local player is in it, and when it last changed.
+	Votes: Source<number>,
+	VotesNeeded: Source<number>,
+	HasVoted: Source<boolean>,
+	VotesAt: Source<number>,
+}
+
+-- One blow a bar took (BarJuice): when, where the bar was cut (a share of its length), how much it took (a share of
+-- it) and a random number its chips fly by.
+export type TBlow = {
+	At: Source<number>,
+	Cut: Source<number>,
+	Bite: Source<number>,
+	Seed: Source<number>,
+}
+
+-- A health bar as BarJuice moves it, in the bar's own units: the fill, and the ghost behind it, which is what was
+-- just taken or, while IsHealing, what is being given back.
+export type TBarTrack = {
+	Fill: Source<number>,
+	Ghost: Source<number>,
+	IsHealing: Source<boolean>,
+	-- The last BarJuice.BLOWS blows, a ring, and how many it has taken in all (which slot the next one overwrites).
+	Blows: { TBlow },
+	Count: number,
+	-- The newest blow's, for the flash.
+	HitAt: Source<number>,
+	HitBite: Source<number>,
+}
+
+-- One line of the boss's damage share: who ("" for nobody), whether it is the local player, the health they took off
+-- as a share of its max (rolled toward the truth), and the os.clock it last grew.
+export type TShareRow = {
+	Name: Source<string>,
+	IsSelf: Source<boolean>,
+	Share: Source<number>,
+	GrewAt: Source<number>,
+}
+
+-- The boss's bar (BossBar.luau).
+export type TBossBar = {
+	-- The boss on the field, or the one whose fall is still playing; "" for none.
+	Name: Source<string>,
+	-- Its health as a share of its max, moved by BarJuice; and the segments it has lost, thrown whole (only their
+	-- blows are used).
+	Bar: TBarTrack,
+	Breaks: TBarTrack,
+	-- The two who have taken the most off it, first then second, and the os.clock they last traded places.
+	Shares: { TShareRow },
+	SwappedAt: Source<number>,
+	-- os.clock it came on; the segment it last lost (1 the leftmost) and when; when it fell (-math.huge while it
+	-- stands).
+	AppearedAt: Source<number>,
+	Broken: Source<number>,
+	BrokeAt: Source<number>,
+	DefeatedAt: Source<number>,
 }
 
 -- A top bar icon wearing the HUD's panel (Topbar.luau): what the hand is doing to it.
@@ -58,7 +218,7 @@ export type TTopbarSkin = {
 	-- His Squad button wears corner brackets; his Settings button does not.
 	HasBrackets: boolean,
 	IsHovered: Source<boolean>,
-	IsSelected: Source<boolean>,
+	IsSelected: () -> boolean,
 	PressedAt: Source<number>,
 }
 
@@ -88,10 +248,7 @@ export type THudState = {
 	VotesAt: Source<number>,
 	IsAutoSkip: Source<boolean>,
 
-	-- The boss on the field ("" for none) and its bar.
-	BossName: Source<string>,
-	BossHealth: Source<number>,
-	BossMaxHealth: Source<number>,
+	Boss: TBossBar,
 	-- The next boss and the round it comes on.
 	NextBossName: Source<string>,
 	NextBossRound: Source<number>,
@@ -105,7 +262,12 @@ export type THudState = {
 
 	Health: Source<number>,
 	MaxHealth: Source<number>,
-	TrailHealth: Source<number>,
+	-- What the health bar draws: Health and MaxHealth, but for the moments a bought HEALTH level is still on its way
+	-- to the bar, when both are held back by it and then walked up together (the bar's length is its max).
+	BarHealth: Source<number>,
+	BarMax: Source<number>,
+	-- BarHealth as the bar moves it, in health.
+	HealthTrack: TBarTrack,
 	IsDown: Source<boolean>,
 	-- The local character's head, for the health over it, and whether the camera is inside it.
 	Head: Source<BasePart?>,
@@ -127,21 +289,40 @@ export type THudState = {
 	IsNukePrompted: Source<boolean>,
 	IsHealPrompted: Source<boolean>,
 
+	-- The squad item last used, for its banner: "Nuke", "Heal" or "" before any, who used it, the bodies a nuke
+	-- kills, and when.
+	Announce: {
+		Kind: Source<string>,
+		Name: Source<string>,
+		Count: Source<number>,
+		At: Source<number>,
+	},
+
+	-- The Gold pack the local player last bought: its Gold and the os.clock it arrived (Hotbar's stamp and strike,
+	-- the pack's slab in Upgrades).
+	GoldPack: {
+		Amount: Source<number>,
+		At: Source<number>,
+	},
+
 	-- The gun in hand and the model of the Tool holding it, for its slot's picture.
 	Gun: Source<TData.TGun?>,
 	GunModel: Source<Model?>,
+	-- A copy of the player's own avatar, for the Decoy's card: the doll is one.
+	Avatar: Source<Model?>,
 	GunAt: Source<number>,
 	Weapon: TWeaponUpgrade,
+	Vital: THealthUpgrade,
+	-- The class's abilities, in slot order, and its ultimate.
+	Abilities: { TAbilitySlot },
+	Ultimate: TUltimate,
 
 	IsReviveOffered: Source<boolean>,
 	CanRevive: boolean,
 	-- The fixed bindings the HUD draws caps for (the defenses' keys live on their own entries).
-	Keys: { Skip: Enum.KeyCode, Turn: Enum.KeyCode, Upgrade: Enum.KeyCode },
+	Keys: { Skip: Enum.KeyCode, Turn: Enum.KeyCode, Upgrade: Enum.KeyCode, Health: Enum.KeyCode },
 
-	RoundsCleared: Source<number>,
-	RunGold: Source<number>,
-	RunGems: Source<number>,
-	ReturnIn: Source<number>,
+	Results: TResults,
 }
 
 export type TActions = {
@@ -149,10 +330,16 @@ export type TActions = {
 	ToggleAutoSkip: () -> (),
 	PlaceDefense: (dataId: number) -> (),
 	UpgradeWeapon: () -> (),
+	UpgradeHealth: () -> (),
+	CastAbility: (slot: number) -> (),
 	Revive: () -> (),
-	BuyHealAll: () -> (),
-	BuyNukeAll: () -> (),
+	BuyProduct: (productId: number) -> (),
 	CloseSquad: () -> (),
+	-- The results' buttons: vote to start over, leave now, buy the doubling, or watch an ad for it.
+	WatchAd: () -> (),
+	PlayAgain: () -> (),
+	LeaveToLobby: () -> (),
+	DoubleGems: () -> (),
 }
 
 return nil

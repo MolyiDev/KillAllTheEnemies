@@ -12,7 +12,7 @@ local pistolBenchLooks = require(script.Parent.Parent.Parent.Utils.pistolBenchLo
 local tracers = require(script.Parent.Parent.Parent.Utils.tracers)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local EGunsIds = require(ReplicatedStorage.Types.Enums.Data.EGunsIds)
 local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
@@ -273,9 +273,7 @@ local function fire(cell: TCell, kind: string)
 		return
 	end
 
-	local normal = if result and not isBody then result.Normal else nil
-	local surface = if result and not isBody then gunFx.SurfaceColor(result) else nil
-	gunFx.Shot(kit, from, to, normal, surface, isBody, false)
+	gunFx.Shot(kit, from, to, if isBody then nil else result, isBody, false)
 	gunFx.Muzzle(kit, cell.muzzle, false)
 end
 

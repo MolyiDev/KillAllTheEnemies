@@ -15,17 +15,19 @@ local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local EnemyMovementService = require(script.Parent.EnemyMovementService)
 local buildGunTool = require(script.Parent.Parent.Utils.buildGunTool)
+local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local getCharacterEntityFromPlayer =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterEntityFromPlayer)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
@@ -73,7 +75,6 @@ local templates: { [number]: Tool | false } = {}
 -- pellet's direction, the damage per body, and the bodies grouped by damage figure (lists out of a pool).
 local bodies = GunsCore.NewBodies()
 local bodyEntities: { jecs.Entity<any> } = {}
-local bodyHeadY: { number } = {}
 local pelletDirections: { Vector3 } = {}
 local reusableCandidates: { jecs.Entity<any> } = {}
 local hitDamage: { [jecs.Entity<any>]: number } = {}
@@ -155,7 +156,6 @@ local function gatherBodies(origin: Vector3, direction: Vector3, range: number, 
 		local aim = EnemiesCore.AimShape(enemyData)
 		GunsCore.AddBody(bodies, position :: any, aim.z, aim.y)
 		bodyEntities[bodies.Count] = enemyEntity
-		bodyHeadY[bodies.Count] = position.y + aim.y * GunsTune.HEAD_FRACTION
 	end
 end
 
@@ -206,10 +206,11 @@ local function shoot(
 	gun: TData.TGun,
 	origin: Vector3,
 	direction: Vector3,
-	seed: number
+	seed: number,
+	damageScale: number
 )
 	local pellets = math.min(gun.Pellets, GunsTune.MAX_PELLETS)
-	local pelletDamage = gun.Damage / gun.Pellets
+	local pelletDamage = gun.Damage / gun.Pellets * damageScale
 	local pad = gun.HitRadius + Tune.LAG_PAD
 	local splashRadius = gun.SplashRadius
 	local pierce = gun.Pierce or 0
@@ -226,9 +227,7 @@ local function shoot(
 		local piercesLeft = pierce
 		while index > 0 do
 			local enemyEntity = bodyEntities[index]
-			local isHead = origin.Y + unit.Y * distance >= bodyHeadY[index]
-			local damage = if isHead then pelletDamage * GunsTune.HEADSHOT_MULTIPLIER else pelletDamage
-			hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + damage
+			hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + pelletDamage
 			if piercesLeft == 0 then
 				stoppedIn = enemyEntity
 				break
@@ -270,8 +269,9 @@ local function sendAims()
 	if count > 0 then ServerNetworkWeapons.Aims.FireAll(aims) end
 end
 
--- The intent only: where the crosshair was. The guards are this side's: a standing character holding this gun, its
--- rate, the match not paused. The shot leaves from the server's head, never a point the client names.
+-- The intent only: where the crosshair was. The guards are this side's: a standing character holding this gun, not
+-- picking an upgrade (it cannot be hurt meanwhile), its rate, the match not paused. The shot leaves from the server's
+-- head, never a point the client names.
 ClientNetworkWeapons.Fire.On(function(player: Player, aimPoint: Vector3)
 	local entry = armed[player]
 	if not entry or TimeCore.IsPaused then return end
@@ -279,6 +279,7 @@ ClientNetworkWeapons.Fire.On(function(player: Player, aimPoint: Vector3)
 	local characterEntity = entry.CharacterEntity
 	if not World:contains(characterEntity) or not World:has(characterEntity, Tags.Alive) then return end
 	if (World:get(characterEntity, Components.CurrentHealth) or 0) <= 0 then return end
+	if World:has(characterEntity, Tags.Picking) then return end
 	local root = World:get(characterEntity, Components.HumanoidRootPart)
 	if not root or entry.Tool.Parent ~= root.Parent then return end
 	local now = TimeCore.GameClock
@@ -287,10 +288,18 @@ ClientNetworkWeapons.Fire.On(function(player: Player, aimPoint: Vector3)
 	local origin = root.Position + Vector3.yAxis * GunsTune.EYE_HEIGHT
 	local toAim = aimPoint - origin
 	if toAim.Magnitude < 0.5 then return end
-	entry.NextShotAt = now + entry.Gun.FireInterval * Tune.RATE_TOLERANCE
+	local rate = 1 + upgradeStats.Get(player, EUpgradesIds.FireRate)
+	entry.NextShotAt = now + entry.Gun.FireInterval / rate * Tune.RATE_TOLERANCE
 	entry.ShotCount = (entry.ShotCount + 1) % 65536
 
-	shoot(characterEntity, entry.Gun, origin, toAim.Unit, entry.ShotCount)
+	shoot(
+		characterEntity,
+		entry.Gun,
+		origin,
+		toAim.Unit,
+		entry.ShotCount,
+		1 + upgradeStats.Get(player, EUpgradesIds.Damage)
+	)
 
 	local instanceId = World:get(characterEntity, Components.InstanceId)
 	if instanceId then ServerNetworkWeapons.Shot.FireExcept(player, instanceId, aimPoint, entry.ShotCount) end

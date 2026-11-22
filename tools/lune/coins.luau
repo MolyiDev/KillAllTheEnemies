@@ -98,3 +98,60 @@ for _, distance in { 4, 12, 25, 50, 90 } do
 	run(string.format("%2d studs, walking off", distance), distance, Vector3.new(WALK_SPEED, 0, 0))
 	run(string.format("%2d studs, strafing", distance), distance, Vector3.new(0, 0, WALK_SPEED))
 end
+
+-- A bought pack's shower (CoinFlight.ThrowShower), the small pack and the big one: when its coins land and how the
+-- gaps close, how far they stray from the chest, and how slow they hang against how fast they come in.
+local seed = 7
+local random = {
+	NextNumber = function(_, least: number?, most: number?): number
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		local share = seed / 2147483648
+		return if least and most then least + (most - least) * share else share
+	end,
+}
+function random.NextInteger(self, least: number, most: number): number
+	return math.min(least + math.floor(self:NextNumber() * (most - least + 1)), most)
+end
+
+for _, amount in { 1000, 99999 } do
+	local showers = CoinFlight.ThrowShower(amount, random :: any)
+	local lands = {}
+	local widest, highest, lowest, slowest, fastest, worstEnd = 0, -math.huge, math.huge, math.huge, 0, 0
+	for i, shower in showers do
+		lands[i] = shower.LandAt
+		local last = CoinFlight.ShowerAt(shower, 0)
+		local t = 0
+		while t + DT < shower.LandAt do
+			t += DT
+			local at = CoinFlight.ShowerAt(shower, t)
+			local speed = (at - last).Magnitude / DT
+			last = at
+			widest = math.max(widest, Vector3.new(at.X, 0, at.Z).Magnitude)
+			highest = math.max(highest, at.Y)
+			lowest = math.min(lowest, at.Y)
+			if t > 0.3 and t < shower.HangAt then slowest = math.min(slowest, speed) end
+			if t > shower.HangAt then fastest = math.max(fastest, speed) end
+		end
+		worstEnd = math.max(worstEnd, CoinFlight.ShowerAt(shower, shower.LandAt).Magnitude)
+	end
+
+	table.sort(lands)
+	local count = #lands
+	print(
+		string.format(
+			"pack of %d: %d coins land %.2f to %.2f s, gaps %.0f ms closing to %.0f ms | %.1f studs wide, y %.1f to %.1f from the chest | hang %.1f -> pull %.1f studs/s | ends %.3f studs off",
+			amount,
+			count,
+			lands[1],
+			lands[count],
+			(lands[2] - lands[1]) * 1000,
+			(lands[count] - lands[count - 1]) * 1000,
+			widest,
+			lowest,
+			highest,
+			slowest,
+			fastest,
+			worstEnd
+		)
+	)
+end

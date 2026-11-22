@@ -17,10 +17,14 @@ local Signal = require(ReplicatedStorage.Packages.Signal)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local loadBlockyCharacter = require(ServerScriptService.GlobalServer.Utils.loadBlockyCharacter)
+local EconomyService = require(script.Parent.EconomyService)
 local NavService = require(script.Parent.NavService)
 local arenaMap = require(ServerScriptService.Server.Utils.arenaMap)
+local upgradeStats = require(ServerScriptService.Server.Utils.upgradeStats)
 local CharacterCore = require(ReplicatedStorage.GlobalShared.Core.CharacterCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local UpgradesCore = require(ReplicatedStorage.Shared.Core.UpgradesCore)
+local healthUpgrades = require(ReplicatedStorage.Shared.Utils.healthUpgrades)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
@@ -31,6 +35,7 @@ local blockyBody = require(ReplicatedStorage.GlobalShared.Utils.blockyBody)
 local getPlayerFromCharacterEntity =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getPlayerFromCharacterEntity)
 local EGenerator = require(ReplicatedStorage.Types.Enums.EGenerator)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
@@ -43,7 +48,7 @@ local CharactersFolder = Workspace:WaitForChild("Characters")
 local IdEntityGen = IdGenerator.new(EGenerator.CharacterEntities, 0, 1000)
 
 local Tune = table.freeze({
-	MAX_HEALTH = 100,
+	MAX_HEALTH = healthUpgrades.BASE,
 	-- After a hit lands, the window in which further hits are ignored. A crowd pressed against a player then
 	-- costs one blow per window rather than one per body, which is what makes standing in a horde survivable
 	-- for a moment and lethal for a few.
@@ -71,6 +76,8 @@ local RegenQuery = World
 	:cached()
 local healthSyncAccumulator = 0
 local regenerated: { jecs.Entity<any> } = {}
+-- The HEALTH levels each player bought this run (absent is none), kept across deaths: a revive stands up with them.
+local healthLevels: { [Player]: number } = {}
 
 local function sendHealth(characterEntity: jecs.Entity<any>)
 	local instanceId = World:get(characterEntity, Components.InstanceId)
@@ -120,6 +127,7 @@ end
 function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: number)
 	if amount <= 0 then return end
 	if not World:has(characterEntity, Tags.Alive) then return end
+	if World:has(characterEntity, Tags.Picking) then return end
 	local now = TimeCore.GameClock
 	local hurtUntil = World:get(characterEntity, Components.HurtUntil) or 0
 	if now < hurtUntil then return end
@@ -128,6 +136,10 @@ function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: numb
 
 	local current = World:get(characterEntity, Components.CurrentHealth)
 	if not current then return end
+	local player = getPlayerFromCharacterEntity(characterEntity)
+	if player then
+		amount *= 1 - math.min(upgradeStats.Get(player, EUpgradesIds.Armor), UpgradesCore.MAX_ARMOR)
+	end
 	current = math.max(current - amount, 0)
 	World:set(characterEntity, Components.CurrentHealth, current)
 
@@ -151,6 +163,36 @@ function CharacterService.Heal(characterEntity: jecs.Entity<any>, amount: number
 	sendHealth(characterEntity)
 end
 
+-- The Heal All product: everyone standing back to full, everyone down back up (a fresh character is full).
+function CharacterService.HealAll()
+	for characterEntity, max in World:query(Components.MaxHealth):with(Tags.Character, Tags.Alive) do
+		CharacterService.Heal(characterEntity, max)
+	end
+
+	CharacterService.ReviveDead()
+end
+
+-- A new run: everyone's bought HEALTH levels are gone, and a body still standing is back to the base maximum.
+function CharacterService.ResetRun()
+	for player in healthLevels do
+		ServerNetworkCharacters.HealthLevel.FireAll(player, 0)
+	end
+	table.clear(healthLevels)
+
+	for characterEntity, max in World:query(Components.MaxHealth):with(Tags.Character) do
+		if max == Tune.MAX_HEALTH then continue end
+		local current = math.min(World:get(characterEntity, Components.CurrentHealth) or 0, Tune.MAX_HEALTH)
+		World:set(characterEntity, Components.MaxHealth, Tune.MAX_HEALTH)
+		World:set(characterEntity, Components.CurrentHealth, current)
+		local humanoid = World:get(characterEntity, Components.Humanoid)
+		if humanoid and current > 0 then
+			humanoid.MaxHealth = Tune.MAX_HEALTH
+			humanoid.Health = current
+		end
+		sendHealth(characterEntity)
+	end
+end
+
 local function releaseAck(instanceId: number)
 	local pending = pendingAcks[instanceId]
 	if not pending then return end
@@ -170,6 +212,7 @@ CharacterService.OnPlayerConnected = function(player: Player)
 end :: TPlayerEvents.OnPlayerConnected
 
 CharacterService.OnPlayerDisconnected = function(player: Player)
+	healthLevels[player] = nil
 	-- Every handshake still waiting on this player stops waiting for them.
 	for instanceId, pending in pendingAcks do
 		if pending.acked[player] then continue end
@@ -182,6 +225,9 @@ end :: TPlayerEvents.OnPlayerDisconnected
 CharacterService.OnCharacterAdded = function(character, characterEntity)
 	character.Parent = CharactersFolder
 
+	local owner = Players:GetPlayerFromCharacter(character)
+	local level = if owner then healthLevels[owner] or 0 else 0
+	local maxHealth = Tune.MAX_HEALTH + healthUpgrades.GAIN * level
 	local humanoid = World:get(characterEntity, Components.Humanoid)
 	if humanoid then
 		blockyBody.Apply(humanoid)
@@ -189,12 +235,12 @@ CharacterService.OnCharacterAdded = function(character, characterEntity)
 		-- The Humanoid never heals itself: its bar is a mirror of CurrentHealth.
 		local regen = character:FindFirstChild("Health")
 		if regen then regen:Destroy() end
-		humanoid.MaxHealth = Tune.MAX_HEALTH
-		humanoid.Health = Tune.MAX_HEALTH
+		humanoid.MaxHealth = maxHealth
+		humanoid.Health = maxHealth
 	end
 
-	World:set(characterEntity, Components.MaxHealth, Tune.MAX_HEALTH)
-	World:set(characterEntity, Components.CurrentHealth, Tune.MAX_HEALTH)
+	World:set(characterEntity, Components.MaxHealth, maxHealth)
+	World:set(characterEntity, Components.CurrentHealth, maxHealth)
 	World:set(characterEntity, Components.HurtUntil, 0)
 	World:set(characterEntity, Components.LastHurtAt, 0)
 
@@ -234,11 +280,13 @@ end :: TCharacterEvents.OnCharacterRemoving
 RunService.Heartbeat:Connect(function(dt: number)
 	if TimeCore.IsPaused then return end
 	local now = TimeCore.GameClock
-	local step = Tune.REGEN_PER_SECOND * TimeCore.GetDeltaTime(dt)
+	local scaledDt = TimeCore.GetDeltaTime(dt)
 
 	for characterEntity, current, max, lastHurtAt, humanoid in RegenQuery do
 		if current <= 0 or current >= max or now - lastHurtAt < Tune.REGEN_DELAY_SECONDS then continue end
-		current = math.min(current + step, max)
+		local player = getPlayerFromCharacterEntity(characterEntity)
+		local bonus = if player then upgradeStats.Get(player, EUpgradesIds.Regeneration) else 0
+		current = math.min(current + (Tune.REGEN_PER_SECOND + bonus) * scaledDt, max)
 		World:set(characterEntity, Components.CurrentHealth, current)
 		humanoid.Health = current
 		if not table.find(regenerated, characterEntity) then table.insert(regenerated, characterEntity) end
@@ -261,6 +309,35 @@ ClientNetworkCharacters.CharacterReady.On(function(player: Player, instanceId: n
 	pending.acked[player] = true
 	pending.remaining -= 1
 	if pending.remaining <= 0 then releaseAck(instanceId) end
+end)
+
+-- Buys the next HEALTH level: the maximum goes up and the body is healed by as much (90 of 100 becomes 110 of 120).
+-- The guards are the body's and the purse's: a standing character, a level left to buy, and its Gold, taken in the
+-- same step.
+ClientNetworkCharacters.UpgradeHealth.On(function(player: Player)
+	local characterEntity = getCharacterEntityFromPlayer(player)
+	if not characterEntity or not World:has(characterEntity, Tags.Alive) then return end
+	local current = World:get(characterEntity, Components.CurrentHealth)
+	local max = World:get(characterEntity, Components.MaxHealth)
+	if not current or not max or current <= 0 then return end
+	local level = (healthLevels[player] or 0) + 1
+	local price = healthUpgrades.PRICES[level]
+	if not price or not EconomyService.TrySpendGold(player, price) then return end
+
+	healthLevels[player] = level
+	max += healthUpgrades.GAIN
+	current += healthUpgrades.GAIN
+	World:set(characterEntity, Components.MaxHealth, max)
+	World:set(characterEntity, Components.CurrentHealth, current)
+	local humanoid = World:get(characterEntity, Components.Humanoid)
+	if humanoid then
+		-- The maximum first: Health is clamped to it.
+		humanoid.MaxHealth = max
+		humanoid.Health = current
+	end
+
+	ServerNetworkCharacters.HealthLevel.FireAll(player, level)
+	sendHealth(characterEntity)
 end)
 
 return Ignis.Register(CharacterService)

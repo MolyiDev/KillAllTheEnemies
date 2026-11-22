@@ -24,3 +24,12 @@ event Health {
 	call: SingleAsync,
 	data: (CharacterInstanceId.Type, f32, f32)
 }
+
+-- (player, the HEALTH levels they hold this run). Sent on each level bought, to everyone: the buyer's HUD shows it
+-- and every client draws it on the buyer's body. 0 is a new run taking the levels back.
+event HealthLevel {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, u8)
+}

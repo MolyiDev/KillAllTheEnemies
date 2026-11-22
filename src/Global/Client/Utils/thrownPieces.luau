@@ -1,11 +1,11 @@
 -- Solid pieces thrown off what a blow lands on (a wall's stud bricks, a gun's casing, an enemy's own bricks): pooled
--- Client/Utils/motorParts that fall, bounce twice and sink through the floor. The engine simulates none of it: Step
+-- GlobalClient/Utils/motorParts that fall, bounce twice and sink through the floor. The engine simulates none of it: Step
 -- works out where each piece is and writes its joint. An owner makes its own pool, which is its cap, and steps it once
 -- a frame.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local motorParts = require(script.Parent.motorParts)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 
 local thrownPieces = {}
 
@@ -50,6 +50,8 @@ export type TPool = {
 	Pieces: { TPiece },
 	Limit: number,
 	LastStep: number,
+	-- The pool's own clock: real seconds, run at the scale each Step is given.
+	Clock: number,
 	-- What a piece coming down looks for its floor in; nil is Workspace.Arena. A bench sets its own while it stands.
 	FloorParams: RaycastParams?,
 }
@@ -63,6 +65,7 @@ function thrownPieces.NewPool(name: string, limit: number): TPool
 		Pieces = {},
 		Limit = limit,
 		LastStep = os.clock(),
+		Clock = 0,
 		FloorParams = nil,
 	}
 end
@@ -110,7 +113,7 @@ function thrownPieces.Throw(
 		Floor = floor,
 		Half = size.Y / 2,
 		Extent = size.Magnitude,
-		Born = os.clock(),
+		Born = pool.Clock,
 		Bounces = 0,
 		SinkUntil = 0,
 	}
@@ -144,10 +147,13 @@ local function touchDown(
 		Vector3.new(velocity.X * Tune.FRICTION, -velocity.Y * Tune.BOUNCE, velocity.Z * Tune.FRICTION)
 end
 
-function thrownPieces.Step(pool: TPool)
-	local now = os.clock()
-	local dt = math.min(now - pool.LastStep, Tune.STEP_MAX)
-	pool.LastStep = now
+-- `timeScale` runs the pieces slower (a match's clock: 0 holds them where they are); nil is real time.
+function thrownPieces.Step(pool: TPool, timeScale: number?)
+	local realNow = os.clock()
+	local dt = math.min(realNow - pool.LastStep, Tune.STEP_MAX) * (timeScale or 1)
+	pool.LastStep = realNow
+	pool.Clock += dt
+	local now = pool.Clock
 	local pieces = pool.Pieces
 	if #pieces == 0 then return end
 

@@ -1,3 +1,7 @@
+import "../Types/DataId.blink"
+import "../Types/Player.blink"
+import "../Types/Vec.blink"
+
 -- The run's beats (Game/Server/Services/MatchService). Fired to everybody.
 
 -- The run began: lift the loading screen.
@@ -8,10 +12,101 @@ event MatchStarted {
 	data: ()
 }
 
--- Everybody is down. (roundsCleared, secondsUntilReturnToLobby)
+-- What a run came to, as the results show it. Gems and the products are the receiver's own: DoubleProductId is the
+-- product that doubles the Gems this run earned them (0 with nothing to double), ReviveProductId the revive that
+-- picks the run back up (0 when it is not sold).
+struct Results {
+	Wave: u16,
+	IsNewBest: boolean,
+	SquadKills: u32,
+	SecondsSurvived: u32,
+	Gems: u32,
+	DoubleProductId: f64,
+	ReviveProductId: f64,
+	ReturnSeconds: f32,
+}
+
+-- Everybody is down: the run is held as it stands and the results go up. To each player, with their own figures.
 event MatchEnded {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (u16, f32)
+	data: Results
+}
+
+-- A revive was bought on the results: the run goes on from where it was held. (buyer)
+event MatchResumed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Player.Type
+}
+
+-- The PLAY AGAIN count on the results: (votes, needed).
+event PlayAgainVotes {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}
+
+-- The results' countdown to the lobby, whenever it stops or starts again: (seconds left, held while somebody is
+-- buying).
+event ReturnTimer {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (f32, boolean)
+}
+
+-- To the buyer: the run's Gems were doubled, and this many more are in the profile.
+event GemsDoubled {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u32
+}
+
+-- NUKE ALL was bought: a blast rolls out from `origin` (EnemiesCore.NUKE_SPEED) and kills what it reaches.
+-- (buyer, where it is set off, bodies alive as it starts)
+event NukedAll {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, Vec.Type, u16)
+}
+
+-- HEAL ALL was bought: everybody standing is full again and everybody down is back up. (buyer)
+event HealedAll {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Player.Type
+}
+
+-- A Gold pack was bought: the Gold is already on the buyer's counter (Economy.Gold, sent with this), and this is
+-- the show of it arriving. (buyer, Gold bought)
+event GoldBought {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, u32)
+}
+
+-- One player's line on the squad screen, to everybody, whenever it has changed (MatchService's SCORE_INTERVAL).
+-- (player, the class they play, kills, times they went down, run Gold)
+event Score {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, DataId.Type, u32, u16, u32)
+}
+
+-- The match's clock (Game/Server/Services/TimeService), to everybody whenever it is set, and to a joiner: (the scale
+-- it is headed for, the real seconds the ease there takes, 0 for at once; the enemies' own scale on top of it).
+event TimeScale {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (f32, f32, f32)
 }

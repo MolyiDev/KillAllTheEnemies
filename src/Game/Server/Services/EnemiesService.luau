@@ -24,6 +24,7 @@ local getPlayerFromCharacterEntity =
 local EConfigKeys = require(ReplicatedStorage.Types.Enums.EConfigKeys)
 local EGenerator = require(ReplicatedStorage.Types.Enums.EGenerator)
 local TData = require(ReplicatedStorage.Types.TData)
+local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkEnemies = Network.Server.Enemies
 
@@ -31,6 +32,7 @@ local ENEMIES = DataCore.Enemies.ById
 local EnemiesSpatialHash = EnemiesCore.EnemiesSpatialHash
 local EnemiesImmuneQuery = EnemyWorld:query(Components.Immunity):with(Tags.Enemy):cached()
 local EnemiesQuery = EnemyWorld:query(Tags.Enemy):cached()
+local NukeQuery = EnemyWorld:query(Components.Position, Components.MaxHealth):with(Tags.Enemy):cached()
 local BossQuery =
 	EnemyWorld:query(Components.DataId, Components.CurrentHealth, Components.MaxHealth):with(Tags.Boss):cached()
 
@@ -45,12 +47,19 @@ local enemyCount = 0
 local aoiAccumulator = 0
 local bossBarAccumulator = 0
 local isBossBarDirty = false
+-- The health each player has taken off the boss now up, for their part of its bar. A new boss starts it over.
+local bossDamage: { [Player]: number } = {}
+-- The Nuke All blast while it rolls (KillAll): where it was set off, the GameClock it started at, and who is paid.
+local nukeOrigin: vector? = nil
+local nukeStartedAt = 0
+local nukeInflictor: jecs.Entity<any>? = nil
 
 -- Scratch, reused so the batched paths allocate nothing per call.
 local reusableKilledEntities: { jecs.Entity<any> } = {}
 local reusableKilledIds: { number } = {}
 local reusableDamagedIds: { number } = {}
 local reusableToRemove: { jecs.Entity<any> } = {}
+local reusableBrittle: { jecs.Entity<any> } = {}
 local reusablePlayers: { Player } = {}
 local reusablePerPlayer: { [Player]: { number } } = {}
 
@@ -60,6 +69,7 @@ EnemiesService.MAX_ALIVE = EnemiesCore.MAX_ALIVE
 
 -- A killing blow worth this many times the body's max health pulverizes it (the kill events' overkill flag).
 local OVERKILL_DAMAGE_RATIO = 4
+EnemiesService.OVERKILL_DAMAGE_RATIO = OVERKILL_DAMAGE_RATIO
 
 -- (killerPlayer?, killCount), once per Kill / KillMultiple call.
 EnemiesService.OnEnemyKilled = Signal.new()
@@ -92,6 +102,14 @@ end
 local function getKillerPlayer(inflictorEntity: jecs.Entity<any>?): Player?
 	if not inflictorEntity or not World:contains(inflictorEntity) then return nil end
 	return getPlayerFromCharacterEntity(inflictorEntity)
+end
+
+-- `landed` is what the blow took off, never past what the boss had left, so the parts add up to its bar.
+local function creditBoss(inflictorEntity: jecs.Entity<any>?, landed: number)
+	isBossBarDirty = true
+	local player = getKillerPlayer(inflictorEntity)
+	if not player then return end
+	bossDamage[player] = (bossDamage[player] or 0) + landed
 end
 
 function EnemiesService.GetCount(): number
@@ -174,6 +192,7 @@ function EnemiesService.Spawn(
 	if enemyData.IsBoss then
 		EnemyWorld:add(enemy, Tags.Boss)
 		isBossBarDirty = true
+		table.clear(bossDamage)
 	end
 
 	enemyCount += 1
@@ -242,6 +261,8 @@ function EnemiesService.ClearAll()
 
 	table.clear(reusableToRemove)
 	enemyCount = 0
+	nukeOrigin = nil
+	nukeInflictor = nil
 	EnemiesSpatialHash:Reset()
 	AOIService.Reset()
 end
@@ -328,6 +349,15 @@ function EnemiesService.KillMultiple(
 	EnemiesService.OnEnemyKilled:Fire(killerPlayer, killedCount)
 end
 
+-- The Nuke All product: a blast rolls out from `origin` (EnemiesCore.NUKE_SPEED) and kills every body it reaches,
+-- immune ones and bosses too, each blown apart; once it has run NUKE_SECONDS everything still alive goes with it. The
+-- bodies round `origin` die on the next step. A second one while the first rolls starts over from its own origin.
+function EnemiesService.KillAll(inflictorEntity: jecs.Entity<any>?, origin: vector)
+	nukeOrigin = origin
+	nukeStartedAt = TimeCore.GameClock
+	nukeInflictor = inflictorEntity
+end
+
 -- One blow on one body. `damage` is the server's figure, never the client's. Returns what landed, or nothing when
 -- it did not (gone, immune).
 function EnemiesService.Damage(
@@ -341,8 +371,9 @@ function EnemiesService.Damage(
 	local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
 	if not currentHealth or not enemyData then return nil end
 
+	damage *= EnemyWorld:get(enemyEntity, Components.Brittle) or 1
+	if enemyData.IsBoss then creditBoss(inflictorEntity, math.min(damage, currentHealth)) end
 	currentHealth -= damage
-	if enemyData.IsBoss then isBossBarDirty = true end
 	if currentHealth <= 0 then
 		EnemiesService.Kill(inflictorEntity, enemyEntity, damage)
 		return damage
@@ -360,15 +391,18 @@ function EnemiesService.Damage(
 	return damage
 end
 
--- One blow on many bodies (a cleave, a blast, a turret's volley). One event for the survivors and one for the
--- dead per player, however many it caught. Returns how many it killed.
-function EnemiesService.DamageMultiple(
+-- One figure on many bodies: one event for the survivors and one for the dead per player. Brittle bodies are left
+-- out and kept in reusableBrittle unless `isBrittleBatch` (DamageMultiple gives them their own figure). Returns how
+-- many it killed and the largest Brittle multiplier it left out.
+local function damageBatch(
 	inflictorEntity: jecs.Entity<any>?,
 	enemyEntities: { jecs.Entity<any> },
-	damage: number
-): number
+	damage: number,
+	isBrittleBatch: boolean
+): (number, number)
 	table.clear(reusableKilledEntities)
 	table.clear(reusableDamagedIds)
+	local brittleScale = 1
 
 	for _, enemyEntity in enemyEntities do
 		if not EnemyWorld:contains(enemyEntity) then continue end
@@ -376,7 +410,13 @@ function EnemiesService.DamageMultiple(
 		local currentHealth = EnemyWorld:get(enemyEntity, Components.CurrentHealth)
 		local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
 		if not currentHealth or not enemyData then continue end
-		if enemyData.IsBoss then isBossBarDirty = true end
+		local brittle = if isBrittleBatch then nil else EnemyWorld:get(enemyEntity, Components.Brittle)
+		if brittle then
+			reusableBrittle[#reusableBrittle + 1] = enemyEntity
+			brittleScale = math.max(brittleScale, brittle)
+			continue
+		end
+		if enemyData.IsBoss then creditBoss(inflictorEntity, math.min(damage, currentHealth)) end
 
 		currentHealth -= damage
 		if currentHealth <= 0 then
@@ -400,18 +440,91 @@ function EnemiesService.DamageMultiple(
 		AOIService.ReleasePerPlayerLists(reusablePerPlayer)
 	end
 
+	return killCount, brittleScale
+end
+
+-- One blow on many bodies (a cleave, a blast, a turret's volley). One event for the survivors and one for the
+-- dead per player, however many it caught; the brittle ones among them (Components.Brittle) take the blow times
+-- their multiplier as a volley of their own, since a volley carries one figure. Returns how many it killed.
+function EnemiesService.DamageMultiple(
+	inflictorEntity: jecs.Entity<any>?,
+	enemyEntities: { jecs.Entity<any> },
+	damage: number
+): number
+	table.clear(reusableBrittle)
+	local killCount, brittleScale = damageBatch(inflictorEntity, enemyEntities, damage, false)
+	if #reusableBrittle > 0 then
+		killCount += damageBatch(inflictorEntity, reusableBrittle, damage * brittleScale, true)
+		table.clear(reusableBrittle)
+	end
+
 	return killCount
 end
 
--- The boss bar is the round's, so it goes to everybody whether or not the body is in view.
+-- The boss bar is the round's, so it goes to everybody whether or not the body is in view, with the two biggest parts.
 local function sendBossBar()
 	for _, dataId, health, maxHealth in BossQuery do
-		ServerNetworkEnemies.BossHealth.FireAll(dataId, math.max(health, 0), maxHealth)
+		local first: Player?, second: Player? = nil, nil
+		local firstDamage, secondDamage = 0, 0
+		for player, damage in bossDamage do
+			if damage > firstDamage then
+				second, secondDamage = first, firstDamage
+				first, firstDamage = player, damage
+			elseif damage > secondDamage then
+				second, secondDamage = player, damage
+			end
+		end
+
+		ServerNetworkEnemies.BossHealth.FireAll(
+			dataId,
+			math.max(health, 0),
+			maxHealth,
+			if first then first.UserId else 0,
+			firstDamage,
+			if second then second.UserId else 0,
+			secondDamage
+		)
 		return
 	end
 
-	ServerNetworkEnemies.BossHealth.FireAll(0, 0, 0)
+	ServerNetworkEnemies.BossHealth.FireAll(0, 0, 0, 0, 0, 0, 0)
 end
+
+-- One step of the blast: every body its front has passed (flat distance, so a deck over the blast goes with the floor
+-- under it) in one volley, the blow worth an overkill on the toughest of them.
+local function stepNuke()
+	local origin = nukeOrigin
+	if not origin then return end
+	local elapsed = TimeCore.GameClock - nukeStartedAt
+	local isOver = elapsed >= EnemiesCore.NUKE_SECONDS
+	local reach = elapsed * EnemiesCore.NUKE_SPEED
+	local reachSq = reach * reach
+	local count = 0
+	local toughestMaxHealth = 0
+
+	table.clear(reusableToRemove)
+	for enemyEntity, position, maxHealth in NukeQuery do
+		if not isOver then
+			local offset = position - origin
+			if offset.x * offset.x + offset.z * offset.z > reachSq then continue end
+		end
+		count += 1
+		reusableToRemove[count] = enemyEntity
+		toughestMaxHealth = math.max(toughestMaxHealth, maxHealth)
+	end
+
+	if count > 0 then
+		EnemiesService.KillMultiple(nukeInflictor, reusableToRemove, toughestMaxHealth * OVERKILL_DAMAGE_RATIO)
+	end
+	table.clear(reusableToRemove)
+	if not isOver then return end
+	nukeOrigin = nil
+	nukeInflictor = nil
+end
+
+EnemiesService.OnPlayerDisconnected = function(player: Player)
+	bossDamage[player] = nil
+end :: TPlayerEvents.OnPlayerDisconnected
 
 -- A live lever to shed load (Enemies.MaxAlive in MainConfig.json). It can only lower the cap: EnemiesCore.MAX_ALIVE is
 -- a ceiling the clients are built for, not a default. Bodies already alive stay; spawns wait until the count drops.
@@ -435,6 +548,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 			EnemyWorld:set(enemyEntity, Components.Immunity, immunity)
 		end
 	end
+
+	stepNuke()
 
 	aoiAccumulator += dt
 	if aoiAccumulator >= AOI_TICK_SECONDS then

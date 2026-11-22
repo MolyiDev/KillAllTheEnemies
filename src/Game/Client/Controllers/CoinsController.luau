@@ -1,5 +1,7 @@
--- Coins popping out of a kill and homing into the player (GDD 17). The Gold was credited on the server before these
--- were sent; the HUD holds back `PendingGold` and counts each coin in as it lands, so the number climbs WITH them.
+-- Coins popping out of a kill and homing into the player (GDD 17), and a bought Gold pack's coins showering out of
+-- the buyer and back into him. The Gold was credited on the server before these were sent; the HUD holds back
+-- `PendingGold` and counts each coin in as it lands, so the number climbs WITH them.
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -11,6 +13,7 @@ local CoinFlight = require(script.Parent.Parent.Utils.coinFlight)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 
+local LocalPlayer = Players.LocalPlayer
 local TemporalFolder = Workspace:WaitForChild("Temporal")
 -- A place instance (the anime game's place has it), so it may not be in this place yet.
 local CoinModel = ReplicatedStorage:WaitForChild("Models"):FindFirstChild("Coin") :: BasePart?
@@ -64,6 +67,8 @@ local Pull = table.freeze({
 	-- Tumbles faster the faster it flies, so the speed-up reads on the coin itself as well as its trail.
 	TUMBLE = 6,
 	TUMBLE_PER_STUD = 0.25,
+	-- A bought pack's coin flips as a popped one does while it hangs, and this many times as fast coming in.
+	SHOWER_SPIN = 3,
 })
 
 local Effects = table.freeze({
@@ -81,7 +86,10 @@ type TCoin = {
 	Part: BasePart,
 	Wake: ParticleEmitter,
 	Trails: { Trail },
-	Flight: CoinFlight.TFlight,
+	-- A kill's coin has a Flight; a bought pack's has a Shower, flown from Born (os.clock).
+	Flight: CoinFlight.TFlight?,
+	Shower: CoinFlight.TShower?,
+	Born: number,
 	Value: number,
 	Turn: number,
 	Rotation: CFrame,
@@ -240,8 +248,10 @@ local function setTrails(coin: TCoin, isEnabled: boolean)
 	end
 end
 
-local function newCoin(at: Vector3, velocity: Vector3, hangSeconds: number, value: number)
-	if #coins >= MAX_COINS then return end
+-- A coin at `at` carrying `value` Gold, for its caller to give a Flight or a Shower; nil at the cap, when its Gold
+-- is never held back and the counter takes it at once.
+local function newCoin(at: Vector3, value: number): TCoin?
+	if #coins >= MAX_COINS then return nil end
 
 	local part = coinPool:Get()
 	part.CFrame = CFrame.new(at) * STAND
@@ -249,7 +259,9 @@ local function newCoin(at: Vector3, velocity: Vector3, hangSeconds: number, valu
 		Part = part,
 		Wake = part:FindFirstChild("Wake") :: ParticleEmitter,
 		Trails = { part:FindFirstChild("Glow") :: Trail, part:FindFirstChild("Core") :: Trail },
-		Flight = CoinFlight.New(at, velocity, hangSeconds),
+		Flight = nil,
+		Shower = nil,
+		Born = 0,
 		Value = value,
 		Turn = random:NextNumber(0, TAU),
 		Rotation = CFrame.identity,
@@ -262,6 +274,7 @@ local function newCoin(at: Vector3, velocity: Vector3, hangSeconds: number, valu
 	coin.Wake.Enabled = true
 	coins[#coins + 1] = coin
 	CoinsController.PendingGold += value
+	return coin
 end
 
 -- Hidden where it landed and kept a trail's lifetime before it goes back to the pool.
@@ -322,6 +335,7 @@ local function update(dt: number)
 
 	local target = root.Position + BODY_TARGET_UP
 	local step = CoinFlight.Step
+	local showerAt = CoinFlight.ShowerAt
 	local arrived = 0
 	local moved = 0
 
@@ -329,7 +343,25 @@ local function update(dt: number)
 	table.clear(moveCFrames)
 	for i = #coins, 1, -1 do
 		local coin = coins[i]
-		local flight = coin.Flight
+		local shower = coin.Shower
+		if shower then
+			local age = now - coin.Born
+			if age >= shower.LandAt then
+				arrived += 1
+				retireCoin(i, now)
+				continue
+			end
+
+			coin.Turn += Pop.SPIN * (if age < shower.HangAt then 1 else Pull.SHOWER_SPIN) * dt
+			moved += 1
+			moveParts[moved] = coin.Part
+			moveCFrames[moved] = CFrame.new(target + showerAt(shower, age))
+				* CFrame.Angles(0, coin.Turn, Pop.TILT)
+				* STAND
+			continue
+		end
+
+		local flight = coin.Flight :: CoinFlight.TFlight
 		local wasPulling = flight.IsPulling
 		if step(flight, target, dt) then
 			arrived += 1
@@ -393,13 +425,33 @@ MatchController.OnCoins:Connect(function(position: Vector3, amount: number)
 			Vector3.new(math.cos(angle) * side, random:NextNumber(0.9, 1.1) * Pop.UP_SPEED, math.sin(angle) * side)
 		local order = if count > 1 then (hangOrder[i] - 1) / (count - 1) else 0
 		local hang = Pop.HANG_FIRST + Pop.HANG_SPREAD * order ^ 0.8 + random:NextNumber(-1, 1) * Pop.HANG_JITTER
-		-- Past the cap the coin is not drawn and its Gold is never held back, so the counter takes it at once.
-		newCoin(at, velocity, hang, value)
+		local coin = newCoin(at, value)
+		if coin then coin.Flight = CoinFlight.New(at, velocity, hang) end
 	end
 
 	burstAnchor.Position = at
 	streaks:Emit(Effects.POP_STREAKS)
 	flash:Emit(Effects.POP_FLASHES)
+end)
+
+-- The buyer's own pack: its Gold thrown out of him all round and pulled back in, each coin landing on its beat. With
+-- no body to throw them from, the counter takes the Gold at once.
+MatchController.OnGoldBought:Connect(function(buyer: Player, amount: number)
+	local root = selfRoot
+	if buyer ~= LocalPlayer or not root then return end
+
+	local showers = CoinFlight.ThrowShower(amount, random)
+	local count = #showers
+	local share = amount // count
+	local remainder = amount - share * count
+	local at = root.Position + BODY_TARGET_UP
+	local now = os.clock()
+	for i, shower in showers do
+		local coin = newCoin(at, share + (if i <= remainder then 1 else 0))
+		if not coin then break end
+		coin.Shower = shower
+		coin.Born = now
+	end
 end)
 
 CoinsController.OnStart = function()

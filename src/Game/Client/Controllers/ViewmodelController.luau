@@ -483,8 +483,8 @@ ViewmodelController.OnSelfCharacterRemoving = function()
 end :: TCharacterEvents.OnCharacterRemoving
 
 ViewmodelController.OnStart = function()
-	-- After CameraController's PreRender (the global controllers start first), so the gun rides the view as shown,
-	-- shake and recoil included.
+	-- After CameraController, which is bound to the render step and so runs before every PreRender: the gun rides
+	-- the view as shown, shake and recoil included.
 	RunService.PreRender:Connect(step)
 end
 

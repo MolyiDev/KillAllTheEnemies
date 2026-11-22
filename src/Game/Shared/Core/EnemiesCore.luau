@@ -30,6 +30,11 @@ EnemiesCore.EnemiesSpatialHash = SpatialHash.new()
 -- clip at ATTACK_CLIP_IMPACT / Delay speed, so the swing meets the server's wind-up whatever the attack's Delay.
 EnemiesCore.ATTACK_CLIP_IMPACT = 0.6
 
+-- The Nuke All blast: it rolls out from where it was set off at this many studs a second, killing what it reaches, and
+-- after this long everything still alive goes with it. The server kills by them and the client draws its front by them.
+EnemiesCore.NUKE_SPEED = 110
+EnemiesCore.NUKE_SECONDS = 1.1
+
 local ModelsFolder = ReplicatedStorage:WaitForChild("Models")
 local EnemyModelsFolder = ModelsFolder:WaitForChild("Enemies")
 

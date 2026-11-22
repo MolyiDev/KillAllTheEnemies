@@ -1,12 +1,12 @@
 -- What a ground warning throws besides its floor pieces, in the house look (VFX.md 30): glowing pixels rising off it
 -- while it winds up, a square ring as it appears, and where it lands a square shock, a pool of light, pixels shooting
--- out of the floor and the floor's own stud bricks knocked loose (Client/Utils/thrownPieces). TelegraphController says
+-- out of the floor and the floor's own stud bricks knocked loose (GlobalClient/Utils/thrownPieces). TelegraphController says
 -- where, from points it picks on the warning's own floor, so nothing is drawn past what the hit covers. The look is on
 -- templates at ReplicatedStorage.Effects.TelegraphFx, a place instance, not Rojo, made by Assets/effects/telegraphs
 -- (its README.md). No --!native: this is engine calls end to end.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local thrownPieces = require(script.Parent.thrownPieces)
+local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")
 

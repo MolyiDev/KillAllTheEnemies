@@ -1,0 +1,10 @@
+import "../Types/Vec.blink"
+
+-- Use the ability in a slot at a point (what the crosshair is over on the arena). Only the intent: the class, the
+-- cooldown or the ultimate's meter, the reach and everything it does are the server's. (slot, aim point)
+event Cast {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, Vec.Type)
+}

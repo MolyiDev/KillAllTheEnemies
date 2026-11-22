@@ -66,6 +66,53 @@ older section of this file disagrees, this section wins; the "Superseded here" l
 - **A readout written every frame is written at the resolution it draws at** (SKIP WAVE's cooldown is rounded to
   the fill's pixels), since any write redoes the ScreenGui ("What a frame of UI costs" below).
 
+### Cards in the world (the upgrade pick, `UpgradePickController`, 2026-11-21)
+
+- **A ScreenGui always draws over the world**, so UI on parts cannot sit over a screen dim or the HUD. The pick's dim
+  is a part behind the cards (depth-tested, just past the lens; the cards are `AlwaysOnTop`), the HUD's ScreenGui is
+  disabled while they are up, and a black curtain on the screen fades it out and in round the swap.
+- **`SizingMode = FixedSize`, or `CanvasSize` is ignored**: the default is PixelsPerStud, and the part showed a zoomed
+  corner of the card. The canvas is his card plus a margin for the glow and brackets, drawn at 1.5x for a card held
+  close.
+- **Tell a body where it is in the SCREEN's terms** (design px from the middle, and a zoom) and let the stage solve the
+  part's place from the lens (`Stage.Step`): it lands on his rect at any field of view, and a FOV punch does not move it.
+- **Hit-test the REST rect, in 2D**, never the leaning part: a card that tilts away from the hand must not lose it.
+- **One SurfaceGui a card**: past a quarter turn the part is turned the other half and the canvas shows its back, so
+  the swap happens edge-on, where nothing can be seen.
+- **Position on a low-damped spring, turn on a wobbly one** (0.72 against 0.3-0.42): a card that overshoots where it
+  is reads as loose, one that rocks as it lands reads as a card.
+- **Give a show its own clock.** The count ticks once a second; on the header's clock it would run the pick's 22 sparks
+  for a third of every second. With the clocks at `math.huge` a hand at rest writes nothing on the screen.
+- **Filming it offline**: `tools/ree/UpgradePick.luau` runs the real controller (its header has the command), then
+  `ror video --no-service` with `ROR_RUR` set, or the warm service keeps an environment without rur and skips every
+  GUI. ror draws the ScreenGui at its own size, so the header is checked flat with `tools/uimatt/UpgradePick.story.luau`.
+
+### A screen for both places: Settings (2026-11-21)
+
+`src/Global/Client/UI/SettingsUI` (the view) and `Controllers/SettingsController` (the sources, the clock, what each
+setting does). Rendered by `tools/uimatt/Settings.story.luau`; previews in `Assets/ui/settings/preview`.
+
+- **A view that starts a gesture by itself must keep the clock ticking.** `Now` is written only inside the owner's
+  motion window, so a stamp a view writes on its own (the name field's pencil on focus) animates nothing unless it
+  also calls `actions.Stir()`. Stamps the controller writes go through its `stamp`, which does both.
+- **Anything read off `Now` is a `derive`.** A binding that reads `state.Now()` reruns on every tick of the window,
+  whoever opened it. Derived, it reruns only while its own value changes (a reset arrow's turn, a row's sheen, the
+  saved flash).
+- **A glide is drawn in the steps it shows.** A slider's fill is derived in whole pixels and its number in whole
+  percents, so a spring's hundred steps write each a few dozen times.
+- **A drag listens to the whole screen only while it holds.** `InputChanged` / `InputEnded` are connected when the
+  knob is taken and dropped when it is let go; connected for the session they run on every mouse move in the arena.
+- **Words fade by their own transparency.** A CanvasGroup is for a piece built of many parts (a panel, a slab, a
+  dimmed reset button); a lone label under one is a screen-sized texture for nothing.
+- **A stamp may be in the future.** `Motion.Progress` clamps to 0 before its start, so RESET ALL staggers its rows by
+  stamping each one a beat later, with no timers.
+- **His art missing is rebuilt from its sibling, and said so.** The Settings header image is private; the Daily
+  Rewards header has the same layout (a pink glyph, the title, a rule under it), so that is what is drawn.
+- **A state he drew only one of** borrows the nearest thing he did draw: a row with nothing to reset wears his dimmed
+  reset button, and RESET ALL with nothing to reset wears the `Off` slab.
+- **A saved setting is stored only while it is not its default** (`SettingsCore`), so adding one needs no migration
+  and a default changed later reaches everybody who never moved it.
+
 ### Superseded here
 
 - The pixel kit: pixel-snapped Slabs, the bezel, Silkscreen, stepped glows, row sheens, blinking square particles,
@@ -12538,3 +12585,44 @@ flash or sheen never covers it, the sheen is a UIGradient band, sparks and dust 
 (`KeyBindsUI`) draw pixelKeys at 2 px a texel on keyboard and pad; a picture taller than the 15-texel row (a d-pad
 is 23, a stick 17) drops to the biggest whole unit that fits instead of spilling over its neighbours, never a
 fractional scale. `keyHint` callers still show the static pictures.
+
+## Kill All The Monsters: a gun drawn as its model, and the hotbar's one slot (`GunPicture`, `Hotbar`, 2026-11-21, rendered in rur, not playtested)
+
+The hotbar slot and the weapon card draw the gun's own model over a black copy of it as its shadow, instead of a white
+glyph. What the round cost:
+
+- **Fit the leaned picture, not the flat one.** A picture fitted to the gun lying flat and then turned by `Rotation`
+  is wrong for any gun, and badly for one as tall as it is long: the pistol (1.17 : 1) came out 86 px tall in a 96 px
+  slot and 10 px left of centre. Roll the camera to the lean and fit the leaned bounds (`GunPicture.stand`); keep
+  `Rotation` for the gestures on top.
+- **The shadow is part of what is centred.** A 6 px drop left every gun 2 to 5 px low. The fit takes the drop into
+  the height and centres the gun and its shadow together.
+- **Measure placement from the model files.** `lune` reads `Assets/models/Guns`, and the picture's maths runs on the
+  parts' boxes: size in the slot and the four gaps for every gun, before any Studio round.
+- **One fit, two copies.** The shadow has to be a second ViewportFrame; the camera is worked out once and given to
+  both.
+- **Derive a gesture's clock.** `state.Now` ticks for every coin that lands. A gesture read straight off it re-ran
+  every binding in the slot on those frames; behind a `derive` it holds one value at rest and nothing downstream runs.
+- **Do not build what cannot show.** Four slots nothing can sit in were a card, two springs and a dozen bindings
+  each. The row is the gun's slot until a second thing can be carried; placing several is then a rank in a centred
+  row and a spring on its x.
+- **rur draws nothing for a Plastic part offline** (the viewport worker cannot find the Plastic atlas, and the error
+  is only in `manifest.json`). Bench stand-ins are SmoothPlastic.
+
+## Kill All The Monsters: a bought Gold pack on the HUD (`Hotbar`, `Upgrades`, 2026-11-21, rendered in rur, not playtested)
+
+The stamp over the money block, the block's strike and the bought slab's flash (VFX.md 38 has the world's half; the
+beats are in `Assets/effects/items/README.md`).
+
+- **The receiver was already right.** The money block's pulse is restamped by every rise of the counter, so thirty
+  landings a second hold it swollen instead of kicking it (5j's smoothed pressure, for free). The pack adds one strike
+  on the last landing and nothing per coin.
+- **The amount is said once, where it lands.** "+$1,000" is stamped over the block the frame the coins leave the
+  buyer, never faded in (its first frame is its white one), and drops INTO the plate on the last coin. No banner: the
+  squad's banner is for what changes the squad's run.
+- **A piece timed to a sound reads the sound's clock from its owner.** The strike's time is `CoinFlight.Shower.LAST`,
+  the same constant the coins land by and the cue was baked to, not a second number in the HUD.
+- **A swelling button is anchored at its centre first.** The pack slabs were placed by their corner; they are placed
+  by their centre now, so the bought one grows from its middle.
+- **The show's length keeps the clock running.** `stamp` only holds `Now` for 1.6 s; a longer gesture raises
+  `motionUntil` itself (`Hotbar.GOLD_PACK_SECONDS`).

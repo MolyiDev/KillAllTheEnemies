@@ -16,6 +16,7 @@ local DatabaseService = require(ServerScriptService.GlobalServer.Services.Databa
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local NavService = require(script.Parent.NavService)
+local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
@@ -23,6 +24,7 @@ local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
@@ -32,8 +34,12 @@ local ServerNetworkEconomy = Network.Server.Economy
 local ClientNetworkRounds = Network.Client.Rounds
 
 local ALL_ENEMIES = DataCore.Enemies.All
-local CharactersQuery =
-	World:query(Components.HumanoidRootPart, Components.InstanceId):with(Tags.Character, Tags.Alive):cached()
+-- The players bodies enter round: standing, and not picking an upgrade, whom the crowd would only walk away from.
+-- With nobody left, the spawns wait.
+local CharactersQuery = World:query(Components.HumanoidRootPart, Components.InstanceId)
+	:with(Tags.Character, Tags.Alive)
+	:without(Tags.Picking)
+	:cached()
 
 local Tune = table.freeze({
 	-- Bodies enter on a ring around a random living player.
@@ -63,6 +69,12 @@ type TOpenRound = {
 	PoolWeight: number,
 }
 
+-- A round opened whose worth of kills is not reached yet: its bodies and its boss.
+type TUncountedRound = {
+	Round: number,
+	Size: number,
+}
+
 local RoundService = {}
 
 RoundService.ERoundState = ERoundState
@@ -78,10 +90,15 @@ RoundService.IsSpawningPaused = false
 
 -- (round), after its rewards are paid.
 RoundService.OnRoundCleared = Signal.new()
+-- (round), once the run's kills reach that round's size added to every size before it, whichever bodies fell: a
+-- count, not a clear. Never after OnRoundCleared for the same round.
+RoundService.OnRoundKilled = Signal.new()
 -- (round)
 RoundService.OnRoundStarted = Signal.new()
 
 local prepareEndsAt = 0
+-- Seconds the next countdown is held over its own length (HoldNextPrepare).
+local prepareHoldSeconds = 0
 -- TimeCore.GameClock the newest round's SKIP WAVE vote opens at.
 local skipOpensAt = 0
 -- Whether the newest wave could be skipped when last looked at, so the moment it can is a count of its own.
@@ -97,6 +114,9 @@ local reusableRoots: { BasePart } = {}
 local reusableRootIds: { number } = {}
 local sentRemaining = 0
 local nextRemainingAt = 0
+-- Oldest first, and the kills counted since the last round was reached (OnRoundKilled).
+local uncountedRounds: { TUncountedRound } = {}
+local uncountedKills = 0
 
 local function isAutoSkip(player: Player): boolean
 	local profile = DatabaseService.Get(player)
@@ -148,10 +168,15 @@ local function fight()
 	RoundService.State = ERoundState.Fighting
 	local healthScale, damageScale, speedScale = RoundCore.GetScales(round)
 	local pool: { TData.TEnemy } = {}
+	local toSpawn = RoundCore.GetCount(round, #Players:GetPlayers())
+	local isBossRound = RoundCore.IsBossRound(round)
+	-- A boss round with no boss in the data spawns none (spawnBosses), so it is no kill to count.
+	local hasBoss = isBossRound and RoundCore.GetBoss(round, ALL_ENEMIES) ~= nil
+	uncountedRounds[#uncountedRounds + 1] = { Round = round, Size = toSpawn + (if hasBoss then 1 else 0) }
 	openRounds[#openRounds + 1] = {
 		Round = round,
-		ToSpawn = RoundCore.GetCount(round, #Players:GetPlayers()),
-		IsBossPending = RoundCore.IsBossRound(round),
+		ToSpawn = toSpawn,
+		IsBossPending = isBossRound,
 		Alive = 0,
 		HealthScale = healthScale,
 		DamageScale = damageScale,
@@ -159,7 +184,7 @@ local function fight()
 		Pool = pool,
 		PoolWeight = RoundCore.GetPool(round, ALL_ENEMIES, pool),
 	}
-	skipOpensAt = TimeCore.GameClock + RoundCore.SKIP_AFTER_SECONDS
+	skipOpensAt = TimeCore.GameClock + RoundCore.GetSkipAfterSeconds(round)
 	wasSkippable = false
 	table.clear(votes)
 
@@ -199,9 +224,30 @@ function RoundService.Prepare(round: number)
 	RoundService.State = ERoundState.Preparing
 	table.clear(votes)
 	spawnAccumulator = 0
-	prepareEndsAt = TimeCore.GameClock + RoundCore.PREPARE_SECONDS
-	ServerNetworkRounds.Preparing.FireAll(round, RoundCore.PREPARE_SECONDS, RoundCore.IsBossRound(round))
+	local seconds = RoundCore.PREPARE_SECONDS + prepareHoldSeconds
+	prepareHoldSeconds = 0
+	prepareEndsAt = TimeCore.GameClock + seconds
+	ServerNetworkRounds.Preparing.FireAll(round, seconds, RoundCore.IsBossRound(round))
 	checkVotes()
+end
+
+-- The next countdown waits `seconds` longer than its own length, for whatever a clear's listener has put in front of
+-- the players (their upgrade cards). Called from an OnRoundCleared listener, which runs before that countdown opens.
+function RoundService.HoldNextPrepare(seconds: number)
+	prepareHoldSeconds = math.max(prepareHoldSeconds, seconds)
+end
+
+-- What was holding the countdown is over: a countdown still in its held time is cut to its own length.
+function RoundService.ReleasePrepare()
+	prepareHoldSeconds = 0
+	if RoundService.State ~= ERoundState.Preparing then return end
+	if prepareEndsAt - TimeCore.GameClock <= RoundCore.PREPARE_SECONDS then return end
+	prepareEndsAt = TimeCore.GameClock + RoundCore.PREPARE_SECONDS
+	ServerNetworkRounds.Preparing.FireAll(
+		RoundService.Round,
+		RoundCore.PREPARE_SECONDS,
+		RoundCore.IsBossRound(RoundService.Round)
+	)
 end
 
 -- A new run, from round 1.
@@ -216,6 +262,9 @@ function RoundService.Stop()
 	table.clear(roundOf)
 	table.clear(bosses)
 	table.clear(votes)
+	table.clear(uncountedRounds)
+	uncountedKills = 0
+	prepareHoldSeconds = 0
 end
 
 -- The highest floor at (x, z) the player's field reaches: a roof, a canopy or a ledge nothing climbs to would hold the
@@ -360,7 +409,8 @@ end
 EnemiesService.OnEnemyDied:Connect(function(position: vector, enemyData: TData.TEnemy, killer: Player?)
 	-- Not only while Fighting: a skipped wave keeps pouring in through the next countdown, and its kills pay too.
 	if not killer or RoundService.State == ERoundState.Idle then return end
-	local amount = RoundCore.GetKillGold(enemyData, RoundService.Round)
+	local greed = 1 + upgradeStats.Get(killer, EUpgradesIds.Greed)
+	local amount = math.floor(RoundCore.GetKillGold(enemyData, RoundService.Round) * greed + 0.5)
 	EconomyService.AddGold(killer, amount)
 	-- The coins are a picture of Gold already credited (GDD 17): they fly to the killer whatever happens to them.
 	ServerNetworkEconomy.Coins.Fire(killer, position :: any, amount)
@@ -373,6 +423,17 @@ EnemiesService.OnEnemyRemoving:Connect(function(enemyEntity: jecs.Entity<any>)
 	roundOf[enemyEntity] = nil
 	bosses[enemyEntity] = nil
 	open.Alive -= 1
+
+	-- Any round's body counts toward the oldest round not yet reached. Told here, before the Heartbeat's clear, so a
+	-- listener can still hold the countdown that clear opens (HoldNextPrepare).
+	uncountedKills += 1
+	local oldest = uncountedRounds[1]
+	while oldest and uncountedKills >= oldest.Size do
+		table.remove(uncountedRounds, 1)
+		uncountedKills -= oldest.Size
+		RoundService.OnRoundKilled:Fire(oldest.Round)
+		oldest = uncountedRounds[1]
+	end
 end)
 
 RoundService.OnPlayerDisconnected = function(player: Player)
@@ -381,7 +442,7 @@ RoundService.OnPlayerDisconnected = function(player: Player)
 	task.defer(checkVotes)
 end :: TPlayerEvents.OnPlayerDisconnected
 
--- Needs no character: a downed player votes too. A wave can be skipped once it has run SKIP_AFTER_SECONDS; never
+-- Needs no character: a downed player votes too. A wave can be skipped once it has run GetSkipAfterSeconds; never
 -- during a countdown.
 ClientNetworkRounds.VoteStart.On(function(player: Player)
 	if votes[player] or not canSkip() then return end

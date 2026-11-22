@@ -190,8 +190,14 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
   flash, sound, kick; holding a gun, the body faces the aim with the cursor free too), `BodyPoseController` (every
   R6 body's sprung lean, legs turned toward the walk and a backwards walk clip when backpedalling, and an armed
   body's arms and torso on its aim; others' aim is relayed by `Weapons.Aims` from the camera sync),
-  `ViewmodelController` (first person). The `gun <name>` console command swaps the gun. Classes and abilities are
-  still to come from the old Game place (Plan.md).
+  `ViewmodelController` (first person). The `gun <name>` console command swaps the gun.
+- **AbilityService** + **AbilitiesCore**: classes (`Data/Classes`, two abilities and an ultimate each; everybody is
+  Human until a class is picked, `TProfile.SelectedClass`). The client sends a slot and its aim (`Abilities.Cast`);
+  cooldowns, the ultimate's meter (kills, never time) and every effect are the server's. A Decoy is a lure
+  (`EnemyMovementService.SetLure`: a target with its own flowfield that bodies in its reach prefer to any player),
+  foam holds a body and makes it `Components.Brittle`, the Orbital Cannon lands where it was aimed, then goes after the
+  nearest boss in its reach or the thickest crowd on its own at a capped speed, and overkills what it touches. Client:
+  `AbilityController` and `Utils/decoyFx`, `foamFx`, `orbitalFx`. The `ult` console command fills the meter.
 - **DefenseService**: placement validated on the nav grid; barricades block nodes and are the barricade field's
   targets; turrets shoot the nearest enemy and credit their owner.
 

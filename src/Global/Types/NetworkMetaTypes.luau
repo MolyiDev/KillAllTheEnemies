@@ -161,9 +161,13 @@ return {
 		},
 		Console = {
 		},
+		Settings = {
+		},
 	},
 	Client = {
 		Lobby = {
+		},
+		Settings = {
 		},
 	},
 

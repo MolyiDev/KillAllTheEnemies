@@ -1,0 +1,23 @@
+-- A volume slider let go. (ESettings id, whole percent)
+event SetVolume {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}
+
+-- (ESettings id, isOn)
+event SetToggle {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, boolean)
+}
+
+-- Every setting on the settings screen back to its default.
+event ResetAll {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

@@ -1,10 +1,11 @@
 --!nonstrict
--- What lies over the play: the red edge on a hit, the downed card with the paid revive, and the results. The downed
--- card ends above the hotbar (Hotbar.HEIGHT).
+-- What lies over the play: the red edge on a hit, and the downed card with the paid revive. The downed card ends
+-- above the hotbar (Hotbar.HEIGHT).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Hotbar = require(script.Parent.Hotbar)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Types = require(script.Parent.Types)
@@ -85,7 +86,7 @@ local function card(isShown: () -> boolean, props: { [any]: any }): CanvasGroup
 end
 
 function Overlays.Down(state: Types.THudState, actions: Types.TActions): CanvasGroup
-	local isHovered = vide.source(false)
+	local hand = Hand.React("Operate")
 	return card(function()
 		return state.IsDown() and state.Phase() ~= "Ended"
 	end, {
@@ -123,22 +124,24 @@ function Overlays.Down(state: Types.THudState, actions: Types.TActions): CanvasG
 					return "Your squad fights on."
 				end,
 			}),
+			-- Placed by its middle, so it grows from there.
 			Components.Button({
-				AnchorPoint = Vector2.new(0.5, 1),
-				Position = UDim2.new(0.5, 0, 1, -14),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 0, 1, -14 - 22),
 				Size = UDim2.fromOffset(220, 44),
 				BackgroundColor3 = function()
-					return if isHovered() then Color.ActionEdge else Color.Action
+					return Color.Action:Lerp(Color.ActionEdge, hand.Light())
 				end,
 				Visible = state.IsReviveOffered,
-				Activated = actions.Revive,
-				MouseEnter = function()
-					isHovered(true)
+				Activated = function()
+					hand.Commit()
+					actions.Revive()
 				end,
-				MouseLeave = function()
-					isHovered(false)
-				end,
+				hand.Events,
+				create("UIScale")({ Scale = hand.Scale }),
 				Components.Edge(Color.ActionEdge),
+				Hand.WashLayer(hand, 0),
+				Components.Sheen(hand.Glint, 2),
 				Text({
 					Size = UDim2.fromScale(1, 1),
 					FontFace = Font.Mono,
@@ -146,98 +149,6 @@ function Overlays.Down(state: Types.THudState, actions: Types.TActions): CanvasG
 					TextColor3 = Color.Ink,
 					Text = "REVIVE",
 				}),
-			}),
-		}),
-	})
-end
-
-local function statRow(order: number, label: string, color: Color3, value: () -> string): Frame
-	return create("Frame")({
-		LayoutOrder = order,
-		Size = UDim2.new(1, 0, 0, 32),
-		BackgroundTransparency = 1,
-		Text({
-			Size = UDim2.fromScale(0.6, 1),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			FontFace = Font.Mono,
-			TextSize = 15,
-			TextColor3 = Color.Muted,
-			Text = label,
-		}),
-		Text({
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromScale(1, 0),
-			Size = UDim2.fromScale(0.4, 1),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			FontFace = Font.Heavy,
-			TextSize = 22,
-			TextColor3 = color,
-			Text = value,
-		}),
-	})
-end
-
-function Overlays.Results(state: Types.THudState): CanvasGroup
-	return card(function()
-		return state.Phase() == "Ended"
-	end, {
-		Name = "Results",
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 10,
-		-- The world dims behind it: the run is over and this is the only thing to read.
-		create("Frame")({
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Color.Ink,
-			BackgroundTransparency = 0.4,
-			BorderSizePixel = 0,
-		}),
-		Block({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.45),
-			Size = UDim2.fromOffset(440, 320),
-			create("Frame")({
-				Size = UDim2.new(1, 0, 0, 64),
-				BackgroundColor3 = Color.Action,
-				BorderSizePixel = 0,
-				Text({
-					Size = UDim2.fromScale(1, 1),
-					FontFace = Font.Mono,
-					TextSize = 36,
-					TextColor3 = Color.Ink,
-					Text = "RUN OVER",
-				}),
-			}),
-			Text({
-				Position = UDim2.fromOffset(0, 78),
-				Size = UDim2.new(1, 0, 0, 24),
-				TextSize = 20,
-				Text = function()
-					local rounds = state.RoundsCleared()
-					return if rounds == 1 then "Survived 1 wave" else `Survived {rounds} waves`
-				end,
-			}),
-			create("Frame")({
-				Position = UDim2.fromOffset(36, 118),
-				Size = UDim2.new(1, -72, 0, 108),
-				BackgroundTransparency = 1,
-				create("UIListLayout")({ Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
-				statRow(1, "GOLD EARNED", Color.Gold, function()
-					return `${Components.Commas(state.RunGold())}`
-				end),
-				statRow(2, "GEMS EARNED", Color.Gem, function()
-					return Components.Commas(state.RunGems())
-				end),
-			}),
-			Text({
-				AnchorPoint = Vector2.new(0, 1),
-				Position = UDim2.new(0, 0, 1, -18),
-				Size = UDim2.new(1, 0, 0, 18),
-				FontFace = Font.Mono,
-				TextSize = 14,
-				TextColor3 = Color.Muted,
-				Text = function()
-					return `BACK TO THE LOBBY IN {state.ReturnIn()}S`
-				end,
 			}),
 		}),
 	})

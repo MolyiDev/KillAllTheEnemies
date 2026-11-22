@@ -168,6 +168,7 @@ Queue.Reliable[4] = table.create(256)
 Queue.Reliable[5] = table.create(256)
 Queue.Reliable[6] = table.create(256)
 Queue.Reliable[7] = table.create(256)
+Queue.Reliable[8] = table.create(256)
 function SerdesFunctions.Server_Configs_ReadEVENT_ConfigsLoaded(): ({ string }, { string })
 	-- Read BLOCK: 4 bytes
 	local BLOCK_START = Read(4)
@@ -280,25 +281,58 @@ function SerdesFunctions.Server_Console_ReadEVENT_AccessGranted(): (nil)
 	return Value
 end
 
-function SerdesFunctions.Client_Lobby_WriteEVENT_LeavePad(Value: nil): ()
-	-- Allocate BLOCK: 1 bytes
-	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 8)
+function SerdesFunctions.Server_Settings_ReadEVENT_Sync(): (number, number, number, boolean, boolean)
+	-- Read BLOCK: 5 bytes
+	local BLOCK_START = Read(5)
+	local Value1 = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	local Value2 = buffer.readu8(RecieveBuffer, BLOCK_START + 1)
+	local Value3 = buffer.readu8(RecieveBuffer, BLOCK_START + 2)
+	local Value4 = (buffer.readu8(RecieveBuffer, BLOCK_START + 3) == 1)
+	local Value5 = (buffer.readu8(RecieveBuffer, BLOCK_START + 4) == 1)
+	return Value1, Value2, Value3, Value4, Value5
 end
 
-function SerdesFunctions.Client_Lobby_WriteEVENT_Play(Value: nil): ()
+function SerdesFunctions.Client_Lobby_WriteEVENT_LeavePad(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 9)
 end
 
+function SerdesFunctions.Client_Lobby_WriteEVENT_Play(Value: nil): ()
+	-- Allocate BLOCK: 1 bytes
+	local BLOCK_START = Allocate(1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 10)
+end
+
 function SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1: number, Value2: number, Value3: boolean): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 10)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 11)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value3 and 1 or 0)
+end
+
+function SerdesFunctions.Client_Settings_WriteEVENT_SetVolume(Value1: number, Value2: number): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 12)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2)
+end
+
+function SerdesFunctions.Client_Settings_WriteEVENT_SetToggle(Value1: number, Value2: boolean): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 13)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2 and 1 or 0)
+end
+
+function SerdesFunctions.Client_Settings_WriteEVENT_ResetAll(Value: nil): ()
+	-- Allocate BLOCK: 1 bytes
+	local BLOCK_START = Allocate(1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 14)
 end
 
 if not RunService:IsRunning() then
@@ -337,6 +371,11 @@ if not RunService:IsRunning() then
 				On = NOOP
 			},
 		},
+		Settings = {
+			Sync = {
+				On = NOOP
+			},
+		},
 	},
 	Client = {
 		Lobby = {
@@ -347,6 +386,17 @@ if not RunService:IsRunning() then
 				Fire = NOOP
 			},
 			StartParty = {
+				Fire = NOOP
+			},
+		},
+		Settings = {
+			SetVolume = {
+				Fire = NOOP
+			},
+			SetToggle = {
+				Fire = NOOP
+			},
+			ResetAll = {
 				Fire = NOOP
 			},
 		},
@@ -472,6 +522,16 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 					warn("[Blink]: Event queue of \"AccessGranted\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[7], {Value} :: {any})
+			end
+		elseif Index == 8 then
+			local Value1: number, Value2: number, Value3: number, Value4: boolean, Value5: boolean = SerdesFunctions.Server_Settings_ReadEVENT_Sync()
+			if Events.Reliable[8] ~= nil then
+				task.spawn(Events.Reliable[8], Value1, Value2, Value3, Value4, Value5)
+			else
+				if #Queue.Reliable[8] > 256 then
+					warn("[Blink]: Event queue of \"Sync\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[8], {Value1, Value2, Value3, Value4, Value5} :: {any})
 			end
 		end
 	end
@@ -619,6 +679,22 @@ local Returns = table.freeze({
 				end
 			},
 		},
+		Settings = {
+			Sync = {
+				On = function(Listener: (Value1: number, Value2: number, Value3: number, Value4: boolean, Value5: boolean) -> ()): () -> ()
+					Events.Reliable[8] = Listener
+					for Index, Arguments in Queue.Reliable[8] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[8] = {}
+					return function (): ()
+						if Events.Reliable[8] == Listener then
+							Events.Reliable[8] = nil
+						end
+					end
+				end
+			},
+		},
 	},
 	Client = {
 		Lobby = {
@@ -635,6 +711,23 @@ local Returns = table.freeze({
 			StartParty = {
 				Fire = function(Value1: number, Value2: number, Value3: boolean): ()
 					SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1, Value2, Value3)
+				end
+			},
+		},
+		Settings = {
+			SetVolume = {
+				Fire = function(Value1: number, Value2: number): ()
+					SerdesFunctions.Client_Settings_WriteEVENT_SetVolume(Value1, Value2)
+				end
+			},
+			SetToggle = {
+				Fire = function(Value1: number, Value2: boolean): ()
+					SerdesFunctions.Client_Settings_WriteEVENT_SetToggle(Value1, Value2)
+				end
+			},
+			ResetAll = {
+				Fire = function(Value: nil): ()
+					SerdesFunctions.Client_Settings_WriteEVENT_ResetAll(Value)
 				end
 			},
 		},

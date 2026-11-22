@@ -71,9 +71,7 @@ local function resolve(gun, crowd, aim, seed)
 		local piercesLeft = pierce
 		while index > 0 do
 			local body = crowd[index]
-			local isHead = EYE.Y + unit.Y * distance >= body.aim.y * GunsCore.Tune.HEAD_FRACTION
-			local figure = if isHead then pelletDamage * GunsCore.Tune.HEADSHOT_MULTIPLIER else pelletDamage
-			damage[body] = (damage[body] or 0) + figure
+			damage[body] = (damage[body] or 0) + pelletDamage
 			if piercesLeft == 0 then break end
 			piercesLeft -= 1
 			index, distance = GunsCore.CastBodies(bodies, EYE, unit, gun.Range, pad, distance)

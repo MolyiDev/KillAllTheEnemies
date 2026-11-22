@@ -3,3 +3,4 @@
 -- ../Client/Client.blink, so they compile into the Meta network.
 
 import "../Client/Lobby.blink"
+import "../Client/Settings.blink"

@@ -12,9 +12,14 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
+-- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
+local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
+local TopbarPlus = require(ReplicatedStorage.GlobalShared.TopbarPlus)
+local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
+local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local Bar = require(script.Bar)
 local Menu = require(script.Menu)
 local PadArt = require(script.PadArt)
@@ -260,7 +265,28 @@ LobbyController.OnStart = function()
 	update()
 	updateChoosing()
 	tintPads()
+	-- The lobby's screens are not in the designer's look yet, so its Settings icon wears the top bar's own.
+	local settingsIcon = TopbarPlus.new()
+	settingsIcon
+		:setName("Settings")
+		:setImage(Icons.IMAGE)
+		:modifyTheme({ "IconImage", "ImageRectOffset", Icons.Cells.Settings })
+		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
+		:setCaption("Settings")
+		:align("Right")
+		:bindEvent("selected", SettingsController.Open)
+		:bindEvent("deselected", SettingsController.Close)
+	-- TopbarPlus builds its own button, so it never gets Components.ButtonSounds: the same two sounds, by hand.
+	local clickRegion = settingsIcon:getInstance("ClickRegion")
+	clickRegion.MouseEnter:Connect(SoundsCore.PlayHover)
+	clickRegion.Activated:Connect(SoundsCore.PlayClick)
+
 	vide.mount(function()
+		-- The settings screen shuts by its own X too: the icon is let go with it.
+		vide.effect(function()
+			if not SettingsController.IsOpen() then settingsIcon:deselect() end
+		end)
+
 		return {
 			create("ScreenGui")({
 				Name = "Lobby",

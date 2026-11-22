@@ -10,7 +10,6 @@ local UserInputService = game:GetService("UserInputService")
 local vide = require(ReplicatedStorage.Packages.vide)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local KeyImages = require(ReplicatedStorage.GlobalShared.Utils.KeyImages)
-local ESoundsIds = require(ReplicatedStorage.Types.Enums.Sounds.ESoundsIds)
 local Icons = require(script.Parent.Icons)
 local Theme = require(script.Parent.Theme)
 
@@ -87,6 +86,40 @@ local SLAB_FACES = table.freeze({
 		{ 0.48, Color3.fromRGB(215, 158, 55) },
 		{ 1, Color3.fromRGB(130, 96, 34) },
 	}),
+	-- The squad screen's header and its close button.
+	Pink = table.freeze({
+		{ 0, Color3.fromRGB(150, 56, 98) },
+		{ 0.03, Color3.fromRGB(133, 58, 92) },
+		{ 0.09, Color3.fromRGB(255, 103, 170) },
+		{ 0.46, Color3.fromRGB(254, 46, 139) },
+		{ 1, Color3.fromRGB(150, 28, 82) },
+	}),
+	-- The results' Robux button.
+	Violet = table.freeze({
+		{ 0, Color3.fromRGB(90, 74, 128) },
+		{ 0.05, Color3.fromRGB(126, 102, 185) },
+		{ 0.08, Color3.fromRGB(153, 125, 226) },
+		{ 0.16, Color3.fromRGB(165, 128, 255) },
+		{ 0.46, Color3.fromRGB(137, 91, 251) },
+		{ 1, Color3.fromRGB(82, 54, 150) },
+	}),
+	-- The results' WATCH AD button.
+	Steel = table.freeze({
+		{ 0, Color3.fromRGB(96, 105, 115) },
+		{ 0.05, Color3.fromRGB(137, 149, 166) },
+		{ 0.08, Color3.fromRGB(166, 184, 203) },
+		{ 0.16, Color3.fromRGB(179, 201, 225) },
+		{ 0.46, Color3.fromRGB(151, 178, 207) },
+		{ 1, Color3.fromRGB(93, 110, 127) },
+	}),
+	-- The settings' RESET ALL and the confirm's RESET.
+	Red = table.freeze({
+		{ 0, Color3.fromRGB(121, 61, 65) },
+		{ 0.04, Color3.fromRGB(130, 64, 68) },
+		{ 0.1, Color3.fromRGB(235, 101, 110) },
+		{ 0.45, Color3.fromRGB(230, 60, 72) },
+		{ 1, Color3.fromRGB(139, 31, 39) },
+	}),
 	-- Not in his set: a slab that cannot be pressed yet, the same gloss in grey violet.
 	Off = table.freeze({
 		{ 0, Color3.fromRGB(40, 36, 58) },
@@ -103,10 +136,22 @@ local PANEL_FACE = table.freeze({
 	{ 0.18, Look.FACE },
 	{ 1, Look.FACE },
 })
+-- The same lip on a panel hundreds of px tall, where a share of its height would be a dark band.
+local PANEL_FACE_TALL = table.freeze({
+	{ 0, Look.LIP },
+	{ 0.006, Look.LIP },
+	{ 0.02, Look.FACE_TOP },
+	{ 0.035, Look.FACE },
+	{ 1, Look.FACE },
+})
 -- The corner marks inside a slab, in the face's deep colour.
 local SLAB_MARKS = table.freeze({
 	Go = Color3.fromRGB(10, 62, 40),
 	Gold = Color3.fromRGB(96, 62, 18),
+	Pink = Color3.fromRGB(110, 18, 60),
+	Violet = Color3.fromRGB(58, 38, 108),
+	Steel = Color3.fromRGB(64, 76, 90),
+	Red = Color3.fromRGB(104, 22, 32),
 	Off = Color3.fromRGB(24, 20, 40),
 })
 local TEXTURE_TRANSPARENCY = 1 - Icons.PANEL_TEXTURE_PEAK
@@ -149,15 +194,16 @@ function Components.Block(props: TProps, hasEdge: boolean?): Frame
 	})
 end
 
--- Every button's hover and click sound. Connected in an action rather than as event properties, which the caller's
--- own MouseEnter / Activated would replace; the connections go with the button.
-local buttonSounds = action(function(instance: Instance)
+-- Every button's hover and click sound (bags of takes under Sounds.UI). Connected in an action rather than as event
+-- properties, which the caller's own MouseEnter / Activated would replace; the connections go with the button. Button
+-- puts it on its own; a button made without Button takes it as a child.
+Components.ButtonSounds = action(function(instance: Instance)
 	local button = instance :: GuiButton
 	button.MouseEnter:Connect(function()
-		SoundsCore.PlayUISound(ESoundsIds.HoverHud)
+		SoundsCore.PlayHover()
 	end)
 	button.Activated:Connect(function()
-		SoundsCore.PlayUISound(ESoundsIds.ClickHud)
+		SoundsCore.PlayClick()
 	end)
 end)
 
@@ -168,7 +214,7 @@ function Components.Button(props: TProps): TextButton
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
-		buttonSounds,
+		Components.ButtonSounds,
 		props,
 	})
 end
@@ -301,12 +347,20 @@ end
 -- alive. Its strength rides an envelope over the sweep, nothing at either end, so it never sits at a flat alpha and pops
 -- off when the sweep settles (UI.md, "A SWEPT band's travel").
 function Components.Sheen(travel: () -> number, zIndex: number): Frame
+	-- Out of the renderer while it is not crossing (it is invisible at both ends anyway): a layer at full transparency
+	-- is still drawn (UI.md 5g). Derived, so it is written only as it starts and ends.
+	local isCrossing = vide.derive(function(): boolean
+		local t = travel()
+		return t > 0 and t < 1
+	end)
+
 	return create("Frame")({
 		Name = "Sheen",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Palette.White,
 		BorderSizePixel = 0,
 		ZIndex = zIndex,
+		Visible = isCrossing,
 		BackgroundTransparency = function()
 			return 1 - 0.65 * math.sin(math.pi * travel())
 		end,
@@ -340,6 +394,11 @@ function Components.Icon(name: string, props: TProps): ImageLabel
 	})
 end
 
+-- Where `name`'s cell is in the atlas, for an Icon whose glyph changes (its ImageRectOffset).
+function Components.IconCell(name: string): Vector2
+	return Icons.Cells[name]
+end
+
 -- The square an Icon is drawn in so that its glyph's longer side comes out `longest` px (icons.py pads each cell).
 function Components.GlyphBox(longest: number): UDim2
 	local side = math.round(longest / Icons.GLYPH_SHARE)
@@ -348,8 +407,8 @@ end
 
 -- The four corner brackets standing off a panel: a frame `outset` px bigger than its parent on every side, with an L
 -- at each corner whose bend is rounded, as his are. Each L is the corner of a rounded outline twice its leg, seen
--- through a window one leg square. `transparency` may be a source; `length` is each leg's, in px.
-function Components.Brackets(outset: number, transparency: any?, length: number?): Frame
+-- through a window one leg square. `outset` and `transparency` may be sources; `length` is each leg's, in px.
+function Components.Brackets(outset: any, transparency: any?, length: number?): Frame
 	local alpha = transparency or Look.BRACKET_TRANSPARENCY
 	local leg = length or Look.BRACKET_LENGTH
 	local thickness = Look.BRACKET_THICKNESS
@@ -389,7 +448,12 @@ function Components.Brackets(outset: number, transparency: any?, length: number?
 		Name = "Brackets",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(1, outset * 2, 1, outset * 2),
+		Size = if type(outset) == "function"
+			then function()
+				local px = math.round(outset())
+				return UDim2.new(1, px * 2, 1, px * 2)
+			end
+			else UDim2.new(1, outset * 2, 1, outset * 2),
 		BackgroundTransparency = 1,
 		ZIndex = 0,
 		corners,
@@ -430,9 +494,11 @@ local function marks(color: any, transparency: number, inset: number, leg: numbe
 end
 
 -- The streaks across a face (Icons.PANEL_TEXTURE), clipped to it. `phase` is where in the texture the window starts.
-local function streaks(phase: Vector2?): Frame
+-- `isWide` is a face longer than the texture: it is tiled across it.
+local function streaks(phase: Vector2?, isWide: boolean?): Frame
 	texturesMade += 1
 	local at = phase or Vector2.new((texturesMade * 389) % TEXTURE_PHASES, (texturesMade * 211) % TEXTURE_PHASES)
+	local side = Icons.PANEL_TEXTURE_SIZE
 	return create("Frame")({
 		Name = "Streaks",
 		Size = UDim2.fromScale(1, 1),
@@ -440,9 +506,11 @@ local function streaks(phase: Vector2?): Frame
 		ClipsDescendants = true,
 		create("ImageLabel")({
 			Position = UDim2.fromOffset(-at.X, -at.Y),
-			Size = UDim2.fromOffset(Icons.PANEL_TEXTURE_SIZE, Icons.PANEL_TEXTURE_SIZE),
+			Size = if isWide then UDim2.new(1, at.X, 1, at.Y) else UDim2.fromOffset(side, side),
 			BackgroundTransparency = 1,
 			Image = Icons.PANEL_TEXTURE,
+			ScaleType = if isWide then Enum.ScaleType.Tile else Enum.ScaleType.Stretch,
+			TileSize = UDim2.fromOffset(side, side),
 			ImageColor3 = Palette.Lavender,
 			ImageTransparency = TEXTURE_TRANSPARENCY,
 		}),
@@ -489,8 +557,8 @@ end
 
 -- His dark panel (the WAVE plate, the boss strip, AUTO-SKIP, the money plate, Squad, Settings). `spec` fields may be
 -- sources: Stroke (the edge's colour), Glow (a colour, nil for his dark shadow), GlowTransparency, Brackets (outset
--- px, nil for none), BracketLength, TexturePhase (a Vector2 for a panel wider than half the texture). `props` is the
--- outer Frame's, sized to his drawn rect; children are placed against it.
+-- px, nil for none), BracketLength, TexturePhase (a Vector2 for a panel wider than half the texture), Wide (true for
+-- one longer than the texture), Tall (true for one hundreds of px high). `props` is the outer Frame's, sized to his drawn rect; children are placed against it.
 function Components.Panel(spec: TProps, props: TProps): Frame
 	local edge = Look.PANEL_EDGE
 	return create("Frame")({
@@ -502,8 +570,8 @@ function Components.Panel(spec: TProps, props: TProps): Frame
 			Color = ColorSequence.new(Palette.White, Color3.new(Look.EDGE_BOTTOM, Look.EDGE_BOTTOM, Look.EDGE_BOTTOM)),
 		}),
 		shadow(spec),
-		face(edge, Look.PANEL_CORNER, PANEL_FACE, {
-			streaks(spec.TexturePhase),
+		face(edge, Look.PANEL_CORNER, if spec.Tall then PANEL_FACE_TALL else PANEL_FACE, {
+			streaks(spec.TexturePhase, spec.Wide),
 			create("Frame")({
 				Name = "Shine",
 				AnchorPoint = Vector2.new(0, 1),
@@ -521,9 +589,11 @@ end
 -- His accent card (HEAL ALL, the upgrade and ability cards, the hotbar slots). `spec` fields may be sources: Accent,
 -- Tint (how far the bottom warms toward the accent, 0 to 1), Band (px of dark name band at the bottom, nil for none),
 -- Marks (the faint corner marks low in the face), Glow / GlowTransparency (the accent's glow by default), Brackets,
--- BracketLength, BracketTransparency. `props` is the outer Frame's, sized to his drawn rect.
+-- BracketLength, BracketTransparency, Edge (px, where his is not the cards' 3), Wide (true for a face longer than the
+-- streak texture), Tall (true for one hundreds of px high), Face (the dark of the face, where his is not the
+-- cards' own). `props` is the outer Frame's, sized to his drawn rect.
 function Components.Card(spec: TProps, props: TProps): Frame
-	local edge = Look.CARD_EDGE
+	local edge = spec.Edge or Look.CARD_EDGE
 	local band = spec.Band
 	return create("Frame")({
 		BackgroundColor3 = spec.Accent,
@@ -540,18 +610,21 @@ function Components.Card(spec: TProps, props: TProps): Frame
 		}),
 		face(edge, Look.PANEL_CORNER, function()
 			local accent = read(spec.Accent)
-			local warm = Look.CARD_FACE:Lerp(accent, read(spec.Tint) or 0.25)
+			local dark = spec.Face or Look.CARD_FACE
+			local warm = dark:Lerp(accent, read(spec.Tint) or 0.25)
+			-- The lip is a few px whatever the card's height: on one hundreds of px tall a share of it is a band.
+			local lip = if spec.Tall then 0.25 else 1
 			return {
 				{ 0, Look.LIP },
-				{ 0.03, Look.LIP },
-				{ 0.06, Look.FACE_TOP },
-				{ 0.15, Look.CARD_FACE },
-				{ 0.45, Look.CARD_FACE:Lerp(accent, Look.CARD_TINT_MID) },
+				{ 0.03 * lip, Look.LIP },
+				{ 0.06 * lip, Look.FACE_TOP },
+				{ 0.15 * lip, dark },
+				{ 0.45, dark:Lerp(accent, Look.CARD_TINT_MID) },
 				{ if band then 0.74 else 0.99, warm },
 				{ 1, warm },
 			}
 		end, {
-			streaks(nil),
+			streaks(nil, spec.Wide),
 			if band
 				then create("Frame")({
 					Name = "Band",
@@ -577,9 +650,9 @@ function Components.Card(spec: TProps, props: TProps): Frame
 	})
 end
 
--- His glossy slab (SKIP WAVE, the countdown, the money packs): a dark rim, a hot pink edge and a green or gold face.
--- `spec` fields may be sources: Kind ("Go", "Gold" or "Off"), Marks (the corner marks inside), GlowTransparency,
--- Brackets. `props` is the outer Frame's, sized to his drawn rect.
+-- His glossy slab (SKIP WAVE, the countdown, the money packs, the squad screen's header): a dark rim, a hot pink edge
+-- and a green, gold or pink face. `spec` fields may be sources: Kind ("Go", "Gold", "Pink", "Violet", "Steel", "Red" or "Off"), Marks (the corner
+-- marks inside), GlowTransparency, Brackets. `props` is the outer Frame's, sized to his drawn rect.
 function Components.Slab(spec: TProps, props: TProps): Frame
 	local kind = function(): string
 		return read(spec.Kind) or "Go"

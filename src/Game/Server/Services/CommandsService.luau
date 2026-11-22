@@ -3,9 +3,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Conch = require(ReplicatedStorage.Packages.conch)
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
+local AbilityService = require(script.Parent.AbilityService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
+local MatchService = require(script.Parent.MatchService)
 local RoundService = require(script.Parent.RoundService)
+local TimeService = require(script.Parent.TimeService)
+local UpgradesService = require(script.Parent.UpgradesService)
 local WeaponService = require(script.Parent.WeaponService)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -57,17 +61,17 @@ local function registerPause()
 		end,
 		callback = function(target: string)
 			if target == "enemies" then
-				TimeCore.SetEnemiesPaused(not TimeCore.IsEnemiesManualPaused)
+				TimeService.SetEnemiesPaused(not TimeCore.IsEnemiesManualPaused)
 				Conch.log("normal", `Enemies {onOff(TimeCore.IsEnemiesManualPaused)}.`)
 			elseif target == "spawns" then
 				RoundService.IsSpawningPaused = not RoundService.IsSpawningPaused
 				Conch.log("normal", `Spawns {onOff(RoundService.IsSpawningPaused)}.`)
 			elseif target == "all" then
-				TimeCore.SetManualPause(not TimeCore.IsManualPaused)
+				TimeService.SetManualPause(not TimeCore.IsManualPaused)
 				Conch.log("normal", `Match {onOff(TimeCore.IsManualPaused)}.`)
 			elseif target == "reset" then
-				TimeCore.SetEnemiesPaused(false)
-				TimeCore.SetManualPause(false)
+				TimeService.SetEnemiesPaused(false)
+				TimeService.SetManualPause(false)
 				RoundService.IsSpawningPaused = false
 				Conch.log("normal", "All pauses reset.")
 			end
@@ -78,7 +82,7 @@ end
 local function registerTimeScale()
 	Conch.register("timescale", {
 		permissions = { PERMISSION_DEV },
-		description = "Change the match's time scale (server only: the client's clock stays at 1).",
+		description = "Change the match's time scale, on every side.",
 		arguments = function()
 			return args.overload({
 				{
@@ -93,7 +97,7 @@ local function registerTimeScale()
 		end,
 		callback = function(value: number | string)
 			local scale = if value == "reset" then 1 else math.max(value :: number, 0)
-			TimeCore.SetTimeScale(scale)
+			TimeService.SetTimeScale(scale)
 			Conch.log("normal", `Time scale set to {scale}.`)
 		end,
 	})
@@ -202,12 +206,66 @@ local function registerGold()
 	})
 end
 
+-- The Gold packs' grant without the purchase (MatchService.GrantGold), for seeing its show.
+local function registerGoldPack()
+	Conch.register("goldpack", {
+		permissions = { PERMISSION_DEV },
+		description = "Get a Gold pack's Gold as if you had bought it, with its show.",
+		arguments = function()
+			return args.number("amount", "How much Gold the pack holds (1000 and 99999 are the two sold).")
+		end,
+		callback = function(amount: number)
+			local player = getContextPlayer()
+			if not player then return end
+			if amount <= 0 then
+				Conch.log("error", "The amount must be above 0.")
+				return
+			end
+
+			MatchService.GrantGold(player, math.floor(amount))
+			Conch.log("normal", `Gold pack of {math.floor(amount)} granted ({EconomyService.GetGold(player)} now).`)
+		end,
+	})
+end
+
+local function registerUlt()
+	Conch.register("ult", {
+		permissions = { PERMISSION_DEV },
+		description = "Fill your ultimate's meter.",
+		arguments = function() end,
+		callback = function()
+			local player = getContextPlayer()
+			if not player then return end
+			AbilityService.FillUltimate(player)
+			Conch.log("normal", "Ultimate ready.")
+		end,
+	})
+end
+
+-- A hand of upgrade cards without clearing a wave, for seeing the pick. Only during a run.
+local function registerUpgrade()
+	Conch.register("upgrade", {
+		permissions = { PERMISSION_DEV },
+		description = "Deal yourself a hand of upgrade cards.",
+		arguments = function() end,
+		callback = function()
+			local player = getContextPlayer()
+			if not player then return end
+			UpgradesService.Grant(player, 0)
+			Conch.log("normal", "A hand of upgrades is owed (dealt once the one that is up is picked).")
+		end,
+	})
+end
+
 CommandsService.OnStart = function()
 	registerPause()
 	registerTimeScale()
 	registerEnemy()
 	registerGun()
 	registerGold()
+	registerGoldPack()
+	registerUlt()
+	registerUpgrade()
 end
 
 return Ignis.Register(CommandsService)

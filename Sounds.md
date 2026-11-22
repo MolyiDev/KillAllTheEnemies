@@ -657,3 +657,114 @@ Use `Assets/Sounds/rules-audit.json` for the current per-cue review decisions, `
 for this pass's checks, and the manifest as the source of current values. Older reports document their own
 revision; they do not override newer feedback. If a choice is rejected, retain the old file, record why it
 failed, and change the rule/selection at its owner so the next session does not repeat the same experiment.
+
+## 8. Kill All The Monsters
+
+### This repo's bank and review pipeline
+
+- **The bank** is `tools/sounds/Sounds.txt`, one Sound a line (`path|SoundId|Volume|PlaybackSpeed|bus|flags`, flags
+  `Looped`, `PlayOnRemove`, `RollOff=<mode>`, `Min=`, `Max=`), built by `lune run tools/sounds/build.luau "$PWD"` into
+  `sounds/Sounds.rbxmx` (Rojo's `ReplicatedStorage.Sounds`). A folder of Sounds is a bag of takes and `SoundsCore`
+  rolls one per play. The file is not sorted: add lines without reordering it (a sort rewrites 1,100 lines).
+- **Uploads** go through `python3 tools/sounds/upload.py <files>` as group 34796361 (ids in
+  `Assets/sounds/asset_ids.json`, keyed by file stem, so a stem must be unique). Every upload starts in moderation
+  "Reviewing" and is silent until Approved (`mcp__tripwire__get_asset`).
+- **Reviews** live in `Assets/sounds/Review/<Name>/`: `make_roundN.py`, `roundN/`, a README with the user's words
+  and picks, and a `ship_picks.py` that copies the picks to `Assets/sounds/<Group>/`, writes `shipped.json` and the
+  bank lines. The levels and shared gain come from `Review/Pistol/levels.py` (the body metric of section 3). This
+  game's previews use **one shared gain of -8 dB**, and its in-game targets sit **2 dB under the section 3 table**
+  (`Review/Enemies/ship_picks.py MIX_SHIFT_DB`): pistol shot -17, enemy hit -16, kill -13, overkill -10.5, nuke -5.
+- **Volume** puts the shipped file's body at its in-game target: `Volume = 10 ^ ((target - body) / 20)`, body
+  measured on the file as shipped. A pack's authored parts (a loop, its start, its end) keep their balance: one gain
+  for all three, set by the loop.
+- **A later round loads the earlier one's helpers by path** (`importlib.util.spec_from_file_location`) and carries
+  its letters on (round 2's first fire is E), so "Fire H" names one candidate across rounds. Adding an option to a
+  shared helper must leave the earlier round's files byte-identical.
+
+### The Human kit (2026-11-21, `Assets/sounds/Review/Abilities/`)
+
+Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files shipped under `Sounds.Abilities`
+(the README's "Shipped" table has every pick, level and caller).
+
+- **Level a 3D cue for the distance it is heard from.** The kit shipped as Inverse rolloff from Min 8 (decoy, foam)
+  and 30 (beam) and was heard "too low". This game's references lose nothing to distance: guns, hits and kills play
+  pooled and flat from SoundService (one's own from the camera), the nuke at the camera. So the decoy 40 studs out
+  played 16 dB under its preview, the foam on a body 25 studs out 13 dB, the beam at 60 studs 8 dB, and even the
+  caster's own cues 4 dB (the camera sits 12.5 studs behind). Min now covers each ability's own reach (50 for the
+  decoy and foam, 150 for the beam), so inside it a cue plays at its preview's level, and another player's ability
+  across the map still fades.
+- **Echo and poor recording sink a candidate whatever its material.** The Decoy's call (Gamemaster
+  `squeaky_rubber_toy_cartoon`, FilmCow `rubber wobble`) was rejected: "they have some echo in it, they weren't
+  recorded that good". Measure how long a candidate rings after its sound stops and its noise floor before offering
+  it; the dry close-mic zapsplat foley packs replaced them.
+- **A take that stands out in pitch spoils its bag.** The call's take 1 (a balloon squeak at 442 Hz) was "too acute"
+  beside takes 2 and 3 (elastics at 180-220 Hz). Compare each take's dominant frequency and replace the outlier with
+  the nearest in pitch from the same family.
+- **A foley file often holds several events.** "The same sound at the final" in two sprays was the second squirt of
+  the one layer they shared (zapsplat `frothy_squirt_squelch_short_dense`). Split a file into its events (gaps 40 dB
+  down) before layering it whole, and cut a layer to the event wanted (`length_ms` in `make_round1.L`).
+- **"A little bit" gets two amounts.** Asked for "a little bit of ice", round 3 rendered each ice layer light (9 dB
+  under the head) and more (5 dB under): the user took more on the foam setting and light on the shatter and the
+  crumble. It saved a round.
+- **A pop has to be a bang.** Every round 2 pop (rubber band snaps over a cork and a small explosion) was rejected:
+  "none of these sound like an explosion of a balloon, it should be bigger and stronger". Round 1's A (a cork pop's
+  crack, `explosion_small_short_01` 3 dB under, an air hiss) shipped.
+- **A weapon's end is low.** A power-down at 1-4 kHz "sounds like a toy, not like a real serious weapon". The pick is
+  the beam pack's own loop end over Pixel Combat `Energy Dissipate` and a sub power-down.
+- **A beam that burns for seconds needs an authored laser loop, and none of the libraries had one** (Mecha
+  `LASER BEAM` files are 3.4 s one-shots that fade; force-field hums are not lasers: "none of these sound like a
+  real laser / ray loop"). A web search found packs with start / loop / end beams (itch.io, AudioJungle); the user
+  bought AbsintheMedia's Death Ray. Its loop plays on an Attachment that follows the beam's foot from the slam,
+  its start with the slam, and it is destroyed with the end cue. Check a pack's loop with `sfx-inspect --loop`
+  before offering it.
+- **A charge that builds into a beat is cut under it.** The mark's rise is cut 80 ms after the beam lands, faded
+  over 100 ms, so it never outlasts the second it fills.
+- **A volley is heard once.** `SoundsCore`'s 35 ms merge still lets a nearer play through, so N bodies letting go on
+  one frame can sound N times. Keep the first position in the loop and play once after it (`AbilityController`'s
+  `Foamed` handler and `stepFoamed`).
+- **An effect module plays the beats it draws** (`decoyFx`: a blow, the call, the pop), as section 3's Yo-Yo does.
+  The decoy's first ping is on the landing, which the throw cue already carries, so the call starts from the second.
+
+### The Gold pack (2026-11-21, `Assets/sounds/Review/GoldPack/`, round 1 unheard)
+
+- **A cue over a stream it does not own carries only the ends.** The pack's coins land with the game's own coin
+  sound, 24 to 40 times in 0.9 s with the chain climbing. The cue is a hit on the buy and a closing hit on the last
+  landing (1.5 s, `CoinFlight.Shower.LAST`), and every preview that matters has the real coin takes placed on the
+  shower's own schedule, one a frame, sped as the chain speeds them.
+- **A named "coins payout" file is not a payout to the ear here**: the zapsplat `coins_payout` takes are 98% over
+  6.5 kHz. The rattle is the shipped Bell, Thump and Clink.
+
+### The upgrade's level-up on the body (2026-11-21, `Assets/sounds/Review/UpgradeBody/`, C Three Zaps shipped)
+
+- **A coda after a cue that already celebrated**: the pick's own cue plays on the server's word and the body's show
+  1.82 s later, once the screen has gone. Its candidates are previewed after the shipped pick (`_2_after_pick`) and
+  sit at the Common pick's -9, under a personal reward's -7.
+- **The pick counts the rings**: one rising zap a ring (three takes of Pixel Combat `Zap Up`, so no two match) and a
+  crystal's low hit on the halo, the shortest of the five.
+- **Wired before it had a take**: `UpgradePickController` called `Upgrades/LevelUp` from round 1, which `PlayWorldNamed`
+  skips while the bank has no such node, so shipping the pick was a bank line and nothing else.
+
+### Bullet impacts on the arena (2026-11-21, `Assets/sounds/Review/SurfaceImpacts/`, G Even and N Ice Shard shipped)
+
+- **Count the maps' materials before building per-material cues.** Both maps are Plastic bricks, so one bag
+  (`Impacts.Brick`) plays on every surface; the panes get their own. The `Sounds.Materials` bank is BeACastleLord's
+  melee palette, played by nothing here.
+- **"A combination of A and B" got three amounts** (B under A, even, A under B): the even one was picked.
+- **The library's glass bullet hits are hiss** (25-63% over 6.5 kHz). A glass knock in their place was rejected for
+  "other sounds, like ice breaking": round 3's ice shard hit over a bullet into ice (N) shipped, not the brighter
+  full shatter.
+- **A miss is heard where it lands** (the user's pick): Inverse from Min 60, the reach of a normal shot, so one's own
+  misses play at the previewed level and a teammate's across the map fade.
+
+### Sources
+
+- The library at `/mnt/HDD/Assets/Sounds` gained the user's packs on 2026-11-21: `Balloon/`, `Rubber/`, `Plastic/`,
+  `Foam/` and `Sci-Fi Weapons/` (zapsplat, plus glitchedtones' sci-fi elements and the Death Ray), each zip beside
+  its unpacked folder, without `__MACOSX`. Packs the user buys land in `~/Downloads/Sounds`.
+- BeACastleLord's shard burst ice is Gamemaster `ice_spell_impact_shatter` (01, 02, 03, 05, 06, 08, 10), in this
+  library too.
+- Gamemaster's sustained sci-fi files and the glitchedtones Force Field, Drone and Hover fade in and out: none is a
+  loop. Its only seamless loops here are `fire_large_flames_magic_loop_01`, `sci-fi_forcefield_hum_loop` 01, 02, 06,
+  07, 09, `sci-fi_vehicle_spaceship_jet_engine_loop2` and `sci-fi_sub_bass_rumble_loop` (`sfx-inspect --loop`).
+- Local Stable Audio is not installed (the repo is absent and its weights are gated). ElevenLabs can generate loops
+  up to 5 s but costs credits: ask first.

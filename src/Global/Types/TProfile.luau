@@ -28,6 +28,13 @@ export type TProfile = {
 	Settings: {
 		IsAutoSkip: boolean,
 		CameraMode: number,
+		-- The settings screen's (SettingsCore): each is saved only while it is not its default, so nil is the default.
+		-- Volumes are whole percents.
+		MusicVolume: number?,
+		SoundEffectsVolume: number?,
+		MenuSoundsVolume: number?,
+		IsCameraShakeReduced: boolean?,
+		IsDragFireToAim: boolean?,
 	},
 }
 

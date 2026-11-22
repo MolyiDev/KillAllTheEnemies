@@ -7,7 +7,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local Motion = require(script.Parent.Motion)
+local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
 
 local create = vide.create

@@ -2,7 +2,7 @@
 -- was (a hit, a kill, an overkill, and a wipe layer over the top), since a round is one kind of creature dying hundreds
 -- of times and the eye and ear have to be told how hard, not what. A type that names its own clips (TEnemy.Sounds)
 -- speaks on top. A burst is glowing pixels of the body's skin and stud pieces in its own colours knocked off it
--- (TEnemy.Colors; the pieces are Client/Utils/thrownPieces). Its look is authored on templates at
+-- (TEnemy.Colors; the pieces are GlobalClient/Utils/thrownPieces). Its look is authored on templates at
 -- ReplicatedStorage.Effects.EnemyFx, a place instance, not Rojo, made by Assets/effects/enemy (its README.md).
 --
 -- Every entry point is an event already capped upstream (EnemiesController's per-body hit debounce, one cry per
@@ -12,7 +12,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local thrownPieces = require(script.Parent.thrownPieces)
+local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")

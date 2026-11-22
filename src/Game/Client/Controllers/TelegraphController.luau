@@ -19,7 +19,7 @@ local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local TelegraphCore = require(ReplicatedStorage.Shared.Core.TelegraphCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local telegraphFx = require(script.Parent.Parent.Utils.telegraphFx)
 local ETelegraphs = require(ReplicatedStorage.Types.Enums.ETelegraphs)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
@@ -33,21 +33,24 @@ local TelegraphController = {}
 
 -- Assets/effects/telegraphs/make_telegraph_textures.py draws these, white, so COLOR tints them; Assets/effects/telegraphs/images.json keeps the ids.
 local IMAGES = table.freeze({
-	CircleSmall = "rbxassetid://103123062302794",
-	CircleLarge = "rbxassetid://84445301207309",
-	CircleSweep = "rbxassetid://79598482597984",
-	Ring = "rbxassetid://107320257798324",
-	Line = "rbxassetid://128972503311697",
-	LineSweep = "rbxassetid://86619857890807",
-	Cone60 = "rbxassetid://103577175411207",
-	Cone60Sweep = "rbxassetid://105703064062891",
-	Cone90 = "rbxassetid://97734448046535",
-	Cone90Sweep = "rbxassetid://118915750595600",
-	Cone120 = "rbxassetid://76348409855757",
-	Cone120Sweep = "rbxassetid://140206132477481",
+	CircleSmall = "rbxassetid://98265585775557",
+	CircleLarge = "rbxassetid://123005349416337",
+	CircleSweep = "rbxassetid://135245758643779",
+	Ring = "rbxassetid://103238288994473",
+	Line = "rbxassetid://109245396021117",
+	LineSweep = "rbxassetid://134085922202910",
+	Cone60 = "rbxassetid://90114279811844",
+	Cone60Sweep = "rbxassetid://78130968304852",
+	Cone90 = "rbxassetid://100797374242199",
+	Cone90Sweep = "rbxassetid://79608212025328",
+	Cone120 = "rbxassetid://111058641744984",
+	Cone120Sweep = "rbxassetid://98434016153407",
 })
 -- The share of its picture's half-width a shape fills (make_telegraph_textures.py FILL): the rest is the rim's stroke and glow.
 local IMAGE_FILL = 0.94
+-- How dark the sweep's fill is drawn under its white front (make_telegraph_textures.py FILL_LIGHT): tinted with the
+-- warning's colour over this, the fill is that colour and the front burns white.
+local FILL_LIGHT = 0.25
 -- From this radius a circle takes the thinner rim: a texture's rim grows with its shape.
 local LARGE_RADIUS = 16
 -- Measured against the map's floors (VFX.md section 15): red vanishes on the track, and violet is the hits' colour.
@@ -149,13 +152,14 @@ local EState = table.freeze({
 })
 
 -- What its part and texture were last given, so a frame that changes nothing writes nothing (a property write is an
--- engine call; the pulse rewrites only the colour).
+-- engine call): the pulse rewrites only a body's colour, and a fill's colour holds until the last moments' heat.
 type TPiece = {
 	Part: Part,
 	Texture: Texture,
 	IsShown: boolean,
 	Size: Vector3,
 	CFrame: CFrame,
+	Color: Color3,
 	Transparency: number,
 }
 
@@ -234,6 +238,7 @@ local function takePiece(image: string): TPiece
 			IsShown = false,
 			Size = part.Size,
 			CFrame = part.CFrame,
+			Color = texture.Color3,
 			Transparency = texture.Transparency,
 		}
 	end
@@ -302,6 +307,15 @@ local function imageRect(kind: number, size: number, width: number, scale: numbe
 
 	local half = size / IMAGE_FILL * scale
 	return -half, half, -half, half
+end
+
+-- The fill's extent `progress` of the way through the wind-up: grown from the anchor, a line along its length only
+-- (at its full width from the start: it fills from where the attack comes).
+local function fillRect(kind: number, size: number, width: number, progress: number): (number, number, number, number)
+	local x0, x1, z0, z1 = imageRect(kind, size, width, progress)
+	if kind ~= ETelegraphs.Line then return x0, x1, z0, z1 end
+	local halfX = width / 2 / IMAGE_FILL
+	return -halfX, halfX, z0, z1
 end
 
 local function bodyImage(kind: number, size: number, width: number): string
@@ -749,10 +763,14 @@ end
 local function paint(pieces: { TPiece }, color: Color3, transparency: number)
 	for _, piece in pieces do
 		local texture = piece.Texture
-		texture.Color3 = color
-		if piece.Transparency == transparency then continue end
-		piece.Transparency = transparency
-		texture.Transparency = transparency
+		if piece.Color ~= color then
+			piece.Color = color
+			texture.Color3 = color
+		end
+		if piece.Transparency ~= transparency then
+			piece.Transparency = transparency
+			texture.Transparency = transparency
+		end
 	end
 end
 
@@ -909,12 +927,14 @@ local function step(telegraph: TTelegraph, dt: number): boolean
 		local color = telegraph.Color
 		local tint = Color3.new(color.R * glow, color.G * glow, color.B * glow):Lerp(WHITE_HOT, heat)
 		paint(telegraph.Bodies, tint, 1 - pop)
-		paint(telegraph.Sweeps, tint:Lerp(WHITE_HOT, 0.25), 0)
+		-- The fill does not pulse: the outline breathes, the fill only ever grows.
+		local fill = color:Lerp(WHITE_HOT, heat)
+		paint(telegraph.Sweeps, Color3.new(fill.R / FILL_LIGHT, fill.G / FILL_LIGHT, fill.B / FILL_LIGHT), 0)
 
 		-- A fill means "this lands when it is full", and a shockwave does not land then: it starts rolling, and only its
 		-- front hurts. So its wind-up is the outline alone, and the fill is the front itself (Rolling).
 		if telegraph.Kind ~= ETelegraphs.Ring then
-			local ix0, ix1, iz0, iz1 = imageRect(telegraph.Kind, telegraph.Size, telegraph.Width, progress)
+			local ix0, ix1, iz0, iz1 = fillRect(telegraph.Kind, telegraph.Size, telegraph.Width, progress)
 			mapSweeps(telegraph, ix0, ix1, iz0, iz1)
 		end
 		charge(telegraph, progress, dt)

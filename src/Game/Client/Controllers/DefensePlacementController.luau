@@ -16,7 +16,7 @@ local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local MatchController = require(script.Parent.MatchController)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local sightCast = require(ReplicatedStorage.Shared.Utils.sightCast)
+local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local ServerNetworkDefenses = Network.Server.Defenses
@@ -24,8 +24,9 @@ local ClientNetworkDefenses = Network.Client.Defenses
 
 local LocalPlayer = Players.LocalPlayer
 local DEFENSES = DataCore.Defenses.ById
-local ALL_DEFENSES = DataCore.Defenses.All
-local DEFENSE_KEYS = table.freeze({ Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T })
+-- local ALL_DEFENSES = DataCore.Defenses.All
+-- Q, E and G are the class's abilities (AbilityController).
+local DEFENSE_KEYS = table.freeze({ Enum.KeyCode.R, Enum.KeyCode.T, Enum.KeyCode.Y })
 local TURN_KEY = Enum.KeyCode.F
 local AIM_DISTANCE = 300
 local ACTION = "PlaceDefense"
@@ -166,15 +167,16 @@ ServerNetworkDefenses.Shot.On(function(id: number, _)
 	if footCentre and shotPool then SoundsCore.PlayPooled(shotPool, footCentre) end
 end)
 
-DefensePlacementController.OnStart = function()
-	for index, data in ALL_DEFENSES do
-		local key = DEFENSE_KEYS[index]
-		if not key then break end
-		ContextActionService:BindAction(`Defense{index}`, function(_, state)
-			if state == Enum.UserInputState.Begin then DefensePlacementController.Begin(data.Id) end
-			return Enum.ContextActionResult.Sink
-		end, false, key)
-	end
-end
+-- Hidden: the HUD offers only the class's abilities for now, so the defenses' keys are not bound either.
+-- DefensePlacementController.OnStart = function()
+-- 	for index, data in ALL_DEFENSES do
+-- 		local key = DEFENSE_KEYS[index]
+-- 		if not key then break end
+-- 		ContextActionService:BindAction(`Defense{index}`, function(_, state)
+-- 			if state == Enum.UserInputState.Begin then DefensePlacementController.Begin(data.Id) end
+-- 			return Enum.ContextActionResult.Sink
+-- 		end, false, key)
+-- 	end
+-- end
 
 return Ignis.Register(DefensePlacementController)
