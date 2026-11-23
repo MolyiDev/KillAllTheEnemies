@@ -1,0 +1,34 @@
+-- The weapons screen's requests (LoadoutService), each only the gun's Id: the price, the Gems, whether it is owned and
+-- what it costs to level are the server's.
+
+-- Buy a gun with Gems. It goes straight into its tier.
+event Buy {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Put an owned gun in its tier.
+event Equip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Raise an owned gun a level with Gems.
+event Upgrade {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Wear an owned gun on the back, or 0 to take it off.
+event Show {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}

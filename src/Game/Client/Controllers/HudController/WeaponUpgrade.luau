@@ -9,7 +9,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
-local GunPicture = require(script.Parent.GunPicture)
+local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local Hotbar = require(script.Parent.Hotbar)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
@@ -17,7 +17,7 @@ local Types = require(script.Parent.Types)
 local create = vide.create
 local Palette = Theme.Palette
 local Font = Theme.Font
-local LADDER = GunsCore.LADDER
+local STEPS = #GunsCore.LADDER_PRICES
 
 local WeaponUpgrade = {}
 
@@ -67,6 +67,7 @@ local BANNER_FROM_SCALE = 1.14
 local BANNER_LEAVE_RISE = 14
 local CAPTION_TEXT = 20
 local NAME_TEXT = 58
+local NAME_MARGIN = 24
 local PIP = 14
 local PIP_GAP = 8
 
@@ -123,8 +124,8 @@ local function flight(state: Types.THudState, from: UDim2, size: number, tilt: n
 end
 
 local function pips(state: Types.THudState): Frame
-	local children = table.create(#LADDER)
-	for index in LADDER do
+	local children = table.create(STEPS)
+	for index = 1, STEPS do
 		-- The step just bought lights last, popping white.
 		local isLit = function(): boolean
 			local step = state.Weapon.Step()
@@ -137,24 +138,32 @@ local function pips(state: Types.THudState): Frame
 			return k * k
 		end
 
+		-- The pop is on a body inside the list's slot: a list item is placed by its corner, so it would grow from there.
 		children[index] = create("Frame")({
 			Name = `Step{index}`,
 			Size = UDim2.fromOffset(PIP, PIP),
 			LayoutOrder = index,
-			BorderSizePixel = 0,
-			BackgroundColor3 = function()
-				return if isLit() then Palette.Green:Lerp(Palette.White, pop()) else Palette.Ink
-			end,
-			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			create("UIStroke")({
-				Color = Palette.Lavender,
-				Transparency = 0.5,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			}),
-			create("UIScale")({
-				Scale = function()
-					return 1 + 0.8 * pop()
+			BackgroundTransparency = 1,
+			create("Frame")({
+				Name = "Body",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(1, 1),
+				BorderSizePixel = 0,
+				BackgroundColor3 = function()
+					return if isLit() then Palette.Green:Lerp(Palette.White, pop()) else Palette.Ink
 				end,
+				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+				create("UIStroke")({
+					Color = Palette.Lavender,
+					Transparency = 0.5,
+					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				}),
+				create("UIScale")({
+					Scale = function()
+						return 1 + 0.8 * pop()
+					end,
+				}),
 			}),
 		})
 	end
@@ -163,7 +172,7 @@ local function pips(state: Types.THudState): Frame
 		Name = "Steps",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -12),
-		Size = UDim2.fromOffset(#LADDER * (PIP + PIP_GAP), PIP),
+		Size = UDim2.fromOffset(STEPS * (PIP + PIP_GAP), PIP),
 		BackgroundTransparency = 1,
 		ZIndex = 3,
 		create("UIListLayout")({
@@ -225,17 +234,19 @@ local function banner(state: Types.THudState): CanvasGroup
 			}),
 			create("TextLabel")({
 				Name = "Gun",
-				Position = UDim2.fromOffset(0, 34),
-				Size = UDim2.new(1, 0, 0, NAME_TEXT),
+				Position = UDim2.fromOffset(NAME_MARGIN, 34),
+				Size = UDim2.new(1, -NAME_MARGIN * 2, 0, NAME_TEXT),
 				BackgroundTransparency = 1,
 				FontFace = Font.Display,
-				TextSize = NAME_TEXT,
+				-- A loadout gun's name can be far longer than the panel was drawn for: it shrinks to fit.
+				TextScaled = true,
 				TextColor3 = Palette.White,
 				ZIndex = 3,
 				Text = function()
 					local held = state.Weapon.Held()
 					return if held then held.Label else ""
 				end,
+				create("UITextSizeConstraint")({ MaxTextSize = NAME_TEXT }),
 			}),
 			pips(state),
 		}),

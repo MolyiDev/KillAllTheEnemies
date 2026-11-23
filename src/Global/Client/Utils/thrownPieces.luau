@@ -54,6 +54,8 @@ export type TPool = {
 	Clock: number,
 	-- What a piece coming down looks for its floor in; nil is Workspace.Arena. A bench sets its own while it stands.
 	FloorParams: RaycastParams?,
+	-- Called where a piece bounces on its floor, with how many times it has (1 the first time).
+	Landed: ((position: Vector3, bounces: number) -> ())?,
 }
 
 local random = Random.new()
@@ -67,6 +69,7 @@ function thrownPieces.NewPool(name: string, limit: number): TPool
 		LastStep = os.clock(),
 		Clock = 0,
 		FloorParams = nil,
+		Landed = nil,
 	}
 end
 
@@ -127,24 +130,25 @@ local function remove(pool: TPool, index: number)
 end
 
 -- A piece has come down to its floor: look again right under it (the floor it was thrown over may be a slope's other
--- height), and bounce only when that is where it is.
+-- height), and bounce only when that is where it is. True when it bounced.
 local function touchDown(
 	piece: TPiece,
 	position: Vector3,
 	velocity: Vector3,
 	params: RaycastParams?
-): (Vector3, Vector3)
+): (Vector3, Vector3, boolean)
 	local floor = thrownPieces.FloorUnder(position + Vector3.new(0, Tune.FLOOR_LOOK_UP, 0), params)
 	if floor < piece.Floor - 0.05 then
 		piece.Floor = floor
-		return position, velocity
+		return position, velocity, false
 	end
 
 	piece.Floor = floor
 	piece.Bounces += 1
 	piece.Spin *= 0.5
 	return Vector3.new(position.X, floor + piece.Half, position.Z),
-		Vector3.new(velocity.X * Tune.FRICTION, -velocity.Y * Tune.BOUNCE, velocity.Z * Tune.FRICTION)
+		Vector3.new(velocity.X * Tune.FRICTION, -velocity.Y * Tune.BOUNCE, velocity.Z * Tune.FRICTION),
+		true
 end
 
 -- `timeScale` runs the pieces slower (a match's clock: 0 holds them where they are); nil is real time.
@@ -158,6 +162,7 @@ function thrownPieces.Step(pool: TPool, timeScale: number?)
 	if #pieces == 0 then return end
 
 	local params = pool.FloorParams
+	local landed = pool.Landed
 	local fall = Vector3.new(0, Tune.GRAVITY * dt, 0)
 	local sink = Vector3.new(0, Tune.SINK_SPEED * dt, 0)
 	for index = #pieces, 1, -1 do
@@ -173,7 +178,9 @@ function thrownPieces.Step(pool: TPool, timeScale: number?)
 			local velocity = piece.Velocity - fall
 			position += velocity * dt
 			if velocity.Y < 0 and position.Y - piece.Half <= piece.Floor then
-				position, velocity = touchDown(piece, position, velocity, params)
+				local isBounce
+				position, velocity, isBounce = touchDown(piece, position, velocity, params)
+				if isBounce and landed then landed(position, piece.Bounces) end
 			end
 			piece.Velocity = velocity
 

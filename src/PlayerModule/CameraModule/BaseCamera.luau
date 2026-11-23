@@ -31,7 +31,9 @@ local UNIT_Z = Vector3.new(0, 0, 1)
 local X1_Y0_Z1 = Vector3.new(1, 0, 1) --Note: not a unit vector, used for projecting onto XZ plane
 
 local DEFAULT_DISTANCE = 12.5 -- Studs
-local FIRST_PERSON_DISTANCE_THRESHOLD = 1.0 -- Below this value, snap into first person
+-- Local change (stock: 1.0): a camera a stud or two behind the head is neither view, the back of the avatar filling
+-- the screen with no gun drawn, so zooming in past this goes straight to first person and zooming out of it lands here.
+local FIRST_PERSON_DISTANCE_THRESHOLD = 5.0 -- Below this value, snap into first person
 
 -- Note: DotProduct check in CoordinateFrame::lookAt() prevents using values within about
 -- 8.11 degrees of the +/- Y axis, that's why these limits are currently 80 degrees

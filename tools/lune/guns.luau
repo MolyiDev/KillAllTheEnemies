@@ -1,10 +1,13 @@
--- Headless check of the weapon ladder (GunsCore.LADDER): how fast each step kills, so every step up is one. Shots
--- are resolved as WeaponService resolves them (GunsCore's pellets against the bodies' aim shapes, the head figure,
--- the pierce), from a player standing still who aims at the chest of the nearest body, as the aim assist does. A
--- shove is only a step back here: the second a shoved body then takes to get back up to speed (enemiesUpdate) is
--- not modelled, so a shoving gun holds a crowd off better than this shows. Two readings:
---   * one Basic alone at a distance: seconds to put it down;
---   * a crowd of the round's own mix walking in from the spawn ring, kept at a count: kills a second.
+-- Headless check of the guns: how fast each kills. Every gun must score above the cheaper guns of its tier and every
+-- gun of the tiers below (the last table), so each step of a run's ladder (GunsCore.Ladder) is a step up whatever
+-- the player equipped. Shots are resolved as WeaponService resolves them (GunsCore's pellets against the bodies' aim
+-- shapes, the pierce, the splash), from a player standing still who aims at the chest of the nearest body, as the aim
+-- assist does. A shove is only a step back here: the second a shoved body then takes to get back up to speed
+-- (enemiesUpdate) is not modelled, so a shoving gun holds a crowd off better than this shows. Three readings:
+--   * one Basic alone at a distance: seconds to put it down (the starters' ladder);
+--   * a crowd of the round's own mix walking in from the spawn ring, kept at a count: kills a second (the same);
+--   * every gun by tier and price: the geometric mean of its kills a second over five crowds, so a gun that only
+--     shines in one (a sniper's pierce in a thick crowd) cannot top the list on it.
 -- Run from the repo root:
 --   lune run tools/lune/guns.luau "$PWD" [overrides.luau]
 -- `overrides.luau` returns { [gun Name] = { field = value } }, to try numbers before they go into Data/Guns.
@@ -69,12 +72,30 @@ local function resolve(gun, crowd, aim, seed)
 		local unit = directions[pellet]
 		local index, distance = GunsCore.CastBodies(bodies, EYE, unit, gun.Range, pad, -1)
 		local piercesLeft = pierce
+		local stoppedIn = nil
 		while index > 0 do
 			local body = crowd[index]
 			damage[body] = (damage[body] or 0) + pelletDamage
-			if piercesLeft == 0 then break end
+			if piercesLeft == 0 then
+				stoppedIn = body
+				break
+			end
 			piercesLeft -= 1
 			index, distance = GunsCore.CastBodies(bodies, EYE, unit, gun.Range, pad, distance)
+		end
+
+		-- A blast where the bullet stopped in a body, as WeaponService's addSplash (a miss lands on the arena, which is
+		-- not here).
+		if gun.SplashRadius and stoppedIn then
+			local at = EYE + unit * distance
+			local splash = pelletDamage * GunsCore.Tune.SPLASH_SHARE
+			for _, body in crowd do
+				if body == stoppedIn then continue end
+				local dx, dz = body.x - at.X, body.z - at.Z
+				if dx * dx + dz * dz <= gun.SplashRadius * gun.SplashRadius then
+					damage[body] = (damage[body] or 0) + splash
+				end
+			end
 		end
 	end
 
@@ -123,7 +144,7 @@ local function killRate(gun, round, alive, seed)
 	local random = H.Random.new(seed)
 	local healthScale, _, speedScale = RoundCore.GetScales(round)
 	local pool = {}
-	local weight = RoundCore.GetPool(round, DataCore.Enemies.All, pool)
+	local weight = RoundCore.GetPool(round, "GrassLands", DataCore.Enemies.All, pool)
 	local function spawn(minRadius)
 		local enemyData = RoundCore.Draw(pool, weight, random:NextNumber())
 		local radius = random:NextNumber(minRadius, RING_MAX)
@@ -163,7 +184,9 @@ local function killRate(gun, round, alive, seed)
 		end
 
 		if now < nextShotAt then continue end
-		nextShotAt = now + gun.FireInterval
+		-- Kept on the gun's own rhythm, not re-armed from this step: the game checks every frame, and re-arming at this
+		-- 20 Hz step would round a 0.1 s gun down to one shot every 0.15 s.
+		nextShotAt = math.max(nextShotAt + gun.FireInterval, now - DT)
 		shots += 1
 
 		local target, best = nil, math.huge
@@ -198,7 +221,7 @@ local function killRate(gun, round, alive, seed)
 end
 
 local ladder = {}
-for index, step in GunsCore.LADDER do
+for index, step in GunsCore.STARTER_LADDER do
 	ladder[index] = { Label = step.Label, Price = step.Price, Gun = gunOf(step) }
 end
 
@@ -257,4 +280,44 @@ for _, round in { 1, 4, 8, 12 } do
 		end
 		print(string.format("round %-2d alive %-2d | %s", round, alive, table.concat(cells, " | ")))
 	end
+end
+
+print("\nevery gun by tier, then price: score (geometric mean) | kills a second r4/20 r8/6 r8/20 r8/45 r12/45 alive")
+local CROWDS = { { 4, 20 }, { 8, 6 }, { 8, 20 }, { 8, 45 }, { 12, 45 } }
+local all = {}
+for _, data in DataCore.Guns.All do
+	all[#all + 1] = gunOf({ Gun = data.Id })
+end
+table.sort(all, function(a, b)
+	if a.Tier ~= b.Tier then return a.Tier < b.Tier end
+	return a.Price < b.Price
+end)
+
+local best = 0
+for _, gun in all do
+	local cells = {}
+	local logSum = 0
+	for _, crowd in CROWDS do
+		local kills = 0
+		for seed = 1, SEEDS do
+			kills += killRate(gun, crowd[1], crowd[2], seed) / SEEDS
+		end
+		cells[#cells + 1] = string.format("%5.2f", kills)
+		logSum += math.log(kills)
+	end
+
+	local score = math.exp(logSum / #CROWDS)
+	local mark = if score <= best then "  <- not above the gun before it" else ""
+	best = math.max(best, score)
+	print(
+		string.format(
+			"%d  %-20s %6d  %5.2f | %s%s",
+			gun.Tier,
+			gun.Name,
+			gun.Price,
+			score,
+			table.concat(cells, " "),
+			mark
+		)
+	)
 end

@@ -1,0 +1,20 @@
+import "../Types/Player.blink"
+
+-- To one player: their guns, once their profile loads and after every request, a refused one too, so a screen waiting
+-- on an answer always gets one. (owned gun Ids, each one's level in the same order, the gun each tier holds, the gun
+-- worn on the back or 0)
+event Sync {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8[], u8[], u8[], u8)
+}
+
+-- To everybody (BackGunService): the gun a player wears on their back, 0 for none, as their profile loads and when it
+-- changes; and every other player's to one who just loaded. (player, gun Id)
+event Worn {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, u8)
+}

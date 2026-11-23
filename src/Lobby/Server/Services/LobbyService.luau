@@ -32,13 +32,21 @@ local ERefusal = PadsCore.ERefusal
 
 local Tune = table.freeze({
 	ZONE_POLL_SECONDS = 0.2,
-	-- After Play moves a character, the poll trusts it is on the pad this long: the client owns its character, and
-	-- the old position can still arrive for a moment after the server moved it.
+	-- How long a body that joined a pad has to come to rest before it is anchored where it is. Meanwhile the poll
+	-- trusts it is on the pad: its client stops it (the controls go off with PadJoined), and after Play the old
+	-- position can still arrive for a moment.
 	ARRIVAL_GRACE_SECONDS = 1,
-	-- Where Play puts a character: this high over the pad's top face, scattered this far from its centre.
-	ARRIVAL_HEIGHT = 3,
+	-- Under this speed (studs a second) and within this of standing height it has come to rest: the top of a jump
+	-- is slow too.
+	SETTLED_SPEED = 0.5,
+	SETTLED_HEIGHT = 0.5,
+	-- A body anchored outside the pad's footprint is put back this far inside its edge.
+	EDGE_INSET = 1.5,
+	-- A standing body's root over the floor under its feet.
+	STAND_HEIGHT = 3,
+	-- How far from the pad's centre Play scatters a character, as a share of the pad's half size.
 	ARRIVAL_SCATTER = 0.6,
-	-- Where Exit puts him: this far out from the pad's +Z side, which faces the spawn.
+	-- Where Exit puts him: this far out from the pad's +Z side, so every pad is turned with its +Z to the way out.
 	EXIT_STUDS = 5,
 })
 
@@ -66,9 +74,10 @@ local LobbyService = {}
 
 local pads: { TPad } = {}
 local padOfPlayer: { [Player]: TPad } = {}
--- The root anchored while its player is on a pad. A respawn makes a new root, which is not to be moved off a pad.
+-- The root anchored while its player is on a pad, once it has come to rest there.
 local heldRoot: { [Player]: BasePart } = {}
--- os.clock() until which the poll does not take a player off his pad for standing elsewhere (Play's move).
+-- os.clock() until which a player who joined a pad is neither anchored while still moving nor taken off it for
+-- standing elsewhere.
 local arrivingUntil: { [Player]: number } = {}
 -- The last refusal sent per player, so standing on a pad he cannot join tells him once rather than every poll.
 local refusalSent: { [Player]: TPad } = {}
@@ -188,25 +197,44 @@ local function getRoot(player: Player): BasePart?
 	return if characterEntity then World:get(characterEntity, Components.HumanoidRootPart) else nil
 end
 
-local function hold(player: Player)
-	local rootPart = getRoot(player)
-	if not rootPart then return end
+-- The body's root standing on the pad's top over the pad-space point (x, z), facing as it does now. Written to the
+-- root's CFrame, never PivotTo: an R6 character's pivot is its Head, 1.5 studs higher.
+local function standingAt(pad: TPad, rootPart: BasePart, x: number, z: number): CFrame
+	local part = pad.Part
+	local position = part.CFrame:PointToWorldSpace(Vector3.new(x, part.Size.Y / 2 + Tune.STAND_HEIGHT, z))
+	return CFrame.new(position) * rootPart.CFrame.Rotation
+end
+
+local function isAtRest(pad: TPad, rootPart: BasePart): boolean
+	if rootPart.AssemblyLinearVelocity.Magnitude >= Tune.SETTLED_SPEED then return false end
+	local height = pad.Part.CFrame:PointToObjectSpace(rootPart.Position).Y - pad.Part.Size.Y / 2
+	return math.abs(height - Tune.STAND_HEIGHT) < Tune.SETTLED_HEIGHT
+end
+
+-- Anchored where it came to rest, so nobody can push it off a party that is about to leave. Only once at rest:
+-- anchored while walking, the walk clip never hears the body stop and plays for as long as it is held. A body
+-- that did not stop on the pad is stood back inside it first.
+local function hold(player: Player, pad: TPad, rootPart: BasePart)
+	if not PadsCore.IsOnPad(pad.Part, rootPart.Position) then
+		local onPad = pad.Part.CFrame:PointToObjectSpace(rootPart.Position)
+		local reach = pad.Part.Size / 2 - Vector3.one * Tune.EDGE_INSET
+		local x = math.clamp(onPad.X, -reach.X, reach.X)
+		local z = math.clamp(onPad.Z, -reach.Z, reach.Z)
+		rootPart.CFrame = standingAt(pad, rootPart, x, z)
+	end
+
 	rootPart.Anchored = true
 	heldRoot[player] = rootPart
 end
 
--- Off the pad, in front of it, and free to walk again.
+-- Free to walk again, and off the pad in front of it if it still stands there (a respawn's new body does not).
 local function release(player: Player, pad: TPad)
-	local rootPart = heldRoot[player]
+	local held = heldRoot[player]
 	heldRoot[player] = nil
-	if not rootPart or not rootPart.Parent then return end
-	local half = pad.Part.Size / 2
-	local position =
-		pad.Part.CFrame:PointToWorldSpace(Vector3.new(0, half.Y + Tune.ARRIVAL_HEIGHT, half.Z + Tune.EXIT_STUDS))
-	local facing = rootPart.CFrame - rootPart.Position
-	local character = rootPart.Parent :: Model
-	character:PivotTo(CFrame.new(position) * facing)
-	rootPart.Anchored = false
+	if held then held.Anchored = false end
+	local rootPart = getRoot(player)
+	if not rootPart or not PadsCore.IsOnPad(pad.Part, rootPart.Position) then return end
+	rootPart.CFrame = standingAt(pad, rootPart, 0, pad.Part.Size.Z / 2 + Tune.EXIT_STUDS)
 end
 
 function LobbyService.Join(player: Player, pad: TPad)
@@ -220,7 +248,7 @@ function LobbyService.Join(player: Player, pad: TPad)
 	refusalSent[player] = nil
 	pad.Members[#pad.Members + 1] = player
 	padOfPlayer[player] = pad
-	hold(player)
+	arrivingUntil[player] = os.clock() + Tune.ARRIVAL_GRACE_SECONDS
 	if pad.Phase == EPhase.Empty then
 		pad.Phase = EPhase.Choosing
 		pad.Host = player
@@ -340,17 +368,10 @@ end
 local function moveOnto(player: Player, pad: TPad)
 	local rootPart = getRoot(player)
 	if not rootPart then return end
-	local character = rootPart.Parent :: Model
-	local half = pad.Part.Size / 2
-	local scatter = Vector3.new(
-		(math.random() * 2 - 1) * half.X * Tune.ARRIVAL_SCATTER,
-		half.Y + Tune.ARRIVAL_HEIGHT,
-		(math.random() * 2 - 1) * half.Z * Tune.ARRIVAL_SCATTER
-	)
-	local position = pad.Part.CFrame:PointToWorldSpace(scatter)
-	local facing = rootPart.CFrame - rootPart.Position
-	character:PivotTo(CFrame.new(position) * facing)
-	arrivingUntil[player] = os.clock() + Tune.ARRIVAL_GRACE_SECONDS
+	local reach = pad.Part.Size / 2 * Tune.ARRIVAL_SCATTER
+	local x = (math.random() * 2 - 1) * reach.X
+	local z = (math.random() * 2 - 1) * reach.Z
+	rootPart.CFrame = standingAt(pad, rootPart, x, z)
 end
 
 local function poll()
@@ -359,9 +380,13 @@ local function poll()
 		local rootPart = getRoot(player)
 		local position = if rootPart then rootPart.Position else nil
 
-		-- Held, he cannot walk off; off his pad all the same means he died or respawned.
 		local current = padOfPlayer[player]
 		local isArriving = (arrivingUntil[player] or 0) > now
+		if current and rootPart and not heldRoot[player] then
+			if not isArriving or isAtRest(current, rootPart) then hold(player, current, rootPart) end
+		end
+
+		-- Held, he cannot walk off; off his pad all the same means he died or respawned.
 		if current and not isArriving and (not position or not PadsCore.IsOnPad(current.Part, position)) then
 			if current.Phase ~= EPhase.Teleporting then LobbyService.Leave(player) end
 			continue

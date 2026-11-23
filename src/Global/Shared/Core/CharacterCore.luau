@@ -1,5 +1,5 @@
 -- The one map from a character's network id to its entity, on both sides. A character only gets an id once
--- every client has acknowledged it (Game/Server/Services/CharacterService), so anything that resolves an id
+-- every client has acknowledged it (GlobalServer CharacterIdsService), so anything that resolves an id
 -- from the wire - a kill credit, a damage target - can trust the other side knows it too.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)

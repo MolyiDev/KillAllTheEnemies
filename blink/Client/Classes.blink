@@ -1,0 +1,12 @@
+import "../Types/DataId.blink"
+
+-- The classes screen's requests (ClassesService), only the class and the slot: the level, its price and the Gems are
+-- the server's.
+
+-- Raise an ability a level with Gems. (class, slot: the ultimate is the one after the abilities)
+event Upgrade {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type, u8)
+}

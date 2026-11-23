@@ -9,7 +9,7 @@ local data: TData.TGun = {
 	Rarity = "Legendary",
 	Tier = 4,
 	Price = 13000,
-	Damage = 10,
+	Damage = 36,
 	FireInterval = 0.08,
 	Pellets = 1,
 	SpreadDeg = 1.4,
@@ -18,7 +18,10 @@ local data: TData.TGun = {
 	Length = 3.6,
 	IsFlipped = true,
 	Hold = "Rifle",
+	Hands = { Right = Vector2.new(0.43, 0.42), Left = Vector2.new(0.69, 0.5) },
+	Barrel = 0.77,
 	Sound = "Rifle",
+	RecoilDeg = 0.65,
 }
 
 return table.freeze(data)

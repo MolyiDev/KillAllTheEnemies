@@ -1,7 +1,8 @@
 -- Guns on the server: the one each player holds (a Tool, so the gun in the hand replicates on its own) and every shot.
 -- A shot is re-cast here from the character's own head with this side's seed and spread, against the arena and the
 -- enemies' aim shapes (EnemiesCore), and pays out as one DamageMultiple per damage figure. The client only says where
--- it aimed. Each player climbs GunsCore.LADDER through the run, one bought step at a time.
+-- it aimed. Each player climbs their own ladder through the run (GunsCore.Ladder, from their lobby loadout), one bought
+-- step at a time.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,10 +12,11 @@ local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local AOIService = require(script.Parent.AOIService)
 local CharacterService = require(script.Parent.CharacterService)
+local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local EnemyMovementService = require(script.Parent.EnemyMovementService)
-local buildGunTool = require(script.Parent.Parent.Utils.buildGunTool)
+local buildGunTool = require(ServerScriptService.GlobalServer.Utils.buildGunTool)
 local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
@@ -35,7 +37,6 @@ local ServerNetworkWeapons = Network.Server.Weapons
 local ClientNetworkWeapons = Network.Client.Weapons
 
 local GUNS = DataCore.Guns.ById
-local LADDER = GunsCore.LADDER
 local GunsTune = GunsCore.Tune
 local EnemiesSpatialHash = EnemiesCore.EnemiesSpatialHash
 
@@ -67,8 +68,10 @@ local WeaponService = {}
 local armed: { [Player]: TArmed } = {}
 -- The gun each player chose, kept across deaths: a revive hands back the same one.
 local chosen: { [Player]: number } = {}
--- The step of LADDER each player is on this run (1 when absent).
+-- The step of their ladder each player is on this run (1 when absent).
 local steps: { [Player]: number } = {}
+-- Each player's ladder, built once their profile loads (ladderOf gives the starters' until then).
+local ladders: { [Player]: { GunsCore.TLadderStep } } = {}
 local templates: { [number]: Tool | false } = {}
 
 -- Scratch, reused so a shot allocates nothing: the bodies near it (and their entities, by the same index), each
@@ -121,12 +124,16 @@ function WeaponService.Equip(player: Player, gunId: number): boolean
 	return characterEntity ~= nil and equip(player, characterEntity, gun)
 end
 
+local function ladderOf(player: Player): { GunsCore.TLadderStep }
+	return ladders[player] or GunsCore.STARTER_LADDER
+end
+
 -- A new run: everyone back on the first step, the first step's gun in hand.
 function WeaponService.ResetRun()
-	local first = GUNS[LADDER[1].Gun]
 	table.clear(steps)
 	table.clear(chosen)
 	for player, entry in armed do
+		local first = GUNS[ladderOf(player)[1].Gun]
 		if entry.Gun ~= first then
 			equip(player, entry.CharacterEntity, first)
 		else
@@ -314,7 +321,7 @@ ClientNetworkWeapons.Upgrade.On(function(player: Player)
 	if not World:contains(characterEntity) or not World:has(characterEntity, Tags.Alive) then return end
 	if (World:get(characterEntity, Components.CurrentHealth) or 0) <= 0 then return end
 	local step = (steps[player] or 1) + 1
-	local offer = LADDER[step]
+	local offer = ladderOf(player)[step]
 	local gun = if offer then GUNS[offer.Gun] else nil
 	if not gun or not getTemplate(gun) then return end
 	if not EconomyService.TrySpendGold(player, offer.Price) then return end
@@ -326,9 +333,30 @@ end)
 
 -- A character is armed once every client knows its id, so the gun's shots can name it.
 CharacterService.OnCharacterReady:Connect(function(characterEntity: jecs.Entity<any>, player: Player)
-	local gun = GUNS[chosen[player] or LADDER[steps[player] or 1].Gun]
+	local gun = GUNS[chosen[player] or ladderOf(player)[steps[player] or 1].Gun]
 	if gun then equip(player, characterEntity, gun) end
 end)
+
+-- The ladder comes from the lobby loadout, which cannot change during the match. A character armed before the profile
+-- loaded holds the starter: it takes its own ladder's gun of the same step, unless it chose one (the console).
+WeaponService.OnDataLoaded = function(player: Player)
+	local profile = DatabaseService.Get(player)
+	if not profile then return end
+
+	local ladder = GunsCore.Ladder(profile.Loadout.Equipped)
+	ladders[player] = ladder
+	local gunIds = table.create(#ladder)
+	for index, step in ladder do
+		gunIds[index] = step.Gun
+	end
+
+	ServerNetworkWeapons.Ladder.Fire(player, gunIds)
+
+	local entry = armed[player]
+	if not entry or chosen[player] then return end
+	local gun = GUNS[ladder[steps[player] or 1].Gun]
+	if entry.Gun ~= gun then equip(player, entry.CharacterEntity, gun) end
+end :: TPlayerEvents.OnDataLoaded
 
 WeaponService.OnCharacterRemoving = function(character)
 	local player = Players:GetPlayerFromCharacter(character)
@@ -339,6 +367,7 @@ WeaponService.OnPlayerDisconnected = function(player: Player)
 	armed[player] = nil
 	chosen[player] = nil
 	steps[player] = nil
+	ladders[player] = nil
 end :: TPlayerEvents.OnPlayerDisconnected
 
 RunService.Heartbeat:Connect(function(dt: number)

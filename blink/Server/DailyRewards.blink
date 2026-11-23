@@ -1,0 +1,18 @@
+-- To one player: where their streak stands, once their profile loads, after every change to it, and as a new UTC day
+-- starts. (the day of the cycle they are on, whether it is still to be claimed, seconds until the next UTC day, the
+-- gun days whose gun they own already and so pay Gems)
+event State {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, boolean, u32, u8[])
+}
+
+-- To one player, after every Claim and after the State it changed: the day claimed (0: refused), the Gems it paid and
+-- the gun it gave (0: none).
+event Claimed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u32, u8)
+}

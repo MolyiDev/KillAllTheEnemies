@@ -1,6 +1,6 @@
 --!nonstrict
--- What lies over the play: the red edge on a hit, and the downed card with the paid revive. The downed card ends
--- above the hotbar (Hotbar.HEIGHT).
+-- What lies over the play: the edge flashed on a hit or a wave done, and the downed card with the paid revive. The
+-- downed card ends above the hotbar (Hotbar.HEIGHT).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -18,6 +18,9 @@ local Block = Components.Block
 local Text = Components.Text
 
 local DOWN_BOTTOM = Hotbar.HEIGHT + 24
+-- The edge's own layer: over the upgrade pick's screen (10), which the HUD gives way to, since the cards are dealt as
+-- the wave ends and its green greets them. Under the crosshair (1000).
+local VIGNETTE_DISPLAY_ORDER = 11
 -- Seconds for a card to fade in or out.
 local FADE_PERIOD = 0.3
 
@@ -26,7 +29,7 @@ local Overlays = {}
 -- One edge of the vignette: its colour fading from the screen's edge inward.
 local function edge(state: Types.THudState, rotation: number, props: { [any]: any }): Frame
 	return create("Frame")({
-		BackgroundColor3 = Color.Hurt,
+		BackgroundColor3 = state.VignetteColor,
 		BorderSizePixel = 0,
 		BackgroundTransparency = function()
 			return 1 - state.Vignette()
@@ -42,12 +45,12 @@ local function edge(state: Types.THudState, rotation: number, props: { [any]: an
 	})
 end
 
-function Overlays.Vignette(state: Types.THudState): Frame
-	return create("Frame")({
+function Overlays.Vignette(state: Types.THudState): ScreenGui
+	return create("ScreenGui")({
 		Name = "Vignette",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 0,
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = VIGNETTE_DISPLAY_ORDER,
 		edge(state, 0, { Size = UDim2.fromScale(0.16, 1) }),
 		edge(
 			state,

@@ -28,6 +28,8 @@ local Components = {
 	Force = jecs.component() :: jecs.Id<vector>,
 	Radius = jecs.component() :: jecs.Id<number>,
 	HalfExtents = jecs.component() :: jecs.Id<vector>,
+	-- (chest height, height, radius) over the feet (EnemiesCore.AimShape). Also on the clients' rows, enemies' and the
+	-- range's dummies', which is what WeaponController aims at.
 	AimShape = jecs.component() :: jecs.Id<vector>,
 	Mass = jecs.component() :: jecs.Id<number>,
 	-- > 0 winding up an attack, < 0 recovering from one or staggered, 0 free. See enemiesUpdate.

@@ -93,6 +93,16 @@ function Hand.Spring(target: () -> number, period: number, damping: number?): ()
 	return value
 end
 
+-- A one-shot spring resting at 0: `strike(position)` throws it there, and it rings back home.
+function Hand.Kick(period: number, damping: number): (() -> number, (number) -> ())
+	local value, configure = spring(function()
+		return 0
+	end, period, damping)
+	return value, function(position: number)
+		configure({ position = position, velocity = 0 })
+	end
+end
+
 -- What the hand is doing to a button: the events to put on it, and whether it is over it and down on it. `onEnter`
 -- runs as the pointer arrives.
 function Hand.Track(onEnter: (() -> ())?): ({ [string]: (...any) -> () }, () -> boolean, () -> boolean)

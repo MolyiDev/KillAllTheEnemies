@@ -9,7 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local burstLayers = require(script.Parent.burstLayers)
-local copyCharacter = require(script.Parent.copyCharacter)
+local copyCharacter = require(script.Parent.Parent.Parent.GlobalClient.Utils.copyCharacter)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 

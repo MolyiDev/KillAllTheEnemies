@@ -1,0 +1,16 @@
+import "../Types/DataId.blink"
+
+-- One class's ability levels, by slot, the ultimate last.
+struct ClassLevels {
+	Class: DataId.Type,
+	Levels: u8[],
+}
+
+-- To one player: every class's ability levels, once their profile loads and after every Upgrade, a refused one too,
+-- so the screen waiting on it always hears back.
+event Sync {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: ClassLevels[]
+}

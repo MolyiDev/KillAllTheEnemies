@@ -2,7 +2,7 @@
 -- the tuning every gun shares. The server decides hits with these; the client draws the same pellets.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
-local EGunsIds = require(ReplicatedStorage.Types.Enums.Data.EGunsIds)
+local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local EPSILON = 1e-6
@@ -16,15 +16,30 @@ export type TLadderStep = {
 
 local GunsCore = {}
 
--- The run's weapon upgrades, in order (the HUD's weapon card, WeaponService.Upgrade). Every run starts on the first;
--- each buy moves one step on for its Price. Every step kills faster than the one before it at any range and crowd
--- size, measured rather than read off damage a second: run tools/lune/guns.luau after changing a gun on it.
-GunsCore.LADDER = table.freeze({
-	table.freeze({ Gun = EGunsIds.StarterPistol, Price = 0, Label = "PISTOL" }),
-	table.freeze({ Gun = EGunsIds.TerminatorGun, Price = 150, Label = "SHOTGUN" }),
-	table.freeze({ Gun = EGunsIds.StarterRifle, Price = 450, Label = "RIFLE" }),
-	table.freeze({ Gun = EGunsIds.StarterSmg, Price = 1000, Label = "MINIGUN" }),
-}) :: { TLadderStep }
+-- The Gold of each step of the run's weapon upgrades, one step per loadout tier. Every run starts on the first; each
+-- buy moves one step on.
+GunsCore.LADDER_PRICES = table.freeze({ 0, 150, 450, 1000 })
+
+-- Step `index` of a ladder, holding `gun`.
+function GunsCore.LadderStep(gun: TData.TGun, index: number): TLadderStep
+	return table.freeze({ Gun = gun.Id, Price = GunsCore.LADDER_PRICES[index], Label = string.upper(gun.Name) })
+end
+
+-- A player's run ladder (the HUD's weapon card, WeaponService's upgrade): the gun each lobby loadout tier holds, in
+-- tier order. `equipped` is the profile's Loadout.Equipped, where a tier never picked holds its starter.
+-- Each step is a step up only while every gun kills faster than the cheaper guns of its tier and every gun of the
+-- tiers below, measured rather than read off damage a second: run tools/lune/guns.luau after changing a gun.
+function GunsCore.Ladder(equipped: { [string]: string }): { TLadderStep }
+	local ladder = table.create(#GunsCore.LADDER_PRICES)
+	for tier in GunsCore.LADDER_PRICES do
+		ladder[tier] = GunsCore.LadderStep(LoadoutCore.EquippedOf(equipped, tier), tier)
+	end
+
+	return table.freeze(ladder)
+end
+
+-- The ladder of a loadout never touched: what the client shows until the server sends its own.
+GunsCore.STARTER_LADDER = GunsCore.Ladder({})
 
 GunsCore.Tune = table.freeze({
 	-- The head's centre over the root on an R6 body: where the server shoots from, so where sight is tested from.

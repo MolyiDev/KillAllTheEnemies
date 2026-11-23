@@ -2,11 +2,18 @@
 -- signals for the HUD to hang off. Draws nothing itself (HudController does).
 local AdService = game:GetService("AdService")
 local ContextActionService = game:GetService("ContextActionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
+-- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
+local DamageNumbersController =
+	require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.DamageNumbersController)
+local MusicController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.MusicController)
+local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
+local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local NetworkTypes = require(ReplicatedStorage.Types.NetworkTypes)
@@ -54,7 +61,13 @@ local MatchController = {}
 -- Votes to skip the rest of the preparation, or the wave once it has run RoundCore.GetSkipAfterSeconds.
 MatchController.SKIP_KEY = Enum.KeyCode.N
 
+-- The fight's track: silent while a wave is prepared, in with the first fight and at its peak by the first boss.
+local TENSION_FIRST = 0.15
+local TENSION_PEAK = 0.6
+
 MatchController.IsRunning = false
+-- The map this match is played on (a MapsCore name), from MatchStarted.
+MatchController.MapName = MapsCore.DEFAULT
 -- Everybody is down and the run is held under the results (MatchEnded), until a revive resumes it or it starts over.
 MatchController.IsEnded = false
 MatchController.Results = nil :: TResults?
@@ -77,6 +90,8 @@ MatchController.BossFirstId = 0
 MatchController.BossFirstDamage = 0
 MatchController.BossSecondId = 0
 MatchController.BossSecondDamage = 0
+-- os.clock of the last wave done (MarkWaveDone), for the HUD's green edge.
+MatchController.WaveDoneAt = -math.huge
 -- The revive product on offer after a clear while down, or 0.
 MatchController.ReviveProductId = 0
 -- Each player's line on the squad screen, once the server has sent one.
@@ -93,6 +108,19 @@ MatchController.OnNukedAll = Signal.new()
 MatchController.OnHealedAll = Signal.new()
 -- (buyer, amount): a Gold pack was bought. The buyer's Gold already holds it.
 MatchController.OnGoldBought = Signal.new()
+
+-- The newest round MarkWaveDone has greeted.
+local waveDoneRound = 0
+
+-- A wave is done for the player: its upgrade cards were dealt, or it was cleared. The cards come on the wave's kill
+-- count and the clear when its last body is gone, which a skipped wave can hold back, so whichever comes first
+-- greets it (the HUD's green edge and the cue) and the other is not a second greeting.
+function MatchController.MarkWaveDone(round: number)
+	if round <= waveDoneRound then return end
+	waveDoneRound = round
+	MatchController.WaveDoneAt = os.clock()
+	SoundsCore.PlayUINamed("UI", "WaveDone")
+end
 
 function MatchController.VoteStart()
 	ClientNetworkRounds.VoteStart.Fire()
@@ -151,7 +179,9 @@ local function leaveResults()
 	MatchController.Results = nil
 end
 
-ServerNetworkGame.MatchStarted.On(function()
+ServerNetworkGame.MatchStarted.On(function(mapIndex: number)
+	local map = MapsCore.LIST[mapIndex]
+	MatchController.MapName = if map then map.Name else MapsCore.DEFAULT
 	leaveResults()
 	changed()
 end)
@@ -178,6 +208,7 @@ ServerNetworkGame.MatchEnded.On(function(results: NetworkTypes.Server_Game_Resul
 		VotesNeeded = 0,
 		HasVoted = false,
 	}
+	MusicController.SetLevel("Tension", 0)
 	changed()
 	if results.DoubleProductId ~= 0 then task.spawn(checkAd, MatchController.Results) end
 end)
@@ -236,15 +267,20 @@ ServerNetworkRounds.Preparing.On(function(round: number, seconds: number, isBoss
 	MatchController.IsPreparing = true
 	MatchController.IsBossRound = isBoss
 	MatchController.PrepareEndsAt = TimeCore.GameClock + seconds
+	MusicController.SetLevel("Tension", 0)
 	changed()
 end)
 
 ServerNetworkRounds.Started.On(function(round: number, bodies: number)
+	-- A new run counts its waves from 1 again.
+	if round == 1 then waveDoneRound = 0 end
 	MatchController.Round = round
 	MatchController.IsPreparing = false
 	MatchController.SkipOpensAt = TimeCore.GameClock + RoundCore.GetSkipAfterSeconds(round)
 	MatchController.Remaining = bodies
 	MatchController.ReviveProductId = 0
+	local climb = math.min(1, (round - 1) / (RoundCore.BOSS_EVERY - 1))
+	MusicController.SetLevel("Tension", TENSION_FIRST + (TENSION_PEAK - TENSION_FIRST) * climb)
 	changed()
 end)
 
@@ -255,6 +291,7 @@ end)
 
 -- Only the newest round's clear empties the count: an older one skipped past clears with the newer still open.
 ServerNetworkRounds.Cleared.On(function(round: number)
+	MatchController.MarkWaveDone(round)
 	if round ~= MatchController.Round then return end
 	MatchController.Remaining = 0
 	changed()
@@ -303,6 +340,7 @@ end)
 
 ServerNetworkEconomy.Coins.On(function(position: Vector3, amount: number)
 	MatchController.OnCoins:Fire(position, amount)
+	DamageNumbersController.ShowGold(position, amount)
 end)
 
 MatchController.OnPlayerDisconnected = function(player: Player)

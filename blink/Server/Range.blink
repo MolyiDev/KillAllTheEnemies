@@ -1,0 +1,20 @@
+import "../Types/CharacterInstanceId.blink"
+
+-- To one player: the guns the range offers them, in the strip's order. Walked in, their loadout (one gun a tier);
+-- brought by TRY, only the gun they are trying. Empty once they leave. (gun Ids)
+event Offer {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8[])
+}
+
+-- To everybody: a shot's damage on one of the range's dummies (its index in RangeCore.DUMMIES), the shooter, and what
+-- it did: 0 a hit, 1 a kill (it falls and stands back up), 2 an overkill (a blow worth OVERKILL_SHARE of its health).
+-- A volley that hits a dummy with several pellets is one Hit.
+event Hit {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, CharacterInstanceId.Type, f32, u8)
+}

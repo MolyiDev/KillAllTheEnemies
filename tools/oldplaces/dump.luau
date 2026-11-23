@@ -22,9 +22,14 @@ local function walk(inst, path, depth)
 	end
 	table.insert(lines, string.rep("  ", depth) .. inst.Name .. " [" .. inst.ClassName .. "]" .. extra)
 	if inst:IsA("LuaSourceContainer") then
-		local ok, src = pcall(function() return inst.Source end)
+		local ok, src = pcall(function()
+			return inst.Source
+		end)
 		if ok and src then
-			local suffix = if inst.ClassName == "Script" then ".server.luau" elseif inst.ClassName == "LocalScript" then ".client.luau" else ".luau"
+			local suffix = if inst.ClassName == "Script"
+				then ".server.luau"
+				elseif inst.ClassName == "LocalScript" then ".client.luau"
+				else ".luau"
 			local dir = out .. "/" .. path
 			fs.writeDir(dir)
 			local file = dir .. "/" .. safe(inst.Name) .. suffix

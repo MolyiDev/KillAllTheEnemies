@@ -2,20 +2,18 @@
 -- The ABILITIES column on the right (UIMatt.md, Abilities), his cards on his drawn rects: the class's two abilities,
 -- then his ULT card with its charge bar beside it, for the class's ultimate. The run's defenses
 -- are not offered for now.
--- Each card draws its ability as a model (GunPicture), from ReplicatedStorage.Models.Abilities (Rojo's, made by
--- Assets/models/Abilities). A kind with no model there draws nothing, as a gun with none does.
+-- Each card draws its ability as AbilityPicture does, as the lobby's classes screen does.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local GunPicture = require(script.Parent.GunPicture)
+local AbilityPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AbilityPicture)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
-local derive = vide.derive
 local Palette = Theme.Palette
 local Font = Theme.Font
 
@@ -36,14 +34,8 @@ local NAME = Vector2.new(12, 120)
 local NAME_TEXT = 19
 local BAND = 35
 local GLYPH = Vector2.new(75, 58)
--- An ability's model on its card: the box it is fitted to (its centre is the glyph's), and by kind how it is looked
--- at: the camera's turn round it from its front and its height over it (deg), and how far the picture leans.
+-- An ability's model on its card: the box it is fitted to (its centre is the glyph's).
 local PICTURE = 100
-local VIEWS = table.freeze({
-	Decoy = { Yaw = 28, Pitch = 13, Lean = 0 },
-	FoamCannon = { Yaw = 26, Pitch = 14, Lean = 14 },
-	OrbitalCannon = { Yaw = 28, Pitch = 10, Lean = -12 },
-})
 -- What the model does on its card: grown with the card's rise under the pointer, punched and swung as the ability is
 -- used and as it comes ready (shares of its size, deg), and on the ULT card breathing while it waits to be fired. The
 -- brackets stand off the card BRACKETS px and open BRACKETS_OPEN more under the hand.
@@ -64,7 +56,7 @@ local CHARGE_BAR_SIZE = Vector2.new(26, 118)
 local CHARGE_TAG = Vector2.new(38, 26)
 local CHARGE_TEXT = 16
 local CHARGE_EDGE = Color3.fromRGB(144, 109, 44)
--- A refused click knocks the card sideways this far and stops dead (UI.md 5c: a jolt, not a swing).
+-- A refused click shakes the card this far to each side (Motion.Shake).
 local JOLT = 7
 local JOLT_SECONDS = 0.16
 local PLACED_SECONDS = 0.4
@@ -79,62 +71,13 @@ local SHADE = 0.3
 
 local Shop = {}
 
-local pictures: { [string]: GunPicture.TPicture | false } = {}
-
--- The picture of the model of ability `kind`, or nil when the place has none.
-local function pictureOf(kind: string): GunPicture.TPicture?
-	local cached = pictures[kind]
-	if cached ~= nil then return cached or nil end
-
-	local models = ReplicatedStorage:FindFirstChild("Models")
-	local folder = if models then models:FindFirstChild("Abilities") else nil
-	local model = if folder then folder:FindFirstChild(kind) else nil
-	local view = VIEWS[kind]
-	local picture: GunPicture.TPicture | false = false
-	if model and model:IsA("Model") and view then picture = GunPicture.FromModel(model, view.Yaw, view.Pitch) end
-
-	pictures[kind] = picture
-	return picture or nil
-end
-
--- The picture of `avatar` (a copy of a character), looked at from its front (a character faces down its root's -Z)
--- and from the side of its right arm, the one that waves (AvatarPose), so the head never hides it.
-local function avatarPicture(avatar: Model): GunPicture.TPicture?
-	local root = avatar:FindFirstChild("HumanoidRootPart")
-	if not root or not root:IsA("BasePart") then return nil end
-
-	local view = VIEWS.Decoy
-	local frame = root.CFrame.Rotation
-		* CFrame.Angles(0, math.pi - math.rad(view.Yaw), 0)
-		* CFrame.Angles(-math.rad(view.Pitch), 0, 0)
-	return { Model = avatar, Origin = avatar:GetBoundingBox().Position, Barrel = frame.XVector, Up = frame.YVector }
-end
-
--- The model of ability `kind` where a card's glyph sits. `spec` holds sources: Rotation (a turn in the card's plane,
--- deg), Transparency and Scale. The Decoy is the player's own avatar once `avatar` has one, as the doll is.
-local function modelPicture(kind: string, spec: { [string]: any }, avatar: (() -> Model?)?): Frame
-	local picture = pictureOf(kind)
-	-- Derived, so the frames a gesture is not running write nothing: state.Now ticks for every coin that lands, and
-	-- these hold one value at rest.
-	local rotation = derive(spec.Rotation)
-	local scale = derive(spec.Scale)
-
-	return GunPicture.Build(function()
-		local copy = if avatar then avatar() else nil
-		return (if copy then avatarPicture(copy) else nil) or picture
-	end, {
-		Lean = VIEWS[kind].Lean,
-		Rotation = rotation,
-		Transparency = spec.Transparency,
-		Ambient = GunPicture.FLAT_AMBIENT,
-		Light = GunPicture.FLAT_LIGHT,
-	}, {
-		Name = "Picture",
-		AnchorPoint = Vector2.new(0.5, 0.5),
+-- The model of ability `kind` where a card's glyph sits (AbilityPicture). `spec` holds sources: Rotation (a turn in
+-- the card's plane, deg), Transparency and Scale. The Decoy is the player's own avatar once `doll` has one.
+local function modelPicture(kind: string, spec: { [string]: any }, doll: (() -> Model?)?): Frame
+	return AbilityPicture.Build(kind, spec, doll, {
 		Position = UDim2.fromOffset(GLYPH.X, GLYPH.Y),
 		Size = UDim2.fromOffset(PICTURE, PICTURE),
 		ZIndex = 3,
-		create("UIScale")({ Scale = scale }),
 	})
 end
 
@@ -163,9 +106,8 @@ local function abilityCard(state: Types.THudState, actions: Types.TActions, inde
 	end
 
 	local jolt = function(): number
-		local t = Motion.Progress(state.Now(), ability.DeniedAt(), JOLT_SECONDS)
-		if t >= 1 then return 0 end
-		return JOLT * math.sin(t * math.pi * 2) * (1 - t)
+		local at = ability.DeniedAt()
+		return JOLT * Motion.Shake(Motion.Progress(state.Now(), at, JOLT_SECONDS), at)
 	end
 
 	return Components.Button({
@@ -319,9 +261,8 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 	end
 
 	local jolt = function(): number
-		local t = Motion.Progress(state.Now(), ult.DeniedAt(), JOLT_SECONDS)
-		if t >= 1 then return 0 end
-		return JOLT * math.sin(t * math.pi * 2) * (1 - t)
+		local at = ult.DeniedAt()
+		return JOLT * Motion.Shake(Motion.Progress(state.Now(), at, JOLT_SECONDS), at)
 	end
 
 	local fill = function(): number

@@ -1,0 +1,15 @@
+-- The quests screen's requests (QuestsService): claim one quest (the board, 1 Daily or 2 Weekly, and its slot), or
+-- every finished one on a board. Whether it is finished and what it pays are the server's.
+event Claim {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}
+
+event ClaimAll {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}

@@ -9,7 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
-local Crosshair = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.CrosshairController.Crosshair)
+local Crosshair = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Controllers.CrosshairController.Crosshair)
 
 local create = vide.create
 

@@ -4,12 +4,12 @@ import "../Types/Vec.blink"
 
 -- The run's beats (Game/Server/Services/MatchService). Fired to everybody.
 
--- The run began: lift the loading screen.
+-- The run began: lift the loading screen. (the map's MapsCore.LIST index, 0 for none)
 event MatchStarted {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: ()
+	data: u8
 }
 
 -- What a run came to, as the results show it. Gems and the products are the receiver's own: DoubleProductId is the

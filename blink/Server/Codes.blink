@@ -1,0 +1,8 @@
+-- To one player, after every Redeem, in the same frame as the profile it paid: how it went (CodesCore.Status) and what
+-- it paid, the Gems and the XP in percents of a level (both 0 unless it was redeemed).
+event Redeemed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u32, u16)
+}

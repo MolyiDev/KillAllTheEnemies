@@ -55,6 +55,8 @@ export type TEnemyAttack = {
 export type TEnemy = {
 	Id: number,
 	Name: string,
+	-- One or two plain sentences for the lobby's index: what it does and how to answer it.
+	Description: string,
 	-- Rig under ReplicatedStorage.Models.Enemies. A name rather than the instance, so the data loads before the
 	-- model has been put in the place (EnemiesCore.GetModel resolves it).
 	ModelName: string,
@@ -78,6 +80,8 @@ export type TEnemy = {
 	IntroRound: number,
 	SpawnWeight: number,
 	IsBoss: boolean?,
+	-- The maps it comes on (MapsCore names), for the draw and the lobby's index; nil for every map.
+	Maps: { string }?,
 
 	-- Gold its killer earns (GDD 17), before the round's scaling.
 	GoldDrop: number,
@@ -173,6 +177,13 @@ export type TGun = {
 	-- hit by part of the shot is shoved by that part.
 	Knockback: number?,
 	Hold: TGunHold,
+	-- Where each hand closes on the model, first and third person (Utils/gunGrips), as shares of the built gun's box:
+	-- X of its length from its back, Y of its height from its bottom. Picked and checked on the gun's side view
+	-- (tools/ree/gunsheet.sh).
+	Hands: { Right: Vector2, Left: Vector2 },
+	-- Share of that box's height, from its bottom, where the barrel's axis runs: first person puts every gun's barrel
+	-- on the same line under the crosshair, whatever hangs under it or stands on top (a magazine, a scope).
+	Barrel: number,
 	-- Sound bank nodes under ReplicatedStorage.Sounds.Guns: the shot, and the pump / bolt after it.
 	Sound: string,
 	CycleSound: string?,
@@ -198,9 +209,32 @@ export type TGun = {
 --   OrbitalCannon  a beam from the sky, called on a spot, then going after a boss or the thickest crowd on its own.
 export type TAbilityKind = "Decoy" | "FoamCannon" | "OrbitalCannon"
 
+-- The fields of TAbility a level can raise.
+export type TAbilityStat =
+	"Cooldown"
+	| "ChargeKills"
+	| "Range"
+	| "Radius"
+	| "Duration"
+	| "Blows"
+	| "Damage"
+	| "BlastRadius"
+	| "AngleDeg"
+	| "DamageTaken"
+	| "BossShare"
+
+-- One stat a level sets: its new value, and what the classes screen calls it.
+export type TAbilityLevelStat = {
+	Stat: TAbilityStat,
+	Label: string,
+	Value: number,
+}
+
 export type TAbility = {
 	Kind: TAbilityKind,
 	Name: string,
+	-- What it does, in a line, for the lobby's classes screen.
+	Description: string?,
 	-- Run Gold each cast costs. An ultimate has none: it is paid for in kills (ChargeKills).
 	Cost: number?,
 	-- Seconds between two casts. An ultimate has none: it fills from kills (ChargeKills).
@@ -230,6 +264,10 @@ export type TAbility = {
 	Speed: number?,
 	TickSeconds: number?,
 	BossShare: number?,
+
+	-- Bought with Gems in the lobby (AbilitiesCore.MAX_LEVEL - 1 entries): entry n is what level n + 1 sets, and holds
+	-- for every level above it.
+	Levels: { { TAbilityLevelStat } },
 }
 
 -- Two abilities and an ultimate (PlanAbilities.md). A slot is an index into Abilities, the ultimate the one after.

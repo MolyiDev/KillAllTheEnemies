@@ -569,14 +569,13 @@ local function showPicked(index: number, now: number)
 	end
 end
 
--- The pick seen on `player`'s body, if it has one, and heard: one's own at the camera, a teammate's from their body.
+-- The pick seen on `player`'s body, if it has one, and heard from it.
 local function showOnBody(player: Player, rarity: number)
 	local characterEntity = getCharacterEntityFromPlayer(player)
 	local root = if characterEntity then World:get(characterEntity, Components.HumanoidRootPart) else nil
 	if not root then return end
 	upgradeFx.Cast(root, rarity)
-	local heardAt = if player == LocalPlayer then Workspace.CurrentCamera.CFrame.Position else root.Position
-	SoundsCore.PlayWorldNamed(BODY_SOUNDS, "LevelUp", heardAt)
+	SoundsCore.PlayNamedOnPart(BODY_SOUNDS, "LevelUp", root)
 end
 
 local function step(dt: number)
@@ -774,6 +773,8 @@ end
 -- A hand from the server: dealt, queued behind a pick still being shown, or turned over in place of the one that is
 -- up. Public for a bench, which deals without a server.
 function UpgradePickController.Show(newHand: THand)
+	if not newHand.IsReroll then MatchController.MarkWaveDone(newHand.Round) end
+
 	local now = os.clock()
 	if phase == "Closed" or phase == "Closing" then
 		open(newHand)

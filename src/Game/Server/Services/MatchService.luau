@@ -29,6 +29,7 @@ local arenaMap = require(ServerScriptService.Server.Utils.arenaMap)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
+local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local doubleGems = require(ReplicatedStorage.Shared.Utils.doubleGems)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
@@ -41,6 +42,7 @@ local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local TJoinData = require(ReplicatedStorage.Types.TJoinData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
+local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 local ServerNetworkGame = Network.Server.Game
 local ServerNetworkEnemies = Network.Server.Enemies
@@ -85,6 +87,26 @@ local SCORE_STUB: TScore = table.freeze({
 	SentGold = 0,
 })
 
+-- A player's run, for the record the lobby shows (TProfile.LastMatch): where they stood as it began (level, Xp, best
+-- time on its map), the Xp it has earned them by source, and whether it has counted its trophy yet.
+type TRun = {
+	LevelBefore: number,
+	XpBefore: number,
+	BestSecondsBefore: number,
+	XpWaves: number,
+	XpBosses: number,
+	HasTrophy: boolean,
+}
+
+local RUN_STUB: TRun = table.freeze({
+	LevelBefore = 1,
+	XpBefore = 0,
+	BestSecondsBefore = 0,
+	XpWaves = 0,
+	XpBosses = 0,
+	HasTrophy = false,
+})
+
 local EMatchState = table.freeze({
 	Waiting = 0,
 	Running = 1,
@@ -118,6 +140,7 @@ local nextScoresAt = 0
 -- what their play earned.
 local bestAtStart: { [Player]: number } = {}
 local bonusGems: { [Player]: number } = {}
+local runs: { [Player]: TRun } = {}
 -- The results: seconds left on the countdown and of its waiting for prompts, who has a prompt up, who voted to play
 -- again, and whether the countdown was waiting last frame.
 local returnLeft = 0
@@ -166,11 +189,20 @@ local function sendScores()
 	end
 end
 
--- The player's best wave on this run's map so far, which the results' NEW BEST is measured against.
-local function rememberBest(player: Player)
+-- Where the player stands as this run begins: their best wave on its map, which the results' NEW BEST is measured
+-- against, and the rest of what the lobby's record compares the run with.
+local function beginRun(player: Player)
 	local profile = DatabaseService.Get(player)
 	local record = if profile then profile.Records[RoundService.RecordKey] else nil
 	bestAtStart[player] = if record then record.HighestReached else 0
+
+	local run = table.clone(RUN_STUB)
+	if profile then
+		run.LevelBefore = profile.Level
+		run.XpBefore = profile.Xp
+	end
+	run.BestSecondsBefore = if record then record.BestSeconds or 0 else 0
+	runs[player] = run
 end
 
 local function startMatch()
@@ -180,10 +212,12 @@ local function startMatch()
 
 	local players = Players:GetPlayers()
 	RoundService.RecordKey = MapsCore.RecordKey(MatchService.MapName, #players)
+	RoundService.MapName = MatchService.MapName
 	table.clear(bonusGems)
 	table.clear(bestAtStart)
+	table.clear(runs)
 	for _, player in players do
-		rememberBest(player)
+		beginRun(player)
 	end
 
 	TimeService.Reset()
@@ -201,7 +235,7 @@ local function startMatch()
 	end
 
 	ServerNetworkEnemies.TypesForMatch.FireAll(getAllEnemyIds())
-	ServerNetworkGame.MatchStarted.FireAll()
+	ServerNetworkGame.MatchStarted.FireAll(MapsCore.INDEX[MatchService.MapName] or 0)
 	EnemyMovementService.IsRunning = true
 	RoundService.Begin()
 end
@@ -294,6 +328,66 @@ local function sendReturnTimer()
 	ServerNetworkGame.ReturnTimer.FireAll(math.max(returnLeft, 0), wasHeld)
 end
 
+-- The last wave reached: one still in its countdown was not (RoundService records one as it opens).
+local function getWaveReached(): number
+	local isPreparing = RoundService.State == RoundService.ERoundState.Preparing
+	return if isPreparing then RoundService.Round - 1 else RoundService.Round
+end
+
+-- Writes `player`'s run as it stands into their profile for the lobby to show (TProfile.LastMatch), with the longest
+-- run on the map, and a trophy the first time this run beats their best wave. As the run ends, and as they leave it.
+local function saveRun(player: Player, wave: number, seconds: number)
+	local run = runs[player]
+	local score = scores[player]
+	if not run or not score then return end
+
+	local squad: { TProfile.TMatchMember } = {}
+	local squadKills = 0
+	for member, memberScore in scores do
+		squadKills += memberScore.Kills
+		squad[#squad + 1] = {
+			UserId = member.UserId,
+			Name = member.Name,
+			ClassId = AbilityService.GetClass(member).Id,
+			Kills = memberScore.Kills,
+		}
+	end
+
+	local isTrophy = not run.HasTrophy and wave > (bestAtStart[player] or 0)
+	if isTrophy then run.HasTrophy = true end
+	local gems = EconomyService.GetRunGems(player) + (bonusGems[player] or 0)
+	local key = RoundService.RecordKey
+	DatabaseService.Update(player, function(profile)
+		profile.LastMatch = {
+			MapName = MatchService.MapName,
+			Wave = wave,
+			BestWaveBefore = bestAtStart[player] or 0,
+			Seconds = seconds,
+			BestSecondsBefore = run.BestSecondsBefore,
+			Gems = gems,
+			Kills = score.Kills,
+			SquadKills = squadKills,
+			LevelBefore = run.LevelBefore,
+			XpBefore = run.XpBefore,
+			XpWaves = run.XpWaves,
+			XpBosses = run.XpBosses,
+			Squad = squad,
+		}
+
+		local record: TProfile.TRecord = profile.Records[key] or { HighestReached = 0, HighestCompleted = 0 }
+		record.BestSeconds = math.max(record.BestSeconds or 0, seconds)
+		profile.Records[key] = record
+
+		if isTrophy then
+			local stats = profile.Stats or { Deaths = 0, Trophies = 0 }
+			stats.Trophies += 1
+			profile.Stats = stats
+		end
+
+		return true
+	end)
+end
+
 -- Everybody is down. The run is held, not cleared: the clock stops with every body where it stands, so a revive
 -- bought on the results goes on from here.
 local function endMatch()
@@ -311,12 +405,11 @@ local function endMatch()
 		squadKills += score.Kills
 	end
 
-	-- A wave still in its countdown was not reached (RoundService records one as it opens).
-	local isPreparing = RoundService.State == RoundService.ERoundState.Preparing
-	local wave = if isPreparing then RoundService.Round - 1 else RoundService.Round
+	local wave = getWaveReached()
 	local seconds = math.floor(TimeCore.GameClock)
 	local players = Players:GetPlayers()
 	for _, player in players do
+		saveRun(player, wave, seconds)
 		local bonus = bonusGems[player] or 0
 		local earned = EconomyService.GetRunGems(player)
 		local tier = doubleGems.GetTier(earned - bonus)
@@ -429,9 +522,9 @@ end :: TPlayerEvents.OnPlayerConnected
 MatchService.OnDataLoaded = function(player: Player)
 	dataPlayers[player] = true
 	if MatchService.State == EMatchState.Running then
-		rememberBest(player)
+		beginRun(player)
 		ServerNetworkEnemies.TypesForMatch.Fire(player, getAllEnemyIds())
-		ServerNetworkGame.MatchStarted.Fire(player)
+		ServerNetworkGame.MatchStarted.Fire(player, MapsCore.INDEX[MatchService.MapName] or 0)
 		ServerNetworkRounds.Started.Fire(player, RoundService.Round, 0)
 	end
 
@@ -439,6 +532,11 @@ MatchService.OnDataLoaded = function(player: Player)
 end :: TPlayerEvents.OnDataLoaded
 
 MatchService.OnPlayerDisconnected = function(player: Player)
+	-- Walking out of a run ends it for them: the lobby shows it as it stood. A run already over was saved as it ended.
+	if MatchService.State == EMatchState.Running then
+		saveRun(player, getWaveReached(), math.floor(TimeCore.GameClock))
+	end
+
 	loadedPlayers[player] = nil
 	fetchedPlayers[player] = nil
 	dataPlayers[player] = nil
@@ -447,6 +545,7 @@ MatchService.OnPlayerDisconnected = function(player: Player)
 	scores[player] = nil
 	bestAtStart[player] = nil
 	bonusGems[player] = nil
+	runs[player] = nil
 	buying[player] = nil
 	playAgainVotes[player] = nil
 	reviving[player] = nil
@@ -464,8 +563,14 @@ end)
 
 CharacterService.OnCharacterDied:Connect(function(_, player: Player?)
 	local score = if player then scores[player] else nil
-	if score and MatchService.State == EMatchState.Running then
+	if player and score and MatchService.State == EMatchState.Running then
 		score.Deaths += 1
+		DatabaseService.Update(player, function(profile)
+			local stats = profile.Stats or { Deaths = 0, Trophies = 0 }
+			stats.Deaths += 1
+			profile.Stats = stats
+			return true
+		end)
 	end
 	checkWiped()
 end)
@@ -477,9 +582,19 @@ EnemiesService.OnEnemyKilled:Connect(function(killerPlayer: Player?, count: numb
 	end
 end)
 
--- After a clear, every player who is down is offered a revive for the next round.
-RoundService.OnRoundCleared:Connect(function()
+-- After a clear, every player who is down is offered a revive for the next round, and every player here has earned
+-- its Xp (RoundService pays all of them), a boss wave's as BOSSES on the lobby's record.
+RoundService.OnRoundCleared:Connect(function(round: number)
+	local _, _, xpPercent = RoundCore.GetClearRewards(round)
+	local isBoss = RoundCore.IsBossRound(round)
 	for _, player in Players:GetPlayers() do
+		local run = runs[player]
+		if run and isBoss then
+			run.XpBosses += xpPercent
+		elseif run then
+			run.XpWaves += xpPercent
+		end
+
 		if EProducts.Revive ~= 0 and not CharacterService.IsAlive(player) then
 			ServerNetworkRounds.ReviveOffer.Fire(player, EProducts.Revive)
 		end
@@ -510,6 +625,10 @@ local function registerDoubleGems(productId: number)
 		local tier = doubleGems.GetTier(gems)
 		if not tier or tier.ProductId ~= productId then return false, nil end
 		profile.Gems += gems
+		-- The run's record was written as it ended, before this doubling.
+		if profile.LastMatch then
+			profile.LastMatch.Gems += gems
+		end
 		bonusGems[player] = bonus + gems
 		return true, function()
 			ServerNetworkGame.GemsDoubled.Fire(player, gems)

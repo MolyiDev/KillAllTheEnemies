@@ -42,6 +42,10 @@ Theme.Palette = table.freeze({
 	Green = Color3.fromRGB(51, 217, 128),
 	Pink = Color3.fromRGB(255, 46, 139),
 	Steel = Color3.fromRGB(158, 186, 217),
+	-- COMMON: his grey for the lowest rarity.
+	Grey = Color3.fromRGB(153, 153, 173),
+	-- The lobby's Daily Spins card.
+	Violet = Color3.fromRGB(140, 90, 255),
 	-- A dark panel's edge, his muted pink.
 	EdgePink = Color3.fromRGB(122, 25, 74),
 	-- His green slab's deep bottom colour.

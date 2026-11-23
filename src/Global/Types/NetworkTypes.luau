@@ -153,6 +153,7 @@ export type Client_Defenses_DataId_Type = number
 export type Client_Defenses_Vec_Type = Vector3
 export type Client_Weapons_Vec_Type = Vector3
 export type Client_Abilities_Vec_Type = Vector3
+export type Client_Range_DataId_Type = number
 export type Server_Game_DataId_Type = number
 export type Server_Game_Player_Type = Player
 export type Server_Game_Vec_Type = Vector3
@@ -181,6 +182,7 @@ export type Server_Upgrades_DataId_Type = number
 export type Server_Upgrades_Player_Type = Player
 export type Server_Upgrades_Card = { Id: number, Level: number, Rarity: number }
 export type Server_Upgrades_Hand = { Cards: { { Id: number, Level: number, Rarity: number } }, Round: number, RerollPrice: number, Seconds: number, IsReroll: boolean }
+export type Server_Range_CharacterInstanceId_Type = number
 
 
 
@@ -211,6 +213,10 @@ return {
 			},
 		},
 		Upgrades = {
+		},
+		Range = {
+			DataId = {
+			},
 		},
 	},
 	Server = {
@@ -276,6 +282,10 @@ return {
 			DataId = {
 			},
 			Player = {
+			},
+		},
+		Range = {
+			CharacterInstanceId = {
 			},
 		},
 	},

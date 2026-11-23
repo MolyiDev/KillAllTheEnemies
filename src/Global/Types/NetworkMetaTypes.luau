@@ -148,6 +148,16 @@ local Queue: any = {
     Unreliable = table.create(256)
 }
 
+export type Server_Profile_Player_Type = Player
+export type Server_Loadout_Player_Type = Player
+export type Server_Results_Member = { UserId: number, Name: string, ClassId: number, Kills: number }
+export type Server_Results_Record = { MapName: string, Wave: number, BestWaveBefore: number, Seconds: number, BestSecondsBefore: number, Gems: number, Kills: number, SquadKills: number, LevelBefore: number, XpBefore: number, XpWaves: number, XpBosses: number, Squad: { { UserId: number, Name: string, ClassId: number, Kills: number } } }
+export type Server_Quests_QuestBoard = { Ids: { number }, Progress: { number }, Claimed: { boolean }, SecondsLeft: number }
+export type Server_Index_DataId_Type = number
+export type Server_Classes_DataId_Type = number
+export type Server_Classes_ClassLevels = { Class: number, Levels: { number } }
+export type Client_Index_DataId_Type = number
+export type Client_Classes_DataId_Type = number
 
 
 
@@ -156,6 +166,8 @@ return {
 		Configs = {
 		},
 		Profile = {
+			Player = {
+			},
 		},
 		Lobby = {
 		},
@@ -163,11 +175,53 @@ return {
 		},
 		Settings = {
 		},
+		Loadout = {
+			Player = {
+			},
+		},
+		DailyRewards = {
+		},
+		Spins = {
+		},
+		Results = {
+		},
+		Quests = {
+		},
+		Codes = {
+		},
+		Index = {
+			DataId = {
+			},
+		},
+		Classes = {
+			DataId = {
+			},
+		},
 	},
 	Client = {
 		Lobby = {
 		},
 		Settings = {
+		},
+		Loadout = {
+		},
+		DailyRewards = {
+		},
+		Spins = {
+		},
+		Results = {
+		},
+		Quests = {
+		},
+		Codes = {
+		},
+		Index = {
+			DataId = {
+			},
+		},
+		Classes = {
+			DataId = {
+			},
 		},
 	},
 

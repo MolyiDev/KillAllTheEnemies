@@ -10,6 +10,8 @@ return table.freeze({
 	GoldPackSmall = 3734121483,
 	GoldPackLarge = 3734121486,
 	GemPackSmall = 0,
+	-- The lobby's daily spins: one more spin once the free ones are used (SpinsCore.ROBUX).
+	ExtraSpin = 3734872550,
 	-- The HUD's buy-all items: heal and revive the whole squad, kill every enemy alive.
 	HealAll = 3734121481,
 	NukeAll = 3734121479,

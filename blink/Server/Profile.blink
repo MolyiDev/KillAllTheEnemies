@@ -1,3 +1,5 @@
+import "../Types/Player.blink"
+
 -- To one player: the part of their saved profile the HUD and menus show, after it loads and after every change.
 -- (gems, auto-skip, level, xp)
 event Sync {
@@ -5,4 +7,13 @@ event Sync {
 	type: Reliable,
 	call: SingleAsync,
 	data: (u32, boolean, u16, f32)
+}
+
+-- To everybody, in the lobby (HeadTagService): a player's head tag figures, as their profile loads and when one
+-- changes; and every other player's to one who just loaded. (player, level, class (EClassesIds), trophies, deaths)
+event Public {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, u16, u8, u32, u32)
 }

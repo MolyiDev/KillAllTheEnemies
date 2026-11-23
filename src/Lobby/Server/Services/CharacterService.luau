@@ -4,7 +4,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local loadBlockyCharacter = require(ServerScriptService.GlobalServer.Utils.loadBlockyCharacter)
-local blockyBody = require(ReplicatedStorage.GlobalShared.Utils.blockyBody)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local getPlayerFromCharacterEntity =
@@ -28,7 +27,6 @@ end :: TPlayerEvents.OnPlayerConnected
 CharacterService.OnCharacterAdded = function(character, characterEntity)
 	local humanoid = World:get(characterEntity, Components.Humanoid)
 	if not humanoid then return end
-	blockyBody.Apply(humanoid)
 	humanoid.Died:Once(function()
 		local player = getPlayerFromCharacterEntity(characterEntity)
 		if not player then return end

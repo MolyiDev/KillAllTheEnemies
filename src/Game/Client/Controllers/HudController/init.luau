@@ -19,13 +19,15 @@ local EnemiesController = require(script.Parent.EnemiesController)
 local HealthController = require(script.Parent.HealthController)
 local MatchController = require(script.Parent.MatchController)
 local UpgradePickController = require(script.Parent.UpgradePickController)
-local WeaponController = require(script.Parent.WeaponController)
-local copyCharacter = require(script.Parent.Parent.Utils.copyCharacter)
+local WeaponRunController = require(script.Parent.WeaponRunController)
+local copyCharacter = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Utils.copyCharacter)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one loads a second ProfileController, which
 -- Ignis refuses as already registered (the first playtest of the HUD).
+local CodesController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CodesController)
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
 local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
-local AbilitiesCore = require(ReplicatedStorage.Shared.Core.AbilitiesCore)
+local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
+local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
@@ -35,7 +37,8 @@ local doubleGems = require(ReplicatedStorage.Shared.Utils.doubleGems)
 local healthUpgrades = require(ReplicatedStorage.Shared.Utils.healthUpgrades)
 local TopbarPlus = require(ReplicatedStorage.GlobalShared.TopbarPlus)
 local Announce = require(script.Announce)
-local AvatarPose = require(script.AvatarPose)
+local AbilityPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AbilityPicture)
+local AvatarPose = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AvatarPose)
 local BarJuice = require(script.BarJuice)
 local BossBar = require(script.BossBar)
 local HealthUpgrade = require(script.HealthUpgrade)
@@ -43,13 +46,13 @@ local Hotbar = require(script.Hotbar)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Items = require(script.Items)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Topbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Topbar)
 local Overhead = require(script.Overhead)
 local Overlays = require(script.Overlays)
 local Results = require(script.Results)
 local Shop = require(script.Shop)
 local Squad = require(script.Squad)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local Topbar = require(script.Topbar)
 local Upgrades = require(script.Upgrades)
 local Wave = require(script.Wave)
 local WeaponUpgrade = require(script.WeaponUpgrade)
@@ -64,7 +67,6 @@ local LocalPlayer = Players.LocalPlayer
 local ENEMIES = DataCore.Enemies.ById
 local ALL_ENEMIES = DataCore.Enemies.All
 local DEFENSES = DataCore.Defenses.ById
-local LADDER = GunsCore.LADDER
 -- Everybody's class until the server says otherwise.
 local DEFAULT_CLASS: TData.TClass = AbilitiesCore.ClassOf(nil)
 local source = vide.source
@@ -82,6 +84,10 @@ local Tune = table.freeze({
 	-- Under this share of health the edge holds a little red, breathing.
 	LOW_HEALTH_SHARE = 0.3,
 	LOW_HEALTH_EDGE = 0.16,
+	-- The same edge in green when a wave is done (MatchController.MarkWaveDone): a reward, so it lingers longer than a
+	-- hit.
+	WAVE_DONE_PEAK = 0.5,
+	WAVE_DONE_SECONDS = 1.2,
 	-- The camera this close to the head is first person (Roblox's own zoom-in puts it at the head).
 	FIRST_PERSON_STUDS = 1.5,
 	-- More enemies than this and NUKE ALL asks to be bought; under this share of health, HEAL ALL does.
@@ -177,6 +183,7 @@ local state: Types.THudState = {
 	GoldShown = source(0),
 	GoldPulse = source(0),
 	GoldDenied = source(0),
+	GoldDeniedAt = source(-math.huge),
 	Health = source(0),
 	MaxHealth = source(0),
 	BarHealth = source(0),
@@ -186,6 +193,7 @@ local state: Types.THudState = {
 	Head = source(nil :: BasePart?),
 	IsFirstPerson = source(false),
 	Vignette = source(0),
+	VignetteColor = source(Theme.Color.Hurt),
 	Defenses = defenses,
 	Squad = source(table.freeze({}) :: { Types.TSquadMember }),
 	IsSquadOpen = source(false),
@@ -209,8 +217,8 @@ local state: Types.THudState = {
 	Avatar = source(nil :: Model?),
 	GunAt = source(-math.huge),
 	Weapon = {
-		Offer = source(LADDER[2] :: GunsCore.TLadderStep?),
-		Held = source(LADDER[1] :: GunsCore.TLadderStep?),
+		Offer = source(GunsCore.STARTER_LADDER[2] :: GunsCore.TLadderStep?),
+		Held = source(GunsCore.STARTER_LADDER[1] :: GunsCore.TLadderStep?),
 		Step = source(1),
 		CanAfford = source(false),
 		Clock = source(math.huge),
@@ -251,7 +259,7 @@ local state: Types.THudState = {
 	Keys = table.freeze({
 		Skip = MatchController.SKIP_KEY,
 		Turn = DefensePlacementController.TURN_KEY,
-		Upgrade = WeaponController.UPGRADE_KEY,
+		Upgrade = WeaponRunController.UPGRADE_KEY,
 		Health = HealthController.UPGRADE_KEY,
 	}),
 	Results = {
@@ -286,6 +294,7 @@ local squadMembers: { [Player]: Types.TSquadMember } = {}
 -- The Gold each squad row shows, before it is floored: it rolls toward the real amount.
 local squadCash: { [Player]: number } = {}
 local squadIcon: any = nil
+local codesIcon: any = nil
 local settingsIcon: any = nil
 -- os.clock until which Now keeps ticking (Tune.MOTION_SECONDS past the last gesture that started).
 local motionUntil = -math.huge
@@ -404,7 +413,14 @@ local function updateRound(now: number, gameNow: number)
 	local countdown = math.ceil(math.max(MatchController.PrepareEndsAt - gameNow, 0))
 	if countdown ~= lastCountdown then
 		lastCountdown = countdown
-		if phase == "Preparing" then stamp(state.CountdownAt, now) end
+		if phase == "Preparing" then
+			stamp(state.CountdownAt, now)
+			-- The upgrade screen's tick takes, quieter, so the game counts down in one voice. Silent on GO, and under the
+			-- cards: they hide the square and tick their own count.
+			if countdown > 0 and not UpgradePickController.IsCovering() then
+				SoundsCore.PlayUINamed("UI", "CountdownTick")
+			end
+		end
 	end
 
 	state.Countdown(countdown)
@@ -420,7 +436,7 @@ local function updateRound(now: number, gameNow: number)
 
 	if upcoming ~= nextBossRound then
 		nextBossRound = upcoming
-		local nextBoss = RoundCore.GetBoss(upcoming, ALL_ENEMIES)
+		local nextBoss = RoundCore.GetBoss(upcoming, MatchController.MapName, ALL_ENEMIES)
 		nextBossName = if nextBoss then nextBoss.Name else ""
 	end
 
@@ -479,6 +495,7 @@ local function updateWallet(now: number, dt: number)
 	state.GoldShown(math.floor(goldShown))
 	state.GoldPulse(fade(goldInAt, Tune.GOLD_PULSE_SECONDS, now))
 	state.GoldDenied(fade(goldDeniedAt, Tune.GOLD_DENIED_SECONDS, now))
+	state.GoldDeniedAt(goldDeniedAt)
 end
 
 local function updateHealth(now: number, dt: number)
@@ -517,10 +534,16 @@ local function updateHealth(now: number, dt: number)
 
 	local hurt = Tune.HURT_PEAK * fade(HealthController.HurtAt, Tune.HURT_SECONDS, now)
 	local share = if maxHealth > 0 then health / maxHealth else 1
-	local low = if not isDown and share < Tune.LOW_HEALTH_SHARE
+	-- The edge draws over the upgrade cards (to greet the wave they came with), where low health's red was never shown.
+	local low = if not isDown
+			and share < Tune.LOW_HEALTH_SHARE
+			and not UpgradePickController.IsCovering()
 		then Tune.LOW_HEALTH_EDGE * (0.75 + 0.25 * math.sin(now * 4))
 		else 0
-	state.Vignette(math.max(hurt, low))
+	local red = math.max(hurt, low)
+	local waveDone = Tune.WAVE_DONE_PEAK * fade(MatchController.WaveDoneAt, Tune.WAVE_DONE_SECONDS, now)
+	state.Vignette(math.max(red, waveDone))
+	state.VignetteColor(if waveDone > red then Theme.Palette.Green else Theme.Color.Hurt)
 
 	-- The nuke is the bigger save, so it asks first.
 	local isNuke = MatchController.IsRunning and not isDown and EnemiesController.Count > Tune.NUKE_PROMPT_ENEMIES
@@ -549,10 +572,11 @@ end
 
 local function updateWeapon(now: number): boolean
 	local weapon = state.Weapon
+	local ladder = WeaponRunController.Ladder
 	local step = math.max(WeaponController.Step, 1)
-	local offer = LADDER[step + 1]
+	local offer = ladder[step + 1]
 	weapon.Step(step)
-	weapon.Held(LADDER[step])
+	weapon.Held(ladder[step])
 	weapon.Offer(offer)
 
 	local isBought = WeaponController.UpgradedAt ~= lastUpgradedAt
@@ -562,13 +586,13 @@ local function updateWeapon(now: number): boolean
 		weapon.LandAt(now + WeaponUpgrade.Timing.FLIGHT)
 	end
 
-	if WeaponController.UpgradeAskedAt ~= lastAskedAt then
-		lastAskedAt = WeaponController.UpgradeAskedAt
+	if WeaponRunController.UpgradeAskedAt ~= lastAskedAt then
+		lastAskedAt = WeaponRunController.UpgradeAskedAt
 		stampWeapon(weapon.AskedAt, now)
 	end
 
-	if WeaponController.UpgradeDeniedAt ~= lastDeniedAt then
-		lastDeniedAt = WeaponController.UpgradeDeniedAt
+	if WeaponRunController.UpgradeDeniedAt ~= lastDeniedAt then
+		lastDeniedAt = WeaponRunController.UpgradeDeniedAt
 		stampWeapon(weapon.DeniedAt, now)
 		-- Short of Gold, the counter says so too.
 		if offer and MatchController.Gold < offer.Price then goldDeniedAt = now end
@@ -866,7 +890,7 @@ local actions: Types.TActions = {
 
 		DefensePlacementController.Begin(dataId)
 	end,
-	UpgradeWeapon = WeaponController.Upgrade,
+	UpgradeWeapon = WeaponRunController.Upgrade,
 	UpgradeHealth = HealthController.Upgrade,
 	CastAbility = AbilityController.Cast,
 	Revive = function()
@@ -892,48 +916,13 @@ local function setSquadOpen(isOpen: boolean)
 	stamp(state.SquadToggledAt, os.clock())
 end
 
--- Dresses a top bar icon in the HUD's panel (Topbar.luau) and feeds the panel what the hand does to it.
-local function skinTopbarIcon(icon: any, isSelected: () -> boolean, hasBrackets: boolean)
-	local skin: Types.TTopbarSkin = {
-		HasBrackets = hasBrackets,
-		IsHovered = source(false),
-		IsSelected = isSelected,
-		PressedAt = source(-math.huge),
-	}
-	icon:modifyTheme(Topbar.Theme())
-	icon.viewingStarted:Connect(function()
-		skin.IsHovered(true)
-	end)
-	icon.viewingEnded:Connect(function()
-		skin.IsHovered(false)
-	end)
-	-- TopbarPlus builds its own button, so it never gets Components.ButtonSounds: the same two sounds, by hand.
-	local clickRegion = icon:getInstance("ClickRegion")
-	clickRegion.MouseButton1Down:Connect(function()
-		stamp(skin.PressedAt, os.clock())
-	end)
-	clickRegion.MouseEnter:Connect(SoundsCore.PlayHover)
-	clickRegion.Activated:Connect(SoundsCore.PlayClick)
-
-	-- TopbarPlus clips the icon (for its dropdowns, which these have none of), which would cut the panel's shadow; it
-	-- clips the button again on every deselect, so this runs after it.
-	local widget, button = icon:getInstance("Widget"), icon:getInstance("IconButton")
-	local function unclip()
-		widget.ClipsDescendants = false
-		button.ClipsDescendants = false
-	end
-
-	unclip()
-	icon.deselected:Connect(function()
-		task.defer(unclip)
-	end)
-
-	vide.mount(function()
-		return Topbar.Skin(state, skin)
-	end, icon:getInstance("IconButton"))
+-- A top bar press keeps Now ticking until it has come back.
+local function holdMotion(settledAt: number)
+	motionUntil = math.max(motionUntil, settledAt)
 end
 
--- The top bar's two icons: SQUAD on the left with Roblox's own buttons, Settings in the right corner.
+-- The top bar's icons: SQUAD on the left with Roblox's own buttons, Codes and Settings in the right corner. Codes and
+-- Settings are both modal over the same spot, so opening one shuts the other.
 local function createTopbarIcons()
 	local offset = Icons.Cells
 	squadIcon = TopbarPlus.new()
@@ -951,7 +940,34 @@ local function createTopbarIcons()
 			setSquadOpen(false)
 		end)
 
-	skinTopbarIcon(squadIcon, state.IsSquadOpen, true)
+	Topbar.Dress(squadIcon, {
+		IsSelected = state.IsSquadOpen,
+		HasBrackets = true,
+		Now = state.Now,
+		OnPress = holdMotion,
+	})
+
+	-- Made first, so it stands left of Settings.
+	codesIcon = TopbarPlus.new()
+	codesIcon
+		:setName("Codes")
+		:setImage(Icons.IMAGE)
+		:modifyTheme({ "IconImage", "ImageRectOffset", offset.Ticket })
+		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
+		:setCaption("Codes")
+		:align("Right")
+		:bindEvent("selected", function()
+			SettingsController.Close()
+			CodesController.Open()
+		end)
+		:bindEvent("deselected", CodesController.Close)
+
+	Topbar.Dress(codesIcon, {
+		IsSelected = CodesController.IsOpen,
+		HasBrackets = false,
+		Now = state.Now,
+		OnPress = holdMotion,
+	})
 
 	settingsIcon = TopbarPlus.new()
 	settingsIcon
@@ -961,10 +977,18 @@ local function createTopbarIcons()
 		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
 		:setCaption("Settings")
 		:align("Right")
-		:bindEvent("selected", SettingsController.Open)
+		:bindEvent("selected", function()
+			CodesController.Close()
+			SettingsController.Open()
+		end)
 		:bindEvent("deselected", SettingsController.Close)
 
-	skinTopbarIcon(settingsIcon, SettingsController.IsOpen, false)
+	Topbar.Dress(settingsIcon, {
+		IsSelected = SettingsController.IsOpen,
+		HasBrackets = false,
+		Now = state.Now,
+		OnPress = holdMotion,
+	})
 end
 
 -- Puts the banner up: `buyer` used the item `kind` ("Nuke" or "Heal"); `count` is the bodies a nuke kills.
@@ -1047,9 +1071,8 @@ local function copyAvatar(character: Model)
 	local player = Players.LocalPlayer
 	if not player:HasAppearanceLoaded() then player.CharacterAppearanceLoaded:Wait() end
 	if player.Character ~= character then return end
-	local copy = copyCharacter(character)
+	local copy = AbilityPicture.Doll(character)
 	if not copy then return end
-	AvatarPose.Apply(copy, AvatarPose.DOLL)
 
 	local old = state.Avatar()
 	state.Avatar(copy)
@@ -1085,9 +1108,12 @@ HudController.OnStart = function()
 	createTopbarIcons()
 	update(0)
 	vide.mount(function()
-		-- The settings screen shuts by its own X too: the icon is let go with it.
+		-- The settings and codes screens shut by their own X too: the icon is let go with it.
 		vide.effect(function()
 			if not SettingsController.IsOpen() and settingsIcon then settingsIcon:deselect() end
+		end)
+		vide.effect(function()
+			if not CodesController.IsOpen() and codesIcon then codesIcon:deselect() end
 		end)
 
 		-- A list: mount keeps only the first value a component returns.
@@ -1112,7 +1138,6 @@ HudController.OnStart = function()
 						return UDim2.fromScale(1 / scale, 1 / scale)
 					end,
 					create("UIScale")({ Scale = state.Scale }),
-					Overlays.Vignette(state),
 					Wave.Build(state, actions),
 					Items.Build(state, actions),
 					Announce.Build(state),
@@ -1126,6 +1151,7 @@ HudController.OnStart = function()
 					Results.Build(state, actions),
 				}),
 			}),
+			Overlays.Vignette(state),
 			Overhead.Build(state),
 		}
 	end, LocalPlayer:WaitForChild("PlayerGui"))

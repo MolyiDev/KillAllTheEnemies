@@ -1,0 +1,8 @@
+-- The codes screen's request (CodesService): redeem the code typed. Whether it exists, was used already and what it
+-- pays are the server's.
+event Redeem {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: string
+}

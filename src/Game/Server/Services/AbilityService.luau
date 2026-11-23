@@ -16,7 +16,8 @@ local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local EnemyMovementService = require(script.Parent.EnemyMovementService)
 local NavService = require(script.Parent.NavService)
-local AbilitiesCore = require(ReplicatedStorage.Shared.Core.AbilitiesCore)
+local QuestProgressService = require(script.Parent.QuestProgressService)
+local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -71,6 +72,9 @@ local Tune = table.freeze({
 
 type TLoadout = {
 	Class: TData.TClass,
+	-- Each slot's level (the ultimate last), and the ability it casts at that level.
+	Levels: { number },
+	Abilities: { TData.TAbility },
 	-- TimeCore.GameClock each slot can next be cast at.
 	ReadyAt: { [number]: number },
 	-- Kills banked toward the ultimate.
@@ -135,17 +139,27 @@ local function countBody()
 end
 
 local function sendState(player: Player, loadout: TLoadout)
-	ServerNetworkAbilities.State.Fire(player, loadout.Class.Id, loadout.Charge)
+	ServerNetworkAbilities.State.Fire(player, loadout.Class.Id, loadout.Levels, loadout.Charge)
 end
 
--- The class a player plays is the one their profile had selected the first time it is asked this run.
+-- The class a player plays, and its abilities' levels, are the profile's the first time it is asked this run: the
+-- lobby is where they change.
 local function loadoutOf(player: Player): TLoadout
 	local loadout = loadouts[player]
 	if loadout then return loadout end
 
 	local profile = DatabaseService.Get(player)
+	local class = AbilitiesCore.ClassOf(if profile then profile.SelectedClass else nil)
+	local levels = AbilitiesCore.SlotLevels(if profile then profile.AbilityLevels else nil, class)
+	local abilities = table.create(#levels)
+	for slot, level in levels do
+		abilities[slot] = AbilitiesCore.AtLevel(AbilitiesCore.AbilityAt(class, slot) :: TData.TAbility, level)
+	end
+
 	local made: TLoadout = {
-		Class = AbilitiesCore.ClassOf(if profile then profile.SelectedClass else nil),
+		Class = class,
+		Levels = levels,
+		Abilities = abilities,
 		ReadyAt = {},
 		Charge = 0,
 	}
@@ -569,7 +583,7 @@ end
 -- Fills `player`'s ultimate (the console's `ult`).
 function AbilityService.FillUltimate(player: Player)
 	local loadout = loadoutOf(player)
-	loadout.Charge = loadout.Class.Ultimate.ChargeKills or 0
+	loadout.Charge = loadout.Abilities[AbilitiesCore.UltimateSlot(loadout.Class)].ChargeKills or 0
 	sendState(player, loadout)
 end
 
@@ -589,7 +603,7 @@ ClientNetworkAbilities.Cast.On(function(player: Player, slot: number, aimPoint: 
 	if not root or not instanceId then return end
 
 	local loadout = loadoutOf(player)
-	local ability = AbilitiesCore.AbilityAt(loadout.Class, slot)
+	local ability = loadout.Abilities[slot]
 	if not ability then return end
 	local now = TimeCore.GameClock
 	local cooldown = ability.Cooldown
@@ -603,6 +617,7 @@ ClientNetworkAbilities.Cast.On(function(player: Player, slot: number, aimPoint: 
 		sendState(player, loadout)
 	end
 
+	QuestProgressService.Add(player, if cooldown then "Abilities" else "Ultimates", 1)
 	CASTS[ability.Kind](player, characterEntity, instanceId, root, ability, aimPoint)
 end)
 
@@ -610,7 +625,7 @@ end)
 EnemiesService.OnEnemyKilled:Connect(function(killerPlayer: Player?, count: number)
 	if not killerPlayer or beams[killerPlayer] then return end
 	local loadout = loadoutOf(killerPlayer)
-	local needed = loadout.Class.Ultimate.ChargeKills or 0
+	local needed = loadout.Abilities[AbilitiesCore.UltimateSlot(loadout.Class)].ChargeKills or 0
 	if loadout.Charge >= needed then return end
 	loadout.Charge = math.min(loadout.Charge + count, needed)
 	sendState(killerPlayer, loadout)

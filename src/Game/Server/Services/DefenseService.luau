@@ -10,6 +10,7 @@ local Network = require(ServerScriptService.GlobalServer.Network)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local NavService = require(script.Parent.NavService)
+local QuestProgressService = require(script.Parent.QuestProgressService)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
@@ -219,6 +220,7 @@ function DefenseService.Place(player: Player, dataId: number, position: vector, 
 
 	ServerNetworkDefenses.Placed.FireAll(nextId, dataId, player, at :: any)
 	ServerNetworkDefenses.Health.FireAll(nextId, defense.Health, defense.MaxHealth)
+	QuestProgressService.Add(player, "Defenses", 1)
 	return nextId
 end
 

@@ -1,0 +1,7 @@
+-- The lobby's results were seen (LOBBY pressed): the profile drops its last run (ResultsService).
+event Dismiss {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

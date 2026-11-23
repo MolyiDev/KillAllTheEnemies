@@ -2,13 +2,22 @@ import "../Types/CharacterInstanceId.blink"
 import "../Types/DataId.blink"
 import "../Types/Vec.blink"
 
--- To the owner: the gun now in hand (its shot count starts again), and the step of GunsCore.LADDER he is on, which
+-- To the owner: the gun now in hand (its shot count starts again), and the step of their ladder they are on, which
 -- only rises by buying the next. (gunId, step)
 event Equipped {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
 	data: (DataId.Type, u8)
+}
+
+-- To the owner, as their profile loads: the gun of each step of their run's ladder, from their lobby loadout
+-- (GunsCore.Ladder).
+event Ladder {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type[])
 }
 
 -- To everybody else: a shot, for its tracers, flash and sound. (shooter, aim point, seed). The pellets are re-derived

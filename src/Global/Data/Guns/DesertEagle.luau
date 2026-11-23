@@ -14,9 +14,12 @@ local data: TData.TGun = {
 	Pellets = 1,
 	SpreadDeg = 0.8,
 	Range = 300,
+	Pierce = 1,
 	HitRadius = 0.35,
 	Length = 2,
 	Hold = "Pistol",
+	Hands = { Right = Vector2.new(0.16, 0.42), Left = Vector2.new(0.18, 0.3) },
+	Barrel = 0.85,
 	Sound = "Magnum",
 }
 

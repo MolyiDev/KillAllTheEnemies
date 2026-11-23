@@ -58,7 +58,7 @@ local function swapImages(root: Instance)
 	root.DescendantAdded:Connect(swap)
 end
 
-local LADDER = GunsCore.LADDER
+local LADDER = GunsCore.STARTER_LADDER
 local MOMENT_AT = 0.2
 
 -- The gun models' meshes cannot be fetched offline, so the starter guns are swapped for silhouettes of plain parts
@@ -78,8 +78,7 @@ local function standIns()
 
 	local starters = guns["starter weapons"]
 	for name, barrel in { ["1"] = 0.9, ["2"] = 2.4, ["4"] = 1.6, TerminatorGun = 1.4 } do
-		local folder = if name == "TerminatorGun" then guns.Epic else starters
-		local old = folder:FindFirstChild(name)
+		local old = starters:FindFirstChild(name)
 		if old then old:Destroy() end
 		local model = Instance.new("Model")
 		model.Name = name
@@ -94,7 +93,7 @@ local function standIns()
 		if name ~= "1" then
 			block(model, Vector3.new(1.2, 0.45, 0.3), Vector3.new(-1.4, -0.15, 0), Color3.fromRGB(150, 98, 58))
 		end
-		model.Parent = folder
+		model.Parent = starters
 	end
 end
 
@@ -286,6 +285,7 @@ local function state(phase: string, moment: string)
 		Head = source(nil),
 		IsFirstPerson = source(false),
 		Vignette = source(0),
+		VignetteColor = source(Color3.new()),
 		Defenses = defenses,
 		Squad = source(squad()),
 		IsSquadOpen = source(false),

@@ -236,8 +236,8 @@ local function reroll(state: TScreenState, actions: TActions): CanvasGroup
 			Size = UDim2.fromOffset(Layout.REROLL.X, Layout.REROLL.Y),
 			BackgroundTransparency = 1,
 			Position = function()
-				local t = Progress(state.Clock(), state.RerollDeniedAt(), Timing.JOLT)
-				local jolt = if t >= 1 then 0 else 8 * math.sin(t * math.pi * 2) * (1 - t)
+				local at = state.RerollDeniedAt()
+				local jolt = 8 * Motion.Shake(Progress(state.Clock(), at, Timing.JOLT), at)
 				return UDim2.new(0.5, math.round(jolt), 0.5, 0)
 			end,
 			Activated = function()
@@ -408,13 +408,15 @@ function Screen.Build(state: TScreenState, actions: TActions): ScreenGui
 			end,
 		}),
 		-- An active button over the whole screen: a click on a card (which is in the world, under it) is a click on
-		-- this, so the gun's trigger sees it as the UI's.
+		-- this, so the gun's trigger sees it as the UI's. Modal: in first person the engine holds the mouse at the centre
+		-- unless a visible button says otherwise (CameraController.IsMouseFreed covers the Shift lock).
 		create("TextButton")({
 			Name = "Catch",
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Text = "",
 			AutoButtonColor = false,
+			Modal = true,
 			Visible = state.IsCatching,
 		}),
 		create("Frame")({

@@ -76,12 +76,20 @@ function RoundCore.GetClearRewards(round: number): (number, number, number)
 	return Tune.ROUND_GOLD + Tune.ROUND_GOLD_PER_ROUND * (round - 1), gems, Tune.ROUND_XP_PERCENT
 end
 
--- Every ordinary type that can appear in `round` into `out` (cleared first), with its weight summed into the return.
-function RoundCore.GetPool(round: number, all: { TData.TEnemy }, out: { TData.TEnemy }): number
+-- Whether `enemyData` comes on `mapName` (TEnemy.Maps).
+function RoundCore.IsOnMap(enemyData: TData.TEnemy, mapName: string): boolean
+	local maps = enemyData.Maps
+	return maps == nil or table.find(maps, mapName) ~= nil
+end
+
+-- Every ordinary type that can appear in `round` on `mapName` into `out` (cleared first), with its weight summed into
+-- the return.
+function RoundCore.GetPool(round: number, mapName: string, all: { TData.TEnemy }, out: { TData.TEnemy }): number
 	table.clear(out)
 	local totalWeight = 0
 	for _, enemyData in all do
 		if enemyData.IsBoss or enemyData.IntroRound > round or enemyData.SpawnWeight <= 0 then continue end
+		if not RoundCore.IsOnMap(enemyData, mapName) then continue end
 		out[#out + 1] = enemyData
 		totalWeight += enemyData.SpawnWeight
 	end
@@ -89,11 +97,12 @@ function RoundCore.GetPool(round: number, all: { TData.TEnemy }, out: { TData.TE
 	return totalWeight
 end
 
--- The boss for `round`: the boss whose IntroRound is the highest at or under it, so a roster can rotate.
-function RoundCore.GetBoss(round: number, all: { TData.TEnemy }): TData.TEnemy?
+-- The boss for `round` on `mapName`: the boss whose IntroRound is the highest at or under it, so a roster can rotate.
+function RoundCore.GetBoss(round: number, mapName: string, all: { TData.TEnemy }): TData.TEnemy?
 	local best: TData.TEnemy? = nil
 	for _, enemyData in all do
 		if not enemyData.IsBoss or enemyData.IntroRound > round then continue end
+		if not RoundCore.IsOnMap(enemyData, mapName) then continue end
 		if not best or enemyData.IntroRound > best.IntroRound then best = enemyData end
 	end
 

@@ -117,6 +117,8 @@ local recoilRollCoupling = 0.25
 local recoilX, recoilXVel, recoilY, recoilYVel = 0, 0, 0, 0
 
 local isMouseLocked = false
+-- A place with no guns (UseRobloxMouse): Roblox's own pointer and no Shift lock.
+local isRobloxMouse = false
 -- The dot, and what was last written to it. Off once a place draws its own crosshair on the mouse (HideDot).
 local isDotWanted = true
 local dot: Frame? = nil
@@ -160,6 +162,14 @@ function CameraController.SetRecoilSpring(freq: number, damp: number, rollCoupli
 	recoilRollCoupling = rollCoupling
 end
 
+-- A recoil spring's peak displacement per unit of impulse, so a kick can be asked for in studs:
+-- peak = v0 / wd * exp(-z / sqrt(1 - z^2) * atan2(sqrt(1 - z^2), z)), wd = w * sqrt(1 - z^2). The Euler step falls
+-- short of it (44% at freq 25 / damp 0.6 at 60 fps), so compare kicks on one spring.
+function CameraController.RecoilPeakPerImpulse(freq: number, damp: number): number
+	local root = sqrt(1 - damp * damp)
+	return math.exp(-damp / root * math.atan2(root, damp)) / (freq * root)
+end
+
 -- Kicks the view up by `upImpulse` and sideways by `sideImpulse` (studs a second); it springs back on its own.
 function CameraController.AddRecoil(upImpulse: number, sideImpulse: number)
 	recoilYVel += upImpulse
@@ -173,6 +183,23 @@ function CameraController.HideDot()
 	local frame = dot
 	dot = nil
 	if frame and frame.Parent then frame.Parent:Destroy() end
+end
+
+-- For a place with no guns: Roblox's own pointer instead of the dot, and no Shift lock. First person still locks the
+-- mouse, or the view would not turn. Safe before or after this controller's OnStart.
+function CameraController.UseRobloxMouse()
+	isRobloxMouse = true
+	CameraController.IsLocked = false
+	ContextActionService:UnbindAction("CameraLock")
+	CameraController.HideDot()
+	UserInputService.MouseIconEnabled = true
+end
+
+-- With Roblox's pointer (UseRobloxMouse), hides it while the place draws a crosshair on the mouse in its place (the
+-- lobby's shooting range), and brings it back after.
+function CameraController.SetPointerHidden(isHidden: boolean)
+	if not isRobloxMouse then return end
+	UserInputService.MouseIconEnabled = not isHidden
 end
 
 -- Turns the view to face `target` on the next frame; the PlayerModule carries on from there.
@@ -341,6 +368,10 @@ local function resetMotion()
 	recoilX, recoilXVel, recoilY, recoilYVel = 0, 0, 0, 0
 end
 
+local function isFirstPersonZoom(): boolean
+	return ZoomController.GetTargetZoom() <= Tune.FIRST_PERSON_ZOOM
+end
+
 local function update(dt: number)
 	dt = math.min(dt, Tune.MAX_FRAME_DT)
 	accumulatedTime += dt
@@ -355,9 +386,12 @@ local function update(dt: number)
 		if (lookAt - eye).Magnitude > 1e-3 then cameraCFrame = CFrame.lookAt(eye, lookAt) end
 	end
 
-	local targetFirstPerson = if ZoomController.GetTargetZoom() <= Tune.FIRST_PERSON_ZOOM then 1 else 0
+	local isFirstPerson = isFirstPersonZoom()
+	local targetFirstPerson = if isFirstPerson then 1 else 0
 	firstPersonBlend += (targetFirstPerson - firstPersonBlend) * clamp(dt * Tune.FIRST_PERSON_BLEND_SPEED, 0, 1)
-	lockBlend += ((if CameraController.IsLocked then 1 else 0) - lockBlend) * clamp(dt * Tune.LOCK_BLEND_SPEED, 0, 1)
+	-- The head fade never reaches zero, so a lock left on in first person would still nudge the view to the shoulder.
+	local targetLock = if CameraController.IsLocked and not isFirstPerson then 1 else 0
+	lockBlend += (targetLock - lockBlend) * clamp(dt * Tune.LOCK_BLEND_SPEED, 0, 1)
 	applyLock()
 	moveDot()
 
@@ -464,13 +498,18 @@ CameraController.OnSelfCharacterRemoving = function()
 end :: TCharacterEvents.OnCharacterRemoving
 
 CameraController.OnStart = function()
-	ContextActionService:BindAction("CameraLock", function(_, state)
-		if state == Enum.UserInputState.Begin then CameraController.IsLocked = not CameraController.IsLocked end
-		return Enum.ContextActionResult.Sink
-	end, false, LOCK_KEY)
+	if not isRobloxMouse then
+		ContextActionService:BindAction("CameraLock", function(_, state)
+			-- First person is always locked, so Shift there does nothing.
+			if state == Enum.UserInputState.Begin and not isFirstPersonZoom() then
+				CameraController.IsLocked = not CameraController.IsLocked
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, LOCK_KEY)
+		createDot()
+		UserInputService.MouseIconEnabled = false
+	end
 
-	createDot()
-	UserInputService.MouseIconEnabled = false
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(sizeDot)
 	-- Just after the PlayerModule's camera (bound at Camera), whose framing it lays its layers on, and before every
 	-- PreRender connection, so whatever reads the view there sees it as it is drawn.

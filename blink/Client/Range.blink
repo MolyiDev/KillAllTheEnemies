@@ -1,0 +1,18 @@
+import "../Types/DataId.blink"
+
+-- The lobby's shooting range. Hold this gun while in the range: one of those the range offers them (Range.Offer, the
+-- strip of guns along the bottom). Only the intent: the server checks the offer and arms the player.
+event Pick {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type)
+}
+
+-- The weapons screen's TRY: be taken to a free booth of the range holding this gun.
+event Try {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type)
+}

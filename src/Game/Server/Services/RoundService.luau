@@ -18,6 +18,7 @@ local EnemiesService = require(script.Parent.EnemiesService)
 local NavService = require(script.Parent.NavService)
 local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -83,8 +84,10 @@ RoundService.State = ERoundState.Idle
 RoundService.Round = 0
 -- The highest round cleared together with every round before it, this run.
 RoundService.LastCleared = 0
--- The record key the run's clears go under ("PirateCove:Solo"), set by MatchService at the start of the run.
+-- The record key the run's clears go under ("PirateCove:Solo") and the map its waves are drawn for, set by
+-- MatchService at the start of the run.
 RoundService.RecordKey = "GrassLands:Solo"
+RoundService.MapName = MapsCore.DEFAULT
 -- Set from the console. The wave being fought stays open, since what it has still to spawn is not cleared.
 RoundService.IsSpawningPaused = false
 
@@ -171,7 +174,7 @@ local function fight()
 	local toSpawn = RoundCore.GetCount(round, #Players:GetPlayers())
 	local isBossRound = RoundCore.IsBossRound(round)
 	-- A boss round with no boss in the data spawns none (spawnBosses), so it is no kill to count.
-	local hasBoss = isBossRound and RoundCore.GetBoss(round, ALL_ENEMIES) ~= nil
+	local hasBoss = isBossRound and RoundCore.GetBoss(round, RoundService.MapName, ALL_ENEMIES) ~= nil
 	uncountedRounds[#uncountedRounds + 1] = { Round = round, Size = toSpawn + (if hasBoss then 1 else 0) }
 	openRounds[#openRounds + 1] = {
 		Round = round,
@@ -182,7 +185,7 @@ local function fight()
 		DamageScale = damageScale,
 		SpeedScale = speedScale,
 		Pool = pool,
-		PoolWeight = RoundCore.GetPool(round, ALL_ENEMIES, pool),
+		PoolWeight = RoundCore.GetPool(round, RoundService.MapName, ALL_ENEMIES, pool),
 	}
 	skipOpensAt = TimeCore.GameClock + RoundCore.GetSkipAfterSeconds(round)
 	wasSkippable = false
@@ -318,7 +321,7 @@ local function spawnBosses()
 	for _, open in openRounds do
 		if not open.IsBossPending then continue end
 		if not EnemiesService.HasRoom() then return end
-		local boss = RoundCore.GetBoss(open.Round, ALL_ENEMIES)
+		local boss = RoundCore.GetBoss(open.Round, RoundService.MapName, ALL_ENEMIES)
 		local position = pickSpawnPosition()
 		if not boss then
 			open.IsBossPending = false

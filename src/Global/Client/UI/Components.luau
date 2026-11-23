@@ -58,6 +58,24 @@ local Look = table.freeze({
 	BRACKET_RADIUS = 3,
 	BRACKET_LENGTH = 20,
 	BRACKET_TRANSPARENCY = 0.6,
+	-- The lobby's flat slabs (UIMatt.md, Lobby HUD): the face's share left under the top edge, how far down the face
+	-- that shade holds and where it is gone, the marks' share of the face and their leg, the brackets' leg.
+	FLAT_SHADE = 0.45,
+	FLAT_SHADE_DEPTH = 0.035,
+	FLAT_SHADE_END = 0.065,
+	FLAT_MARK = 0.5,
+	FLAT_MARK_LEG = 21,
+	FLAT_BRACKET_LENGTH = 20,
+	-- The lobby's currency pills: shares of the face for the rim, the sides, the bottom edge, the shade under the lip
+	-- and the marks; the marks' leg, the brackets' leg, and how faint his gold glow under them is.
+	PILL_RIM = 0.35,
+	PILL_SIDE = 0.82,
+	PILL_BOTTOM = 0.5,
+	PILL_SHADE = 0.45,
+	PILL_MARK = 0.6,
+	PILL_MARK_LEG = 12,
+	PILL_BRACKET_LENGTH = 12,
+	PILL_GLOW_TRANSPARENCY = 0.62,
 })
 -- His pink edge, top to bottom (a slab's is brighter at the top and deeper at the bottom). Gradients here are lists of
 -- { position, colour } for gradientOf.
@@ -174,11 +192,12 @@ function Components.Edge(color: any?, transparency: any?): UIStroke
 	})
 end
 
--- Ink round a letter of `size`, for text that sits straight on the arena or on a colour it could lose against.
-function Components.Ink(size: number): UIStroke
+-- Ink round a letter of `size`, for text that sits straight on the arena or on a colour it could lose against. `floor`
+-- is the thinnest it may be, in design px, for small letters on screens drawn smaller than 1080.
+function Components.Ink(size: number, floor: number?): UIStroke
 	return create("UIStroke")({
 		Color = Color.Ink,
-		Thickness = math.max(1, math.round(size * Theme.INK_SHARE)),
+		Thickness = math.max(floor or 1, math.round(size * Theme.INK_SHARE)),
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
 		LineJoinMode = Enum.LineJoinMode.Miter,
 	})
@@ -697,6 +716,101 @@ function Components.Slab(spec: TProps, props: TProps): Frame
 	})
 end
 
+-- A colour toward black: `share` of it kept.
+local function shade(color: Color3, share: number): Color3
+	return Color3.new(color.R * share, color.G * share, color.B * share)
+end
+
+-- His lobby slab (WEAPONS, MENU, CLASSES): the glossy slab's dark rim and hot pink edge round a FLAT face of `spec.Face`,
+-- shaded for a few px under the top edge, dark corner marks in all four corners, and a glow in the face's own colour.
+-- `spec` fields may be sources: GlowTransparency, Brackets (outset px), BracketTransparency. `props` is the outer
+-- Frame's, sized to his drawn rect.
+function Components.FlatSlab(spec: TProps, props: TProps): Frame
+	local color: Color3 = spec.Face
+	local under = shade(color, Look.FLAT_SHADE)
+	return create("Frame")({
+		BackgroundColor3 = Look.SLAB_RIM,
+		BorderSizePixel = 0,
+		create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
+		create("UIShadow")({
+			Name = "Glow",
+			BlurRadius = UDim.new(0, Look.GLOW_BLUR),
+			Color = color,
+			Offset = UDim2.fromOffset(0, Look.GLOW_DROP),
+			Spread = UDim2.new(),
+			Transparency = spec.GlowTransparency or Look.GLOW_TRANSPARENCY,
+			ZIndex = -1,
+		}),
+		create("Frame")({
+			Name = "Edge",
+			Position = UDim2.fromOffset(1, 1),
+			Size = UDim2.new(1, -2, 1, -2),
+			BorderSizePixel = 0,
+			create("UICorner")({ CornerRadius = UDim.new(0, 3) }),
+			Components.Gradient(SLAB_EDGE),
+			face(Look.SLAB_EDGE, 3, {
+				{ 0, under },
+				{ Look.FLAT_SHADE_DEPTH, under },
+				{ Look.FLAT_SHADE_END, color },
+				{ 1, color },
+			}, {
+				marks(shade(color, Look.FLAT_MARK), 0.25, 3, Look.FLAT_MARK_LEG, true),
+			}),
+		}),
+		if spec.Brackets
+			then Components.Brackets(spec.Brackets, spec.BracketTransparency, Look.FLAT_BRACKET_LENGTH)
+			else nil,
+		props,
+	})
+end
+
+-- His currency pill (the lobby's coins and energy): a dark rim, a bright lip along the top of `spec.Lip` and darker
+-- sides and bottom round a face of `spec.Face` shaded under the top, faint corner marks, and his gold glow under it.
+-- `spec` fields: Brackets (outset px), GlowTransparency (may be a source). `props` is the outer Frame's, sized to his
+-- drawn rect.
+function Components.Pill(spec: TProps, props: TProps): Frame
+	local color: Color3 = spec.Face
+	local under = shade(color, Look.PILL_SHADE)
+	return create("Frame")({
+		BackgroundColor3 = shade(color, Look.PILL_RIM),
+		BorderSizePixel = 0,
+		create("UICorner")({ CornerRadius = UDim.new(0, 3) }),
+		create("UIShadow")({
+			Name = "Glow",
+			BlurRadius = UDim.new(0, Look.GLOW_BLUR),
+			Color = Palette.Gold,
+			Offset = UDim2.fromOffset(0, Look.GLOW_DROP),
+			Spread = UDim2.new(),
+			Transparency = spec.GlowTransparency or Look.PILL_GLOW_TRANSPARENCY,
+			ZIndex = -1,
+		}),
+		create("Frame")({
+			Name = "Edge",
+			Position = UDim2.fromOffset(1, 1),
+			Size = UDim2.new(1, -2, 1, -2),
+			BorderSizePixel = 0,
+			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+			Components.Gradient({
+				{ 0, spec.Lip },
+				{ 0.04, spec.Lip },
+				{ 0.06, shade(color, Look.PILL_SIDE) },
+				{ 0.9, shade(color, Look.PILL_SIDE) },
+				{ 1, shade(color, Look.PILL_BOTTOM) },
+			}),
+			face(2, 2, {
+				{ 0, under },
+				{ 0.035, under },
+				{ 0.075, color },
+				{ 1, color },
+			}, {
+				marks(shade(color, Look.PILL_MARK), 0.55, 2, Look.PILL_MARK_LEG, true),
+			}),
+		}),
+		if spec.Brackets then Components.Brackets(spec.Brackets, nil, Look.PILL_BRACKET_LENGTH) else nil,
+		props,
+	})
+end
+
 -- His grey-edged ink square (the vote count, the keybind badges). `props` is the outer Frame's.
 function Components.Plaque(props: TProps): Frame
 	return create("Frame")({
@@ -759,6 +873,49 @@ function Components.KeyBadge(key: any, size: number, props: TProps?): Frame
 			ZIndex = 2,
 		}),
 		props or NO_PROPS,
+	})
+end
+
+-- A word with its letters spaced `tracking` px further apart than the font sets them, as his slab words are. The
+-- letters are white; `props` is the row's (a TextColor3 there colours nothing: pass `Color`, a Color3 or a source, and
+-- `TextTransparency`). The row sits at ZIndex 4, over a slab's face, unless `props` says otherwise.
+function Components.Tracked(text: string, size: number, tracking: number, font: Font, props: TProps): Frame
+	local color = props.Color or Palette.White
+	local transparency = props.TextTransparency or 0
+	local letters = {}
+	local count = 0
+	-- By character, not byte: a letter may be more than one.
+	for _, code in utf8.codes(text) do
+		count += 1
+		letters[count] = create("TextLabel")({
+			LayoutOrder = count,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, size),
+			BackgroundTransparency = 1,
+			FontFace = font,
+			TextSize = size,
+			TextColor3 = color,
+			TextTransparency = transparency,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Text = utf8.char(code),
+		})
+	end
+
+	local rest = table.clone(props)
+	rest.Color = nil
+	rest.TextTransparency = nil
+	return create("Frame")({
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, size),
+		BackgroundTransparency = 1,
+		ZIndex = 4,
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Horizontal,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, tracking),
+		}),
+		letters,
+		rest,
 	})
 end
 

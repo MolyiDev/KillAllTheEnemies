@@ -1,0 +1,33 @@
+-- The last run, back in the lobby (Lobby/Server/Services/ResultsService), as TProfile.TMatchRecord.
+
+-- One of the squad. (userId, username, class (EClassesIds), kills)
+struct Member {
+	UserId: f64,
+	Name: string,
+	ClassId: u8,
+	Kills: u32,
+}
+
+struct Record {
+	MapName: string,
+	Wave: u16,
+	BestWaveBefore: u16,
+	Seconds: u32,
+	BestSecondsBefore: u32,
+	Gems: u32,
+	Kills: u32,
+	SquadKills: u32,
+	LevelBefore: u16,
+	XpBefore: f32,
+	XpWaves: f32,
+	XpBosses: f32,
+	Squad: Member[],
+}
+
+-- To one player: the run their profile holds, as it loads, until they Dismiss it.
+event Show {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Record
+}

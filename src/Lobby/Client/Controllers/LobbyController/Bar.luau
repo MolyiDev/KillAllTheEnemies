@@ -1,6 +1,7 @@
 --!nonstrict
--- The bottom of the lobby screen: PLAY (onto a free pad as its host), EXIT while on a pad (the only way off it), the
--- queue's status above it, and a notice at the top for a pad that refused.
+-- Over the HUD's action row: EXIT while on a pad (the only way off it) with the queue's status above it, and a notice
+-- at the top for a pad that refused. The button is hidden off a pad: PLAY (onto a free pad as its host) is moving into
+-- the HUD's menu.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -21,7 +22,8 @@ local EPhase = PadsCore.EPhase
 
 local BUTTON_WIDTH = 380
 local BUTTON_HEIGHT = 84
-local BUTTON_BOTTOM = 36
+-- Clear of the HUD's action row (its top 175 px up, brackets included).
+local BUTTON_BOTTOM = 196
 local STATUS_WIDTH = 380
 local STATUS_HEIGHT = 64
 -- Below the platform's top bar (UI.md: 58 tall), centred, so it never meets it.
@@ -130,9 +132,9 @@ local function playButton(state: Types.TLobbyState, actions: Types.TLobbyActions
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 1, -BUTTON_BOTTOM - BUTTON_HEIGHT / 2),
 		Size = UDim2.fromOffset(BUTTON_WIDTH, BUTTON_HEIGHT),
-		-- A party on its way cannot be left.
+		-- Off a pad there is nothing to leave; a party on its way cannot be left.
 		Visible = function()
-			return not isTeleporting()
+			return isQueued() and not isTeleporting()
 		end,
 		BackgroundColor3 = spring(function()
 			if isQueued() then return if isHovered() then Color.BossEdge else Color.Boss end

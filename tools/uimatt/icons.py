@@ -1,4 +1,4 @@
-"""Cuts the In-Game HUD's icons out of the designer's art into one white atlas, tinted where it is drawn, and draws the
+"""Cuts the In-Game HUD's and the Lobby HUD's icons out of the designer's art into one white atlas, tinted where it is drawn, and draws the
 streaks his panel faces carry into a texture laid over every panel.
 
     python3 tools/uimatt/icons.py                          # write both
@@ -8,7 +8,7 @@ streaks his panel faces carry into a texture laid over every panel.
 
 Reads the PNGs rur saved beside the In-Game HUD render (Assets/ui/UIMatt/renders/15_In_Game_HUD/assets; a file
 named with its folder is read from that screen's render instead) and writes
-Assets/ui/hud/Icons.png (128 px cells, 4 across) and Icons.json (name -> cell). Each icon is a coverage mask: how
+Assets/ui/hud/Icons.png (128 px cells, 4 across, 8 down, then a second page of 4 across) and Icons.json (name -> cell). Each icon is a coverage mask: how
 much of a pixel is the glyph's colour against the panel behind it, so the anti-aliased edge survives. The designer's
 image ids are private to another account and never referenced; the atlas is uploaded by group 34796361.
 
@@ -42,15 +42,30 @@ SOURCE = os.path.join(RENDERS, "15_In_Game_HUD", "assets")
 RESULTS = "19_Round_Results/assets/"
 SETTINGS = "07_Settings/assets/"
 CONFIRM = "08_Settings_Reset_Confirm/assets/"
+LOBBY = "01_Lobby_HUD/assets/"
+WEAPONS = "02_Weapons_Shop/assets/"
+SPINS = "12_Daily_Spins/assets/"
+QUESTS = "09_Quests_Daily/assets/"
+INDEX = "04_Index/assets/"
 OUT = os.path.join(ROOT, "Assets", "ui", "hud")
 CELL = 128
 PAD = 6
 COLUMNS = 4
+# Roblox shrinks an image past 1024 px on a side, which would move every cell: past 8 rows the atlas grows a second
+# page of 4 columns to the right, so the cells already in use never move.
+PAGE_ROWS = 8
 TEXTURE_SIZE = 1024
 TEXTURE_PEAK = 0.16
 # The streaks' ink (Theme.Palette.Lavender) and the face under them, as luminance.
 LAVENDER_LUMINANCE = 190.0
 FACE_LUMINANCE = 22.0
+# The weapons screen's stage floor, drawn into the atlas's free corner at 1:1 (his 470 x 84 ellipse): a 1.5 px ring at
+# full alpha and the fill at FLOOR_FILL of it, so one ImageTransparency gives both his strengths. Page two's icon rows
+# stop above it (rows 0-6).
+FLOOR_AT = (512, 1024 - 88)
+FLOOR_SIZE = (470, 84)
+FLOOR_LINE = 1.5
+FLOOR_FILL = 0.25
 # name: (file, the Icons.luau field its Image id goes in)
 UPLOADS = {
     "Icons": ("Icons.png", "IMAGE"),
@@ -92,6 +107,15 @@ def blue(a):
     return np.clip((a[..., 2] - a[..., 0] - 90) / 70, 0, 1)
 
 
+def violet(a):
+    return np.clip((a[..., 2] - a[..., 1] - 95) / 70, 0, 1)
+
+
+# White on the steel pill and the lobby's flat slabs, whose faces run brighter than the HUD's dark panels.
+def light(a):
+    return np.clip((a[..., :3].min(-1) - 110) / (250 - 110), 0, 1)
+
+
 # name: (file, coverage, crop box in the source's pixels, and a box inside it to blank: the count badge's corner)
 ICONS = {
     "Squad": ("102488643301775.png", white, (124, 74, 179, 123)),
@@ -122,6 +146,29 @@ ICONS = {
     "Music": (SETTINGS + "85445603148106.png", pink, (0, 0, 28, 30)),
     "Camera": (SETTINGS + "114795113817787.png", pink, (0, 0, 28, 30)),
     "Profile": (SETTINGS + "104283121581154.png", pink, (0, 0, 28, 30)),
+    # The lobby (Lobby HUD).
+    "Rank": (LOBBY + "103060127131943.png", gold, (0, 0, 70, 106)),
+    "Bolt": (LOBBY + "86413066371189.png", light, (0, 0, 70, 65)),
+    "Shop": (LOBBY + "73853576426051.png", gold, (130, 108, 240, 215)),
+    "Gift": (LOBBY + "127246397724885.png", pink, (140, 120, 230, 215)),
+    "Spin": (LOBBY + "128090333006940.png", violet, (135, 112, 235, 208)),
+    "Friends": (LOBBY + "122739019370404.png", green, (130, 112, 222, 215)),
+    "Rifle": (LOBBY + "130257945394564.png", light, (180, 92, 275, 198)),
+    "Helmet": (LOBBY + "98610907786270.png", light, (188, 92, 262, 190)),
+    # The weapons screen's: the EQUIPPED slab's tick (white on green), the tier tab's lock, the info panel's star.
+    "Check": (WEAPONS + "86162458886427.png", light, (234, 88, 304, 154)),
+    "Lock": (WEAPONS + "75316907530001.png", white, (290, 72, 320, 106)),
+    "Star": (WEAPONS + "94894442574611.png", gold, (56, 172, 90, 202)),
+    # The quests screen's scroll (the title's, pink on nothing).
+    "Scroll": (QUESTS + "83344093114314.png", pink, (0, 0, 92, 106)),
+    # The spins screen's: the die on SPIN (white on green), and the reel's pointer, drawn (pointer()).
+    "Dice": (SPINS + "73494365881083.png", light, (310, 90, 386, 165)),
+    "Pointer": None,
+    # The top bar's codes button and the codes screen's header, drawn (ticket()): he drew no codes screen.
+    "Ticket": None,
+    # The index screen's MONSTERS card (BOSSES' crowned skull is Boss). Cropped tight: `green` takes his tile's face at
+    # a few percent further out.
+    "Zombie": (INDEX + "122107874079539.png", green, (116, 98, 212, 208)),
 }
 
 
@@ -142,24 +189,92 @@ def cut(file, coverage, box, blank=None):
     return Image.fromarray(image, "RGBA")
 
 
+def pointer():
+    """His gold triangle over the reel, pointing down, 3 wide to 2 tall, supersampled 4x so its edges are even."""
+    k = 4
+    w, h = 116 * k, 77 * k
+    ys, xs = np.mgrid[0:h, 0:w].astype(float) + 0.5
+    # Inside both slanted sides: the half-width shrinks linearly from the top edge to the tip.
+    inside = np.abs(xs - w / 2) <= (w / 2) * (1 - ys / h)
+    alpha = inside.astype(float).reshape(77, k, 116, k).mean(axis=(1, 3))
+    image = np.zeros(alpha.shape + (4,), np.uint8)
+    image[..., :3] = 255
+    image[..., 3] = np.round(alpha * 255).astype(np.uint8)
+    return Image.fromarray(image, "RGBA")
+
+
+def ticket():
+    """A ticket, 3 wide to 2 tall: rounded corners, a round bite out of each end and a dashed tear line cut through it
+    a third of the way in, so it reads as a ticket at the top bar's 24 px. Supersampled 4x."""
+    k = 4
+    w, h = 116, 78
+    ys, xs = np.mgrid[0 : h * k, 0 : w * k].astype(float) / k + 0.5 / k
+    corner, bite = 9.0, 13.0
+    # Inside the rounded rectangle: the distance past the corner's inset box.
+    dx = np.maximum(np.abs(xs - w / 2) - (w / 2 - corner), 0)
+    dy = np.maximum(np.abs(ys - h / 2) - (h / 2 - corner), 0)
+    inside = dx * dx + dy * dy <= corner * corner
+    for cx in (0.0, float(w)):
+        inside &= (xs - cx) ** 2 + (ys - h / 2) ** 2 > bite * bite
+    # The tear line: four whole dashes down the stub's edge, centred, clear of the rim.
+    tear, dash, gap, width, count = w * 0.34, 9.0, 6.0, 5.0, 4
+    top = (h - (count * dash + (count - 1) * gap)) / 2
+    along = (ys - top) % (dash + gap)
+    inside &= ~((np.abs(xs - tear) <= width / 2) & (along <= dash) & (ys >= top) & (ys <= h - top))
+    alpha = inside.astype(float).reshape(h, k, w, k).mean(axis=(1, 3))
+    image = np.zeros(alpha.shape + (4,), np.uint8)
+    image[..., :3] = 255
+    image[..., 3] = np.round(alpha * 255).astype(np.uint8)
+    return Image.fromarray(image, "RGBA")
+
+
+DRAWN = {"Pointer": pointer, "Ticket": ticket}
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
-    rows = (len(ICONS) + COLUMNS - 1) // COLUMNS
-    atlas = Image.new("RGBA", (CELL * COLUMNS, CELL * rows), (255, 255, 255, 0))
+    per_page = COLUMNS * PAGE_ROWS
+    pages = (len(ICONS) + per_page - 1) // per_page
+    rows = min((len(ICONS) + COLUMNS - 1) // COLUMNS, PAGE_ROWS)
+    atlas = Image.new("RGBA", (CELL * COLUMNS * pages, CELL * rows), (255, 255, 255, 0))
     cells = {}
     for index, (name, spec) in enumerate(ICONS.items()):
-        glyph = cut(*spec)
+        glyph = DRAWN[name]() if spec is None else cut(*spec)
         fit = (CELL - 2 * PAD) / max(glyph.size)
         glyph = glyph.resize((round(glyph.size[0] * fit), round(glyph.size[1] * fit)), Image.LANCZOS)
-        column, row = index % COLUMNS, index // COLUMNS
+        page, within = divmod(index, per_page)
+        column, row = page * COLUMNS + within % COLUMNS, within // COLUMNS
         x = column * CELL + (CELL - glyph.size[0]) // 2
         y = row * CELL + (CELL - glyph.size[1]) // 2
         atlas.alpha_composite(glyph, (x, y))
         cells[name] = {"x": column * CELL, "y": row * CELL, "size": CELL}
+    atlas.alpha_composite(floor(), FLOOR_AT)
     atlas.save(os.path.join(OUT, "Icons.png"))
     with open(os.path.join(OUT, "Icons.json"), "w") as f:
         json.dump(cells, f, indent=1)
     print(f"[ICONS] {len(cells)} icons -> Assets/ui/hud/Icons.png")
+
+
+def floor():
+    """An ellipse's ring and faint fill, supersampled 4x so the ring is even all the way round."""
+    k = 4
+    w, h = FLOOR_SIZE[0] * k, FLOOR_SIZE[1] * k
+    ys, xs = np.mgrid[0:h, 0:w].astype(float) + 0.5
+    a, b = w / 2, h / 2
+    # Distance to the ellipse's edge, near enough for a thin ring: the implicit value over its gradient.
+    nx, ny = (xs - a) / a, (ys - b) / b
+    value = np.sqrt(nx * nx + ny * ny) - 1
+    gradient = np.sqrt((nx / a) ** 2 + (ny / b) ** 2) / np.maximum(np.sqrt(nx * nx + ny * ny), 1e-6)
+    distance = value / gradient
+    half = FLOOR_LINE * k / 2
+    ring = (np.abs(distance + half) <= half).astype(float)
+    fill = (distance < 0).astype(float) * FLOOR_FILL
+    alpha = np.maximum(ring, fill)
+    alpha = alpha.reshape(FLOOR_SIZE[1], k, FLOOR_SIZE[0], k).mean(axis=(1, 3))
+    image = np.zeros(alpha.shape + (4,), np.uint8)
+    image[..., :3] = 255
+    image[..., 3] = np.round(alpha * 255).astype(np.uint8)
+    return Image.fromarray(image, "RGBA")
 
 
 def texture():

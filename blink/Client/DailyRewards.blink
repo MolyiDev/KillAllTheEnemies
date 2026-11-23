@@ -1,0 +1,8 @@
+-- The daily rewards screen's request (DailyRewardsService): claim today's reward. Which day it is and what it pays are
+-- the server's.
+event Claim {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

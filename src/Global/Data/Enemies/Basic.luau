@@ -6,6 +6,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TEnemy = {
 	Id = EEnemiesIds.Basic,
 	Name = "Basic Zombie",
+	Description = "The bulk of every horde. Weak alone, but they never stop coming.",
 	ModelName = "Walker",
 	AnimationSet = "MonsterR6",
 	Sounds = { Group = "Enemies.Zombie", Idle = "Idle", Attack = "Attack", Death = "Death" },

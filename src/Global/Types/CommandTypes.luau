@@ -12,6 +12,9 @@ for name in EEnemiesIds :: { [string]: number } do
 	enemyNames[#enemyNames + 1] = string.lower(name)
 end
 table.sort(enemyNames)
+-- The same, with "all" first: a command that can act on every enemy.
+local enemyTargets = table.clone(enemyNames)
+table.insert(enemyTargets, 1, "all")
 
 local gunNames = {}
 for name in EGunsIds :: { [string]: number } do
@@ -21,6 +24,7 @@ table.sort(gunNames)
 
 return {
 	enemyName = Conch.register_type("enemy_name", args.enum_new(enemyNames, "enemy_name")),
+	enemyOrAll = Conch.register_type("enemy_or_all", args.enum_new(enemyTargets, "enemy_or_all")),
 	gunName = Conch.register_type("gun_name", args.enum_new(gunNames, "gun_name")),
 	pauseTarget = Conch.register_type(
 		"pause_target",

@@ -1,7 +1,7 @@
 -- What `pistolbench` stands beside the plain tracers (VFX.md sections 1 and 30): the game's own kit, then the looks
 -- that lost to it. Each loser is a kit of its own in the place (Assets/effects/pistol/bench), drawn only on the bench,
 -- so its counts are here and not in gunFx. Delete this file with the bench.
-local gunFx = require(script.Parent.gunFx)
+local gunFx = require(script.Parent.Parent.Parent.GlobalClient.Utils.gunFx)
 
 local ONE = NumberRange.new(1)
 local GOLD = Color3.fromRGB(255, 214, 20)

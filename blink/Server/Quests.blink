@@ -1,0 +1,26 @@
+-- One quest board as it stands (QuestsCore): its quests' Ids, how far each has got and whether it was claimed, in the
+-- board's order, and the seconds until it is dealt again.
+struct QuestBoard {
+	Ids: u8[],
+	Progress: u32[],
+	Claimed: boolean[],
+	SecondsLeft: u32,
+}
+
+-- To one player: both boards (Daily, then Weekly), once their profile loads, after every change to it and as a new
+-- period starts.
+event State {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (QuestBoard, QuestBoard)
+}
+
+-- To one player, after every Claim or ClaimAll and after the State it changed: the board (1 Daily, 2 Weekly), the
+-- slots claimed (none: refused) and the Gems they paid.
+event Claimed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8[], u32)
+}

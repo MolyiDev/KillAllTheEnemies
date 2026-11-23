@@ -4,3 +4,11 @@
 
 import "../Client/Lobby.blink"
 import "../Client/Settings.blink"
+import "../Client/Loadout.blink"
+import "../Client/DailyRewards.blink"
+import "../Client/Spins.blink"
+import "../Client/Results.blink"
+import "../Client/Quests.blink"
+import "../Client/Codes.blink"
+import "../Client/Index.blink"
+import "../Client/Classes.blink"

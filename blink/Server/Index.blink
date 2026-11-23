@@ -1,0 +1,10 @@
+import "../Types/DataId.blink"
+
+-- To one player, in the lobby (IndexService): the enemies they have discovered, once their profile loads and after a
+-- Seen. (enemy data Ids, the kills of each in the same order, whether each is still to be shown found)
+event Sync {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type[], u32[], boolean[])
+}

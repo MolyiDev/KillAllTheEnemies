@@ -7,7 +7,7 @@ local data: TData.TGun = {
 	Name = "Starter Rifle",
 	ModelName = "2",
 	Rarity = "Starter",
-	Tier = 2,
+	Tier = 3,
 	Price = 0,
 	Damage = 18,
 	FireInterval = 0.15,
@@ -19,6 +19,8 @@ local data: TData.TGun = {
 	Length = 3.6,
 	IsFlipped = true,
 	Hold = "Rifle",
+	Hands = { Right = Vector2.new(0.3, 0.45), Left = Vector2.new(0.66, 0.72) },
+	Barrel = 0.79,
 	Sound = "StarterRifle",
 	Fx = "RifleFx",
 }

@@ -1,0 +1,10 @@
+import "../Types/DataId.blink"
+
+-- The index's request (IndexService): these discoveries have been shown found, so their reveal does not play again.
+-- (enemy data Ids)
+event Seen {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: DataId.Type[]
+}

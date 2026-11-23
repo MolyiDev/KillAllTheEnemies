@@ -31,6 +31,12 @@ local TAU = 2 * math.pi
 local STAND = CFrame.Angles(math.pi / 2, 0, 0)
 -- Aimed at the chest rather than the root, so it lands in the body instead of at the hips.
 local BODY_TARGET_UP = Vector3.new(0, 1, 0)
+-- In first person the chest is a stud under the eye, and coins homing on it fly through the view and land in the
+-- face: each goes to a point this far off the body's side it started on and this far behind the eye, so it curves
+-- out past the edge of the screen.
+local FIRST_PERSON_SIDE = 2.2
+local FIRST_PERSON_BACK = 0.6
+local FIRST_PERSON_DISTANCE = 1.5
 
 -- The anime sprites (Assets/effects/anime, VFX.md 15).
 local Sprites = table.freeze({
@@ -91,6 +97,8 @@ type TCoin = {
 	Shower: CoinFlight.TShower?,
 	Born: number,
 	Value: number,
+	-- Which side of the view it was born on (1 right, -1 left): the side it comes home by in first person.
+	Side: number,
 	Turn: number,
 	Rotation: CFrame,
 }
@@ -255,6 +263,7 @@ local function newCoin(at: Vector3, value: number): TCoin?
 
 	local part = coinPool:Get()
 	part.CFrame = CFrame.new(at) * STAND
+	local across = Workspace.CurrentCamera.CFrame:PointToObjectSpace(at).X
 	local coin: TCoin = {
 		Part = part,
 		Wake = part:FindFirstChild("Wake") :: ParticleEmitter,
@@ -263,6 +272,7 @@ local function newCoin(at: Vector3, value: number): TCoin?
 		Shower = nil,
 		Born = 0,
 		Value = value,
+		Side = if math.abs(across) > 0.5 then math.sign(across) elseif random:NextNumber() < 0.5 then 1 else -1,
 		Turn = random:NextNumber(0, TAU),
 		Rotation = CFrame.identity,
 	}
@@ -333,7 +343,12 @@ local function update(dt: number)
 		return
 	end
 
+	local camera = Workspace.CurrentCamera
+	local isFirstPerson = (camera.CFrame.Position - camera.Focus.Position).Magnitude < FIRST_PERSON_DISTANCE
 	local target = root.Position + BODY_TARGET_UP
+	local look = camera.CFrame
+	local aside = look.RightVector * FIRST_PERSON_SIDE
+	local behind = look.LookVector * -FIRST_PERSON_BACK
 	local step = CoinFlight.Step
 	local showerAt = CoinFlight.ShowerAt
 	local arrived = 0
@@ -363,7 +378,7 @@ local function update(dt: number)
 
 		local flight = coin.Flight :: CoinFlight.TFlight
 		local wasPulling = flight.IsPulling
-		if step(flight, target, dt) then
+		if step(flight, if isFirstPerson then target + aside * coin.Side + behind else target, dt) then
 			arrived += 1
 			retireCoin(i, now)
 			continue

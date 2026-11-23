@@ -1,0 +1,17 @@
+-- To one player: their spins, once their profile loads, after every spin and purchase, and as a new UTC day starts.
+-- (free spins left today, bought spins left, seconds until the next UTC day)
+event State {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u16, u32)
+}
+
+-- To one player, after every Spin, in the same frame as the State and the profile it changed: the prize it landed on
+-- (SpinsCore.PRIZES), 0 when it was refused. The screen holds the HUD's numbers back until the prize has flown into them.
+event Landed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}

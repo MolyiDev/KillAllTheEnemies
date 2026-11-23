@@ -113,6 +113,85 @@ setting does). Rendered by `tools/uimatt/Settings.story.luau`; previews in `Asse
 - **A saved setting is stored only while it is not its default** (`SettingsCore`), so adding one needs no migration
   and a default changed later reaches everybody who never moved it.
 
+### A full lobby page: Classes (2026-11-22)
+
+`src/Lobby/Client/Controllers/LobbyController/Classes` (the page; `Stage.luau`, the avatar on its stage), its sources in
+`LobbyController/init.luau`. Rendered by `tools/uimatt/Classes.story.luau`; previews in `Assets/ui/classes/preview`.
+
+- **A page over the lobby steps the HUD aside, not under a dim.** `state.IsCovered` / `CoveredAt` (any page: classes,
+  weapons) send the level plate, the rail and the action row off the way they came; the currency pills stay, since
+  his pages draw the same bar there. Controls and the HUD's keys are off while covered.
+- **Two kinds of way in.** A piece standing on the screen (`presence`) comes in decelerating and leaves accelerating
+  on its own; a piece inside a panel (`arrival`) only comes in, and holds while the screen shuts so it rides out with
+  its panel. Details of a pick (`dealt`) come in both when the screen opens and on every pick.
+- **One element moves rather than two swapping**: the white ring glides between the ability cards on a spring.
+- **An ability is drawn the same on every card** (`GlobalClient/UI/AbilityPicture`): its model, its angle, and for the
+  Decoy the player's avatar in the doll's pose (`AbilityPicture.Doll`). A screen only says where and how big.
+- **An ellipse is not a UICorner** (that rounds a box into a pill): the fill is Roblox's own
+  `rbxasset://textures/whiteCircle.png` stretched, the edge short strokes in a CanvasGroup that fades as one, so their
+  joins never double up.
+- **Montserrat has no ★ or ✓**: the atlas's `Star` and `Check` cells draw them.
+- **The avatar is a copy in a WorldModel** (`copyCharacter`, Roblox's own idle and cheer clips), turned on
+  RenderStepped only while the page is up; a drag listens to the whole screen only while it holds, and a press that
+  barely moved is a click.
+- **ror draws nothing for a viewport model that holds a Humanoid**: a story's stand-in avatar carries none.
+- **In a folder module, `init.luau`'s `script` is the folder's ModuleScript**: its siblings are `script.Parent.X`, its
+  children `script.X`.
+
+### A reward claimed: Daily Rewards (2026-11-22)
+
+`src/Lobby/Client/Controllers/DailyRewardsController` (Screen, Cards), the flight in `GlobalClient/UI/GemPayout`.
+Rendered by `tools/uimatt/DailyRewards.story.luau`; previews in `Assets/ui/dailyrewards/preview`.
+
+- **A claim is beats on one card, never a swap**: wind-up while the server is asked (squeezed in, the gem rattling,
+  at least 0.14 s however fast the answer), let-go on the answer (flash of the card's shape, one ring, the gem bursting
+  into the Gems), the stamp slamming down 0.3 s later, then the card settles: green drains to the day's colour, the
+  white ring goes, CLAIM NOW turns into the GEMS tag. Every beat is a curve of `Now - ClaimedAt`.
+- **A transient read at "all done" must be back at rest.** Cards that are not mid-claim read the claim's clock as
+  infinitely late; a grow written as `1 + k * share` left every gem 1.6x. Write the transient as zero at both ends.
+- **The pill holds what is still in the air** (`LobbyController`'s `GemsHeld`, summed over the screens that fly Gems
+  into it, each exposing `HeldGems()` / `IsLandingGems()`): snapped to Gems minus held on every landing, swelling while
+  fed, punched on the last. The claim's server event comes after the Sync that paid it, so the hold puts the pill back.
+- **A ViewportFrame stands over its card's CanvasGroup**, riding the same offset and scale, not inside it.
+- **From Last Wave's daily rewards** (`../Ballarc`, UI.md "the daily rewards"): idle life is light only (today's card
+  lights its glow and sheens every 2.6 s, the HUD's DAILY REWARDS card lights and sheens; nothing bobs or shakes). The
+  call is a stamp (`CallAt`) that keeps the clock ticking only while its light crosses, so a screen waiting on a claim
+  redraws nothing between calls; a per-frame breathing glow redrew the whole ScreenGui every frame it was open;
+  today's card pings (flash, +4%, a green ring) once dealt in and again when midnight brings a new day while it is up;
+  tomorrow's card winks once a claim has settled; a week's last day claimed turns the screen to the next week so the
+  streak reads as going on, and a finished week opens on the next one; day 7 thumps harder; the screen opens by itself
+  once a lobby visit when a reward waits and nothing else covers the lobby.
+
+### A reel: Daily Spins (2026-11-22)
+
+`src/Lobby/Client/Controllers/SpinsController` (Screen, Reel, ReelMotion, Payout). Rendered by
+`tools/uimatt/Spins.story.luau` (Rest, Enter, Gems, Xp, Jackpot, Buy, None, Close); previews in
+`Assets/ui/spins/preview`.
+
+- **His tabs were dropped by the user's choice**: the screen wears the Daily Rewards header (glyph, title, rule, X) so
+  the two read as a pair. His token balance is left out (the prizes are Gems and XP, and the pill shows the Gems).
+- **The X and the words beside it are one style on every lobby panel** (Daily Rewards, Spins, Quests): his pink X set
+  15 px down and 22 px in from the panel's top right, and the gold `Font.Display` 20 px line ending 25 px left of it,
+  centred on it. A glyph goes 10 px left of the words, never apart from them (the Quests stopwatch). The Quests
+  screen dropped its bottom EXIT for the X, and the other two took the Quests line's weight and size (the user's
+  choice, 2026-11-22). A new panel with a close button copies these numbers.
+- **The reel is a pure function of a plan and the clock** (`ReelMotion.At`): wind back, throw, flat out until the
+  answer, brake (velocity falling as the square of the time left, so the last card takes 0.3 to 0.75 s), stop inside
+  the prize's card and smoothstep onto its middle. The plan is a table replaced on the answer, never changed in place.
+  Simulate it in lune before looking: tick gaps, total time, landing on a whole slot.
+- **Nine cards walked round, each the slot nearest it that is its own modulo nine**, so a card's picture changes only
+  as it wraps. A per-card gesture keyed off its slot (the open's fall) must cap the slot distance: mid-spin a card is
+  tens of slots from the rest, and an uncapped delay sent every card back above the well.
+- **One reading of the reel a frame**, made in Screen and handed to the reel and SPIN's die (it turns a quarter for
+  every card passed), not worked out by each.
+- **Moving pieces are parked, never hidden with Visible** (`Parts.PARKED`): payout pieces, landing pixels, rays, the
+  burst ring and the two cards that only show while the reel turns. A layer that does not move (a card's flash and
+  dim, the well's shades) may use Visible.
+- **What is constant for a piece is worked out once per prize** (Payout's `throw`), not in its Position each frame.
+- **Rays behind a card are turned, so the well does not clip them**; they open past it over the panel, under its words.
+- **The prize is held, then paid in** (the hold Daily Rewards added): the server writes the profile and fires
+  `Spins.Landed` in the same frame, so the HUD's hold is in place before it draws. XP has its own hold (`XpHeld`).
+
 ### Superseded here
 
 - The pixel kit: pixel-snapped Slabs, the bezel, Silkscreen, stepped glows, row sheens, blinking square particles,
@@ -12626,3 +12705,30 @@ beats are in `Assets/effects/items/README.md`).
   by their centre now, so the bought one grows from its middle.
 - **The show's length keeps the clock running.** `stamp` only holds `Now` for 1.6 s; a longer gesture raises
   `motionUntil` itself (`Hotbar.GOLD_PACK_SECONDS`).
+
+## Kill All The Monsters: enemies drawn in their rigs (`IndexController`, 2026-11-22, playtested in the Lobby)
+
+The index draws every enemy as its own skinned rig, on its card, its page's head tile and the stage, and an unknown one
+as a flat silhouette that a discovery burns white and comes through. What the rounds cost:
+
+- **Read the rig's front before placing a camera.** These rigs face **+Z** (Models.md 7). A camera at -Z, the Roblox
+  character habit, showed every enemy from behind and it went out that way.
+- **A skinned body in a viewport stands in a `WorldModel`**, or its bones do not deform and its Animator does not play.
+  Load its clips once the copy is in the DataModel.
+- **A still body is a paused clip, not the rest pose.** The rest pose is arms straight out, and `MonsterR6`'s Idle moves
+  none of these rigs' arms, so an idling body reads as a T. Every picture plays the Walk: paused mid stride
+  (`AdjustSpeed(0)` at a `TimePosition`, set once the track has a `Length`, or it is lost) and walking only under the
+  hand, or always on the stage.
+- **A layer holds its copy only while it is drawn.** A crossfade needs two viewports, never two copies at rest: a card
+  is lit or a silhouette, and the stage turns what it holds every frame. Built as a layer fades in, destroyed as it
+  fades out; a layer that comes in mid walk takes the other's `TimePosition` so they cross in step.
+- **A silhouette any colour is one white body, tinted.** Clear the MeshPart's `TextureID`, paint it white
+  SmoothPlastic, give its viewport a white `Ambient` and a black `LightColor`, and its `ImageColor3` is the silhouette
+  (dark violet at rest, white as a reveal burns).
+- **`vide.show` ends the scope but leaves the instances.** A hidden screen's rigs would go on animating: destroy what
+  the branch built in its `cleanup`.
+- **A gesture that is over stops reading the clock.** A reveal's progress, its flash and the counts read `state.Now`
+  only while the reveal runs; one that is over is told by `os.clock()` first, so a card revealed long ago is not worked
+  out again on every tick of a later gesture.
+- **The Lobby place needs the Game place's rigs and clips.** `Models.Enemies` and `Animations.Enemies` are Studio-owned
+  in both places; a missing rig draws nothing and warns once.

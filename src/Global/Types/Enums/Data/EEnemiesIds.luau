@@ -5,5 +5,5 @@ return table.freeze({
 	Heavy = 3,
 	Exploding = 4,
 	Slammer = 5,
-	CorruptedChampion = 100,
+	ZombieKing = 100,
 })

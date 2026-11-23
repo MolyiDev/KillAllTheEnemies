@@ -7,7 +7,10 @@
     ],
     "globIgnorePaths": [
         "**/package.json",
-        "**/tsconfig.json"
+        "**/tsconfig.json",
+        // Offline renders (ror / ree / rur) sit beside their kit's sources; their recordings are not game models.
+        "Assets/**/preview",
+        "Assets/**/preview/**"
     ],
     "tree": {
         "$className": "DataModel",
@@ -276,13 +279,6 @@
         "SoundService": {
             "$className": "SoundService",
             "$ignoreUnknownInstances": true,
-            "Ambient": {
-                "$className": "SoundGroup",
-                "$ignoreUnknownInstances": true,
-                "$properties": {
-                    "Volume": 0.5
-                }
-            },
             "Effects": {
                 "$className": "SoundGroup",
                 "$ignoreUnknownInstances": true,

@@ -121,8 +121,8 @@ local function onNukedAll(_, origin: Vector3)
 		EnemiesCore.NUKE_SECONDS
 	)
 	startWash(Tune.NUKE_WASH * felt, Tune.NUKE_TINT, Tune.NUKE_WASH_SECONDS)
-	-- At the camera: it is the whole squad's moment, as loud for whoever stands far from the buyer.
-	SoundsCore.PlayWorldNamed(SOUND_GROUP, "Nuke", cameraPosition)
+	-- Flat: it is the whole squad's moment, as loud for whoever stands far from the buyer.
+	SoundsCore.PlayFlatNamed(SOUND_GROUP, "Nuke")
 end
 
 local function onHealedAll(buyer: Player)
@@ -135,11 +135,10 @@ local function onHealedAll(buyer: Player)
 	end
 
 	startWash(Tune.HEAL_WASH, Tune.HEAL_TINT, Tune.HEAL_WASH_SECONDS)
-	SoundsCore.PlayWorldNamed(SOUND_GROUP, "Heal", Workspace.CurrentCamera.CFrame.Position)
+	SoundsCore.PlayFlatNamed(SOUND_GROUP, "Heal")
 end
 
--- On the buyer's body for everybody; the wash and the jolt are the buyer's alone. The buyer hears it at the camera,
--- at its full level, and the squad from where he stands.
+-- On the buyer's body for everybody, seen and heard; the wash and the jolt are the buyer's alone.
 local function onGoldBought(buyer: Player, amount: number)
 	local entity = getCharacterEntityFromPlayer(buyer)
 	local root = if entity then World:get(entity, Components.HumanoidRootPart) else nil
@@ -155,8 +154,7 @@ local function onGoldBought(buyer: Player, amount: number)
 		)
 	end
 
-	local heardAt = if isSelf then Workspace.CurrentCamera.CFrame.Position elseif root then root.Position else nil
-	if heardAt then SoundsCore.PlayWorldNamed(SOUND_GROUP, "GoldPack", heardAt) end
+	if root then SoundsCore.PlayNamedOnPart(SOUND_GROUP, "GoldPack", root) end
 end
 
 MatchController.OnNukedAll:Connect(onNukedAll)

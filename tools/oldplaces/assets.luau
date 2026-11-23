@@ -36,7 +36,9 @@ for _, inst in game:GetDescendants() do
 	local props = PROPS[inst.ClassName]
 	if not props then continue end
 	for _, prop in props do
-		local ok, value = pcall(function() return inst[prop] end)
+		local ok, value = pcall(function()
+			return inst[prop]
+		end)
 		if ok and typeof(value) == "Content" then value = (value :: any).Uri end
 		if ok and type(value) == "string" and value ~= "" then
 			print(inst.ClassName .. "." .. prop, value, path(inst))

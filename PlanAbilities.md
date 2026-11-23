@@ -25,7 +25,7 @@ Monsters hunting monsters: everybody starts Human, and unlocking a class reads a
   keep their own avatar. The class shows as light touches (a vampire cape, a ghostly trail, a zombie tint on the
   clothes); a full body change happens only during an ultimate, which is also the moment people film.
 - **Each class needs enemies of its family in the waves.** The roster today (Basic, Fast, Heavy, Exploding, Slammer,
-  CorruptedChampion) is not themed yet.
+  ZombieKing) is not themed yet.
 
 ## The rule for every kit
 

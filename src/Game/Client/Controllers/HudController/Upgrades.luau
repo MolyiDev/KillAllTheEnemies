@@ -1,7 +1,7 @@
 --!nonstrict
 -- The left of the screen (UIMatt.md, In-Game HUD): his UPGRADES column and the two Robux money packs under it, on his
 -- drawn rects. The HEALTH card sells the next level of max health (Shared/Utils/healthUpgrades), the weapon card
--- (where he drew SHOTGUN) the next step of GunsCore.LADDER, and the packs prompt their Gold products. The two cards
+-- (where he drew SHOTGUN) the next step of the player's ladder, and the packs prompt their Gold products. The two cards
 -- are one card (upgradeCard) told what to draw and when: each draws its thing as a model (GunPicture).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -9,7 +9,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
-local GunPicture = require(script.Parent.GunPicture)
+local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local HealthUpgrade = require(script.Parent.HealthUpgrade)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
@@ -63,8 +63,8 @@ local KIT_SWING = 10
 local DEAL_RISE = 22
 local TEXT_DEAL_RISE = 11
 local LEAVE_RISE = 12
--- The card as a buy lands: a tilt that swings out and back and dies, and a refused click's knock sideways (UI.md 5c:
--- a jolt, not a swing).
+-- The card as a buy lands: a tilt that swings out and back and dies, and a refused click's shake this far to each
+-- side (Motion.Shake).
 local WOBBLE_DEG = 5
 local JOLT = 7
 -- Under the hand: how much the picture grows with the card's rise, and how far the brackets open.
@@ -170,9 +170,8 @@ local function upgradeCard(spec: TCardSpec): TextButton
 	end
 
 	local jolt = function(): number
-		local t = Motion.Progress(stamps.Clock(), stamps.DeniedAt(), timing.JOLT)
-		if t >= 1 then return 0 end
-		return JOLT * math.sin(t * math.pi * 2) * (1 - t)
+		local at = stamps.DeniedAt()
+		return JOLT * Motion.Shake(Motion.Progress(stamps.Clock(), at, timing.JOLT), at)
 	end
 
 	local denied = function(): number
@@ -284,10 +283,12 @@ local function upgradeCard(spec: TCardSpec): TextButton
 				Position = function()
 					return UDim2.fromOffset(NAME.X, NAME.Y + math.round(textRise()))
 				end,
-				Size = UDim2.new(1, -NAME.X, 0, NAME_TEXT),
-				TextSize = NAME_TEXT,
+				Size = UDim2.new(1, -NAME.X * 2, 0, NAME_TEXT),
+				-- A loadout gun's name can be far longer than the card was drawn for: it shrinks to fit.
+				TextScaled = true,
 				TextTransparency = textTransparency,
 				Text = label,
+				create("UITextSizeConstraint")({ MaxTextSize = NAME_TEXT }),
 			}),
 			Components.KeyBadge(spec.Key, KEY_SIZE, {
 				Position = UDim2.fromOffset(KEY.X, KEY.Y),

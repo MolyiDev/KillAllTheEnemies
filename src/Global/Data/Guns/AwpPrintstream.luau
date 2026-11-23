@@ -14,9 +14,12 @@ local data: TData.TGun = {
 	Pellets = 1,
 	SpreadDeg = 0,
 	Range = 500,
-	HitRadius = 0.15,
+	Pierce = 2,
+	HitRadius = 1.0,
 	Length = 4.4,
 	Hold = "Rifle",
+	Hands = { Right = Vector2.new(0.25, 0.23), Left = Vector2.new(0.55, 0.44) },
+	Barrel = 0.56,
 	Sound = "Sniper",
 	CycleSound = "Bolt",
 }

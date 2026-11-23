@@ -1,5 +1,11 @@
 {
     "Enemies": {
         "MaxAlive": 255
+    },
+    "Codes": {
+        "LAUNCH": {
+            "Gems": 100,
+            "Xp": 50
+        }
     }
 }

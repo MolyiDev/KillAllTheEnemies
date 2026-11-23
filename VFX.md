@@ -2266,7 +2266,7 @@ stage huge. The wall is open on top, so the ring is the stage's own size again.
 This is the first effect in this game's own look and the recipe for the next ones (enemy hits come next). It took
 five rounds to find; everything below is what would have made it one.
 
-Where it lives: `src/Game/Client/Utils/gunFx.luau` (called from WeaponController for a gun whose data names a kit,
+Where it lives: `src/Global/Client/Utils/gunFx.luau` (called from WeaponController for a gun whose data names a kit,
 `TGun.Fx`; its `LOOKS` says how many each layer of a kit throws), the pooled parts in `src/Global/Client/Utils/motorParts.luau`,
 the thrown bricks and casings in `src/Global/Client/Utils/thrownPieces.luau` (shared with the enemy bursts, section 31),
 templates in `ReplicatedStorage.Effects.PistolFx`, sources and every number in `Assets/effects/pistol/` (its README).
@@ -2378,7 +2378,7 @@ Built the same day from this recipe in one pass: section 31.
 
 ## 31. Kill All The Monsters: the enemy bursts (built 2026-11-20 from section 30, unjudged, unplayed)
 
-What a blow does to a body, for every weapon: `src/Game/Client/Utils/enemyImpacts.luau` off the server's damage and
+What a blow does to a body, for every weapon: `src/Global/Client/Utils/enemyImpacts.luau` off the server's damage and
 kill events, templates in `ReplicatedStorage.Effects.EnemyFx`, sources and every number in `Assets/effects/enemy/`
 (its README). Bench: `vfxbench` stands one body of every enemy type looping three hits, a kill, a vanish and an
 overkill through the game's own module. It replaced the anime kit (section 15), whose templates were never in this

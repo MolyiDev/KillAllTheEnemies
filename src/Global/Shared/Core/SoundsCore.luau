@@ -17,8 +17,7 @@ local SoundsFolder = ReplicatedStorage:WaitForChild("Sounds")
 -- the buses are set here rather than in the tree.
 local BUS_BY_FOLDER: { [string]: string } = {
 	UI = ESoundGroups.UI,
-	Ambience = ESoundGroups.Ambient,
-	Weather = ESoundGroups.Ambient,
+	Music = ESoundGroups.Music,
 }
 
 -- Past this a pooled play is not heard at all, and inside it fades linearly with distance.
@@ -30,7 +29,7 @@ local POOLED_MAX_DIST_SQ = POOLED_MAX_DIST * POOLED_MAX_DIST
 local MERGE_SECONDS = 0.035
 -- What a muffle does to the world's buses (SetMuffled), and how it comes and goes: going under is quick and settles
 -- in, coming up starts slow and breaks the surface.
-local MUFFLED_BUSES = table.freeze({ ESoundGroups.Effects, ESoundGroups.Ambient, ESoundGroups.Music })
+local MUFFLED_BUSES = table.freeze({ ESoundGroups.Effects, ESoundGroups.Music })
 local MUFFLED = table.freeze({ HighGain = -80, MidGain = -15, LowGain = -3 })
 local CLEAR = table.freeze({ HighGain = 0, MidGain = 0, LowGain = 0 })
 local MUFFLE_IN = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -265,13 +264,13 @@ function SoundsCore.PlayWorldSound(source: Sound, position: Vector3, volumeScale
 	return sound
 end
 
--- A one-shot riding a moving part, for anything a character does: a fixed point is left behind as he moves, and his
--- own swing slides into one ear. `playbackSpeed` multiplies the clip's own.
-function SoundsCore.PlaySoundOnPart(source: Sound, part: BasePart, volumeScale: number?, playbackSpeed: number?): Sound
+-- A clone of `source` played once under `parent` and destroyed when it ends: positional under a part, flat under
+-- SoundService.
+local function playClone(source: Sound, parent: Instance, volumeScale: number?, playbackSpeed: number?): Sound
 	local sound = source:Clone()
 	sound.Volume = source.Volume * (volumeScale or 1)
 	sound.PlaybackSpeed = source.PlaybackSpeed * (playbackSpeed or 1)
-	sound.Parent = part
+	sound.Parent = parent
 	sound.Ended:Once(function()
 		sound:Destroy()
 	end)
@@ -279,19 +278,52 @@ function SoundsCore.PlaySoundOnPart(source: Sound, part: BasePart, volumeScale: 
 	return sound
 end
 
+-- A one-shot riding a moving part, for anything a character does: a fixed point is left behind as he moves, and his
+-- own swing slides into one ear. `playbackSpeed` multiplies the clip's own.
+function SoundsCore.PlaySoundOnPart(source: Sound, part: BasePart, volumeScale: number?, playbackSpeed: number?): Sound
+	return playClone(source, part, volumeScale, playbackSpeed)
+end
+
+-- The clip to play for `name` (itself, or a take rolled from its bag) and its tree node, the merge's key. Both nil
+-- when it is not in the tree.
+local function resolveNamed(group: string, name: string): (Sound?, Instance?)
+	local folder = resolveGroup(group)
+	local node = if folder then folder:FindFirstChild(name) else nil
+	if not node then return nil, nil end
+	if node:IsA("Sound") then return node, node end
+	local takes = getTakes(node)
+	if not takes then return nil, nil end
+
+	return takes[rollIndex(takes)], node
+end
+
 -- `name` is one clip, or a bag of takes to roll. False when it is not in the tree, so a caller can fall back to
 -- another; true when it is, even when merged into the one that just played (a fallback would stack a second sound).
 function SoundsCore.PlayWorldNamed(group: string, name: string, position: Vector3, volumeScale: number?): boolean
-	local folder = resolveGroup(group)
-	local node = if folder then folder:FindFirstChild(name) else nil
-	if not node then return false end
-	local isClip = node:IsA("Sound")
-	local takes = if isClip then nil else getTakes(node)
-	if not takes and not isClip then return false end
+	local source, node = resolveNamed(group, name)
+	if not source then return false end
 	if not claim(node, distSqFromCamera(position)) then return true end
 
-	SoundsCore.PlayWorldSound(if takes then takes[rollIndex(takes)] else node :: Sound, position, volumeScale)
+	SoundsCore.PlayWorldSound(source, position, volumeScale)
 	return true
+end
+
+-- PlayWorldNamed riding `part`: anything a body does that rings on while it moves (Sounds.md, "Where a one-shot is
+-- heard from").
+function SoundsCore.PlayNamedOnPart(group: string, name: string, part: BasePart)
+	local source, node = resolveNamed(group, name)
+	if not source or not claim(node, distSqFromCamera(part.Position)) then return end
+
+	playClone(source, part)
+end
+
+-- No position: heard the same wherever the listener stands or faces, on the clip's own bus, so a muffle still takes
+-- it. For a moment that belongs to the whole squad rather than to a place (the nuke, a heal for everybody).
+function SoundsCore.PlayFlatNamed(group: string, name: string)
+	local source, node = resolveNamed(group, name)
+	if not source or not claim(node, 0) then return end
+
+	playClone(source, SoundService)
 end
 
 -- For infrequent cues; a cue fired many times a frame wants a pool.

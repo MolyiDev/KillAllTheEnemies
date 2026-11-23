@@ -681,6 +681,27 @@ failed, and change the rule/selection at its owner so the next session does not 
   its letters on (round 2's first fire is E), so "Fire H" names one candidate across rounds. Adding an option to a
   shared helper must leave the earlier round's files byte-identical.
 
+### Where a one-shot is heard from (2026-11-22)
+
+The listener is the camera, so a 3D one-shot pans with every turn of it. A cue played at a position copied once
+(`root.Position`, `CurrentCamera.CFrame.Position`) stays at that point while the clip rings: the body walks off it and
+the camera turns away from it, and it slides into one ear. "At the camera" is the worst of these: the upgrade's
+level-up was placed there for the taker and was heard "going to a left - right ear" as soon as they moved. Pick one of
+three by what the sound belongs to:
+
+- **A body's cue rides the body**: `SoundsCore.PlayNamedOnPart(group, name, part)` on the HumanoidRootPart (an arm
+  for a throw), for the player's own body and a teammate's alike. The level-up, the Gold pack, the ability casts
+  (decoy throw, foam spray, orbital call). With the default Min (10) the taker hears it from the camera 12.5 studs
+  behind at about 2 dB under its preview; a Min past that (the Human kit's 50) keeps the preview's level.
+- **A squad-wide moment is flat**: `SoundsCore.PlayFlatNamed(group, name)`, no position at all, the same in both ears
+  for everybody and still on its bus (a muffle takes it). The nuke, a heal for everybody. Never "at the camera".
+- **A cue that happens at a place stays there**: `PlayWorldNamed` at that place for what does not move or rings
+  shorter than anything could move: an enemy's cries and blows, impacts, a telegraph's blow, the decoy's squeak and pop
+  on the doll, foam setting on a body, the beam's foot, a placed defense.
+
+Pooled cues (`PlayPooled`, guns, coins, kill hits) already play flat in SoundService and only fade with distance, so
+they never pan. Before shipping a new 3D cue, ask who it belongs to, not where it starts.
+
 ### The Human kit (2026-11-21, `Assets/sounds/Review/Abilities/`)
 
 Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files shipped under `Sounds.Abilities`
@@ -688,7 +709,7 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
 
 - **Level a 3D cue for the distance it is heard from.** The kit shipped as Inverse rolloff from Min 8 (decoy, foam)
   and 30 (beam) and was heard "too low". This game's references lose nothing to distance: guns, hits and kills play
-  pooled and flat from SoundService (one's own from the camera), the nuke at the camera. So the decoy 40 studs out
+  pooled and flat from SoundService (one's own from the camera), the nuke flat. So the decoy 40 studs out
   played 16 dB under its preview, the foam on a body 25 studs out 13 dB, the beam at 60 studs 8 dB, and even the
   caster's own cues 4 dB (the camera sits 12.5 studs behind). Min now covers each ability's own reach (50 for the
   decoy and foam, 150 for the beam), so inside it a cue plays at its preview's level, and another player's ability
@@ -755,6 +776,15 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
   full shatter.
 - **A miss is heard where it lands** (the user's pick): Inverse from Min 60, the reach of a normal shot, so one's own
   misses play at the previewed level and a teammate's across the map fade.
+
+### Casings on the floor (2026-11-22, `Assets/sounds/Review/Casings/`, E Brass Full Ring shipped)
+
+- **A contact cut out of a rattle needs its whole ring.** Round 1's brass took each contact of a casing-bounce file up
+  to where the next one began, 46-150 ms in, and was heard "cutted out at the final": the takes ended 26-51 dB under
+  their peak. The pick keeps only contacts that ring out 40 dB before the next one starts (12 of 133), each to 45 dB
+  down with a 25 ms fade, so every take ends 45-66 dB under.
+- **One cue a bounce, as it is drawn.** A casing comes down about 0.4 s after its shot and once more 0.25 s later;
+  `thrownPieces`' `Landed` callback plays a landing take on the first and a bag 6 dB lighter on the second.
 
 ### Sources
 

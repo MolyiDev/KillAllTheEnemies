@@ -8,16 +8,17 @@
 -- (performance/13, 14). So rigs are destroyed with their enemy, never pooled, since a pooled rig would hold one of the
 -- 255 slots while it waited. Reserves hold clones that were never parented, whose Highlights take no slot.
 local ContentProvider = game:GetService("ContentProvider")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
-local Signal = require(ReplicatedStorage.Packages.Signal)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local MatchController = require(script.Parent.MatchController)
-local EnemyImpacts = require(script.Parent.Parent.Utils.enemyImpacts)
+local EnemyImpacts = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.enemyImpacts)
+local targetHits = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.targetHits)
 local Ragdoll = require(script.Parent.Parent.Utils.ragdoll)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
@@ -145,10 +146,11 @@ local EnemiesController = {}
 -- Enemies this client holds a row for (AOIService shows it those near its player), for the HUD.
 EnemiesController.Count = 0
 
--- (instanceId, attackerCharacterId, damage, worldPosition): every surviving hit, for numbers and sounds.
-EnemiesController.OnEnemyDamaged = Signal.new()
+-- (instanceId, attackerCharacterId, damage, worldPosition): every surviving hit, for numbers and sounds. The shared
+-- targetHits signals, so the crosshair and the damage numbers, which serve the lobby's range too, hear them.
+EnemiesController.OnEnemyDamaged = targetHits.Damaged
 -- (instanceId, killerCharacterId, damage, isOverkill, worldPosition): the position is the chest, as a hit's is.
-EnemiesController.OnEnemyKilled = Signal.new()
+EnemiesController.OnEnemyKilled = targetHits.Killed
 
 -- ============================== Per-id state ==============================
 -- Plain maps keyed by instance id: the render loop reads several per body per frame and a hash read is cheaper
@@ -792,11 +794,13 @@ local function addEnemy(instanceId: number, dataId: number, position: Vector3, i
 		Components.CFrame,
 		Components.InstanceId,
 		Components.Data,
+		Components.AimShape,
 		Tags.Enemy,
 	}, {
 		CFrame.new(position),
 		instanceId,
 		enemyData,
+		EnemiesCore.AimShape(enemyData),
 	})
 
 	rigQueueTail += 1

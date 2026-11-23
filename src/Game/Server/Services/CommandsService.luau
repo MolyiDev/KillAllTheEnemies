@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Conch = require(ReplicatedStorage.Packages.conch)
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local AbilityService = require(script.Parent.AbilityService)
+local CharacterService = require(script.Parent.CharacterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local MatchService = require(script.Parent.MatchService)
@@ -242,6 +243,20 @@ local function registerUlt()
 	})
 end
 
+local function registerGod()
+	Conch.register("god", {
+		permissions = { PERMISSION_DEV },
+		description = "Toggle god mode: nothing hurts you.",
+		arguments = function() end,
+		callback = function()
+			local player = getContextPlayer()
+			if not player then return end
+			local isGod = CharacterService.ToggleGod(player)
+			Conch.log("normal", if isGod then "God mode on." else "God mode off.")
+		end,
+	})
+end
+
 -- A hand of upgrade cards without clearing a wave, for seeing the pick. Only during a run.
 local function registerUpgrade()
 	Conch.register("upgrade", {
@@ -265,6 +280,7 @@ CommandsService.OnStart = function()
 	registerGold()
 	registerGoldPack()
 	registerUlt()
+	registerGod()
 	registerUpgrade()
 end
 

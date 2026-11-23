@@ -44,7 +44,7 @@ local Tune = table.freeze({
 -- The buses each slider turns, and the level each bus has in the place: a slider is a share of that.
 local BUSES: { [number]: { string } } = {
 	[ESettings.MusicVolume] = { ESoundGroups.Music },
-	[ESettings.SoundEffectsVolume] = { ESoundGroups.Effects, ESoundGroups.Ambient },
+	[ESettings.SoundEffectsVolume] = { ESoundGroups.Effects },
 	[ESettings.MenuSoundsVolume] = { ESoundGroups.UI },
 }
 local busLevels: { [SoundGroup]: number } = {}

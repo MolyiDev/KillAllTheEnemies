@@ -10,20 +10,20 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
+local BodyPoseController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.BodyPoseController)
 local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CameraController)
-local BodyPoseController = require(script.Parent.BodyPoseController)
-local CharacterController = require(script.Parent.CharacterController)
+local CharacterController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CharacterController)
+local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
 local EnemiesController = require(script.Parent.EnemiesController)
 local MatchController = require(script.Parent.MatchController)
 local TweensController = require(script.Parent.TweensController)
-local WeaponController = require(script.Parent.WeaponController)
 local burstLayers = require(script.Parent.Parent.Utils.burstLayers)
 local decoyFx = require(script.Parent.Parent.Utils.decoyFx)
 local foamFx = require(script.Parent.Parent.Utils.foamFx)
 local orbitalFx = require(script.Parent.Parent.Utils.orbitalFx)
 local CharacterCore = require(ReplicatedStorage.GlobalShared.Core.CharacterCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local AbilitiesCore = require(ReplicatedStorage.Shared.Core.AbilitiesCore)
+local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
@@ -116,13 +116,25 @@ local beams: { [number]: TBeam } = {}
 -- The match is stopped: the beams' loops are paused.
 local isFrozen = false
 
-local function setClass(class: TData.TClass)
-	if AbilityController.Class == class and #AbilityController.Slots > 0 then return end
+-- `class`'s ability in `slot` at its level in `levels` (each slot's, the ultimate last).
+local function leveledAt(class: TData.TClass, levels: { number }, slot: number): TData.TAbility
+	return AbilitiesCore.AtLevel(AbilitiesCore.AbilityAt(class, slot) :: TData.TAbility, levels[slot] or 1)
+end
+
+local function setClass(class: TData.TClass, levels: { number })
+	-- The same class re-levelled in place, so a State that only brings the levels keeps each slot's cooldown.
+	if AbilityController.Class == class and #AbilityController.Slots > 0 then
+		for slot, state in AbilityController.Slots do
+			state.Ability = leveledAt(class, levels, slot)
+		end
+		return
+	end
+
 	AbilityController.Class = class
 	local slots = table.create(#class.Abilities + 1)
 	for slot = 1, #class.Abilities + 1 do
 		slots[slot] = {
-			Ability = AbilitiesCore.AbilityAt(class, slot) :: TData.TAbility,
+			Ability = leveledAt(class, levels, slot),
 			ReadyAt = 0,
 			UsedAt = -math.huge,
 			DeniedAt = -math.huge,
@@ -134,6 +146,10 @@ end
 
 local function playSound(name: string, position: Vector3)
 	SoundsCore.PlayWorldNamed(Tune.SOUND_GROUP, name, position)
+end
+
+local function playOnPart(name: string, part: BasePart)
+	SoundsCore.PlayNamedOnPart(Tune.SOUND_GROUP, name, part)
 end
 
 -- What the crosshair is over on the arena (never an enemy: a doll and a beam come down on the floor), or the floor's
@@ -155,16 +171,16 @@ local function castAhead(ability: TData.TAbility, root: BasePart, aim: Vector3)
 	if ability.Kind == "Decoy" then
 		CameraController.AddRecoil(Tune.DECOY_RECOIL, 0)
 		BodyPoseController.Kick(selfCharacter, Tune.DECOY_POSE_KICK)
-		playSound("DecoyThrow", root.Position)
+		playOnPart("DecoyThrow", root)
 	elseif ability.Kind == "FoamCannon" then
 		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
 		if flat.Magnitude > 0.5 then foamFx.Spray(root, flat.Unit) end
 		CameraController.AddRecoil(Tune.FOAM_RECOIL, 0)
 		CameraController.Shake(Tune.FOAM_SHAKE, Tune.SHAKE_ROUGHNESS, Tune.FOAM_SHAKE_SECONDS)
 		BodyPoseController.Kick(selfCharacter, Tune.FOAM_POSE_KICK)
-		playSound("FoamSpray", root.Position)
+		playOnPart("FoamSpray", root)
 	else
-		playSound("OrbitalCall", root.Position)
+		playOnPart("OrbitalCall", root)
 	end
 end
 
@@ -293,11 +309,12 @@ local function step(dt: number)
 	orbitalFx.Step(gameDt)
 end
 
-ServerNetworkAbilities.State.On(function(classId: number, charge: number)
+ServerNetworkAbilities.State.On(function(classId: number, levels: { number }, charge: number)
 	-- Sent as each character is ready, which is once every client knows its id: this is where the local one is read.
 	selfId = CharacterController.GetLocalCharacterId() or 0
-	setClass(AbilitiesCore.ClassOf(classId))
-	local needed = AbilityController.Class.Ultimate.ChargeKills or math.huge
+	setClass(AbilitiesCore.ClassOf(classId), levels)
+	local ultimate = AbilityController.Slots[AbilitiesCore.UltimateSlot(AbilityController.Class)]
+	local needed = ultimate.Ability.ChargeKills or math.huge
 	if charge >= needed and AbilityController.Charge < needed then AbilityController.ChargedAt = os.clock() end
 	AbilityController.Charge = charge
 end)
@@ -305,13 +322,19 @@ end)
 ServerNetworkAbilities.DecoyThrown.On(
 	function(decoyId: number, throwerId: number, feet: Vector3, flightSeconds: number, lifeSeconds: number)
 		local model = modelOf(throwerId)
-		local hand = if model then model:FindFirstChild("Right Arm") else nil
-		local from = if hand and hand:IsA("BasePart")
+		local arm = if model then model:FindFirstChild("Right Arm") else nil
+		local hand = if arm and arm:IsA("BasePart") then arm else nil
+		local from = if hand
 			then hand.Position
 			elseif model then model:GetPivot().Position
 			else feet + Vector3.new(0, 3, 0)
 		decoyFx.Throw(decoyId, model, from, feet, flightSeconds, lifeSeconds)
-		if throwerId ~= selfId then playSound("DecoyThrow", from) end
+		if throwerId == selfId then return end
+		if hand then
+			playOnPart("DecoyThrow", hand)
+		else
+			playSound("DecoyThrow", from)
+		end
 	end
 )
 
@@ -331,7 +354,7 @@ ServerNetworkAbilities.FoamSprayed.On(function(casterId: number, aim: Vector3)
 	local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
 	if flat.Magnitude < 0.5 then return end
 	foamFx.Spray(root, flat.Unit)
-	playSound("FoamSpray", root.Position)
+	playOnPart("FoamSpray", root)
 end)
 
 -- Only the bodies this client holds a row for; the rest it was never shown.
@@ -414,7 +437,7 @@ AbilityController.OnSelfCharacterRemoving = function()
 end :: TCharacterEvents.OnCharacterRemoving
 
 AbilityController.OnStart = function()
-	setClass(AbilityController.Class)
+	setClass(AbilityController.Class, {})
 	for slot, key in AbilityController.KEYS do
 		ContextActionService:BindAction(`Ability{slot}`, function(_, state)
 			if state == Enum.UserInputState.Begin then AbilityController.Cast(slot) end

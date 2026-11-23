@@ -165,8 +165,7 @@ type TFootsteps = {
 	Heading: Vector3,
 	HeadingSpeedSq: number,
 	HeadingTime: number,
-	-- The parts its feet are the bottom of (an R15 body's feet, an R6 one's legs), found on the first step after they
-	-- replicate, and half their height.
+	-- The legs its feet are the bottom of, found on the first step after they replicate, and half their height.
 	LeftLeg: BasePart?,
 	RightLeg: BasePart?,
 	LegHalf: number,
@@ -195,7 +194,9 @@ local defaultGaits: TGaits = {}
 
 local enemyAnimations = AnimationsFolder:FindFirstChild("Enemies")
 for _, animation in AnimationsFolder:GetDescendants() do
-	if not animation:IsA("Animation") or animation:IsDescendantOf(enemyAnimations) then continue end
+	if not animation:IsA("Animation") then continue end
+	-- The lobby has no Enemies folder, and IsDescendantOf(nil) is true for everything: it would skip every clip.
+	if enemyAnimations and animation:IsDescendantOf(enemyAnimations) then continue end
 	local isRun = string.sub(animation.Name, 1, #RUN_ANIM_PREFIX) == RUN_ANIM_PREFIX
 	clipGaits[animation.AnimationId] = if isRun then "Run" else "Walk"
 end
@@ -262,8 +263,8 @@ local function footOn(state: TFootsteps, floor: RaycastResult, foot: string?): V
 	if not left or not right then
 		local character = state.Root.Parent
 		if character then
-			left = (character:FindFirstChild("LeftFoot") or character:FindFirstChild("Left Leg")) :: BasePart?
-			right = (character:FindFirstChild("RightFoot") or character:FindFirstChild("Right Leg")) :: BasePart?
+			left = character:FindFirstChild("Left Leg") :: BasePart?
+			right = character:FindFirstChild("Right Leg") :: BasePart?
 		end
 		if not left or not right then
 			state.IsLeftStep = isLeft

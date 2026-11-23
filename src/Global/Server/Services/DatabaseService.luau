@@ -29,6 +29,7 @@ local DEFAULT: TProfile.TProfile = {
 	Level = 1,
 	OwnedClasses = { EClassesIds.Human },
 	SelectedClass = EClassesIds.Human,
+	Loadout = { Owned = {}, Equipped = {} },
 	Quests = {},
 	Achievements = {},
 	Records = {},
@@ -166,7 +167,9 @@ end :: TPlayerEvents.OnPlayerConnected
 
 DatabaseService.OnPlayerDisconnected = function(player: Player)
 	local document = getOpenDocument(player)
-	if document then document:Close() end
+	-- Deferred, so what the other OnPlayerDisconnected hooks write as the player leaves (the run they walked out of)
+	-- is in the save: this one is connected first, since every service that writes requires this one.
+	if document then task.defer(document.Close, document) end
 end :: TPlayerEvents.OnPlayerDisconnected
 
 return Ignis.Register(DatabaseService)

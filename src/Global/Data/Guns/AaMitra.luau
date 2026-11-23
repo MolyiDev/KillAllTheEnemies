@@ -17,6 +17,8 @@ local data: TData.TGun = {
 	HitRadius = 0.45,
 	Length = 3.2,
 	Hold = "Rifle",
+	Hands = { Right = Vector2.new(0.32, 0.27), Left = Vector2.new(0.63, 0.2) },
+	Barrel = 0.63,
 	Sound = "SMG",
 }
 

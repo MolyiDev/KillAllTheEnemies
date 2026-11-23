@@ -9,7 +9,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local CoinFlight = require(script.Parent.Parent.Parent.Utils.coinFlight)
-local GunPicture = require(script.Parent.GunPicture)
+local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local HealthBar = require(script.Parent.HealthBar)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
@@ -187,9 +187,7 @@ local function money(state: Types.THudState): Frame
 	end
 
 	local jolt = function(): number
-		local t = math.clamp((1 - state.GoldDenied()) * 3, 0, 1)
-		if t >= 1 then return 0 end
-		return JOLT * math.sin(t * math.pi * 2) * (1 - t)
+		return JOLT * Motion.Shake(math.clamp((1 - state.GoldDenied()) * 3, 0, 1), state.GoldDeniedAt())
 	end
 
 	-- Seconds since a Gold pack arrived, held at TOTAL once its show is over: state.Now ticks for every coin that

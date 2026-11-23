@@ -19,6 +19,8 @@ local data: TData.TGun = {
 	Length = 3.6,
 	IsFlipped = true,
 	Hold = "Heavy",
+	Hands = { Right = Vector2.new(0.09, 0.82), Left = Vector2.new(0.42, 0.74) },
+	Barrel = 0.54,
 	Sound = "StarterMinigun",
 	ReleaseSound = "StarterMinigunRelease",
 	Fx = "MinigunFx",

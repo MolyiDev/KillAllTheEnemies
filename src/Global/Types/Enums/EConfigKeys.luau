@@ -2,4 +2,6 @@
 -- MainConfig.json, which tools/configs/upload.py publishes; the upload refuses a key missing here.
 return table.freeze({
 	Enemies = "Enemies",
+	-- Server only (ConfigsService never sends it): the redeemable codes.
+	Codes = "Codes",
 })

@@ -7,7 +7,10 @@
     ],
     "globIgnorePaths": [
         "**/package.json",
-        "**/tsconfig.json"
+        "**/tsconfig.json",
+        // Offline renders (ror / ree / rur) sit beside their kit's sources; their recordings are not game models.
+        "Assets/**/preview",
+        "Assets/**/preview/**"
     ],
     "tree": {
         "$className": "DataModel",
@@ -165,7 +168,17 @@
             },
             "Models": {
                 "$className": "Folder",
-                "$ignoreUnknownInstances": true
+                "$ignoreUnknownInstances": true,
+                // The abilities' models, for the classes screen's ability cards (as the Game place's, which says where
+                // they are made). Rojo's too.
+                "Abilities": {
+                    "$path": "Assets/models/Abilities/ability_models.rbxmx"
+                },
+                // The guns, for the weapons screen's cards and stage (as the Game place's, which says where they are
+                // made). Rojo's too.
+                "Guns": {
+                    "$path": "Assets/models/Guns"
+                }
             }
         },
         "ServerScriptService": {
@@ -226,13 +239,6 @@
         "SoundService": {
             "$className": "SoundService",
             "$ignoreUnknownInstances": true,
-            "Ambient": {
-                "$className": "SoundGroup",
-                "$ignoreUnknownInstances": true,
-                "$properties": {
-                    "Volume": 0.5
-                }
-            },
             "Effects": {
                 "$className": "SoundGroup",
                 "$ignoreUnknownInstances": true,

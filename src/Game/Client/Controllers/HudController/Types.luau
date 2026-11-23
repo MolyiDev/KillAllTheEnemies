@@ -213,15 +213,6 @@ export type TBossBar = {
 	DefeatedAt: Source<number>,
 }
 
--- A top bar icon wearing the HUD's panel (Topbar.luau): what the hand is doing to it.
-export type TTopbarSkin = {
-	-- His Squad button wears corner brackets; his Settings button does not.
-	HasBrackets: boolean,
-	IsHovered: Source<boolean>,
-	IsSelected: () -> boolean,
-	PressedAt: Source<number>,
-}
-
 export type THudState = {
 	Scale: Source<number>,
 	-- os.clock, written only in frames where something is moving (init's motion window), so a quiet HUD redraws
@@ -256,9 +247,10 @@ export type THudState = {
 	Gold: Source<number>,
 	-- The counter rolls toward Gold rather than jumping (GDD 17).
 	GoldShown: Source<number>,
-	-- 1 when Gold came in, fading; 1 when a purchase was refused for want of it, fading.
+	-- 1 when Gold came in, fading; 1 when a purchase was refused for want of it, fading, and when it was refused.
 	GoldPulse: Source<number>,
 	GoldDenied: Source<number>,
+	GoldDeniedAt: Source<number>,
 
 	Health: Source<number>,
 	MaxHealth: Source<number>,
@@ -272,8 +264,9 @@ export type THudState = {
 	-- The local character's head, for the health over it, and whether the camera is inside it.
 	Head: Source<BasePart?>,
 	IsFirstPerson: Source<boolean>,
-	-- The red screen edge (GDD 9): a hit flashes it, low health holds a little of it.
+	-- The screen edge (GDD 9): a hit flashes it red, low health holds a little red, a wave done flashes it green.
 	Vignette: Source<number>,
+	VignetteColor: Source<Color3>,
 
 	Defenses: { TDefenseCard },
 	-- Everyone in the run, the local player first.

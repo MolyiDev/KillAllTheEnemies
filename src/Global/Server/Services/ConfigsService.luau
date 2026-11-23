@@ -13,6 +13,11 @@ local ServerNetworkConfigs = NetworkMeta.Server.Configs
 
 local ConfigsService = {}
 
+-- Kept on the server: every client would otherwise hold the whole list of codes, the private ones too.
+local SERVER_ONLY = table.freeze({
+	[EConfigKeys.Codes] = true,
+})
+
 local function encode(value: any): string
 	if value == nil then return "" end
 	return HttpService:JSONEncode(value)
@@ -24,7 +29,7 @@ local function sendLoadedConfigs(player: Player)
 	local count = 0
 
 	for _, key in EConfigKeys do
-		if not ConfigsCore.IsLoaded(key) then continue end
+		if SERVER_ONLY[key] or not ConfigsCore.IsLoaded(key) then continue end
 		count += 1
 		keys[count] = key
 		jsonValues[count] = encode(ConfigsCore.Get(key))
@@ -38,6 +43,7 @@ end
 ConfigsService.OnPlayerConnected = sendLoadedConfigs
 
 for _, key in EConfigKeys do
+	if SERVER_ONLY[key] then continue end
 	ConfigsCore.Observe(key, function(value)
 		ServerNetworkConfigs.ConfigChanged.FireAll(key, encode(value))
 	end)

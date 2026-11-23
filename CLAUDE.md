@@ -182,7 +182,7 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
   step-sized links, so it runs up a stair but never onto a deck over it, off a ledge or through a wall). Both sides
   flood the same grid, so `TelegraphController` draws exactly what hits.
 - **WeaponService** + **GunsCore**: guns (`Data/Guns`, the old Game place's 20; models in `ReplicatedStorage.Models.Guns`
-  from `Assets/models/Guns`). A gun is a Tool built from its model (`Server/Utils/buildGunTool`). The client sends
+  from `Assets/models/Guns`). A gun is a Tool built from its model (`GlobalServer.Utils.buildGunTool`). The client sends
   only its aim point (`Weapons.Fire`); the server shoots from the character's head with its own seed and spread,
   tests the arena and the enemies' aim shapes (`GunsCore.RayCylinder` over the spatial hash, no rewind yet: a
   `LAG_PAD` instead) and pays one `DamageMultiple` per damage figure. A gun's bullets can go on through bodies
@@ -190,7 +190,7 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
   flash, sound, kick; holding a gun, the body faces the aim with the cursor free too), `BodyPoseController` (every
   R6 body's sprung lean, legs turned toward the walk and a backwards walk clip when backpedalling, and an armed
   body's arms and torso on its aim; others' aim is relayed by `Weapons.Aims` from the camera sync),
-  `ViewmodelController` (first person). The `gun <name>` console command swaps the gun.
+  `ViewmodelController` (first person; `Viewmodel.md` is how to add or fix a gun's hold, and how to measure it for the back). The `gun <name>` console command swaps the gun.
 - **AbilityService** + **AbilitiesCore**: classes (`Data/Classes`, two abilities and an ultimate each; everybody is
   Human until a class is picked, `TProfile.SelectedClass`). The client sends a slot and its aim (`Abilities.Cast`);
   cooldowns, the ultimate's meter (kills, never time) and every effect are the server's. A Decoy is a lure

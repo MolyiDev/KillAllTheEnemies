@@ -48,6 +48,16 @@ function Motion.Swing(t: number): number
 	return math.sin(t * math.pi * 3) * (1 - t) * (1 - t)
 end
 
+-- A refusal's shake of the head, -1 to 1 as `t` runs 0 to 1: out to one side at once, as far out to the other, then
+-- eased back onto the mark. `at` is the refusal's stamp: its millisecond picks the side, so one refusal after another
+-- does not always lean the same way, and the side holds for the whole shake.
+function Motion.Shake(t: number, at: number): number
+	if t <= 0 or t >= 1 then return 0 end
+	local side = if math.floor(at * 1000) % 2 == 0 then 1 else -1
+	if t < 0.75 then return side * math.sin(t * math.pi * 2) end
+	return -side * (1 + math.cos((t - 0.75) * 4 * math.pi)) / 2
+end
+
 -- 1 at `at`, falling to 0 over `seconds`: a flash or a punch.
 function Motion.Fade(now: number, at: number, seconds: number): number
 	return 1 - math.clamp((now - at) / seconds, 0, 1)

@@ -85,9 +85,11 @@ local Timing = table.freeze({
 
 -- The countdown's last seconds each send a ring out.
 local HOT_SECONDS = 3
--- How far a shockwave grows past its element, in px.
+-- A shockwave's line, and how far it grows past its element, in px.
+local RING_LINE = 3
 local RING_REACH = 20
-local COUNT_RING_REACH = 24
+-- The countdown's ring stops 2 px short of the NEXT WAVE IN plate above it.
+local COUNT_RING_REACH = Layout.COUNT_GAP - RING_LINE - 2
 -- SKIP WAVE's brackets stand off it this far, and open this much more under the hand.
 local SKIP_BRACKETS = 5
 local SKIP_BRACKETS_OPEN = 3
@@ -124,7 +126,7 @@ local function shockwave(state: Types.THudState, at: () -> number?, reach: numbe
 		ZIndex = 0,
 		create("UIStroke")({
 			Color = Palette.Pink,
-			Thickness = 3,
+			Thickness = RING_LINE,
 			LineJoinMode = Enum.LineJoinMode.Miter,
 			-- Spent or not started: unseen. Otherwise it fades from 0.15 on the clock.
 			Transparency = function()

@@ -3,7 +3,7 @@
 -- here and not in gunFx's LOOKS. Delete this file with the bench.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local gunFx = require(script.Parent.gunFx)
+local gunFx = require(script.Parent.Parent.Parent.GlobalClient.Utils.gunFx)
 
 local bulletBenchStyles = {}
 
