@@ -250,6 +250,33 @@ function Receipts.Build(offer: ShopCore.TOffer, context: TContext, featuredGun: 
 	return receipt
 end
 
+-- The receipt for a friend's first join by this player's invite (Invites.Rewarded): `name` is the friend's, and
+-- `friends` of the most there can be have paid now.
+function Receipts.Invite(name: string, gems: number, friends: number, most: number): Types.TReceipt
+	return {
+		Offer = "",
+		Tab = "FRIEND JOINED!",
+		Name = string.upper(name),
+		Accent = Palette.Green,
+		Picture = EIcons.AddFriend,
+		Art = "Rays",
+		-- The lobby's INVITE FRIENDS card glows pink.
+		ArtAccent = Palette.Pink,
+		Rows = {
+			gemsRow(gems, true),
+			{
+				Count = friends,
+				Prefix = "",
+				Suffix = ` / {most}`,
+				Text = "FRIENDS INVITED",
+				Accent = Palette.Green,
+				Picture = EIcons.AddFriend,
+			},
+		},
+		Tier = "Legendary",
+	}
+end
+
 -- How long a count rolls up: a little longer for every digit.
 function Receipts.RollSeconds(count: number): number
 	return Timing.ROLL + Timing.ROLL_PER_DIGIT * math.floor(math.log10(math.max(1, count)))

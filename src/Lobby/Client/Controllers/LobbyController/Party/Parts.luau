@@ -11,6 +11,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
+local padlock = require(script.Parent.Parent.Parent.Parent.Utils.padlock)
 local Types = require(script.Parent.Parent.Types)
 
 local create = vide.create
@@ -39,14 +40,49 @@ Parts.Timing = table.freeze({
 	BAR_PERIOD = 0.9,
 })
 
+-- A map's unlock on the party screen, in seconds from its start (state.UnlockAt): its requirements tick off one after
+-- another, the padlock strains twice, then opens as the index's do (padlock, from LOCK); as the shackle clicks the veil
+-- lifts off the picture with a flash and a ring and the map takes its colour, the path's track runs on to it and its
+-- point lights, and NEW slaps onto the corner. The host is held on it (no other map, no EXIT, no CREATE) until HOLD.
+Parts.Unlock = table.freeze({
+	ROWS = 0,
+	ROW_STAGGER = 0.16,
+	ROW_STAMP = 0.3,
+	STRAIN_1 = 0.42,
+	STRAIN_2 = 0.68,
+	STRAIN = 0.24,
+	STRAIN_DEGREES_1 = 5,
+	STRAIN_DEGREES_2 = 9,
+	LOCK = 0.95,
+	CLICK = 0.95 + padlock.CLICK_SECONDS,
+	-- The picture comes out from under the veil over OPEN, taking its colour, and throws its flash and ring.
+	RELEASE = 0.95 + padlock.CLICK_SECONDS + 0.04,
+	OPEN = 0.4,
+	FLASH = 0.45,
+	FLASH_PEAK = 0.7,
+	RING = 0.6,
+	RING_REACH = 40,
+	POP = 0.06,
+	-- The track runs on to the map's point, which then lights with a ring of its own.
+	TRACK = 1.3,
+	TRACK_RUN = 0.38,
+	NODE_RING = 0.5,
+	RIBBON = 1.5,
+	-- The '?' after it turns into the next map, locked, and a new '?' is dealt in past it.
+	REVEAL = 1.75,
+	HOLD = 1.85,
+	SECONDS = 2.4,
+})
+
 -- His rule's lavender, sampled off the art.
 Parts.RULE = Color3.fromRGB(140, 111, 210)
 Parts.RULE_TRANSPARENCY = 0.55
 -- His dark plaque (the tab not on show): a dim pink edge round an ink face.
 Parts.PLAQUE_EDGE = Color3.fromRGB(116, 26, 72)
 Parts.PLAQUE_FACE = Color3.fromRGB(10, 7, 21)
--- A locked map's grey.
+-- A locked map's grey, and its name's, as white under the veil's dark.
 Parts.LOCKED = Color3.fromRGB(100, 88, 116)
+Parts.SHUT_NAME = Color3.fromRGB(104, 98, 116)
 -- A countdown bar's empty track, his bar track's dark lavender.
 Parts.BAR_TRACK = Color3.fromRGB(58, 50, 86)
 -- How much of a map's colour is left in its window's dark behind the picture.
@@ -84,7 +120,56 @@ function Parts.PickedMap(state: Types.TLobbyState): MapsCore.TMap
 end
 
 function Parts.IsLocked(state: Types.TLobbyState, map: MapsCore.TMap): boolean
-	return not MapsCore.IsUnlockedBy(map, state.BestByMap())
+	return not MapsCore.IsUnlockedBy(map, state.Level(), state.BossKills())
+end
+
+-- Seconds into map `index`'s unlock (negative before it starts), or nil when it has none running. Reads the clock only
+-- while one is due or running, so a map unlocked long ago works nothing out per frame.
+function Parts.Unlocking(state: Types.TLobbyState, index: number): number?
+	if state.UnlockMap() ~= index then return nil end
+	local at = state.UnlockAt()
+	if os.clock() - at > Parts.Unlock.SECONDS then return nil end
+	return state.Now() - at
+end
+
+-- How open map `index` looks, 0 (under its padlock) to 1: open once its unlock has played, opening as it plays.
+function Parts.Opened(state: Types.TLobbyState, index: number): number
+	local map = MapsCore.LIST[index]
+	if not map or Parts.IsLocked(state, map) then return 0 end
+	if not MapsCore.HasRequirement(map) then return 1 end
+	local unlocking = Parts.Unlocking(state, index)
+	if unlocking then return Progress(unlocking, 0, Parts.Unlock.OPEN, Parts.Unlock.RELEASE) end
+	return if state.MapsShown()[map.Name] then 1 else 0
+end
+
+-- Whether map `index` is reached on the path: open, and its unlock (if one is playing) past its REVEAL.
+local function isReached(state: Types.TLobbyState, index: number): boolean
+	local unlocking = Parts.Unlocking(state, index)
+	if unlocking then return unlocking >= Parts.Unlock.REVEAL end
+	return Parts.Opened(state, index) >= 1
+end
+
+-- How many points the path shows: every map reached, the next one (locked), and a '?' past them, which is there even
+-- when no map is left after them: what comes next is never shown before the player gets that far.
+function Parts.PathCount(state: Types.TLobbyState): number
+	local reached = 0
+	for index in MapsCore.LIST do
+		if not isReached(state, index) then break end
+		reached = index
+	end
+
+	return math.min(reached + 1, #MapsCore.LIST) + 1
+end
+
+-- Map `index` as a path of `count` points (PathCount) shows it: nil for the '?' at its end (and past it).
+function Parts.ShownMap(index: number, count: number): MapsCore.TMap?
+	return if index < count then MapsCore.LIST[index] else nil
+end
+
+-- Whether an unlock holds the host on its map: no other map, no EXIT, no CREATE.
+function Parts.IsHeld(state: Types.TLobbyState): boolean
+	local unlocking = Parts.Unlocking(state, state.UnlockMap())
+	return unlocking ~= nil and unlocking < Parts.Unlock.HOLD
 end
 
 function Parts.BestOf(state: Types.TLobbyState, map: MapsCore.TMap): number
@@ -158,14 +243,17 @@ function Parts.Header(props: { At: Vector2, Width: number, Picture: string, Word
 	})
 end
 
--- A map's picture filling its parent, its initials big and faint on its colour while it has none. `initialsScale` is
--- how big the letters are against 100 px (TextSize stops at 100, so they are drawn at that and scaled up).
-function Parts.Picture(map: () -> MapsCore.TMap, initialsScale: number, props: { [any]: any }): Frame
+-- A map's picture filling its parent, its initials big and faint on its colour while it has none, or the locked grey
+-- alone for the path's '?' (a nil map). `initialsScale` is how big the letters are against 100 px (TextSize stops at
+-- 100, so they are drawn at that and scaled up).
+function Parts.Picture(map: () -> MapsCore.TMap?, initialsScale: number, props: { [any]: any }): Frame
 	local shot = derive(function(): string?
-		return Parts.PICTURES[map().Name]
+		local shown = map()
+		return if shown then Parts.PICTURES[shown.Name] else nil
 	end)
 	local accent = derive(function(): Color3
-		return Parts.AccentOf(map())
+		local shown = map()
+		return if shown then Parts.AccentOf(shown) else Parts.LOCKED
 	end)
 
 	return create("Frame")({
@@ -200,10 +288,11 @@ function Parts.Picture(map: () -> MapsCore.TMap, initialsScale: number, props: {
 			TextColor3 = accent,
 			TextTransparency = 0.78,
 			Visible = function()
-				return shot() == nil
+				return shot() == nil and map() ~= nil
 			end,
 			Text = function()
-				return Parts.Initials(map().DisplayName)
+				local shown = map()
+				return if shown then Parts.Initials(shown.DisplayName) else ""
 			end,
 			ZIndex = 4,
 			create("UIScale")({ Scale = initialsScale }),

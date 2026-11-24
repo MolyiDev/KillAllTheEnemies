@@ -1,7 +1,8 @@
 -- The maps. Every map is played in the one Game place (EPlaceIds.Game), which places the map its party queued for
 -- from ServerStorage.Maps by name. Records are kept per map and party category.
 --
--- LIST's order is the map's number on the network: append, never reorder.
+-- LIST's order is the map's number on the network (append, never reorder) and the order they are played in: each
+-- opens on the player's level and on beating the boss of the map before it.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TProfile = require(ReplicatedStorage.Types.TProfile)
 
@@ -9,9 +10,10 @@ export type TMap = {
 	-- Also the map's Model under ServerStorage.Maps in the Game place.
 	Name: string,
 	DisplayName: string,
-	-- The record that opens it: HighestCompleted on `UnlockRecordMap` at least `UnlockRound`. 0 is always open.
-	UnlockRound: number,
-	UnlockRecordMap: string?,
+	-- What opens it: the player's level, and how many times they were in the run as the boss of the map before it in
+	-- LIST fell (TProfile.BossKills). 0 and 0 is always open.
+	UnlockLevel: number,
+	UnlockBossKills: number,
 }
 
 local MapsCore = {}
@@ -21,9 +23,9 @@ MapsCore.DEFAULT = "Baseplate"
 -- number on the network (append, never reorder); the name is what travels to the match and is saved.
 MapsCore.DIFFICULTIES = table.freeze({ "Normal", "Hard", "Nightmare", "Hell" })
 MapsCore.LIST = table.freeze({
-	table.freeze({ Name = "PirateCove", DisplayName = "Pirate Cove", UnlockRound = 0 }),
-	table.freeze({ Name = "GrassLands", DisplayName = "Grass Lands", UnlockRound = 0 }),
-	table.freeze({ Name = "Baseplate", DisplayName = "Baseplate", UnlockRound = 0 }),
+	table.freeze({ Name = "PirateCove", DisplayName = "Pirate Cove", UnlockLevel = 0, UnlockBossKills = 0 }),
+	table.freeze({ Name = "GrassLands", DisplayName = "Grass Lands", UnlockLevel = 10, UnlockBossKills = 3 }),
+	table.freeze({ Name = "Baseplate", DisplayName = "Baseplate", UnlockLevel = 20, UnlockBossKills = 3 }),
 }) :: { TMap }
 
 local maps: { [string]: TMap } = {}
@@ -52,24 +54,37 @@ function MapsCore.BestCompleted(profile: TProfile.TProfile, mapName: string): nu
 	return best
 end
 
--- From each map's best completed round, by map name: the client has these (Lobby.MapRecords), not the profile.
-function MapsCore.IsUnlockedBy(map: TMap, bestByMap: { [string]: number }): boolean
-	if map.UnlockRound <= 0 then return true end
-	return (bestByMap[map.UnlockRecordMap or map.Name] or 0) >= map.UnlockRound
+-- The map played before `map`, whose boss opens it; nil for the first.
+function MapsCore.PreviousOf(map: TMap): TMap?
+	local index = indexes[map.Name]
+	return if index then MapsCore.LIST[index - 1] else nil
+end
+
+-- Whether it asks for anything: the first map is open from the start, and has no unlock to play.
+function MapsCore.HasRequirement(map: TMap): boolean
+	return map.UnlockLevel > 0 or map.UnlockBossKills > 0
+end
+
+-- From the player's level and their boss kills by map name: the client has these (Lobby.MapRecords and Profile.Sync),
+-- not the profile.
+function MapsCore.IsUnlockedBy(map: TMap, level: number, bossKills: { [string]: number }): boolean
+	if level < map.UnlockLevel then return false end
+	if map.UnlockBossKills <= 0 then return true end
+	local previous = MapsCore.PreviousOf(map)
+	return previous == nil or (bossKills[previous.Name] or 0) >= map.UnlockBossKills
 end
 
 function MapsCore.IsUnlocked(profile: TProfile.TProfile, mapName: string): boolean
 	local map = MapsCore.MAPS[mapName]
 	if not map then return false end
-	if map.UnlockRound <= 0 then return true end
-	return MapsCore.BestCompleted(profile, map.UnlockRecordMap or mapName) >= map.UnlockRound
+	return MapsCore.IsUnlockedBy(map, profile.Level, profile.BossKills or {})
 end
 
--- What the matchmaking shows on a locked map (GDD 8: show the exact requirement).
+-- What a refusal to join a locked map's party says (GDD 8: show the exact requirement).
 function MapsCore.RequirementText(map: TMap): string
-	local recordMap = MapsCore.MAPS[map.UnlockRecordMap or map.Name]
-	local recordName = if recordMap then recordMap.DisplayName else map.Name
-	return `Clear wave {map.UnlockRound} on {recordName}`
+	local previous = MapsCore.PreviousOf(map)
+	if map.UnlockBossKills <= 0 or not previous then return `Reach level {map.UnlockLevel}` end
+	return `Reach level {map.UnlockLevel} and beat the boss of {previous.DisplayName} {map.UnlockBossKills} times`
 end
 
 return MapsCore

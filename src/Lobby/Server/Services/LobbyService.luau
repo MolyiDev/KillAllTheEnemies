@@ -2,7 +2,8 @@
 -- match together. The first player on an empty pad is its host and picks the party (size, map, access); the Play
 -- button puts a player on a free pad as host, or into an open party. Joining puts the body on its spot at once
 -- (PadsCore.SPOTS: the host in the middle, the rest at the sides), held there (its root anchored) until Exit, so a step
--- aside cannot drop anyone out of a party that is about to leave.
+-- aside cannot drop anyone out of a party that is about to leave. A party with room can invite anyone in the server, and
+-- JOIN on the invite puts them on its pad from wherever they stand.
 --
 -- The client only carries a one-time token (GlobalServer.Utils.JoinData), so nothing it can edit reaches the match.
 -- Zones are polled, not Touched: a poll cannot miss a player who teleported or respawned onto a pad.
@@ -30,6 +31,7 @@ local ClientNetworkLobby = NetworkMeta.Client.Lobby
 
 local EPhase = PadsCore.EPhase
 local ERefusal = PadsCore.ERefusal
+local EInvite = PadsCore.EInvite
 
 local Tune = table.freeze({
 	ZONE_POLL_SECONDS = 0.2,
@@ -48,6 +50,10 @@ local Tune = table.freeze({
 	-- How far outside a pad's zone (studs) a body that says it stepped in may still be here: its position arrives a
 	-- frame or two after its request.
 	STEP_SLACK = 3,
+	-- A JOIN this late on an invite still counts: it left the invitee's screen up to a round trip ago.
+	INVITE_SLACK_SECONDS = 1.5,
+	-- How soon the same player may invite the same player again: a press held down is one invite.
+	INVITE_COOLDOWN_SECONDS = 3,
 })
 
 local NO_COUNTDOWN = -1
@@ -72,7 +78,12 @@ type TPad = {
 	-- cost nothing until used, so a cancelled countdown keeps its code for the next one.
 	ReservedCode: string?,
 	IsReserving: boolean,
+	-- Counts the parties the pad has held: an invite names the party it came from, not a later one on the same pad.
+	Run: number,
 }
+
+-- An invite a player holds from a party: who sent it, that party's Run, and the os.clock() it lapses at.
+type TInvite = { From: Player, Run: number, EndsAt: number }
 
 local LobbyService = {}
 
@@ -90,6 +101,12 @@ local refusalSent: { [Player]: TPad } = {}
 local friendsOf: { [Player]: { [number]: boolean } } = {}
 local friendFetching: { [Player]: { [number]: boolean } } = {}
 local pollAccumulator = 0
+-- The invites each player holds, by the pad they came from.
+local invitesTo: { [Player]: { [TPad]: TInvite } } = {}
+-- When each player last invited each other one (by user id), and until when a party a player turned down may not
+-- invite them again (by pad, for its Run).
+local invitedAt: { [Player]: { [number]: number } } = {}
+local declinedUntil: { [Player]: { [TPad]: { Run: number, Until: number } } } = {}
 
 local function secondsLeft(pad: TPad): number
 	local endsAt = pad.EndsAt
@@ -131,6 +148,7 @@ local function refuse(player: Player, pad: TPad, reason: number)
 end
 
 local function resetPad(pad: TPad)
+	pad.Run += 1
 	pad.Phase = EPhase.Empty
 	pad.Host = nil
 	table.clear(pad.Spots)
@@ -187,8 +205,9 @@ local function isFriendOfHost(player: Player, host: Player): boolean?
 	return nil
 end
 
--- Whether the player could join this pad now, and the refusal to show if not (0 for one that needs no notice).
-local function canJoin(player: Player, pad: TPad): (boolean, number)
+-- Whether the player could join this pad now, and the refusal to show if not (0 for one that needs no notice). A
+-- player the party invited needs no friendship with its host.
+local function canJoin(player: Player, pad: TPad, isInvited: boolean?): (boolean, number)
 	if pad.Phase == EPhase.Empty then return true, 0 end
 	if pad.Phase == EPhase.Choosing then return false, ERefusal.Busy end
 	if pad.Phase ~= EPhase.Open or #pad.Members >= pad.MaxPlayers then return false, 0 end
@@ -199,7 +218,7 @@ local function canJoin(player: Player, pad: TPad): (boolean, number)
 	if not MapsCore.IsUnlocked(profile, pad.Map.Name) then return false, ERefusal.Locked end
 
 	local host = pad.Host
-	if pad.IsFriendsOnly and host and host ~= player then
+	if pad.IsFriendsOnly and host and host ~= player and not isInvited then
 		local isFriend = isFriendOfHost(player, host)
 		if isFriend == nil then return false, 0 end
 		if not isFriend then return false, ERefusal.FriendsOnly end
@@ -211,6 +230,20 @@ end
 local function getRoot(player: Player): BasePart?
 	local characterEntity = getCharacterEntityFromPlayer(player)
 	return if characterEntity then World:get(characterEntity, Components.HumanoidRootPart) else nil
+end
+
+-- Why the party on `pad` may not invite `target` now (PadsCore.EInvite), or nil when it may.
+local function inviteRefusal(target: Player, pad: TPad): number?
+	local onPad = padOfPlayer[target]
+	if onPad then return if onPad == pad then EInvite.Joined else EInvite.InParty end
+	if #pad.Members >= pad.MaxPlayers then return EInvite.Full end
+	local profile = DatabaseService.Get(target)
+	if not profile or not getRoot(target) then return EInvite.Away end
+	if not MapsCore.IsUnlocked(profile, pad.Map.Name) then return EInvite.Locked end
+	local turnedDown = declinedUntil[target]
+	local declined = if turnedDown then turnedDown[pad] else nil
+	if declined and declined.Run == pad.Run and os.clock() < declined.Until then return EInvite.Declined end
+	return nil
 end
 
 -- The body's root standing on the pad's top over the pad-space point (x, z), facing as it does now. Written to the
@@ -268,15 +301,16 @@ local function release(player: Player, pad: TPad)
 	rootPart.CFrame = standingAt(pad, rootPart, 0, pad.Part.Size.Z / 2 + Tune.EXIT_STUDS)
 end
 
-function LobbyService.Join(player: Player, pad: TPad)
+function LobbyService.Join(player: Player, pad: TPad, isInvited: boolean?)
 	if padOfPlayer[player] then return end
-	local isAllowed, refusal = canJoin(player, pad)
+	local isAllowed, refusal = canJoin(player, pad, isInvited)
 	if not isAllowed then
 		if refusal ~= 0 then refuse(player, pad, refusal) end
 		return
 	end
 
 	refusalSent[player] = nil
+	invitesTo[player] = nil
 	local spot = freeSpot(pad)
 	pad.Members[#pad.Members + 1] = player
 	pad.Spots[player] = spot
@@ -323,6 +357,26 @@ function LobbyService.Leave(player: Player)
 	release(player, pad)
 	if player.Parent then ServerNetworkLobby.PadJoined.Fire(player, 0) end
 	sendState(pad)
+end
+
+-- The menu's locks and requirements (GDD 8: show the exact requirement in matchmaking): each map's best wave, its boss
+-- kills and whether its unlock has played. Sent as the profile loads and as a console command changes them: the rest
+-- only change in a match.
+function LobbyService.SendMapRecords(player: Player)
+	local profile = DatabaseService.Get(player)
+	if not profile then return end
+	local bossKills = profile.BossKills or {}
+	local shown = profile.MapsShown or {}
+	local records = table.create(#MapsCore.LIST)
+	for index, map in MapsCore.LIST do
+		records[index] = {
+			Best = math.min(MapsCore.BestCompleted(profile, map.Name), 65535),
+			BossKills = math.min(bossKills[map.Name] or 0, 65535),
+			IsShown = shown[map.Name] == true,
+		}
+	end
+
+	ServerNetworkLobby.MapRecords.Fire(player, records)
 end
 
 -- Stores the payload and reserves a server at the same time, returning the access code. Errors re-raise so the
@@ -477,6 +531,7 @@ LobbyService.OnStart = function()
 			EndsAt = nil,
 			ReservedCode = nil,
 			IsReserving = false,
+			Run = 0,
 		}
 		pads[index] = pad
 	end
@@ -497,17 +552,8 @@ LobbyService.OnPlayerConnected = function(player: Player)
 	end
 end :: TPlayerEvents.OnPlayerConnected
 
--- The menu's locks and requirements (GDD 8: show the exact requirement in matchmaking). Records only change in a
--- match, so once per visit is enough.
 LobbyService.OnDataLoaded = function(player: Player)
-	local profile = DatabaseService.Get(player)
-	if not profile then return end
-	local bests = table.create(#MapsCore.LIST)
-	for index, map in MapsCore.LIST do
-		bests[index] = math.min(MapsCore.BestCompleted(profile, map.Name), 65535)
-	end
-
-	ServerNetworkLobby.MapRecords.Fire(player, bests)
+	LobbyService.SendMapRecords(player)
 end :: TPlayerEvents.OnDataLoaded
 
 LobbyService.OnPlayerDisconnected = function(player: Player)
@@ -516,6 +562,9 @@ LobbyService.OnPlayerDisconnected = function(player: Player)
 	refusalSent[player] = nil
 	friendsOf[player] = nil
 	friendFetching[player] = nil
+	invitesTo[player] = nil
+	invitedAt[player] = nil
+	declinedUntil[player] = nil
 end :: TPlayerEvents.OnPlayerDisconnected
 
 -- The Exit button. Leaving is always allowed but for a party already on its way.
@@ -548,12 +597,93 @@ ClientNetworkLobby.Play.On(function(player: Player)
 	LobbyService.Join(player, pad)
 end)
 
+-- Anyone in an open party with room may invite anyone in this server who could join it. The invitee holds it until it
+-- lapses or they answer; a second press on the same player is the same invite and is not sent again.
+ClientNetworkLobby.InvitePlayer.On(function(player: Player, userId: number)
+	local pad = padOfPlayer[player]
+	if not pad or pad.Phase ~= EPhase.Open then return end
+	local target = Players:GetPlayerByUserId(userId)
+	if not target or target == player then return end
+	local sent = invitedAt[player]
+	if not sent then
+		sent = {}
+		invitedAt[player] = sent
+	end
+	local now = os.clock()
+	if now - (sent[userId] or -math.huge) < Tune.INVITE_COOLDOWN_SECONDS then return end
+	sent[userId] = now
+
+	local refusal = inviteRefusal(target, pad)
+	if refusal then
+		ServerNetworkLobby.InviteAnswered.Fire(player, userId, refusal)
+		return
+	end
+
+	local held = invitesTo[target]
+	if not held then
+		held = {}
+		invitesTo[target] = held
+	end
+	local current = held[pad]
+	local isNew = not current or current.Run ~= pad.Run or now >= current.EndsAt
+	if isNew then
+		held[pad] = { From = player, Run = pad.Run, EndsAt = now + PadsCore.INVITE_SECONDS }
+		ServerNetworkLobby.Invited.Fire(target, pad.Index, player.UserId, PadsCore.INVITE_SECONDS)
+	end
+	ServerNetworkLobby.InviteAnswered.Fire(player, userId, EInvite.Sent)
+end)
+
+-- JOIN puts the invitee on the party's pad wherever they stand, as a step onto it would; a friends-only party lets them
+-- in. Either answer is told to whoever sent the invite.
+ClientNetworkLobby.AnswerInvite.On(function(player: Player, index: number, isJoining: boolean)
+	local pad = pads[index]
+	local held = invitesTo[player]
+	local invite = if pad and held then held[pad] else nil
+	if not pad or not held or not invite then return end
+	held[pad] = nil
+	local inviter = invite.From
+	local isSameParty = invite.Run == pad.Run and pad.Phase == EPhase.Open
+	if not isJoining then
+		if isSameParty then
+			local declined = declinedUntil[player] or {}
+			declined[pad] = { Run = pad.Run, Until = os.clock() + PadsCore.INVITE_DECLINED_SECONDS }
+			declinedUntil[player] = declined
+		end
+		if inviter.Parent then ServerNetworkLobby.InviteAnswered.Fire(inviter, player.UserId, EInvite.Declined) end
+		return
+	end
+
+	if padOfPlayer[player] or not getRoot(player) then return end
+	if not isSameParty or os.clock() > invite.EndsAt + Tune.INVITE_SLACK_SECONDS then
+		ServerNetworkLobby.PadRefused.Fire(player, pad.Index, ERefusal.Expired)
+		return
+	end
+
+	LobbyService.Join(player, pad, true)
+	if padOfPlayer[player] ~= pad or not inviter.Parent then return end
+	ServerNetworkLobby.InviteAnswered.Fire(inviter, player.UserId, EInvite.Joined)
+end)
+
 -- The call to teleport returned, but this player's teleport did not start: release him so he can queue again.
 TeleportService.TeleportInitFailed:Connect(function(player: Player, result: Enum.TeleportResult, message: string)
 	warn(`[LobbyService] teleport of {player.Name} failed: {result.Name} {message}`)
 	local pad = padOfPlayer[player]
 	if not pad or pad.Phase ~= EPhase.Teleporting then return end
 	LobbyService.Leave(player)
+end)
+
+-- Only an open map's unlock can have played. Not answered: the screen marked it on its side as it played.
+ClientNetworkLobby.MapShown.On(function(player: Player, mapIndex: number)
+	local map = MapsCore.LIST[mapIndex]
+	if not map then return end
+	DatabaseService.Update(player, function(profile)
+		if not MapsCore.IsUnlocked(profile, map.Name) then return false end
+		local shown = profile.MapsShown or {}
+		if shown[map.Name] then return false end
+		shown[map.Name] = true
+		profile.MapsShown = shown
+		return true
+	end)
 end)
 
 ClientNetworkLobby.StartParty.On(

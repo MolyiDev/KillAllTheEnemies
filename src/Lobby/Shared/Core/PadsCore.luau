@@ -28,7 +28,28 @@ PadsCore.ERefusal = table.freeze({
 	Busy = 4,
 	-- To the host himself: he took longer than CHOOSE_SECONDS to pick and was taken off.
 	Idle = 5,
+	-- JOIN on an invite that had run out, or whose party had left or broken up.
+	Expired = 6,
 })
+
+-- What came of an invite, as the network carries it to the player who sent it.
+PadsCore.EInvite = table.freeze({
+	Sent = 1,
+	Joined = 2,
+	Declined = 3,
+	-- On a pad already (this one or another).
+	InParty = 4,
+	-- The party's map is not open to them.
+	Locked = 5,
+	Full = 6,
+	-- Not ready for it: still loading, or between bodies.
+	Away = 7,
+})
+
+-- How long an invite stands, and how long a party that was turned down waits before it may invite that player again,
+-- in seconds.
+PadsCore.INVITE_SECONDS = 20
+PadsCore.INVITE_DECLINED_SECONDS = 30
 
 -- TBD (GDD 23: party-size limit). The arena's own server size must be at least this.
 PadsCore.MAX_PLAYERS = 4

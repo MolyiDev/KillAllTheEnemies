@@ -103,9 +103,10 @@ local function currentPad(state: Types.TLobbyState): Types.TPadView?
 end
 
 -- One player's place on the party: lit while the party holds him, popping in with a flash and a ring as he steps on,
--- a dim plus while it waits.
+-- a dim plus while it waits, which opens the invite list (as the place's body on the pad does).
 local function slot(
 	state: Types.TLobbyState,
+	actions: Types.TLobbyActions,
 	view: () -> { [string]: any },
 	index: number,
 	count: () -> number,
@@ -114,6 +115,10 @@ local function slot(
 	local filled = derive(function(): boolean
 		return index <= view().Count
 	end)
+	local isInviting = derive(function(): boolean
+		return view().Phase == EPhase.Open and not filled()
+	end)
+	local hand = Hand.React("Operate", isInviting)
 	local filledAt = source(-math.huge)
 	Parts.OnChange(filled, function(isFilled: boolean)
 		if isFilled then filledAt(os.clock()) end
@@ -143,23 +148,46 @@ local function slot(
 				return dealt() * pop
 			end,
 		}),
-		-- Waiting: his dark plaque with a dim plus.
-		Parts.Plaque({
+		-- Waiting: his dark plaque with a dim plus, which lights and opens its brackets under the hand.
+		Components.Button({
 			Name = "Empty",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
 			Visible = function()
 				return not filled()
 			end,
+			Interactable = isInviting,
 			ZIndex = 4,
-			Label({
+			Activated = function()
+				hand.Commit()
+				actions.OpenInvite()
+			end,
+			hand.Events,
+			create("UIScale")({ Scale = hand.Scale }),
+			Parts.Plaque({
+				Name = "Plaque",
 				Size = UDim2.fromScale(1, 1),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextYAlignment = Enum.TextYAlignment.Center,
-				TextSize = Layout.PLUS_TEXT,
-				TextColor3 = Palette.Lavender,
-				TextTransparency = 0.45,
-				Text = "+",
-				ZIndex = 5,
+				ZIndex = 4,
+				Hand.WashLayer(hand, 5, 1),
+				Components.Brackets(hand.Rise, function()
+					return 1 - 0.55 * hand.Light()
+				end, 12),
+				Label({
+					Size = UDim2.fromScale(1, 1),
+					TextXAlignment = Enum.TextXAlignment.Center,
+					TextYAlignment = Enum.TextYAlignment.Center,
+					TextSize = Layout.PLUS_TEXT,
+					TextColor3 = function()
+						return Palette.Lavender:Lerp(Palette.White, hand.Light())
+					end,
+					TextTransparency = function()
+						return 0.45 * (1 - hand.Light())
+					end,
+					Text = "+",
+					ZIndex = 6,
+				}),
 			}),
 		}),
 		Components.Slab({ Kind = "Pink", Marks = true }, {
@@ -519,7 +547,8 @@ function Queue.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): Sc
 
 	local slots = {}
 	for index = 1, PadsCore.MAX_PLAYERS do
-		slots[index] = slot(state, view, index, count, dealt(Timing.SLOTS_DELAY + Timing.SLOTS_STAGGER * (index - 1)))
+		local delay = Timing.SLOTS_DELAY + Timing.SLOTS_STAGGER * (index - 1)
+		slots[index] = slot(state, actions, view, index, count, dealt(delay))
 	end
 
 	local margin = Layout.MARGIN

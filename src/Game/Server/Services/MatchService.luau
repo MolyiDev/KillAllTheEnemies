@@ -42,6 +42,7 @@ local getCharacterEntityFromPlayer =
 local getCharacterIdFromPlayer = require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterIdFromPlayer)
 local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
+local TData = require(ReplicatedStorage.Types.TData)
 local TJoinData = require(ReplicatedStorage.Types.TJoinData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
@@ -589,6 +590,21 @@ EnemiesService.OnEnemyKilled:Connect(function(killerPlayer: Player?, count: numb
 	local score = if killerPlayer then scores[killerPlayer] else nil
 	if score then
 		score.Kills += count
+	end
+end)
+
+-- A boss put down counts for everybody in the run, the downed too: the map after this one opens on these (MapsCore).
+EnemiesService.OnEnemyDied:Connect(function(_, enemyData: TData.TEnemy)
+	if not enemyData.IsBoss or MatchService.State ~= EMatchState.Running then return end
+	local mapName = MatchService.MapName
+	for player in runs do
+		DatabaseService.Update(player, function(profile)
+			local kills = profile.BossKills or {}
+			kills[mapName] = (kills[mapName] or 0) + 1
+			profile.BossKills = kills
+			return true
+		end)
+		DatabaseService.SaveAsync(player)
 	end
 end)
 

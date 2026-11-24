@@ -32,7 +32,7 @@ export type TReceiptRow = {
 -- What a receipt shows: the card that drops (its tab of thanks over its top edge, its name, its picture standing in
 -- a Showcase look) and the lines it prints, a ribbon on a pass bought for good, and how hard it lands.
 export type TReceipt = {
-	-- The offer's Name: its card in the shop cheers once the receipt has left.
+	-- The offer's Name: its card in the shop cheers once the receipt has left. "" for none (an invite's reward).
 	Offer: string,
 	Tab: string,
 	Name: string,

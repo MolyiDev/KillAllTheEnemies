@@ -149,6 +149,7 @@ local Queue: any = {
 }
 
 export type Server_Profile_Player_Type = Player
+export type Server_Lobby_MapRecord = { Best: number, BossKills: number, IsShown: boolean }
 export type Server_Loadout_Player_Type = Player
 export type Server_Results_Member = { UserId: number, Name: string, ClassId: number, Kills: number }
 export type Server_Results_Record = { MapName: string, Wave: number, BestWaveBefore: number, Seconds: number, BestSecondsBefore: number, Gems: number, Kills: number, SquadKills: number, LevelBefore: number, XpBefore: number, XpWaves: number, XpBosses: number, Squad: { { UserId: number, Name: string, ClassId: number, Kills: number } } }
@@ -210,6 +211,8 @@ return {
 		Mutation = {
 			DataId = {
 			},
+		},
+		Invites = {
 		},
 	},
 	Client = {

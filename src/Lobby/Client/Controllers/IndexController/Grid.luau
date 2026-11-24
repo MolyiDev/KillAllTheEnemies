@@ -18,6 +18,7 @@ local Scrollbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Scr
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Parts = require(script.Parent.Parts)
 local Picture = require(script.Parent.Picture)
+local padlock = require(script.Parent.Parent.Parent.Utils.padlock)
 local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
@@ -28,30 +29,6 @@ local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
 local Label = Parts.Label
-
--- A reveal's padlock, in seconds from the reveal's start (Parts.Timing.REVEAL_UNLOCK long, then it blows away while the
--- silhouette burns): it shakes in its hasp, the shackle clicks up out of its sockets and swings open on its long leg, the
--- body jumps at the click, and it all rises, swells and fades.
-local Unlock = table.freeze({
-	SHAKE = 0.2,
-	SHAKE_DEGREES = 12,
-	LIFT = 0.1,
-	-- How far the shackle lifts and turns, as a share of the padlock's box and in degrees (anticlockwise).
-	LIFT_SHARE = 0.07,
-	SWING_DELAY = 0.04,
-	SWING = 0.22,
-	SWING_DEGREES = -22,
-	JUMP = 0.18,
-	JUMP_GROW = 0.16,
-	LEAVE = 0.3,
-	LEAVE_RISE = 18,
-	LEAVE_GROW = 0.35,
-	LEAVE_DEGREES = -8,
-})
--- The shackle's long leg's foot, which it swings on, from the box's middle as a share of its side (split_lock.py's
--- lock.png pixels 305, 453 of 1024), and the shackle's middle from that foot.
-local SHACKLE_PIVOT = Vector2.new(305 / 1024 - 0.5, 453 / 1024 - 0.5)
-local SHACKLE_FROM_PIVOT = -SHACKLE_PIVOT
 
 -- His drawn rects in px at 1080, from the panel's top left.
 local Layout = table.freeze({
@@ -149,77 +126,18 @@ local function placeOf(order: number): Vector2
 	)
 end
 
--- The padlock over an unknown enemy's silhouette, the two parts split_lock.py cut from the Lock picture: `unlocking`
--- is seconds into its reveal (0 shut), `rattle` and `rise` the hand's.
+-- The padlock over an unknown enemy's silhouette: `unlocking` is seconds into its reveal (0 shut), `rattle` and `rise`
+-- the hand's.
 local function lock(unlocking: () -> number, rattle: () -> number, rise: () -> number): Frame
-	-- 0 to 1 as it blows away, and how far it has faded.
-	local leaving = derive(function(): number
-		return Progress(unlocking(), Parts.Timing.REVEAL_UNLOCK, Unlock.LEAVE)
-	end)
-	local faded = derive(function(): number
-		return Motion.Out(leaving())
-	end)
-	local box = Components.PictureBox(Layout.LOCK)
-	local side = box.X.Offset
-	local shake = function(): number
-		return Unlock.SHAKE_DEGREES * Motion.Swing(Progress(unlocking(), 0, Unlock.SHAKE))
-	end
-	local lift = function(): number
-		return Unlock.LIFT_SHARE * side * Motion.OutBack(Progress(unlocking(), Parts.Timing.REVEAL_CLICK, Unlock.LIFT))
-	end
-	local swing = function(): number
-		local swung = Progress(unlocking(), Parts.Timing.REVEAL_CLICK + Unlock.SWING_DELAY, Unlock.SWING)
-		return Unlock.SWING_DEGREES * Motion.OutBack(swung)
-	end
-
-	return create("Frame")({
-		Name = "Lock",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = function()
-			return UDim2.fromOffset(
-				Layout.PICTURE.X,
-				Layout.PICTURE.Y - Unlock.LEAVE_RISE * Motion.Decelerate(leaving())
-			)
+	return padlock.Build({
+		Unlocking = unlocking,
+		Turn = rattle,
+		Grow = function(): number
+			return Timing.LOCK_GROW * rise()
 		end,
-		Size = box,
-		Rotation = function()
-			return shake() + rattle() + Unlock.LEAVE_DEGREES * faded()
-		end,
-		BackgroundTransparency = 1,
-		-- Taken out only once it has faded away; derived, so it is written once, not every frame of the fade.
-		Visible = derive(function(): boolean
-			return leaving() < 1
-		end),
+		At = Layout.PICTURE,
+		Longest = Layout.LOCK,
 		ZIndex = 5,
-		create("UIScale")({
-			Scale = function()
-				local jump = Unlock.JUMP_GROW
-					* Motion.Bump(Progress(unlocking(), Parts.Timing.REVEAL_CLICK, Unlock.JUMP))
-				return 1 + Timing.LOCK_GROW * rise() + jump + Unlock.LEAVE_GROW * faded()
-			end,
-		}),
-		Components.Picture(EIcons.LockBody, {
-			Name = "Body",
-			Size = UDim2.fromScale(1, 1),
-			ImageTransparency = faded,
-		}),
-		-- A GuiObject turns about its own middle, so swinging on the long leg's foot moves the middle round that foot.
-		Components.Picture(EIcons.LockShackle, {
-			Name = "Shackle",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = function()
-				local radians = math.rad(swing())
-				local cos, sin = math.cos(radians), math.sin(radians)
-				local out = SHACKLE_FROM_PIVOT
-				local turned = Vector2.new(out.X * cos - out.Y * sin, out.X * sin + out.Y * cos)
-				local at = (SHACKLE_PIVOT + turned) * side
-				return UDim2.new(0.5, at.X, 0.5, at.Y - lift())
-			end,
-			Size = UDim2.fromScale(1, 1),
-			Rotation = swing,
-			ImageTransparency = faded,
-			ZIndex = 2,
-		}),
 	})
 end
 

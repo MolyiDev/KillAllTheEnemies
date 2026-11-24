@@ -1,7 +1,7 @@
 -- The shop screen (UIMatt.md, Robux Shop): the featured gun and class bundle, the bundles, the Gem packs and the
 -- passes, each bought with a Roblox prompt or given to another player here (Gift). ShopService decides and grants;
--- this shows what it is told (Shop.State) and celebrates what it grants (Shop.Granted) and what a gift sent became: a
--- receipt (Receipt) plays over every lobby screen once Roblox's own dialog has closed, one at a time, and the Gems it
+-- this shows what it is told (Shop.State) and celebrates what it grants (Shop.Granted), what a gift sent became and
+-- what a friend's join by this player's invite paid (Invites.Rewarded): a receipt (Receipt) plays over every lobby screen once Roblox's own dialog has closed, one at a time, and the Gems it
 -- paid fly out of its Gems line into the HUD's pill (GemPayout), held back from the pill until they land; as it
 -- leaves, the offer's card behind it cheers and its price turns OWNED. The lobby's SHOP card and the pill's + open
 -- the shop; while it is up the world is blurred and muffled.
@@ -30,6 +30,7 @@ local Types = require(script.Types)
 
 local ServerNetworkShop = NetworkMeta.Server.Shop
 local ClientNetworkShop = NetworkMeta.Client.Shop
+local ServerNetworkInvites = NetworkMeta.Server.Invites
 local LocalPlayer = Players.LocalPlayer
 local Palette = Theme.Palette
 local source = vide.source
@@ -738,6 +739,11 @@ ServerNetworkShop.GiftResult.On(function(index: number, receiver: string, result
 	end
 
 	enqueue(receiptOf(offer, "", receiver, 0))
+end)
+
+-- In the same frame as the profile it paid, as Granted.
+ServerNetworkInvites.Rewarded.On(function(name: string, gems: number, friends: number, most: number)
+	enqueue(Receipts.Invite(name, gems, friends, most))
 end)
 
 return Ignis.Register(ShopController)

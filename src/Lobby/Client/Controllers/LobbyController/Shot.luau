@@ -54,28 +54,29 @@ function Shot.Taken(spots: { Vector3 }, roots: { [Model]: BasePart }): number
 end
 
 -- The eye and the point it looks at for the spots in `taken` (Taken's bits), on a viewport `aspect` wide for its
--- height. Nobody on a spot yet frames the first, where the host will stand.
+-- height. Nobody on a spot yet frames the first, where the host will stand. The shot is centred on the host's spot
+-- whatever else it frames: the spots run further out on one side, and centred on the line the host stood off to it.
 function Shot.Frame(pad: BasePart, taken: number, aspect: number): (Vector3, Vector3)
 	if taken == 0 then taken = 1 end
 
-	local minX, maxX, sumZ, count = math.huge, -math.huge, 0, 0
+	local centreX = PadsCore.SPOTS[1].X
+	local reach, sumZ, count = 0, 0, 0
 	for index, spot in PadsCore.SPOTS do
 		if not bit32.btest(taken, bit32.lshift(1, index - 1)) then continue end
-		minX = math.min(minX, spot.X)
-		maxX = math.max(maxX, spot.X)
+		reach = math.max(reach, math.abs(spot.X - centreX))
 		sumZ += spot.Z
 		count += 1
 	end
 
 	local tanHalf = math.tan(math.rad(Tune.FOV) / 2)
 	local fitHeight = Tune.BODY_HEIGHT / (Tune.BODY_SHARE * 2 * tanHalf)
-	local fitWidth = ((maxX - minX) / 2 + Tune.SIDE_ROOM) / (tanHalf * aspect * Tune.WIDTH_SHARE)
+	local fitWidth = (reach + Tune.SIDE_ROOM) / (tanHalf * aspect * Tune.WIDTH_SHARE)
 	local distance = math.max(fitHeight * (1 + Tune.SPREAD * (count - 1)), fitWidth)
 
 	-- In pad space, looking back at the pad from its front and down a little.
 	local forward = Vector3.new(0, -math.sin(Tune.PITCH), -math.cos(Tune.PITCH))
 	local up = Vector3.new(0, math.cos(Tune.PITCH), -math.sin(Tune.PITCH))
-	local middle = Vector3.new((minX + maxX) / 2, pad.Size.Y / 2 + Tune.BODY_HEIGHT / 2, sumZ / count)
+	local middle = Vector3.new(centreX, pad.Size.Y / 2 + Tune.BODY_HEIGHT / 2, sumZ / count)
 	local eye = middle - forward * distance
 	local look = middle + up * (Tune.DROP * tanHalf * distance)
 	return pad.CFrame:PointToWorldSpace(eye), pad.CFrame:PointToWorldSpace(look)

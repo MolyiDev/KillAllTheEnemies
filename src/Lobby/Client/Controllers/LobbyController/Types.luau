@@ -24,6 +24,28 @@ export type TPadView = {
 -- The classes screen's two pages, picked by its tabs.
 export type TClassesPage = "Classes" | "Equipment"
 
+-- Another player in this server, as the invite list shows them. One table per player for as long as they are here, so
+-- the list keeps their card when it is rebuilt.
+export type TInvitePlayer = {
+	UserId: number,
+	Name: string,
+	DisplayName: string,
+}
+
+-- What the server last answered about an invite to a player (PadsCore.EInvite), and when.
+export type TInviteResult = {
+	Result: number,
+	At: number,
+}
+
+-- A party's invite to this player (Lobby.Invited): its pad, who sent it, and the os.clock() it lapses at.
+export type TInvitation = {
+	Pad: number,
+	UserId: number,
+	DisplayName: string,
+	EndsAt: number,
+}
+
 export type TLobbyState = {
 	-- The HUD's: 1080 design px under Roblox's top bar.
 	Scale: Source<number>,
@@ -39,8 +61,17 @@ export type TLobbyState = {
 	CurrentPad: Source<number>,
 	-- He is the host of a pad still being picked: the party menu is his.
 	IsChoosing: Source<boolean>,
-	-- Best completed round per map, by map name (Lobby.MapRecords).
+	-- Per map, by map name (Lobby.MapRecords): the best completed round, the times its boss fell with this player in the
+	-- run, and whether its unlock has played (or is playing).
 	BestByMap: Source<{ [string]: number }>,
+	BossKills: Source<{ [string]: number }>,
+	MapsShown: Source<{ [string]: boolean }>,
+	-- The player's level (Profile.Sync): the maps open on it too.
+	Level: Source<number>,
+	-- The map whose unlock plays on the party screen (0 for none yet), and when it starts: the screen holds the host
+	-- on it until Party.Parts.Unlock.HOLD.
+	UnlockMap: Source<number>,
+	UnlockAt: Source<number>,
 	-- The host's picks in the menu.
 	PickPlayers: Source<number>,
 	PickDifficulty: Source<string>,
@@ -68,6 +99,22 @@ export type TLobbyState = {
 	PartyCallAt: Source<number>,
 	ToastText: Source<string>,
 	IsToastShown: Source<boolean>,
+	-- The invite list over the queue: whether it is up and when it last opened or shut; every other player in this
+	-- server; what the server answered about each one invited (by user id); and the pad each one stands on (by user id,
+	-- none for none), seen from their bodies while the list is up.
+	IsInviteOpen: Source<boolean>,
+	InviteAt: Source<number>,
+	InvitePlayers: Source<{ TInvitePlayer }>,
+	InviteResults: Source<{ [number]: TInviteResult }>,
+	InviteOnPad: Source<{ [number]: number }>,
+	-- The party's invite on show (kept while it leaves), when it came in and when it went (-math.huge while it is up),
+	-- how it went ("Join", "Decline" or "Lapse"), its whole seconds left, and when the light last crossed JOIN.
+	Invitation: Source<TInvitation?>,
+	InvitationAt: Source<number>,
+	InvitationGoneAt: Source<number>,
+	InvitationAnswer: Source<string>,
+	InvitationSeconds: Source<number>,
+	InvitationCallAt: Source<number>,
 	-- os.clock(), written only while a timed gesture runs (the HUD's entrance and rolls).
 	Now: Source<number>,
 	-- When the HUD's pieces start sliding in.
@@ -158,13 +205,19 @@ export type TLobbyActions = {
 	StartParty: () -> (),
 	PickDifficulty: (difficulty: string) -> (),
 	PickMap: (index: number) -> (),
-	-- The next map (1) or the one before (-1), round the list.
+	-- The next map along the path (1) or the one before (-1); nothing past either end.
 	StepMap: (step: number) -> (),
 	PickPlayers: (count: number) -> (),
 	PickFriendsOnly: (isFriendsOnly: boolean) -> (),
 	-- Keeps the clock ticking for a gesture a view starts on its own.
 	Stir: (seconds: number) -> (),
 	InviteFriends: () -> (),
+	-- The invite list over the queue: open it (only in an open party), shut it, and invite a player from it.
+	OpenInvite: () -> (),
+	CloseInvite: () -> (),
+	InvitePlayer: (userId: number) -> (),
+	-- JOIN (true) or DECLINE on the party's invite on show.
+	AnswerInvitation: (isJoining: boolean) -> (),
 	OpenClasses: () -> (),
 	OpenWeapons: () -> (),
 	OpenQuests: () -> (),

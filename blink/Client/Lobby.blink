@@ -30,3 +30,27 @@ event StartParty {
 	call: SingleAsync,
 	data: (u8, u8, u8, boolean)
 }
+
+-- Invite a player in this server to the party on my pad. (userId)
+event InvitePlayer {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: f64
+}
+
+-- My answer to a party's invite: join it (true) or turn it down. (pad, isJoining)
+event AnswerInvite {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, boolean)
+}
+
+-- The party screen has played this map's unlock, so it is never played again. (map (MapsCore.LIST))
+event MapShown {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}

@@ -114,6 +114,9 @@ Party.SETTLE_SECONDS = Timing.SETTLED
 Party.SHEEN_SECONDS = Gesture.SHEEN
 Party.FIRST_CALL_SECONDS = 0.5
 Party.CALL_SECONDS = 2.6
+-- When a map's unlock starts: once the screen's pieces are dealt in, or once its picture has nearly landed.
+Party.UNLOCK_OPEN_DELAY = 0.6
+Party.UNLOCK_ARRIVE_DELAY = 0.8 * Map.SLIDE_SECONDS
 
 -- His lavender rule at `y`, `width()` px long, a whole screen pixel tall at any scale: one design px under 1080 thins
 -- to nothing.
@@ -318,8 +321,9 @@ local function chip(state: Types.TLobbyState, elapsed: () -> number, order: numb
 end
 
 local function readBack(state: Types.TLobbyState, elapsed: () -> number): { Instance }
-	local function picked(): MapsCore.TMap
-		return Parts.PickedMap(state)
+	-- Nil on the path's '?'.
+	local function picked(): MapsCore.TMap?
+		return Parts.ShownMap(state.PickMap(), Parts.PathCount(state))
 	end
 
 	return {
@@ -345,9 +349,11 @@ local function readBack(state: Types.TLobbyState, elapsed: () -> number): { Inst
 				Padding = UDim.new(0, Layout.CHIP_GAP),
 			}),
 			chip(state, elapsed, 1, function()
-				return Parts.AccentOf(picked())
+				local map = picked()
+				return if map then Parts.AccentOf(map) else Palette.Lavender
 			end, function()
-				return string.upper(picked().DisplayName)
+				local map = picked()
+				return if map then string.upper(map.DisplayName) else "???"
 			end),
 			chip(state, elapsed, 2, function()
 				return Parts.DIFFICULTY_COLORS[state.PickDifficulty()] or Palette.Green
@@ -364,11 +370,12 @@ local function readBack(state: Types.TLobbyState, elapsed: () -> number): { Inst
 	}
 end
 
--- CREATE: his green slab, grey on a locked map. Its light crosses it every few seconds while the screen waits on it; it
--- goes in while the server is asked, and flashes and throws one ring as the press goes through.
+-- CREATE: his green slab, grey on a map still under its veil (locked, or its unlock not landed yet). Its light crosses it
+-- every few seconds while the screen waits on it; it goes in while the server is asked, and flashes and throws one ring
+-- as the press goes through.
 local function createButton(state: Types.TLobbyState, actions: Types.TLobbyActions, elapsed: () -> number): { Instance }
 	local isLive = derive(function(): boolean
-		return not Parts.IsLocked(state, Parts.PickedMap(state))
+		return Parts.Opened(state, state.PickMap()) >= 1
 	end)
 	local hand = Hand.React("Operate", isLive)
 	local dealt = Parts.Dealt(state, elapsed, Gesture.CREATE_DELAY)

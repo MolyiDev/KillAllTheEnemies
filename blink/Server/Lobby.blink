@@ -25,11 +25,35 @@ event PadRefused {
 	data: (u8, u8)
 }
 
--- To one player: his best completed round on each map, in MapsCore.LIST order, so the menu can show which maps
--- are open and what the rest need.
+-- To one player: the party on this pad invites them. (pad, inviter's userId, seconds it stands)
+event Invited {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, f64, f32)
+}
+
+-- To the player who sent an invite: what came of it. (invited userId, result (PadsCore.EInvite))
+event InviteAnswered {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (f64, u8)
+}
+
+-- One map's part of MapRecords: the best completed round on it, how many times its boss has fallen with this player
+-- in the run (TProfile.BossKills), and whether the party screen has played its unlock (TProfile.MapsShown).
+struct MapRecord {
+	Best: u16,
+	BossKills: u16,
+	IsShown: boolean,
+}
+
+-- To one player: each map's record, in MapsCore.LIST order, so the menu can show which maps are open, what the rest
+-- need, and which unlock is still to play. The level they also need comes with Profile.Sync.
 event MapRecords {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: u16[]
+	data: MapRecord[]
 }

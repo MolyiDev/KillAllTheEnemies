@@ -155,8 +155,20 @@ export type TProfile = {
 	Mutation: TMutation?,
 	-- The codes redeemed (CodesCore.Normalize'd), each true. Nil until the first, so adding it needed no store wipe.
 	RedeemedCodes: { [string]: boolean }?,
+	-- Who invited this player (InvitesService), by user id, written on their first load: 0 when nobody did or the
+	-- invite did not count (an account too new). Nil only before that first load, which is how a new player is told
+	-- from one who has been here.
+	InvitedBy: number?,
+	-- The friends whose first join by this player's invite paid them (InvitesService), by user id, oldest first. Nil
+	-- until the first.
+	InvitedFriends: { number }?,
 	Achievements: { [string]: number },
 	Records: { [string]: TRecord },
+	-- How many times this player was in the run as a boss fell, by map Name: what opens the map after it (MapsCore).
+	-- Nil until the first, so adding it needed no store wipe.
+	BossKills: { [string]: number }?,
+	-- The maps whose unlock the party screen has played, by Name, each true. Nil until the first.
+	MapsShown: { [string]: boolean }?,
 	-- Game passes and one-time products, by name ("DoubleGems", "Vip", "StarterPack").
 	Entitlements: { [string]: boolean },
 	-- A gift picked in the shop and not paid for yet (ShopService): the offer's Name and who gets it. Nil until the

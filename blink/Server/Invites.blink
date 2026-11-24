@@ -1,0 +1,9 @@
+-- To one player, once a friend's first join by their invite has paid them, in the same frame as the profile it paid:
+-- the friend's display name, the Gems, and how many friends have paid them of the most that can.
+-- (name, gems, friends, most)
+event Rewarded {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (string, u32, u8, u8)
+}

@@ -2,6 +2,7 @@
 -- leaves the replicated command unresolvable on the client.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Conch = require(ReplicatedStorage.Packages.conch)
+local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
 local EClassesIds = require(ReplicatedStorage.Types.Enums.Data.EClassesIds)
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
@@ -57,6 +58,14 @@ local indexTargets = { "all", "enemies", "potions" }
 table.move(enemyNames, 1, #enemyNames, #indexTargets + 1, indexTargets)
 table.move(potionNames, 1, #potionNames, #indexTargets + 1, indexTargets)
 
+-- Every map by its Name, lowercased, in the order they are played; and the same with "all" first.
+local mapNames = {}
+for _, map in MapsCore.LIST do
+	mapNames[#mapNames + 1] = string.lower(map.Name)
+end
+local mapTargets = table.clone(mapNames)
+table.insert(mapTargets, 1, "all")
+
 -- The rarities in ladder order, "random" (a brew's roll) first.
 local rarityTargets = { "random" }
 for name, rarity in ERarities :: { [string]: number } do
@@ -74,6 +83,8 @@ return {
 	enemyOrAll = Conch.register_type("enemy_or_all", args.enum_new(enemyTargets, "enemy_or_all")),
 	indexTarget = Conch.register_type("index_target", args.enum_new(indexTargets, "index_target")),
 	potionOrAll = Conch.register_type("potion_or_all", args.enum_new(potionTargets, "potion_or_all")),
+	mapName = Conch.register_type("map_name", args.enum_new(mapNames, "map_name")),
+	mapOrAll = Conch.register_type("map_or_all", args.enum_new(mapTargets, "map_or_all")),
 	rarityOrRandom = Conch.register_type("rarity_or_random", args.enum_new(rarityTargets, "rarity_or_random")),
 	gunName = Conch.register_type("gun_name", args.enum_new(gunNames, "gun_name")),
 	gunOrAll = Conch.register_type("gun_or_all", args.enum_new(gunTargets, "gun_or_all")),

@@ -58,9 +58,14 @@ local PadExit = require(script.Party.Exit)
 local PadArt = require(script.PadArt)
 local Shot = require(script.Shot)
 local Board = require(script.Party.Board)
+local Ghosts = require(script.Party.Ghosts)
+local Invite = require(script.Party.Invite)
+local Invitation = require(script.Party.Invitation)
+local PartyParts = require(script.Party.Parts)
 local Types = require(script.Types)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
+local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local ServerNetworkLobby = NetworkMeta.Server.Lobby
@@ -73,6 +78,7 @@ local source = vide.source
 local create = vide.create
 local EPhase = PadsCore.EPhase
 local ERefusal = PadsCore.ERefusal
+local EInvite = PadsCore.EInvite
 
 local TOAST_SECONDS = 3
 -- His screens' width; the height is Theme.DESIGN_HEIGHT.
@@ -105,6 +111,15 @@ local CLOSED_COLOR = Theme.Color.Boss
 local STUN_SECONDS = 1.2
 -- How hard a body arriving on this player's pad pushes the camera in (studs a second; it springs back).
 local ARRIVAL_NUDGE = 9
+-- Invites: how often the open list looks again at who stands on which pad, how long an answer stands on a card before
+-- it offers INVITE again (SENT for as long as the invite stands, the rest a moment), how often the light crosses JOIN
+-- on a party's invite on show, and how many invites may wait behind it.
+local InviteTune = table.freeze({
+	ON_PAD_SECONDS = 0.5,
+	ANSWER_SECONDS = 4,
+	CALL_SECONDS = 2.6,
+	QUEUE = 4,
+})
 -- The keys swallowed while the body is held on a pad (updateControls), over everything else bound to them.
 local HOLD_ACTION = "PadHold"
 local HOLD_PRIORITY = Enum.ContextActionPriority.High.Value + 1
@@ -154,6 +169,11 @@ local state: Types.TLobbyState = {
 	CurrentPad = source(0),
 	IsChoosing = source(false),
 	BestByMap = source({} :: { [string]: number }),
+	BossKills = source({} :: { [string]: number }),
+	MapsShown = source({} :: { [string]: boolean }),
+	Level = source(1),
+	UnlockMap = source(0),
+	UnlockAt = source(-math.huge),
 	PickPlayers = source(PadsCore.DEFAULT_PLAYERS),
 	PickDifficulty = source(MapsCore.DIFFICULTIES[1]),
 	PickMap = source(1),
@@ -172,6 +192,17 @@ local state: Types.TLobbyState = {
 	PartyCallAt = source(-math.huge),
 	ToastText = source(""),
 	IsToastShown = source(false),
+	IsInviteOpen = source(false),
+	InviteAt = source(-math.huge),
+	InvitePlayers = source({} :: { Types.TInvitePlayer }),
+	InviteResults = source({} :: { [number]: Types.TInviteResult }),
+	InviteOnPad = source({} :: { [number]: number }),
+	Invitation = source(nil :: Types.TInvitation?),
+	InvitationAt = source(-math.huge),
+	InvitationGoneAt = source(-math.huge),
+	InvitationAnswer = source(""),
+	InvitationSeconds = source(0),
+	InvitationCallAt = source(-math.huge),
 	Now = source(os.clock()),
 	EnteredAt = source(math.huge),
 	XpFrom = source(0),
@@ -231,6 +262,8 @@ local nextDailyCall = math.huge
 local nextGemGlint = math.huge
 local nextPlayCall = math.huge
 local nextPartyCall = math.huge
+-- A map's unlock's sounds still to play, each at its os.clock moment.
+local dueSounds: { { At: number, Group: string, Name: string } } = {}
 -- The local body's root, while it has one.
 local selfRoot: BasePart? = nil
 local selfHumanoid: Humanoid? = nil
@@ -251,7 +284,21 @@ local bodies: { [Model]: BasePart } = {}
 -- While on a pad: the spots the camera's shot frames (Shot.Taken's bits) and the viewport shape it was framed for.
 local isShotHeld = false
 local shotTaken = 0
+local shotFramed = 0
 local shotAspect = 0
+-- The open places' bodies on this player's pad (Ghosts) by spot, the pad they stand on, the one under the pointer, and
+-- when they were last stepped.
+local ghosts: { Ghosts.TGhost } = {}
+local ghostPad = 0
+local hoveredGhost: Ghosts.TGhost? = nil
+local ghostsAt = os.clock()
+local ghostFolder: Folder? = nil
+-- Every other player in this server as the invite list shows them, by user id: one table each while they are here.
+local invitePlayers: { [number]: Types.TInvitePlayer } = {}
+local nextOnPadLook = 0
+-- Parties' invites waiting behind the one on show, oldest first, and when the light next crosses its JOIN.
+local invitationQueue: { Types.TInvitation } = {}
+local nextInvitationCall = math.huge
 
 -- Whether the classes or weapons page is up: the pages that show a body on a stage, which the head tags make way for.
 function LobbyController.IsPageOpen(): boolean
@@ -469,14 +516,73 @@ local function showToast(text: string)
 	end)
 end
 
+local function isMapOpen(map: MapsCore.TMap): boolean
+	return MapsCore.IsUnlockedBy(map, state.Level(), state.BossKills())
+end
+
+-- Whether map `index` is open and its unlock has never played: the first map has none to play.
+local function isUnlockDue(index: number): boolean
+	local map = MapsCore.LIST[index]
+	if not map or not MapsCore.HasRequirement(map) or state.MapsShown()[map.Name] then return false end
+	return isMapOpen(map)
+end
+
+-- The map the party screen opens on: the first along the path whose unlock is still to play, so each plays in turn,
+-- or else the furthest open.
+local function openingMap(): number
+	local furthest = 1
+	for index, map in MapsCore.LIST do
+		if isUnlockDue(index) then return index end
+		if isMapOpen(map) then furthest = index end
+	end
+
+	return furthest
+end
+
+-- Whether a map's unlock holds the host on it: no other map, no EXIT, no CREATE.
+local function isHeldByUnlock(): boolean
+	return os.clock() < state.UnlockAt() + PartyParts.Unlock.HOLD
+end
+
+-- Plays map `index`'s unlock on the party screen from `at`, if it is due: marked played at once, here and on the
+-- server, so it never plays twice. CREATE's light crosses it as the hold lets go.
+local function playUnlock(index: number, at: number)
+	if not state.IsChoosing() or not isUnlockDue(index) or index >= PartyParts.PathCount(state) then return end
+	local map = MapsCore.LIST[index]
+	local shown = table.clone(state.MapsShown())
+	shown[map.Name] = true
+	vide.batch(function()
+		state.MapsShown(shown)
+		state.UnlockMap(index)
+		state.UnlockAt(at)
+	end)
+	local unlock = PartyParts.Unlock
+	stir(at + unlock.SECONDS)
+	nextPartyCall = at + unlock.HOLD
+	-- A tick for each row the map asks for, on its turn: the level's first, the boss's second.
+	for row, isAsked in { map.UnlockLevel > 0, map.UnlockBossKills > 0 } do
+		if not isAsked then continue end
+		local rowAt = at + unlock.ROWS + unlock.ROW_STAGGER * (row - 1)
+		table.insert(dueSounds, { At = rowAt, Group = "UI.UpgradePick", Name = "Tick" })
+	end
+	table.insert(dueSounds, { At = at + unlock.CLICK, Group = "UI.Index", Name = "Unlock" })
+	table.insert(dueSounds, { At = at + unlock.RELEASE, Group = "UI.UpgradePick", Name = "RevealLegendary" })
+	ClientNetworkLobby.MapShown.Fire(index)
+end
+
 local function updateChoosing()
 	local padState = latest[state.CurrentPad()]
 	local isChoosing = padState ~= nil and padState.Phase == EPhase.Choosing and padState.HostId == LocalPlayer.UserId
 	if state.IsChoosing() == isChoosing then return end
 	local now = os.clock()
+	-- It opens on the newest map, after the one played last.
+	local opening = if isChoosing then openingMap() else state.PickMap()
 	vide.batch(function()
 		state.IsChoosing(isChoosing)
 		state.ChoosingAt(now)
+		state.PickMap(opening)
+		state.MapFrom(opening)
+		if isChoosing then state.MapAt(-math.huge) end
 	end)
 	nextPartyCall = if isChoosing then now + Party.FIRST_CALL_SECONDS else math.huge
 	stir(now + Party.SETTLE_SECONDS)
@@ -484,6 +590,9 @@ local function updateChoosing()
 	SoundsCore.SetMuffled("Party", isChoosing)
 	BlurController.SetBlurred("Party", isChoosing)
 	SoundsCore.PlayUINamed("UI", if isChoosing then "MenuIn" else "MenuOut")
+
+	if not isChoosing then table.clear(dueSounds) end
+	playUnlock(opening, now + Party.UNLOCK_OPEN_DELAY)
 end
 
 -- Whether this player could step on the pad right now; the server's canJoin decides it for real.
@@ -495,7 +604,7 @@ local function isOpenToMe(index: number): boolean
 	if padState.Phase ~= EPhase.Open or padState.Count >= padState.MaxPlayers then return false end
 
 	local map = MapsCore.LIST[padState.Map]
-	if not map or not MapsCore.IsUnlockedBy(map, state.BestByMap()) then return false end
+	if not map or not isMapOpen(map) then return false end
 	if padState.IsFriendsOnly and padState.HostId ~= LocalPlayer.UserId then
 		return isFriendOf[padState.HostId] == true
 	end
@@ -551,9 +660,10 @@ local function fetchFriendship(hostId: number)
 	end)
 end
 
--- Shows map `index`, the showcase turning `step`'s way to it.
+-- Shows map `index` (as far as the path goes: the '?' past its end too), the showcase turning `step`'s way to it, and
+-- plays its unlock as it lands if one is due.
 local function setMap(index: number, step: number)
-	if not MapsCore.LIST[index] or index == state.PickMap() then return end
+	if index < 1 or index > PartyParts.PathCount(state) or index == state.PickMap() or isHeldByUnlock() then return end
 	local now = os.clock()
 	vide.batch(function()
 		state.MapFrom(state.PickMap())
@@ -562,6 +672,7 @@ local function setMap(index: number, step: number)
 		state.MapStep(step)
 	end)
 	stir(now + Party.SETTLE_SECONDS)
+	playUnlock(index, now + Party.UNLOCK_ARRIVE_DELAY)
 end
 
 local function pickDifficulty(difficulty: string)
@@ -601,6 +712,157 @@ local function upgradeAbility(classId: number, slot: number)
 	ClientNetworkClasses.Upgrade.Fire(classId, slot)
 end
 
+-- The invite list's players, by display name: everyone in this server but this player.
+local function listInvitePlayers()
+	local list = {}
+	local count = 0
+	for _, player in invitePlayers do
+		count += 1
+		list[count] = player
+	end
+	table.sort(list, function(a, b)
+		return string.lower(a.DisplayName) < string.lower(b.DisplayName)
+	end)
+
+	state.InvitePlayers(list)
+end
+
+-- Which pad each other player stands on, from their bodies, written only as it changes.
+local function lookOnPads()
+	local onPad: { [number]: number } = {}
+	local isOnPad = PadsCore.IsOnPad
+	for model, root in bodies do
+		local player = Players:GetPlayerFromCharacter(model)
+		if not player or player == LocalPlayer then continue end
+		local position = root.Position
+		for index, pad in pads do
+			if not isOnPad(pad.Part, position) then continue end
+			onPad[player.UserId] = index
+			break
+		end
+	end
+
+	local last = state.InviteOnPad()
+	for userId, index in onPad do
+		if last[userId] ~= index then
+			state.InviteOnPad(onPad)
+			return
+		end
+	end
+	for userId in last do
+		if not onPad[userId] then
+			state.InviteOnPad(onPad)
+			return
+		end
+	end
+end
+
+-- The invite list over the queue, only in an open party this player is in.
+local function setInviteOpen(isOpen: boolean)
+	if state.IsInviteOpen() == isOpen then return end
+	if isOpen then
+		local pad = pads[state.CurrentPad()]
+		if not pad or pad.Phase() ~= EPhase.Open then return end
+		listInvitePlayers()
+		lookOnPads()
+		nextOnPadLook = os.clock() + InviteTune.ON_PAD_SECONDS
+	end
+	local now = os.clock()
+	vide.batch(function()
+		state.IsInviteOpen(isOpen)
+		state.InviteAt(now)
+	end)
+	stir(now + Invite.SETTLE_SECONDS)
+	BlurController.SetBlurred("Invite", isOpen)
+	SoundsCore.PlayUINamed("UI", if isOpen then "MenuIn" else "MenuOut")
+end
+
+-- Writes what the server answered about an invite to `userId`, or takes it off with nil.
+local function setInviteResult(userId: number, result: number?)
+	local results = table.clone(state.InviteResults())
+	results[userId] = if result then { Result = result, At = os.clock() } else nil
+	state.InviteResults(results)
+end
+
+-- The next party's invite in line comes on, once the one before has gone.
+local function showInvitation(now: number)
+	local invitation = table.remove(invitationQueue, 1)
+	if not invitation then return end
+	vide.batch(function()
+		state.Invitation(invitation)
+		state.InvitationAt(now)
+		state.InvitationAnswer("")
+		state.InvitationSeconds(math.ceil(math.max(invitation.EndsAt - now, 0)))
+	end)
+	nextInvitationCall = now + InviteTune.CALL_SECONDS
+	stir(now + Invitation.ARRIVE_SECONDS)
+	SoundsCore.PlayUINamed("UI.Index", "Unlock")
+end
+
+-- The invite on show goes: "Join" lifts it away, "Decline" and "Lapse" slide it back out.
+local function dismissInvitation(answer: string)
+	if state.InvitationGoneAt() >= state.InvitationAt() or not state.Invitation() then return end
+	local now = os.clock()
+	vide.batch(function()
+		state.InvitationAnswer(answer)
+		state.InvitationGoneAt(now)
+	end)
+	nextInvitationCall = math.huge
+	stir(now + Invitation.LEAVE_SECONDS)
+end
+
+-- Whether a party's invite to this player still means anything: its party still open with room, and this player on no
+-- pad of their own.
+local function isInvitationLive(invitation: Types.TInvitation, now: number): boolean
+	if now >= invitation.EndsAt or state.CurrentPad() ~= 0 then return false end
+	local padState = latest[invitation.Pad]
+	return padState ~= nil and padState.Phase == EPhase.Open and padState.Count < padState.MaxPlayers
+end
+
+-- The list's answers that have had their time go back to INVITE: SENT for as long as the invite stands, DECLINED for as
+-- long as the server holds the party off, the rest a moment.
+local function expireInviteResults(now: number)
+	for userId, answer in state.InviteResults() do
+		local seconds = if answer.Result == EInvite.Sent
+			then PadsCore.INVITE_SECONDS
+			elseif answer.Result == EInvite.Declined then PadsCore.INVITE_DECLINED_SECONDS
+			else InviteTune.ANSWER_SECONDS
+		if now - answer.At >= seconds then setInviteResult(userId, nil) end
+	end
+end
+
+-- The open list sees again who stands where every so often, and shuts once the party is no longer open.
+local function updateInviteList(now: number)
+	if not state.IsInviteOpen() then return end
+	local pad = pads[state.CurrentPad()]
+	if not pad or pad.Phase() ~= EPhase.Open then setInviteOpen(false) end
+	if now < nextOnPadLook then return end
+	nextOnPadLook = now + InviteTune.ON_PAD_SECONDS
+	lookOnPads()
+end
+
+-- The party's invite on show counts down, calls on JOIN and lapses; once it has gone, the next in line comes on, those
+-- that lapsed while waiting dropped unseen.
+local function updateInvitation(now: number)
+	local invitation = state.Invitation()
+	if invitation and state.InvitationGoneAt() < state.InvitationAt() then
+		local seconds = math.ceil(math.max(invitation.EndsAt - now, 0))
+		if seconds ~= state.InvitationSeconds() then state.InvitationSeconds(seconds) end
+		if not isInvitationLive(invitation, now) then dismissInvitation("Lapse") end
+		if now < nextInvitationCall then return end
+		nextInvitationCall = now + InviteTune.CALL_SECONDS
+		state.InvitationCallAt(now)
+		stir(now + Invitation.CALL_SECONDS)
+		return
+	end
+
+	if #invitationQueue == 0 or now < state.InvitationGoneAt() + Invitation.LEAVE_SECONDS then return end
+	while invitationQueue[1] and not isInvitationLive(invitationQueue[1], now) do
+		table.remove(invitationQueue, 1)
+	end
+	showInvitation(now)
+end
+
 local actions: Types.TLobbyActions = {
 	Play = function()
 		local now = os.clock()
@@ -608,14 +870,48 @@ local actions: Types.TLobbyActions = {
 		stir(now + Hud.PLAY_SECONDS)
 		ClientNetworkLobby.Play.Fire()
 	end,
+	-- The pad's EXIT. Over the invite list it goes back one step: the list shuts and the player stays on the pad.
 	Leave = function()
+		if state.IsInviteOpen() then
+			setInviteOpen(false)
+			return
+		end
+		if state.IsChoosing() and isHeldByUnlock() then return end
 		ClientNetworkLobby.LeavePad.Fire()
 	end,
+	OpenInvite = function()
+		setInviteOpen(true)
+	end,
+	CloseInvite = function()
+		setInviteOpen(false)
+	end,
+	-- Shown as SENT at once; the server's answer stamps over it.
+	InvitePlayer = function(userId: number)
+		if not state.IsInviteOpen() or state.InviteResults()[userId] then return end
+		setInviteResult(userId, EInvite.Sent)
+		stir(os.clock() + Invite.SETTLE_SECONDS)
+		SoundsCore.PlayUINamed("UI.UpgradePick", "PickRare")
+		ClientNetworkLobby.InvitePlayer.Fire(userId)
+	end,
+	-- JOIN shuts whatever screen is up first, so the queue the server's answer brings is the one thing on screen.
+	AnswerInvitation = function(isJoining: boolean)
+		local invitation = state.Invitation()
+		if not invitation or state.InvitationGoneAt() >= state.InvitationAt() then return end
+		dismissInvitation(if isJoining then "Join" else "Decline")
+		ClientNetworkLobby.AnswerInvite.Fire(invitation.Pad, isJoining)
+		if not isJoining then
+			SoundsCore.PlayUINamed("UI", "MenuOut")
+			return
+		end
+		closeScreens()
+		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
+	end,
 	StartParty = function()
+		if isHeldByUnlock() then return end
 		local now = os.clock()
 		local map = MapsCore.LIST[state.PickMap()]
 		stir(now + Party.SETTLE_SECONDS)
-		if not map or not MapsCore.IsUnlockedBy(map, state.BestByMap()) then
+		if not map or not isMapOpen(map) then
 			state.PartyRefusedAt(now)
 			SoundsCore.PlayUINamed("UI.UpgradePick", "Denied")
 			return
@@ -629,8 +925,7 @@ local actions: Types.TLobbyActions = {
 		setMap(index, if index < state.PickMap() then -1 else 1)
 	end,
 	StepMap = function(step: number)
-		local count = #MapsCore.LIST
-		setMap((state.PickMap() - 1 + step) % count + 1, step)
+		setMap(state.PickMap() + step, step)
 	end,
 	PickPlayers = function(count: number)
 		if count == state.PickPlayers() or count < 1 or count > PadsCore.MAX_PLAYERS then return end
@@ -734,8 +1029,16 @@ local function updateScale()
 	end)
 end
 
+-- Every place of an open party, taken or not, as Shot.Taken's bits: the server hands out the lowest spots first, so a
+-- party of n stands on the first n.
+local function placesOf(pad: Types.TPadView): number
+	if pad.Phase() ~= EPhase.Open then return 0 end
+	return bit32.lshift(1, math.min(pad.MaxPlayers(), #PadsCore.SPOTS)) - 1
+end
+
 -- On a pad the camera holds a shot of the party (Shot), framed again as bodies are put on their spots or leave them.
--- Each arrival lights the pad and, once the shot is up, pushes the camera in a little.
+-- An open party's free places are framed too, where their bodies stand (Ghosts). Each arrival lights the pad and, once
+-- the shot is up, pushes the camera in a little.
 local function frameShot()
 	local index = state.CurrentPad()
 	local pad = pads[index]
@@ -743,14 +1046,16 @@ local function frameShot()
 		if not isShotHeld then return end
 		isShotHeld = false
 		shotTaken = 0
+		shotFramed = 0
 		CameraController.ReleaseShot()
 		return
 	end
 
 	local taken = Shot.Taken(padSpots[index], bodies)
+	local framed = bit32.bor(taken, placesOf(pad))
 	local viewport = Workspace.CurrentCamera.ViewportSize
 	local aspect = viewport.X / math.max(viewport.Y, 1)
-	if isShotHeld and taken == shotTaken and aspect == shotAspect then return end
+	if isShotHeld and taken == shotTaken and framed == shotFramed and aspect == shotAspect then return end
 
 	if bit32.band(taken, bit32.bnot(shotTaken)) ~= 0 then
 		local art = arts[index]
@@ -760,9 +1065,96 @@ local function frameShot()
 
 	isShotHeld = true
 	shotTaken = taken
+	shotFramed = framed
 	shotAspect = aspect
-	local eye, look = Shot.Frame(pad.Part, taken, aspect)
+	local eye, look = Shot.Frame(pad.Part, framed, aspect)
 	CameraController.HoldShot(eye, look, Shot.FOV)
+end
+
+-- The open place's body along `ray`, the nearest if several.
+local function ghostAlong(ray: Ray): Ghosts.TGhost?
+	local nearest, nearestDistance = nil, math.huge
+	for _, ghost in ghosts do
+		local distance = Ghosts.Hit(ghost, ray)
+		if distance and distance < nearestDistance then
+			nearest, nearestDistance = ghost, distance
+		end
+	end
+
+	return nearest
+end
+
+-- Whether a button of any screen is under the screen point (inset-excluded, as AbsolutePosition): it takes the press,
+-- so the body behind it does not light.
+local function isButtonAt(point: Vector2): boolean
+	for _, object in LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(point.X, point.Y) do
+		if object:IsA("GuiButton") and object.Interactable then return true end
+	end
+
+	return false
+end
+
+-- The body under the mouse, while the invite list is not over them.
+local function hoverGhost(): Ghosts.TGhost?
+	if ghostPad == 0 or state.IsInviteOpen() or not UserInputService.MouseEnabled then return nil end
+	local mouse = UserInputService:GetMouseLocation()
+	local ghost = ghostAlong(Workspace.CurrentCamera:ViewportPointToRay(mouse.X, mouse.Y))
+	if not ghost or isButtonAt(mouse - GuiService:GetGuiInset()) then return nil end
+	return ghost
+end
+
+-- A body pressed: it sinks and punches as the invite list rises over it.
+local function pressGhost(ghost: Ghosts.TGhost)
+	Ghosts.Press(ghost, os.clock())
+	SoundsCore.PlayClick()
+	setInviteOpen(true)
+end
+
+-- The open places' bodies on this player's pad: built as they step on, offered while the party is open and the spot
+-- free, lifted off as a player lands on one, and destroyed once they have gone after the player left the pad.
+local function updateGhosts(now: number)
+	local dt = math.min(now - ghostsAt, 0.1)
+	ghostsAt = now
+	local index = state.CurrentPad()
+	local pad = pads[index]
+	if index ~= ghostPad then
+		local isGone = true
+		for _, ghost in ghosts do
+			Ghosts.Open(ghost, false, false, now)
+			if not ghost.IsGone then isGone = false end
+		end
+		local folder = ghostFolder
+		if isGone and folder then
+			for _, ghost in ghosts do
+				ghost.Model:Destroy()
+			end
+			table.clear(ghosts)
+			hoveredGhost = nil
+			ghostPad = index
+			if pad then
+				for spot in PadsCore.SPOTS do
+					ghosts[spot] = Ghosts.Build(pad.Part, spot, folder)
+				end
+			end
+		end
+	end
+
+	if pad and index == ghostPad then
+		local free = bit32.band(placesOf(pad), bit32.bnot(shotTaken))
+		for spot, ghost in ghosts do
+			local bit = bit32.lshift(1, spot - 1)
+			Ghosts.Open(ghost, bit32.btest(free, bit), bit32.btest(shotTaken, bit), now)
+		end
+	end
+
+	local hovered = hoverGhost()
+	if hovered ~= hoveredGhost then
+		hoveredGhost = hovered
+		if hovered then SoundsCore.PlayHover() end
+	end
+	for _, ghost in ghosts do
+		Ghosts.Step(ghost, now, dt, ghost == hovered)
+	end
 end
 
 -- Whether any button calls for what waits behind it: the daily screen, the index, the quests, an upgrade.
@@ -832,14 +1224,32 @@ local function update()
 		local seconds = if ending then math.ceil(math.max(ending - now, 0)) else -1
 		if pad.Seconds() ~= seconds then pad.Seconds(seconds) end
 	end
+	for index = #dueSounds, 1, -1 do
+		local due = dueSounds[index]
+		if now < due.At then continue end
+		table.remove(dueSounds, index)
+		SoundsCore.PlayUINamed(due.Group, due.Name)
+	end
 	stunOnPad(now)
 	frameShot()
+	updateGhosts(now)
+	expireInviteResults(now)
+	updateInviteList(now)
+	updateInvitation(now)
 	-- A stun the server never answered lets go.
 	if stunnedUntil > -math.huge and now >= stunnedUntil then
 		stunnedUntil = -math.huge
 		unansweredPad = stunnedPad
 		updateControls()
 	end
+end
+
+-- The level the maps open on, as the profile has it. A map it opens while the screen is up plays its unlock there.
+local function syncLevel()
+	if state.Level() == ProfileController.Level then return end
+	state.Level(ProfileController.Level)
+	tintPads()
+	playUnlock(state.PickMap(), os.clock())
 end
 
 local function applyPad(index: number)
@@ -927,6 +1337,45 @@ ServerNetworkLobby.PadRefused.On(function(index: number, reason: number)
 		showToast("Someone is setting up this party.")
 	elseif reason == ERefusal.Idle then
 		showToast("Time's up: the pad is free again.")
+	elseif reason == ERefusal.Expired then
+		showToast("That invite has run out.")
+	end
+end)
+
+-- A party's invite: shown at once if nothing else is, else it waits its turn. The same party asking again only renews
+-- the one it already has, wherever it is in line.
+ServerNetworkLobby.Invited.On(function(index: number, userId: number, seconds: number)
+	local inviter = Players:GetPlayerByUserId(userId)
+	if not inviter or not pads[index] then return end
+	local lapsesAt = os.clock() + seconds
+	local current = state.Invitation()
+	if current and current.Pad == index and state.InvitationGoneAt() < state.InvitationAt() then
+		state.Invitation({ Pad = index, UserId = userId, DisplayName = inviter.DisplayName, EndsAt = lapsesAt })
+		return
+	end
+	for position, waiting in invitationQueue do
+		if waiting.Pad ~= index then continue end
+		table.remove(invitationQueue, position)
+		break
+	end
+	if #invitationQueue >= InviteTune.QUEUE then table.remove(invitationQueue, 1) end
+	table.insert(
+		invitationQueue,
+		{ Pad = index, UserId = userId, DisplayName = inviter.DisplayName, EndsAt = lapsesAt }
+	)
+end)
+
+-- What came of an invite this player sent: its card stamps the answer. Joining sounds here; the rest sound as they
+-- matter (turned down), or not at all (what the card already showed).
+ServerNetworkLobby.InviteAnswered.On(function(userId: number, result: number)
+	local last = state.InviteResults()[userId]
+	if last and last.Result == result then return end
+	setInviteResult(userId, result)
+	stir(os.clock() + Invite.SETTLE_SECONDS)
+	if result == EInvite.Joined then
+		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
+	elseif result ~= EInvite.Sent then
+		SoundsCore.PlayUINamed("UI.UpgradePick", "Denied")
 	end
 end)
 
@@ -963,14 +1412,23 @@ ServerNetworkClasses.Sync.On(function(classes: { { Class: number, Levels: { numb
 	if pending then refuseUpgrade() end
 end)
 
-ServerNetworkLobby.MapRecords.On(function(bests: { number })
-	local byName = {}
+ServerNetworkLobby.MapRecords.On(function(records: { { Best: number, BossKills: number, IsShown: boolean } })
+	local bests, bossKills, shown = {}, {}, {}
 	for index, map in MapsCore.LIST do
-		byName[map.Name] = bests[index] or 0
+		local record = records[index]
+		bests[map.Name] = if record then record.Best else 0
+		bossKills[map.Name] = if record then record.BossKills else 0
+		shown[map.Name] = record ~= nil and record.IsShown
 	end
 
-	state.BestByMap(byName)
+	vide.batch(function()
+		state.BestByMap(bests)
+		state.BossKills(bossKills)
+		state.MapsShown(shown)
+	end)
 	tintPads()
+	-- A map opened while the screen is up plays its unlock there and then.
+	playUnlock(state.PickMap(), os.clock())
 end)
 
 LobbyController.OnSelfCharacterAdded = function(character)
@@ -993,6 +1451,23 @@ end :: TCharacterEvents.OnCharacterAdded
 LobbyController.OnCharacterRemoving = function(character: TCharacter.TCharacter)
 	bodies[character] = nil
 end :: TCharacterEvents.OnCharacterRemoving
+
+LobbyController.OnPlayerConnected = function(player: Player)
+	if player == LocalPlayer then return end
+	invitePlayers[player.UserId] = {
+		UserId = player.UserId,
+		Name = player.Name,
+		DisplayName = player.DisplayName,
+	}
+	listInvitePlayers()
+end :: TPlayerEvents.OnPlayerConnected
+
+LobbyController.OnPlayerDisconnected = function(player: Player)
+	if not invitePlayers[player.UserId] then return end
+	invitePlayers[player.UserId] = nil
+	listInvitePlayers()
+	setInviteResult(player.UserId, nil)
+end :: TPlayerEvents.OnPlayerDisconnected
 
 LobbyController.OnStart = function()
 	CameraController.UseRobloxMouse()
@@ -1020,6 +1495,10 @@ LobbyController.OnStart = function()
 		arts[index] = PadArt.Build(pad.Part, artFolder)
 		padSpots[index] = Shot.SpotsOf(pad.Part)
 	end
+	local folder = Instance.new("Folder")
+	folder.Name = "PartyGhosts"
+	folder.Parent = Workspace
+	ghostFolder = folder
 
 	updateScale()
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
@@ -1097,6 +1576,8 @@ LobbyController.OnStart = function()
 	nextPlayCall = nextGemGlint + PLAY_CALL_OFFSET
 	if ProfileController.IsLoaded then showProfile() end
 	ProfileController.OnChanged:Connect(showProfile)
+	syncLevel()
+	ProfileController.OnChanged:Connect(syncLevel)
 
 	-- A key a text box took (chat) is typing, not a press; and a screen over the lobby covers the HUD's keys.
 	UserInputService.InputBegan:Connect(function(input: InputObject, isProcessed: boolean)
@@ -1106,6 +1587,19 @@ LobbyController.OnStart = function()
 	end)
 	UserInputService.InputEnded:Connect(function(input: InputObject)
 		if state.HeldKey() == input.KeyCode then state.HeldKey(nil) end
+	end)
+	-- A click or a tap on an open place's body that no button took. A tap has no hover, so it is aimed from its own
+	-- point (inset-excluded, which ScreenPointToRay expects).
+	UserInputService.InputBegan:Connect(function(input: InputObject, isProcessed: boolean)
+		if isProcessed or state.IsInviteOpen() then return end
+		local ghost
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			ghost = hoveredGhost
+		elseif input.UserInputType == Enum.UserInputType.Touch and ghostPad ~= 0 then
+			local point = input.Position
+			ghost = ghostAlong(Workspace.CurrentCamera:ScreenPointToRay(point.X, point.Y))
+		end
+		if ghost then pressGhost(ghost) end
 	end)
 
 	vide.mount(function()
@@ -1218,7 +1712,9 @@ LobbyController.OnStart = function()
 			}),
 			Party.Build(state, actions),
 			Queue.Build(state, actions),
+			Invite.Build(state, actions),
 			PadExit.Build(state, actions),
+			Invitation.Build(state, actions),
 			Classes.Build(state, actions, {
 				Pieces = EquipmentController.BuildPage(),
 				FadeSeconds = EquipmentController.FADE_SECONDS,

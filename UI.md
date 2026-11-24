@@ -438,8 +438,24 @@ over each pad; Parts, what all of them share). Rendered by `tools/uimatt/Party.s
   tiles): a jump to a harder pick heats up on the way there.
 - **A carousel is two layers on one curve**: the leaving picture and the coming one share one decelerating travel, so
   they meet edge to edge the whole way; the name follows a beat later and a shorter way.
-- **The portfolio's dots** (`../Portfolio`, ProjectDetail): 8 px, 28 px picked, 8 px apart, width and colour over 250
-  ms on cubic-bezier(0.4, 0, 0.2, 1) (`Parts.Standard`, solved by Newton's method and checked in lune).
+- **The maps are a path, not a select screen** (2026-11-24). Dots under the showcase and arrows that wrapped round read
+  as "pick any map" (a fighting game's roster); the maps open in order (`MapsCore`: a level and the boss of the map
+  before beaten three times). The dots became numbered points joined by a track filled in each opened map's colour, a
+  locked point wears the padlock, the arrows stop at the ends (shrinking away), and the screen opens on the newest
+  map. A locked map stands under a veil with the padlock and one plaque per requirement, each with how far along
+  the player is.
+- **The path shows only what has been reached, the next map, and a '?'** (`Parts.PathCount`): the '?' is a page of
+  its own (a big '?', "???", every figure '?') and is there past the last map too, so there is always something to
+  play on for. As an unlock lands, the '?' turns into the next map's padlock with a punch and a ring, a new '?' grows
+  in past it, and the path glides to stay centred.
+- **A carousel slides the whole page, not the picture alone.** The veil, padlock, rows and best wave sat on the
+  window over two sliding pictures and snapped to the new map while the pictures slid. Each map is one page (`page`)
+  holding all of them; only the name follows a beat later, and the arrows, being controls, stay put.
+- **An unlock is a moment the host is held for** (`Parts.Unlock`, played once a map, `TProfile.MapsShown`): the rows
+  tick off one after another, the padlock strains twice and opens as the index's (`Utils/padlock`, one builder for
+  both), and on the click the veil lifts with one flash, one ring and a sweep while the map warms from grey to its
+  colour, the track runs on to its point, which lights with a ring of its own, and NEW slaps on. No other map, EXIT or
+  CREATE until `HOLD`; CREATE's light crosses it as the hold lets go. Rendered: `Assets/ui/party/preview/party-unlock*`.
 - **A readout's punch on change is `Parts.OnChange`**, never a hand-written effect with a `last` local each time.
 - **Billboards run on springs**, not the lobby's `Now`: a board over every pad would otherwise keep the clock ticking.
   A pad's board is hidden from the players on it, whose queue screen says the same in front of their camera.

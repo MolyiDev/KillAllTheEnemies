@@ -4,6 +4,8 @@ export type TJoin = {
 	TeleportData: {
 		SecureToken: string,
 	}?,
+	-- Set by Roblox on a join through a player's invite or referral link: that player's user id (0 or nil for none).
+	ReferredByPlayerId: number?,
 }
 
 export type TMessage = {

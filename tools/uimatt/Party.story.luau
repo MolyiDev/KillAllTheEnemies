@@ -6,7 +6,10 @@
 -- Moment: Rest (open and settled: Pirate Cove, Normal, a party of 4, public), Enter (opening 0.2 s in), Map (the next
 -- map picked 0.2 s in), Back (the map before), Dot (the last map picked by its dot), Size (a party of 2 picked), Grow
 -- (from 1 to 4), Difficulty (Hell picked), Access (friends picked), Create (CREATE pressed and the party going up),
--- Close (the X), for `rur-native sequence`. The group-owned images 403
+-- Close (the X), Hurry (the last seconds to pick), Locked (the second map, not open: level 7 of 10, its boss beaten
+-- once of three), Unlock (the second map open and its unlock playing from 0.2 s in, as the screen opens on it), Path
+-- (the third map picked, its unlock played), Slide (Locked's player turning from the first map to the second 0.2 s in),
+-- Mystery (Locked's player on the path's '?'), for `rur-native sequence`. The group-owned images 403
 -- offline, so they are swapped for the local PNGs they were made from.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -77,10 +80,21 @@ return {
 			"Create",
 			"Close",
 			"Hurry",
+			"Locked",
+			"Unlock",
+			"Path",
+			"Slide",
+			"Mystery",
 		},
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
+		-- Locked's player: level 7, the first map's boss beaten once.
+		local isEarly = moment == "Locked" or moment == "Slide" or moment == "Mystery"
+		local firstMap = if moment == "Locked" or moment == "Unlock"
+			then 2
+			elseif moment == "Path" or moment == "Mystery" then 3
+			else 1
 		local start = os.clock()
 		local at = start + MOMENT_AT
 
@@ -98,13 +112,24 @@ return {
 			IsChoosing = source(true),
 			ChoosingAt = source(if moment == "Enter" then at else -math.huge),
 			BestByMap = source({ PirateCove = 23, GrassLands = 8 }),
+			BossKills = source(if isEarly then { PirateCove = 1 } else { PirateCove = 3, GrassLands = 3 }),
+			-- The controller marks a map shown as its unlock starts.
+			MapsShown = source(
+				if moment == "Path"
+					then { GrassLands = true, Baseplate = true }
+					elseif moment == "Unlock" then { GrassLands = true }
+					else {}
+			),
+			Level = source(if isEarly then 7 else 24),
+			UnlockMap = source(if moment == "Unlock" then 2 else 0),
+			UnlockAt = source(if moment == "Unlock" then at else -math.huge),
 			PickPlayers = source(if moment == "Grow" then 1 else 4),
 			PickDifficulty = source(MapsCore.DIFFICULTIES[1]),
-			PickMap = source(1),
+			PickMap = source(firstMap),
 			PickFriendsOnly = source(false),
 			MapAt = source(-math.huge),
 			MapStep = source(1),
-			MapFrom = source(1),
+			MapFrom = source(firstMap),
 			DifficultyAt = source(-math.huge),
 			DifficultyFrom = source(MapsCore.DIFFICULTIES[1]),
 			PlayersAt = source(-math.huge),
@@ -141,7 +166,8 @@ return {
 				setMap(index, if index < state.PickMap() then -1 else 1)
 			end,
 			StepMap = function(step: number)
-				setMap((state.PickMap() - 1 + step) % #MapsCore.LIST + 1, step)
+				local index = state.PickMap() + step
+				if index >= 1 and index <= Parts.PathCount(state :: any) then setMap(index, step) end
 			end,
 			PickPlayers = function(count: number)
 				state.PlayersFrom(state.PickPlayers())
@@ -165,7 +191,7 @@ return {
 			if now < at then return end
 			if not isDone then
 				isDone = true
-				if moment == "Map" then actions.StepMap(1) end
+				if moment == "Map" or moment == "Slide" then actions.StepMap(1) end
 				if moment == "Back" then actions.StepMap(-1) end
 				if moment == "Dot" then actions.PickMap(#MapsCore.LIST) end
 				if moment == "Difficulty" then actions.PickDifficulty("Hell") end

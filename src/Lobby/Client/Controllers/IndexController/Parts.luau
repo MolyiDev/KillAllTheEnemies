@@ -10,6 +10,7 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local TData = require(ReplicatedStorage.Types.TData)
+local padlock = require(script.Parent.Parent.Parent.Utils.padlock)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
@@ -34,9 +35,9 @@ Parts.Timing = table.freeze({
 	COUNT_DAMPING = 0.5,
 	-- A discovery's reveal: its card's padlock springs open over UNLOCK seconds, then the silhouette burns white for
 	-- WHITE seconds, then the enemy comes through it over CROSS.
-	REVEAL_UNLOCK = 0.5,
+	REVEAL_UNLOCK = padlock.OPEN_SECONDS,
 	-- When in it the shackle clicks up out of its sockets, and the unlock sound plays.
-	REVEAL_CLICK = 0.2,
+	REVEAL_CLICK = padlock.CLICK_SECONDS,
 	REVEAL_WHITE = 0.22,
 	REVEAL_CROSS = 0.38,
 })

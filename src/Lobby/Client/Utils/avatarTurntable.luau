@@ -395,7 +395,12 @@ function avatarTurntable.Build(spec: TSpec): (Frame, () -> ())
 			cheer = nil
 			if not copy then return end
 			local root = copy:FindFirstChild("HumanoidRootPart")
-			if root and root:IsA("BasePart") then root.Anchored = true end
+			if root and root:IsA("BasePart") then
+				root.Anchored = true
+				-- An R6 avatar's PrimaryPart is its Head, so turning it by its pivot every frame would pin the head and
+				-- swing the body round it as the idle clip moves the head.
+				copy.PrimaryPart = root
+			end
 			stand(copy)
 			copy.Parent = world
 			play(copy)

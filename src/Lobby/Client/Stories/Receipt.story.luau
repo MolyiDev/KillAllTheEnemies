@@ -1,5 +1,6 @@
 -- The shop's Robux receipt (ShopController/Receipt) on its own, over a stand-in for the blurred lobby. Offer picks
--- what was bought (a bought offer, a gift received, a gift sent, a bundle with a gun already owned); Moment: Play
+-- what was bought (a bought offer, a gift received, a gift sent, a bundle with a gun already owned) or a friend's
+-- join by an invite (InvitesService); Moment: Play
 -- (the whole reveal from MOMENT_AT), Hurry (a press 0.8 s in lands it all), Done (it is over, waiting for CONTINUE),
 -- Leave (CONTINUE pressed once it is over). Every change plays it again. The Gems' flight and the sounds are the
 -- controller's, so neither is here.
@@ -41,7 +42,8 @@ local HURRY_AFTER = 0.8
 -- The lobby behind it, blurred: a few soft blocks of its colours.
 local BACKGROUND = Color3.fromRGB(40, 40, 60)
 
--- Each pick: the offer, and who it was from or for, and the Gems paid in place of what was held.
+-- Each pick: the offer, and who it was from or for, and the Gems paid in place of what was held; or the friend who
+-- joined by an invite and how many have paid of the most.
 local OFFERS = {
 	{ Label = "Gem pack", Offer = "GemsHuge", Giver = "", Refund = 0 },
 	{ Label = "Mega Gem pack", Offer = "GemsMega", Giver = "", Refund = 0 },
@@ -53,6 +55,13 @@ local OFFERS = {
 	{ Label = "Double Gems, gift received", Offer = "DoubleGems", Giver = "Builderman", Refund = 0 },
 	{ Label = "2x Luck", Offer = "Luck", Giver = "", Refund = 0 },
 	{ Label = "Gift sent", Offer = "GemsLarge", Giver = "", Receiver = "Builderman", Refund = 0 },
+	{
+		Label = "Friend invited",
+		Offer = "",
+		Giver = "",
+		Refund = 0,
+		Invite = { Name = "Builderman", Friends = 3, Most = 10 },
+	},
 }
 local OFFER_LABELS = {}
 for index, pick in OFFERS do
@@ -84,12 +93,15 @@ end
 
 local function bench(target: Frame, label: string, moment: string, isOffline: boolean): Frame
 	local pick = pickOf(label)
-	local receipt = Receipts.Build(ShopCore.ByName[pick.Offer], {
-		Giver = pick.Giver,
-		Receiver = pick.Receiver,
-		Refund = pick.Refund,
-		IsRestricted = false,
-	}, ShopCore.FeaturedGun(os.time()))
+	local invite = pick.Invite
+	local receipt = if invite
+		then Receipts.Invite(invite.Name, 1000, invite.Friends, invite.Most)
+		else Receipts.Build(ShopCore.ByName[pick.Offer], {
+			Giver = pick.Giver,
+			Receiver = pick.Receiver,
+			Refund = pick.Refund,
+			IsRestricted = false,
+		}, ShopCore.FeaturedGun(os.time()))
 
 	local start = os.clock() + MOMENT_AT
 	local plan = Receipts.Plan(receipt, start)

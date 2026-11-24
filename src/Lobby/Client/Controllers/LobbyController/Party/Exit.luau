@@ -9,6 +9,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
+local Parts = require(script.Parent.Parts)
 local Types = require(script.Parent.Parent.Types)
 
 local create = vide.create
@@ -64,8 +65,9 @@ function Exit.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): Scr
 		IgnoreGuiInset = true,
 		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-		-- Over the party screen and its dim (5), which would take its presses.
-		DisplayOrder = 6,
+		-- Over the party screen and its dim (5), which would take its presses, and over the invite list's (6), which it
+		-- shuts.
+		DisplayOrder = 7,
 		Enabled = derive(function(): boolean
 			return gone() < 0.999
 		end),
@@ -76,9 +78,10 @@ function Exit.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): Scr
 			Size = UDim2.fromOffset(1920, 1080),
 			BackgroundTransparency = 1,
 			create("UIScale")({ Scale = state.PageScale }),
+			-- Dead while a map's unlock holds the host on it.
 			Components.Exit(gone, actions.Leave, {
 				Interactable = derive(function(): boolean
-					return isShown() and not isTeleporting()
+					return isShown() and not isTeleporting() and not Parts.IsHeld(state)
 				end),
 			}),
 		}),
