@@ -6,14 +6,21 @@ local TData = require(ReplicatedStorage.Types.TData)
 
 export type Source<T> = vide.Source<T>
 
--- A page of the index: its key, its word, its card's glyph (an Icons cell), its accent and its enemies in the order
--- they come in a run.
+-- A page of the index: its key, its word, its card's picture (an EIcons name), its accent and its enemies in
+-- the order they come in a run, or (the POTIONS page) its recipes in data Id order and no enemies.
 export type TCategory = {
 	Key: number,
 	Word: string,
-	Glyph: string,
+	Picture: string,
 	Accent: Color3,
 	Enemies: { TData.TEnemy },
+	Potions: { TData.TPotion }?,
+}
+
+-- A recipe brewed at least once: how many times, and whether the index has not shown it found yet.
+export type TFoundPotion = {
+	Brewed: number,
+	IsNew: boolean,
 }
 
 export type TIndexState = {
@@ -36,15 +43,25 @@ export type TIndexState = {
 	RevealAt: Source<{ [number]: number }>,
 	-- Revealed this session and not picked since: their cards carry NEW.
 	Unread: Source<{ [number]: boolean }>,
-	-- When the enemy on the stage was last clicked.
+	-- When the thing on the stage was last clicked.
 	PokedAt: Source<number>,
+	-- The recipe on the stage and in the info panel while the POTIONS page is on show (a potion data Id). A pick of
+	-- one stamps SelectedAt too.
+	SelectedPotion: Source<number>,
+	-- The Mutation Lab's word on the recipes found: data Id -> TFoundPotion.
+	Potions: Source<{ [number]: TFoundPotion }>,
+	-- The os.clock each recipe's reveal plays at, as RevealAt. One the lab calls new with none is drawn unknown.
+	PotionsRevealAt: Source<{ [number]: number }>,
+	-- Recipes shown found this session and not picked since: their cards carry NEW.
+	PotionsUnread: Source<{ [number]: boolean }>,
 }
 
 export type TIndexActions = {
 	Close: () -> (),
 	PickCategory: (key: number) -> (),
 	Select: (enemyId: number) -> (),
-	-- The enemy on the stage was clicked: it attacks, or a locked one shakes its head.
+	SelectPotion: (recipeId: number) -> (),
+	-- The thing on the stage was clicked: an enemy attacks, or a locked one shakes its head.
 	Poke: () -> (),
 	-- Keeps the clock ticking for a gesture a view starts on its own.
 	Stir: (seconds: number) -> (),

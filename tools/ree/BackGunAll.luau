@@ -48,7 +48,7 @@ return function(Context)
 		return a.Id < b.Id
 	end)
 	for index, gun in order do
-		local folderName = if gun.Rarity == "Starter" then "starter weapons" else gun.Rarity
+		local folderName = gun.Rarity
 		local folder = folders[folderName]
 		if not folder then
 			folder = Instance.new("Folder")

@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local EGunsIds = require(ReplicatedStorage.Types.Enums.Data.EGunsIds)
 local Screen = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.WeaponsController.Screen)
 
@@ -23,8 +24,15 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
+	[Icons.SHOWCASE] = ROOT .. "Showcase.png",
+	[Icons.SHOWCASE_FLOOR] = ROOT .. "ShowcaseFloor.png",
 }
 local MOMENT_AT = 0.2
 local GEMS = 48250
@@ -51,9 +59,13 @@ return {
 	vide = vide,
 	controls = {
 		Moment = { "Rest", "Enter", "Buy", "Upgrade", "Tier", "Refused", "Show", "Hide", "Close" },
+		-- The art behind the gun (Showcase.LOOKS); Game is the look the game draws.
+		Look = { "Game", table.unpack(Showcase.LOOKS) },
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
+		local look = props.controls.Look()
+		Showcase.Looks.Weapons = if look == "Game" then Showcase.GAME_LOOKS.Weapons else look
 		local at = os.clock() + MOMENT_AT
 		local levels = {
 			[EGunsIds.StarterPistol] = 2,
@@ -94,6 +106,8 @@ return {
 			UpgradedAt = source(if isUpgrade then at + FLIGHT else -math.huge),
 			PaidAt = source(if isBuy or isUpgrade then at else -math.huge),
 			PaidFor = source(if isUpgrade then "Upgrade" else "Buy"),
+			-- Where the HUD's Gems glyph docks on a 1080 screen.
+			GemsFrom = source(Vector2.new(1627, 44)),
 			EquippedAt = source(if isBuy then at + FLIGHT else -math.huge),
 			RefusedAt = source(if moment == "Refused" then at else -math.huge),
 		}

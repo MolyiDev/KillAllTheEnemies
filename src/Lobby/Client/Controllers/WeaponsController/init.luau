@@ -19,6 +19,7 @@ local RangeController = require(script.Parent.RangeController)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
+local Parts = require(script.Parts)
 local Screen = require(script.Screen)
 local Types = require(script.Types)
 
@@ -37,6 +38,8 @@ local Tune = table.freeze({
 	LEAVE_SECONDS = 0.45,
 	-- How long the clock keeps ticking after a stamp: the longest gesture is shorter.
 	MOTION_SECONDS = 2.2,
+	-- Where a purchase's Gems set off before the HUD's Gems glyph has been handed over: where it docks on a 1080 screen.
+	GEMS_FROM = Vector2.new(1627, 44),
 })
 
 local WeaponsController = {}
@@ -64,6 +67,7 @@ local state: Types.TWeaponsState = {
 	UpgradedAt = source(-math.huge),
 	PaidAt = source(-math.huge),
 	PaidFor = source("Buy" :: Types.TRequest),
+	GemsFrom = source(Tune.GEMS_FROM),
 	EquippedAt = source(-math.huge),
 	RefusedAt = source(-math.huge),
 }
@@ -75,6 +79,9 @@ local heldSync: { Levels: { [number]: number }, Equipped: { number }, Shown: num
 local heldUntil = math.huge
 -- The gun the pending press was made on: the hand may pick another before the answer comes.
 local pendingGun = 0
+-- The HUD's Gems glyph, where a purchase's Gems set off, and the screen's 1920 x 1080 they fly in.
+local gemsTarget: GuiObject? = nil
+local root: Frame? = nil
 
 -- Whether the screen is up. Reads a vide source, so a view that calls it follows it.
 function WeaponsController.IsOpen(): boolean
@@ -84,6 +91,17 @@ end
 -- The os.clock it last opened or shut at. Reads a vide source.
 function WeaponsController.ToggledAt(): number
 	return state.ToggledAt()
+end
+
+-- Whether the Gems held buy a gun not owned yet or raise one that is: the WEAPONS slab wears the up arrow. Reads vide
+-- sources.
+function WeaponsController.CanUpgrade(): boolean
+	return Parts.HasOffer(state, DataCore.Guns.All)
+end
+
+-- Where a purchase's Gems set off: the glyph on the HUD's Gems counter.
+function WeaponsController.SetGemsTarget(glyph: GuiObject)
+	gemsTarget = glyph
 end
 
 local function stir(seconds: number)
@@ -209,6 +227,17 @@ local function apply(levels: { [number]: number }, equipped: { number }, shown: 
 	state.Shown(shown)
 end
 
+-- A purchase's Gems set off now, from where the HUD's glyph stands: both are measured from under the top bar, so the
+-- difference is the glyph's place in the screen's 1920 x 1080 however the two guis are scaled.
+local function pay(kind: Types.TRequest, now: number)
+	local glyph, page = gemsTarget, root
+	if glyph and glyph.Parent and page then
+		state.GemsFrom((glyph.AbsolutePosition + glyph.AbsoluteSize / 2 - page.AbsolutePosition) / state.Scale())
+	end
+	state.PaidFor(kind)
+	stamp(state.PaidAt, now)
+end
+
 -- The answer to whatever was pending, as a gesture: what changed for the selected gun.
 local function answer(levels: { [number]: number }, equipped: { number }, shown: number)
 	local pending = state.Pending()
@@ -223,16 +252,14 @@ local function answer(levels: { [number]: number }, equipped: { number }, shown:
 	local before = state.Levels()[gun.Id]
 	local after = levels[gun.Id]
 	if pending == "Buy" and not before and after then
-		state.PaidFor("Buy")
-		stamp(state.PaidAt, now)
+		pay("Buy", now)
 		state.BoughtGun(gun.Id)
 		heldUntil = now + Screen.FLIGHT_SECONDS
 		stamp(state.BoughtAt, heldUntil)
 		stamp(state.EquippedAt, heldUntil)
 		heldSync = { Levels = levels, Equipped = equipped, Shown = shown }
 	elseif pending == "Upgrade" and before and after and after > before then
-		state.PaidFor("Upgrade")
-		stamp(state.PaidAt, now)
+		pay("Upgrade", now)
 		state.UpgradedGun(gun.Id)
 		heldUntil = now + Screen.FLIGHT_SECONDS
 		stamp(state.UpgradedAt, heldUntil)
@@ -268,6 +295,16 @@ WeaponsController.OnStart = function()
 		local isDrawn = vide.derive(function(): boolean
 			return state.IsOpen() or state.Now() - state.ToggledAt() < Tune.LEAVE_SECONDS
 		end)
+		-- His 1920 x 1080, scaled whole into the middle of the screen.
+		root = create("Frame")({
+			Name = "Root",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
+			BackgroundTransparency = 1,
+			create("UIScale")({ Scale = state.Scale }),
+			Screen.Build(state, actions),
+		})
 
 		return create("ScreenGui")({
 			Name = "Weapons",
@@ -277,16 +314,7 @@ WeaponsController.OnStart = function()
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 			DisplayOrder = Tune.DISPLAY_ORDER,
 			Enabled = isDrawn,
-			-- His 1920 x 1080, scaled whole into the middle of the screen.
-			create("Frame")({
-				Name = "Root",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
-				BackgroundTransparency = 1,
-				create("UIScale")({ Scale = state.Scale }),
-				Screen.Build(state, actions),
-			}),
+			root,
 		})
 	end, LocalPlayer:WaitForChild("PlayerGui"))
 

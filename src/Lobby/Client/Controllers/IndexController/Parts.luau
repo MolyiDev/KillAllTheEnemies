@@ -1,10 +1,9 @@
 --!nonstrict
--- What the index screen's pieces share: its two pages and their enemies, each enemy's accent, threat and tags, his
--- badges and selection ring, a discovery's reveal, and the clock every piece's entrance reads.
+-- What the index screen's pieces share: its three pages and their enemies or recipes, each enemy's accent, threat and
+-- tags, a discovery's reveal, and the clock every piece's entrance reads.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
-local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -12,6 +11,7 @@ local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local TData = require(ReplicatedStorage.Types.TData)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -32,11 +32,17 @@ Parts.Timing = table.freeze({
 	-- A count going up is punched: its spring.
 	COUNT_PERIOD = 0.3,
 	COUNT_DAMPING = 0.5,
-	-- A discovery's reveal: the silhouette burns white for WHITE seconds, then the enemy comes through it over CROSS.
+	-- A discovery's reveal: its card's padlock springs open over UNLOCK seconds, then the silhouette burns white for
+	-- WHITE seconds, then the enemy comes through it over CROSS.
+	REVEAL_UNLOCK = 0.5,
+	-- When in it the shackle clicks up out of its sockets, and the unlock sound plays.
+	REVEAL_CLICK = 0.2,
 	REVEAL_WHITE = 0.22,
 	REVEAL_CROSS = 0.38,
 })
-Parts.REVEAL_SECONDS = Parts.Timing.REVEAL_WHITE + Parts.Timing.REVEAL_CROSS
+Parts.REVEAL_SECONDS = Parts.Timing.REVEAL_UNLOCK + Parts.Timing.REVEAL_WHITE + Parts.Timing.REVEAL_CROSS
+-- How far into a reveal the enemy starts coming through: what it throws off (a flash, a ring, its sound) goes then.
+Parts.REVEAL_LIT = Parts.Timing.REVEAL_UNLOCK + Parts.Timing.REVEAL_WHITE
 
 Parts.EDGE_SHARE = 0.85
 -- An unknown enemy's card and silhouette: his locked cards' grey violet, and the dark the silhouette is filled with.
@@ -70,7 +76,8 @@ local function byArrival(a: TData.TEnemy, b: TData.TEnemy): boolean
 	return a.Id < b.Id
 end
 
--- The pages: MONSTERS (everything a wave is drawn from) and BOSSES, each in the order its enemies first come.
+-- The pages: MONSTERS (everything a wave is drawn from) and BOSSES, each in the order its enemies first come, then
+-- POTIONS, the Mutation Lab's recipes in data Id order.
 local function categories(): { Types.TCategory }
 	local monsters, bosses = {}, {}
 	for _, enemy in DataCore.Enemies.All do
@@ -83,22 +90,52 @@ local function categories(): { Types.TCategory }
 		table.freeze({
 			Key = 1,
 			Word = "MONSTERS",
-			Glyph = "Zombie",
+			Picture = EIcons.Zombie,
 			Accent = Palette.Green,
 			Enemies = table.freeze(monsters),
 		}),
 		table.freeze({
 			Key = 2,
 			Word = "BOSSES",
-			Glyph = "Boss",
+			Picture = EIcons.ZombieKing,
 			Accent = Palette.Pink,
 			Enemies = table.freeze(bosses),
+		}),
+		table.freeze({
+			Key = 3,
+			Word = "POTIONS",
+			Picture = EIcons.Flask,
+			Accent = Palette.Violet,
+			Enemies = table.freeze({}),
+			Potions = DataCore.Potions.All,
 		}),
 	})
 end
 
 Parts.CATEGORIES = categories()
-Parts.TOTAL = #DataCore.Enemies.All
+-- The POTIONS page's key: the stage, the info and the grid draw a recipe on it instead of an enemy.
+Parts.POTIONS = 3
+-- Everything the index can show found: every enemy and every recipe.
+Parts.TOTAL = #DataCore.Enemies.All + #DataCore.Potions.All
+
+-- How many things `category` holds.
+function Parts.Size(category: Types.TCategory): number
+	return if category.Potions then #category.Potions else #category.Enemies
+end
+
+-- A recipe's colour: its first energy's, as a recipe has no rarity of its own.
+function Parts.PotionColor(recipe: TData.TPotion): Color3
+	local enemy = DataCore.Enemies.ById[recipe.Energies[1]]
+	local energy = if enemy then enemy.Energy else nil
+	return if energy then energy.Color else Palette.Violet
+end
+
+-- Whether `recipeId` wears NEW: found and not shown yet, or shown this session and not picked since.
+function Parts.IsPotionNew(state: Types.TIndexState, recipeId: number): boolean
+	if state.PotionsUnread()[recipeId] then return true end
+	local found = state.Potions()[recipeId]
+	return found ~= nil and found.IsNew
+end
 
 -- The page `enemy` is on.
 function Parts.CategoryOf(enemy: TData.TEnemy): number
@@ -182,17 +219,44 @@ function Parts.Faded(state: Types.TIndexState, elapsed: () -> number, delay: num
 	end)
 end
 
+-- Whether `recipeId` shows as found (its reveal may still be running): brewed, and not held unknown for a reveal the
+-- lab's NEW calls for.
+function Parts.IsPotionShown(state: Types.TIndexState, recipeId: number): boolean
+	local found = state.Potions()[recipeId]
+	return found ~= nil and (not found.IsNew or state.PotionsRevealAt()[recipeId] ~= nil)
+end
+
+-- How far into its reveal a thing shown found is, `at` its reveal's moment (nil: none, so known). Reads the clock only
+-- while the reveal is due or running: one over is told by os.clock, so a card revealed long ago is not worked out
+-- again on every tick of the screen's clock.
+local function revealed(state: Types.TIndexState, at: number?): number
+	if not at or os.clock() >= at + Parts.REVEAL_SECONDS then return 1 end
+	return Progress(state.Now(), at, Parts.REVEAL_SECONDS)
+end
+
 -- How far into being known `enemyId` is: 0 unknown (never killed, or found but its reveal not played yet), 1 known,
--- and between them the reveal running. Reads the clock only while a reveal is due or running: a reveal over is told by
--- os.clock, so a card revealed long ago is not worked out again on every tick of the screen's clock.
+-- and between them the reveal running.
 function Parts.Known(state: Types.TIndexState, enemyId: () -> number): () -> number
 	return derive(function(): number
 		local id = enemyId()
 		if state.Kills()[id] == nil or state.Hidden()[id] then return 0 end
-		local at = state.RevealAt()[id]
-		if not at or os.clock() >= at + Parts.REVEAL_SECONDS then return 1 end
-		return Progress(state.Now(), at, Parts.REVEAL_SECONDS)
+		return revealed(state, state.RevealAt()[id])
 	end)
+end
+
+-- The same for `recipeId`: 0 until it shows as found (IsPotionShown).
+function Parts.PotionKnown(state: Types.TIndexState, recipeId: () -> number): () -> number
+	return derive(function(): number
+		local id = recipeId()
+		if not Parts.IsPotionShown(state, id) then return 0 end
+		return revealed(state, state.PotionsRevealAt()[id])
+	end)
+end
+
+-- Whether a thing shown found counts yet, `at` as in revealed: once it starts coming through. A reveal over is told
+-- by os.clock, as there.
+local function isCounted(state: Types.TIndexState, at: number?): boolean
+	return not at or os.clock() >= at + Parts.REVEAL_LIT or state.Now() >= at + Parts.REVEAL_LIT
 end
 
 -- How many of `enemies` show as found now: a reveal counts once its enemy starts coming through.
@@ -201,28 +265,48 @@ function Parts.ShownCount(state: Types.TIndexState, enemies: { TData.TEnemy }): 
 	local count = 0
 	for _, enemy in enemies do
 		local id = enemy.Id
-		if kills[id] == nil or hidden[id] then continue end
-		local at = revealAt[id]
-		-- A reveal over is told by os.clock, as in Known.
-		if at and os.clock() < at + Parts.Timing.REVEAL_WHITE and state.Now() < at + Parts.Timing.REVEAL_WHITE then
-			continue
-		end
+		if kills[id] == nil or hidden[id] or not isCounted(state, revealAt[id]) then continue end
 		count += 1
 	end
 
 	return count
 end
 
+-- How many of `category`'s things show as found now: its enemies as ShownCount counts them, or its recipes the same
+-- way.
+function Parts.FoundCount(state: Types.TIndexState, category: Types.TCategory): number
+	local potions = category.Potions
+	if not potions then return Parts.ShownCount(state, category.Enemies) end
+	local revealAt = state.PotionsRevealAt()
+	local count = 0
+	for _, recipe in potions do
+		local id = recipe.Id
+		if not Parts.IsPotionShown(state, id) or not isCounted(state, revealAt[id]) then continue end
+		count += 1
+	end
+
+	return count
+end
+
+local function sinceLit(state: Types.TIndexState, revealAt: () -> { [number]: number }, id: () -> number)
+	return derive(function(): number?
+		local at = revealAt()[id()]
+		-- A reveal over is told by os.clock, as in Known.
+		if not at or os.clock() >= at + Parts.REVEAL_LIT + 1 then return nil end
+		local since = state.Now() - at - Parts.REVEAL_LIT
+		return if since >= 0 and since < 1 then since else nil
+	end)
+end
+
 -- Seconds since `enemyId` started coming through its silhouette, for what its reveal throws off (a flash, a ring);
 -- nil before that and once it is a second old.
 function Parts.SinceLit(state: Types.TIndexState, enemyId: () -> number): () -> number?
-	return derive(function(): number?
-		local at = state.RevealAt()[enemyId()]
-		-- A reveal over is told by os.clock, as in Known.
-		if not at or os.clock() >= at + Parts.Timing.REVEAL_WHITE + 1 then return nil end
-		local since = state.Now() - at - Parts.Timing.REVEAL_WHITE
-		return if since >= 0 and since < 1 then since else nil
-	end)
+	return sinceLit(state, state.RevealAt, enemyId)
+end
+
+-- The same for `recipeId`'s bottle.
+function Parts.PotionSinceLit(state: Types.TIndexState, recipeId: () -> number): () -> number?
+	return sinceLit(state, state.PotionsRevealAt, recipeId)
 end
 
 -- 0 to 1 over `seconds` of `since` (SinceLit), and `rest` while there is none.
@@ -258,73 +342,20 @@ function Parts.Punched(count: () -> number, size: number, key: (() -> any)?): ()
 	return punch
 end
 
--- A reveal's two halves out of Known: how white the silhouette has burned, and how far the enemy has come through.
+-- A reveal's halves out of Known: how white the silhouette has burned, and how far the enemy has come through. The
+-- padlock opening before them is the card's own (Grid).
 function Parts.Burned(known: () -> number): () -> number
 	return function(): number
-		return math.clamp(known() * Parts.REVEAL_SECONDS / Parts.Timing.REVEAL_WHITE, 0, 1)
+		local seconds = known() * Parts.REVEAL_SECONDS - Parts.Timing.REVEAL_UNLOCK
+		return math.clamp(seconds / Parts.Timing.REVEAL_WHITE, 0, 1)
 	end
 end
 
 function Parts.Lit(known: () -> number): () -> number
 	return function(): number
-		local seconds = known() * Parts.REVEAL_SECONDS - Parts.Timing.REVEAL_WHITE
+		local seconds = known() * Parts.REVEAL_SECONDS - Parts.REVEAL_LIT
 		return math.clamp(seconds / Parts.Timing.REVEAL_CROSS, 0, 1)
 	end
-end
-
--- His badges, `size` px square: Check (his green tick square), Lock (his grey-edged ink square with a white lock).
-function Parts.Badge(kind: string, size: number, props: { [any]: any }): Frame
-	if kind == "Lock" then
-		return Components.Plaque({
-			Size = UDim2.fromOffset(size, size),
-			Components.Icon("Lock", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = Components.GlyphBox(math.round(size * 0.56)),
-				ImageColor3 = Palette.White,
-				ZIndex = 2,
-			}),
-			props,
-		})
-	end
-
-	return create("Frame")({
-		Size = UDim2.fromOffset(size, size),
-		BackgroundColor3 = Palette.Green,
-		BorderSizePixel = 0,
-		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-		Components.Icon("Check", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = Components.GlyphBox(math.round(size * 0.62)),
-			ImageColor3 = Palette.Ink,
-			ZIndex = 2,
-		}),
-		props,
-	})
-end
-
--- His selection ring: a thin white rounded outline standing `outset` px off what it frames. `props` are its own
--- (size it to the framed piece; the outset is added).
-function Parts.Ring(outset: number, props: { [any]: any }): Frame
-	return create("Frame")({
-		Name = "Ring",
-		BackgroundTransparency = 1,
-		create("Frame")({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, 2 * outset, 1, 2 * outset),
-			BackgroundTransparency = 1,
-			create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
-			create("UIStroke")({
-				Color = Palette.White,
-				Thickness = 1.5,
-				Transparency = 0.05,
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			}),
-		}),
-		props,
-	})
 end
 
 -- One ring thrown out of a piece: its own outline grown `reach` px off it and fading as `t` runs 0 to 1. Out of the

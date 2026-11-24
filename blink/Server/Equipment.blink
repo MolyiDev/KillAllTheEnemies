@@ -1,0 +1,28 @@
+import "../Types/Player.blink"
+
+-- To one player: their equipment, once their profile loads and after every request, a refused one too, so a screen
+-- waiting on an answer always gets one. (owned piece Ids, the piece each slot holds in EquipmentCore.SLOTS' order or
+-- 0 for none, the pieces drawn off the avatar)
+event Sync {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8[], u8[], u8[])
+}
+
+-- To everybody (EquipmentService): the pieces a player wears and shows, as their profile loads and when it changes;
+-- and every other player's to one who just loaded. (player, piece Ids)
+event Worn {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Player.Type, u8[])
+}
+
+-- To one player in a match: a boss they helped kill dropped a piece for them. (piece Id)
+event Dropped {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}

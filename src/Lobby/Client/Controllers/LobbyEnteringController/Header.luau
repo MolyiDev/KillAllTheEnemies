@@ -14,6 +14,7 @@ local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -416,7 +417,7 @@ function Header.Build(state: Types.TState, clock: Types.TClock): Frame
 		Tint = 0.5,
 		Edge = 3,
 		Marks = true,
-		Brackets = 5,
+		Brackets = true,
 		GlowTransparency = function()
 			return Motion.Lerp(0.6, 0.2, badgeFlash())
 		end,
@@ -430,14 +431,11 @@ function Header.Build(state: Types.TState, clock: Types.TClock): Frame
 				return 1 + Timing.BADGE_SCALE * (1 - stamped()) + Timing.PUNCH * punch()
 			end,
 		}),
-		Components.Icon("Rank", {
+		Components.Picture(EIcons.Rank, {
 			Name = "Rank",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = Components.GlyphBox(Layout.BADGE_GLYPH),
-			ImageColor3 = function()
-				return Palette.Gold:Lerp(Palette.White, 0.8 * badgeFlash())
-			end,
+			Size = Components.PictureBox(Layout.BADGE_GLYPH),
 			ZIndex = 4,
 		}),
 		create("Frame")({
@@ -456,7 +454,7 @@ function Header.Build(state: Types.TState, clock: Types.TClock): Frame
 		}),
 	})
 
-	local panel = Components.Panel({ Brackets = 5, Wide = true }, {
+	local panel = Components.Panel({ Brackets = true, Wide = true }, {
 		Name = "Panel",
 		Size = UDim2.fromScale(1, 1),
 		create("Frame")({

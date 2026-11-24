@@ -74,6 +74,46 @@ export type TSpins = {
 	Bought: number,
 }
 
+-- The equipment (EquipmentCore), by data Name. Owned: each piece got, true (an EarlyUnlock piece is everybody's and
+-- never in it). Equipped: slot ("Head", "Torso", "Legs") -> Name, or "" for a slot emptied by hand; a slot never
+-- picked holds its EarlyUnlock piece. Hidden: the pieces drawn off the avatar, true (worn, they still count).
+export type TEquipmentSave = {
+	Owned: { [string]: boolean },
+	Equipped: { [string]: string },
+	Hidden: { [string]: boolean },
+}
+
+-- One potion brewed and not used up (PotionsCore): its recipe by data Name, its rarity by ERarities key, and the
+-- matches it has still to give. Id is the profile's own count (TMutation.NextId), so two of one recipe are told apart.
+export type TPotion = {
+	Id: number,
+	Name: string,
+	Rarity: string,
+	Matches: number,
+}
+
+-- A recipe brewed at least once: how many times, and whether the index has yet to show it found.
+export type TPotionFound = {
+	Brewed: number,
+	IsNew: boolean?,
+}
+
+-- The Mutation Lab (PotionsCore). Energy: held, by enemy data Name. Equipped: potion Ids in slot order, never more
+-- than the slots open. BrewDay / BrewsUsed: the UTC day brews were last used on and how many. Found: by recipe Name.
+-- HasGemSlot: the slot bought with Gems. BrewsBought: brews bought with Robux and not used yet (nil for none, so adding
+-- it needed no store wipe); the day's free ones go first.
+export type TMutation = {
+	Energy: { [string]: number },
+	Potions: { TPotion },
+	Equipped: { number },
+	NextId: number,
+	BrewDay: number,
+	BrewsUsed: number,
+	Found: { [string]: TPotionFound },
+	HasGemSlot: boolean,
+	BrewsBought: number?,
+}
+
 export type TProfile = {
 	Version: number,
 	Gems: number,
@@ -92,6 +132,8 @@ export type TProfile = {
 	-- The class abilities' levels (AbilitiesCore), by "Class.Ability" Name (2 to AbilitiesCore.MAX_LEVEL); an ability
 	-- is only in it once upgraded. Nil until the first upgrade, so adding it needed no store wipe.
 	AbilityLevels: { [string]: number }?,
+	-- Nil until the first piece is got, equipped or hidden, so adding it needed no store wipe.
+	Equipment: TEquipmentSave?,
 	-- The daily and weekly quest boards (QuestsCore). Each is nil until its first write, and a board from a past period
 	-- is dealt again on the next one, so the default stays {}.
 	Quests: {
@@ -109,12 +151,19 @@ export type TProfile = {
 	-- The enemies discovered, by data Name: a type is discovered the first time a squad this player is in kills one.
 	-- Nil until the first, so adding it needed no store wipe.
 	Index: { [string]: TIndexEntry }?,
+	-- Nil until the first energy is dropped, so adding it needed no store wipe.
+	Mutation: TMutation?,
 	-- The codes redeemed (CodesCore.Normalize'd), each true. Nil until the first, so adding it needed no store wipe.
 	RedeemedCodes: { [string]: boolean }?,
 	Achievements: { [string]: number },
 	Records: { [string]: TRecord },
 	-- Game passes and one-time products, by name ("DoubleGems", "Vip", "StarterPack").
 	Entitlements: { [string]: boolean },
+	-- A gift picked in the shop and not paid for yet (ShopService): the offer's Name and who gets it. Nil until the
+	-- first gift, so adding it needed no store wipe.
+	PendingGift: { Offer: string, UserId: number }?,
+	-- Gifts paid for and not yet in their receiver's inbox, each by its receipt id. Nil until the first.
+	GiftsOut: { { Id: string, Offer: string, UserId: number } }?,
 	-- Processed purchase receipt ids, newest last (DatabaseService.ClaimReceipt).
 	Receipts: { string },
 	Tutorial: {

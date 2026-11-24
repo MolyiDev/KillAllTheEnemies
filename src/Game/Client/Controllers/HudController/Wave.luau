@@ -15,6 +15,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local BossBar = require(script.Parent.BossBar)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -40,14 +41,16 @@ local Layout = table.freeze({
 	COUNT_TEXT = 67,
 	-- The skip block, x from the screen's right edge to each piece's left.
 	SKIP = Vector2.new(545, 15),
-	SKIP_SIZE = Vector2.new(302, 74),
+	-- 12 px narrower than his 302, so it stands 19 off VOTES: at his 7, its brackets under the hand landed on VOTES.
+	SKIP_SIZE = Vector2.new(290, 74),
 	SKIP_TEXT = 29,
 	SKIP_ICON = 13,
 	SKIP_GAP = 19,
 	VOTES = Vector2.new(236, 16),
 	VOTES_SIZE = Vector2.new(92, 72),
 	VOTES_TEXT = 29,
-	AUTO = Vector2.new(544, 98),
+	-- 2 px lower than his: SKIP WAVE's brackets reach 8 px down under a press.
+	AUTO = Vector2.new(544, 100),
 	AUTO_SIZE = Vector2.new(380, 52),
 	AUTO_TEXT = 19,
 	AUTO_LABEL = 20,
@@ -90,9 +93,6 @@ local RING_LINE = 3
 local RING_REACH = 20
 -- The countdown's ring stops 2 px short of the NEXT WAVE IN plate above it.
 local COUNT_RING_REACH = Layout.COUNT_GAP - RING_LINE - 2
--- SKIP WAVE's brackets stand off it this far, and open this much more under the hand.
-local SKIP_BRACKETS = 5
-local SKIP_BRACKETS_OPEN = 3
 
 local Wave = {}
 
@@ -260,7 +260,7 @@ local function plate(state: Types.THudState): { Instance }
 	end
 
 	local countTop = Layout.TOP + Layout.PREP_PLATE.Y + Layout.COUNT_GAP
-	local plateFrame = Panel({ Brackets = 6 }, {
+	local plateFrame = Panel({ Brackets = true }, {
 		Name = "Plate",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, Layout.TOP),
@@ -454,9 +454,7 @@ local function skipButton(state: Types.THudState, actions: Types.TActions): Text
 				if not isLive() then return 1 end
 				return 0.6 - 0.3 * hand.Light()
 			end,
-			Brackets = function()
-				return SKIP_BRACKETS + SKIP_BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 		}, {
 			Name = "Face",
 			Size = UDim2.fromScale(1, 1),
@@ -501,9 +499,9 @@ local function skipButton(state: Types.THudState, actions: Types.TActions): Text
 				Padding = UDim.new(0, Layout.SKIP_GAP),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
-			Components.Icon("Skip", {
+			Components.Picture(EIcons.Skip, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.SKIP_ICON),
+				Size = Components.PictureBox(Layout.SKIP_ICON),
 				ImageColor3 = ink,
 			}),
 			label({

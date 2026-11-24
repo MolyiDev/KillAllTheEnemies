@@ -1,8 +1,8 @@
 --!nonstrict
--- The middle of the screen: his stage (two rings and a floor) with the picked gun's own model turning gently on it,
--- the skin plate and its swatch, and EXIT. There is one skin a gun so far: the plate and the swatch show it, as he drew
+-- The middle of the screen: his stage (the art behind the gun, Showcase, and a floor) with the picked gun's own model
+-- turning gently on it, the skin plate and its swatch, and EXIT. There is one skin a gun so far: the plate and the swatch show it, as he drew
 -- them. The gun turns in as it is picked, and turns once more round as it is bought, raised or put on the back, the
--- stage throwing one ring out of its middle.
+-- stage throwing one ring out of its middle. The hand can take it and turn it (Turntable).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -10,8 +10,12 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
+local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Parts = require(script.Parent.Parts)
+local Turntable = require(script.Parent.Turntable)
+local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -20,6 +24,7 @@ local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
 local Label = Parts.Label
+local GUNS = DataCore.Guns.ById
 
 -- His drawn rects in px at 1080, from the screen's top left.
 local Layout = table.freeze({
@@ -27,11 +32,14 @@ local Layout = table.freeze({
 	STAGE = Vector2.new(960, 500),
 	OUTER = 600,
 	INNER = 440,
+	-- The art behind the gun when it is not his rings.
+	SHOWCASE = 640,
 	FLOOR = Vector2.new(960, 742),
 	FLOOR_SIZE = Vector2.new(470, 84),
-	-- The gun's box, round the middle of his gun.
+	-- The gun's box, round the middle of his gun, and the area over it that takes the hand.
 	GUN = Vector2.new(960, 530),
 	GUN_BOX = 470,
+	GRAB = Vector2.new(440, 300),
 	PLATE = Vector2.new(740, 800),
 	PLATE_SIZE = Vector2.new(440, 64),
 	SKIN_WORD = Vector2.new(24, 24),
@@ -46,9 +54,6 @@ local Layout = table.freeze({
 	SWATCH_GUN = 58,
 	SWATCH_BADGE = Vector2.new(41, 9),
 	SWATCH_BADGE_SIZE = 19,
-	EXIT = Vector2.new(809, 969),
-	EXIT_SIZE = Vector2.new(302, 72),
-	EXIT_TEXT = 32,
 })
 
 -- His stage's colours, sampled off the art.
@@ -165,18 +170,49 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 		return if isUpgrade() then Palette.Gold else Palette.Pink
 	end
 
+	local turntable = Turntable.Build(state.StageClock, state.Scale, state.IsOpen, state.Selected, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(Layout.GUN.X, Layout.GUN.Y),
+		Size = UDim2.fromOffset(Layout.GRAB.X, Layout.GRAB.Y),
+		ZIndex = 4,
+	})
+	-- The camera's swing, so the hand's turn goes the other way.
 	local yaw = function(): number
-		local sway = Timing.SWAY * math.sin(2 * math.pi * state.StageClock() / Timing.SWAY_PERIOD)
+		local sway = Timing.SWAY * math.sin(2 * math.pi * turntable.IdleClock() / Timing.SWAY_PERIOD)
 		local turn = Timing.TURN_IN_FROM * (1 - Motion.Decelerate(turnedIn()))
 		local spin = 360 * Motion.Decelerate(spun())
-		return sway + turn + spin
+		return sway + turn + spin - turntable.Turn()
 	end
 
-	local exitHand = Hand.React("Operate")
+	local look = Showcase.Looks.Weapons
+	local isRings = look == "Rings"
+	-- No floor of its own: the gun floats.
+	local showcase, showcaseFront = Showcase.Build({
+		Look = look,
+		Diameter = Layout.SHOWCASE,
+		Floor = Layout.FLOOR.Y - Layout.STAGE.Y,
+		Accent = function(): Color3
+			local gun = GUNS[state.Selected()]
+			local rarity = if gun then Parts.RARITIES[gun.Rarity] else nil
+			return if rarity then rarity.Accent else Palette.Pink
+		end,
+		Shown = function(): number
+			return 1 - stageFade()
+		end,
+		CheeredAt = cheeredAt,
+		IsActive = state.IsOpen,
+	}, {
+		Position = UDim2.fromOffset(Layout.STAGE.X, Layout.STAGE.Y),
+	}, {
+		Position = UDim2.fromOffset(Layout.STAGE.X, Layout.STAGE.Y),
+		-- Over the gun.
+		ZIndex = 3,
+	})
+
 	local plateAway = Parts.Away(state, elapsed, Timing.BOTTOM_DELAYS[1])
 	local plateFade = Parts.Faded(state, elapsed, Timing.BOTTOM_DELAYS[1])
-	-- The swatch and EXIT grow in rather than fading under a group: the swatch holds a gun's picture and EXIT
-	-- moves under the hand, and a group redraws its whole canvas for every frame of either.
+	-- The swatch grows in rather than fading under a group: it holds a gun's picture, and a group redraws its whole
+	-- canvas for every frame of that.
 	local swatchAway = Parts.Away(state, elapsed, Timing.BOTTOM_DELAYS[2])
 	local exitAway = Parts.Away(state, elapsed, Timing.BOTTOM_DELAYS[3])
 
@@ -191,18 +227,29 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 				return Motion.Lerp(Timing.RINGS_FROM, 1, Motion.Decelerate(stageIn()))
 			end,
 		}),
-		round("Outer", Vector2.new(Layout.OUTER, Layout.OUTER), OUTER_RING, shown(OUTER_TRANSPARENCY), OUTER_RING, 1),
-		round(
-			"Inner",
-			Vector2.new(Layout.INNER, Layout.INNER),
-			Palette.Pink,
-			shown(INNER_RING_TRANSPARENCY),
-			Palette.Pink,
-			function()
-				local base = INNER_FILL_TRANSPARENCY + (1 - INNER_FILL_TRANSPARENCY) * stageFade()
-				return base - 0.12 * glow()
-			end
-		),
+		if isRings
+			then round(
+				"Outer",
+				Vector2.new(Layout.OUTER, Layout.OUTER),
+				OUTER_RING,
+				shown(OUTER_TRANSPARENCY),
+				OUTER_RING,
+				1
+			)
+			else nil,
+		if isRings
+			then round(
+				"Inner",
+				Vector2.new(Layout.INNER, Layout.INNER),
+				Palette.Pink,
+				shown(INNER_RING_TRANSPARENCY),
+				Palette.Pink,
+				function()
+					local base = INNER_FILL_TRANSPARENCY + (1 - INNER_FILL_TRANSPARENCY) * stageFade()
+					return base - 0.12 * glow()
+				end
+			)
+			else nil,
 		-- The one ring a purchase throws out of the stage's middle.
 		create("Frame")({
 			Name = "Burst",
@@ -221,8 +268,10 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 		}),
 	})
 
+	-- His floor goes with his rings: every other look draws its own.
 	local floor = create("Frame")({
 		Name = "Floor",
+		Visible = isRings,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(Layout.FLOOR.X, Layout.FLOOR.Y),
 		Size = UDim2.fromOffset(Layout.FLOOR_SIZE.X, Layout.FLOOR_SIZE.Y),
@@ -249,6 +298,12 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 
 	local gun = Parts.Gun(state.Selected, {
 		Yaw = yaw,
+		Pitch = function(): number
+			return -turntable.Tip()
+		end,
+		Rotation = function(): number
+			return GunPicture.CARD_TILT + turntable.Lean()
+		end,
 		Transparency = function()
 			return math.max(stageFade(), 1 - Motion.Out(turnedIn()))
 		end,
@@ -260,7 +315,7 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 		ZIndex = 2,
 		create("UIScale")({
 			Scale = function()
-				return Motion.Lerp(Timing.GROW_FROM, 1, Motion.Decelerate(turnedIn())) + pop()
+				return Motion.Lerp(Timing.GROW_FROM, 1, Motion.Decelerate(turnedIn())) + pop() + turntable.Grown()
 			end,
 		}),
 	})
@@ -275,7 +330,7 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 		BackgroundTransparency = 1,
 		GroupTransparency = plateFade,
 		ZIndex = 3,
-		Components.Panel({ Brackets = 5 }, {
+		Components.Panel({ Brackets = true }, {
 			Name = "Plate",
 			Position = UDim2.fromOffset(48, 48),
 			Size = UDim2.fromOffset(Layout.PLATE_SIZE.X, Layout.PLATE_SIZE.Y),
@@ -340,51 +395,9 @@ function Stage.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions,
 		}),
 	})
 
-	local exit = Components.Button({
-		Name = "Exit",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = function()
-			return UDim2.fromOffset(
-				Layout.EXIT.X + Layout.EXIT_SIZE.X / 2,
-				Layout.EXIT.Y + Layout.EXIT_SIZE.Y / 2 + math.round(Timing.RISE * exitAway())
-			)
-		end,
-		Size = UDim2.fromOffset(Layout.EXIT_SIZE.X, Layout.EXIT_SIZE.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = function()
-			exitHand.Commit()
-			actions.Close()
-		end,
-		exitHand.Events,
-		create("UIScale")({
-			Scale = function()
-				return (1 - exitAway()) * exitHand.Scale()
-			end,
-		}),
-		Components.Slab({
-			Kind = "Pink",
-			Marks = true,
-			Brackets = function()
-				return 5 + 3 * exitHand.Rise()
-			end,
-			GlowTransparency = function()
-				return 0.6 - 0.3 * exitHand.Light()
-			end,
-		}, {
-			Name = "Slab",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(exitHand, 3, 3),
-			Components.Sheen(exitHand.Glint, 3),
-			Components.Tracked("EXIT", Layout.EXIT_TEXT, 2, Font.Display, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				ZIndex = 4,
-			}),
-		}),
-	})
+	local exit = Components.Exit(exitAway, actions.Close)
 
-	return { stage, floor, gun, plateGroup, swatch, exit }
+	return { stage, floor, gun, turntable.Grab, plateGroup, swatch, exit, showcase, showcaseFront }
 end
 
 return Stage

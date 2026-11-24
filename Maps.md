@@ -10,6 +10,10 @@
 How an arena map is made, learned on the Easy map (`maps/Easy.*`, 2026-10-23) in five rounds of feedback. Each rule
 below cost a round. Read it before touching `tools/arena/` or building the Hard map.
 
+Sections 8 and 9 are this game's own: the Lobby place's world (the plaza, the shooting range), how to read, render
+and build in it, and the order of work that would have saved four rounds. Read section 9 before changing anything
+under `Workspace.Lobby.Map`.
+
 ## 1. Where a map lives
 
 - **Two places, one experience.** The Lobby and ONE Game place that plays every map (ids in CLAUDE.md's Places
@@ -178,3 +182,160 @@ on the origin those are the EVEN coordinates.
   Brick, Grass...). Blender's `wm.obj_import` loads 33k parts in seconds; render it with Workbench in MATERIAL
   colour, each material's `diffuse_color` set from its Principled base colour (the textures are grey).
 - Read a property back to confirm a Rojo sync (`get_instance_properties` on one part) rather than trusting it.
+
+## 8. The lobby's shooting range (2026-11-23)
+
+A porch on the plaza's axis (z = -13: the ring's middle, which the SHOP and LEADERBOARDS mirror about), a corridor in
+and a hall centred on it. `Workspace.Lobby.Map.Range.Hall` and `.Door` are generated; `Range.Targets` (the dummies) is
+placed by hand and `Range.Front` (the SHOP's portico, banners, lamps and planters, with the label) is inserted from a
+model. Four rounds: the first hall was "snapped onto the lobby", z-fighting, with a character gone white at its
+door; its remake matched the plaza but was "full of things" (hanging lamps, wall emblems, crates, floor paint) with a
+label unlike the other buildings'; stripped bare, its front was a hole in a wall beside the SHOP's portico, its
+standing room too thin and its corridor too long.
+
+```
+python3 tools/lobby/range.py /tmp/range.json                      # the parts; "z-fights: 0" or it does not ship
+python3 tools/lobby/preview.py dump /tmp/lobby.json               # in a Lobby playtest: the live place as JSON
+python3 tools/lobby/preview.py render /tmp/lobby.json out/ --range /tmp/range.json    # ror, before Studio is touched
+python3 tools/lobby/range_push.py /tmp/range.json                 # no playtest running; then save the place
+lune run tools/lobby/range_front.luau /tmp/old.rbxl Assets/models/Lobby/Range/RangeFront.rbxm   # the front, to insert
+```
+
+- **A range is bare: the guns being tried are the point**, and what decorates it is what decorates the PLAY hall:
+  lines of neon. Floor, walls, a counter with one hazard band, three pilasters a side under a truss with a cream
+  strip up each, a blue line round the walls and three along the ceiling, and green lines on the floor (plain Parts
+  0.6 wide and 0.1 high, as PLAY's are) that run in along the corridor's edges and turn along the counter. No props,
+  no emblems, no lamps, no light sources in the hall.
+- **A building's front is the plaza's kit, lifted.** The SHOP's portico (`Building.Base` without its body `Cube`),
+  its `flags` (the banners with chevron Beams on their frame), three ceiling lamps and its two front planters are
+  taken out of the old Lobby place file by `range_front.luau` and stood where the same pieces would stand here: face
+  at x = -23, as far from the ring as the SHOP's is (the slot between the two terraces is 96 wide for exactly this).
+  The body is a closed shell, so the porch behind the portico is the generator's (side masses, roof, floor, the
+  SHOP body's 70 by 34.9 cut to 12 deep) round the door. Imitating the kit with boxes was what read as a hole in a
+  wall. Models.md section 11's rule, again: lift the props, never rebuild them.
+- **Cohesive means the plaza's own vocabulary, measured**: its stud (`rbxassetid://7447638591`, a `Texture` named
+  `Stud` on each seen face, 2 studs a tile, 1 on small parts), its greys (`#3e4048`, `#4b4c56`, `#5b5d69`,
+  `#63667a`, `#767a93`), its neon (blue `#5978ce`, cream `#b0ae92`, green `#6db665`). The first hall used a
+  `MaterialVariant` (`Range Studs`) that only the old place had: MaterialService is empty here, so its walls drew as
+  flat plastic. Never lean on a MaterialVariant; put the stud on as a Texture.
+- **A building's label is the plaza's letters, not a SurfaceGui.** SHOP and LEADERBOARDS are neon MeshParts from one
+  alphabet pack (0.6 x 0.6 x 0.05 meshes; LEADERBOARDS draws them 6.75 times that, 0.5 deep, 0.6 apart, `#5978ce`)
+  on a studded band with a green line under and a thin blue one over. The pack's ids rise as the alphabet falls
+  (T 3265176909, S ..6963, R ..7028, P ..7142, O ..7206, N ..7251, M ..7304, L ..7358, K ..7402, J ..7458,
+  I ..7517, H ..7579, G ..7634, F ..7684, D ..7764, B ..7895, A ..7951; E 3265180705): a missing letter is found by
+  downloading the ids between two known ones and keeping the mesh of that size. Fourteen characters fit the band's
+  52-stud panel at 5.8 times the mesh. No plugin writes `MeshPart.MeshId`, so `range_front.luau` writes the whole
+  front as a model, uploaded (`upload_asset`, Model) and put in with `insert_model`; the first sign was a yellow
+  TextLabel on a black plate and was rejected. A Model asset cannot be archived: every upload stays in the group.
+- **The way in sits on the plaza's axis** and the hall is centred on the way in. The corridor is only 16 wide
+  because the building south of it has its face at z = -21.18, so it is kept short instead: the hall starts at
+  x = 32, just past that building, which gives 23 studs of standing room behind the counter, and a pier in each west
+  corner takes in the neighbours' corners that reach into the hall. The old entrance room is filled solid.
+- **The plaza's arrow strips** are Beams on invisible `Floor.Arrows` parts (four of one name: rename three out of
+  the way to reach the fourth by path), each destination's own colour, their attachments well off the part. The one
+  toward the range was the black market's: skewed 0.02 rad, 0.8 off the axis and ending at x = -19. It now runs
+  straight down z = -13 to the door (the part's CFrame and attachment `2`'s Position); the porch's floor plate is
+  0.06 thick so the strip, drawn 0.09 over the plaza floor, stays above it. The other three sit about 3 studs off
+  their buildings' middles, as built.
+  Moving the hall moves `RangeCore`'s `ORIGIN` and `BOOTHS` and every dummy with it (one `mass_set_property` of
+  CFrames read from the dump: part names are unique inside a dummy).
+- **The z-fights were fillers**: a block under the floor with its top on the floor's plane, a block over the
+  ceiling with its bottom on the ceiling's, a front 0.02 from the neighbours'. The generator's check counts two
+  drawn faces on one plane facing the same way with overlapping rectangles, unless the patch is buried in a third
+  box, and takes in the plaza parts that reach the hall (`PLAZA`, world boxes). The front stands 0.34 proud of its
+  neighbours on purpose.
+- **Light is measured on a body, not judged on walls.** `Lighting.Ambient` is 250 here, so indoors is already fully
+  lit: the first hall's fill PointLights and SurfaceLight strips on top of it clipped a pale block to white at the
+  door (255, 255, 238 in a render) where the plaza gives 216, 208, 197. Neon carries no light.
+- **What collides is what stops a shot**: trim and neon are `CanCollide` and `CanQuery` off, so the range's sight
+  cast (`RangeCore.SightParams`: Hall and Door) passes them; floors, walls, counter, pilasters and the berm are on.
+- **Read the place through a playtest.** Edit mode gives names, not geometry, and Studio's autosave of a place can
+  be days old. `dump.luau` on the playtest's server returns every part, texture and light; `place.luau` turns that
+  back into a file `ror` draws, with each private mesh and texture fetched through Tripwire and a MeshPart's
+  `InitialSize` set from its `MeshSize` (without it every mesh draws at its own size, all over the map).
+- **Tripwire builds it** (`mass_create`, 120 a call): typed values only (no ColorSequence, no Vector2). Every
+  parent is named uniquely, since a path finds the first child of a name. The new Hall is made beside the old one
+  and swapped in at the end.
+- **The lobby's Lighting is the old Lobby place's** (`lobby.project.json`): noon, latitude 0, Ambient 250,
+  OutdoorAmbient (10, 7, 34), bloom 1 / 24 / 2, and its two Sky instances in the place in their old order
+  (`Afternoon Sky`, then `DeepSpace`: the same two in the same order, so the engine picks as it did there; which
+  one that is has not been checked by eye). Rojo's plugin does not write `LightingStyle`: set it in Studio.
+
+## 9. Building anything in the lobby: the order that saves the rounds
+
+Section 8 took four rounds of "no". Every one of them was answerable before building, from the place itself. This
+is that order; the range is the worked example.
+
+### Before drawing anything
+
+1. **Dump the live place and render it** (`tools/lobby/preview.py dump`, then `render`): the thing to change, and
+   the buildings next to it, from where a player stands. Judge the new thing in the SAME frame as its neighbours
+   (a camera that takes in the SHOP and the range together), not alone: every "it does not match" was visible in a
+   side by side and invisible in a close-up.
+2. **Inventory the neighbours as a kit, with numbers**: which instances make the SHOP's front (portico, band,
+   letters, banners, lamps, planters), their sizes, colours, how far the front stands from the ring. The table below
+   is that inventory. If the plaza already has the piece, LIFT it out of the old place file (Models.md section 15);
+   build from boxes only what the plaza has no piece for (walls, floors, a porch round a door).
+3. **Find the axes before placing**: the ring's middle is (-68, -13); the SHOP and LEADERBOARDS mirror about
+   z = -13 and PLAY and the range face each other along it. "Centred" means on that, and the user checks it against
+   the floor's arrow strips, so read those too (section 8).
+4. **Read the reference picture for mood, then ask what the lobby's own answer is.** Survive a Million Monkeys'
+   range (dark, hanging lamps, crates, targets on poles) was offered as "only a reference": copying its props into
+   a neon sci-fi plaza was the second rejection. What carried over was the idea (a hall, a firing line, dummies).
+
+### What the user has said, as rules
+
+- **Cohesive = the same pieces, not the same colours.** Same stud Texture, same greys, same neon, and the same
+  lettering, band, banners and planters as the building next door. A label is the plaza's neon letter meshes; a
+  SurfaceGui sign is never the answer for a building's name.
+- **The feature is the point; decoration is lines of neon.** In a range the guns are the point. Props, emblems,
+  floor paint, lamps with cones: "clutter". What the PLAY hall has is the whole allowed vocabulary: neon lines on
+  floor (green and blue Parts, 0.6 wide, 0.1 high), walls and ceiling, strips up the pilasters, banners, planters at
+  doors, flat ceiling lamps. Bare is also wrong ("a hole in a wall"): decorate, with that vocabulary only.
+- **Space where the player stands, not where they walk.** Standing room behind a counter wants 20 studs or more;
+  a corridor is as short as the neighbours allow.
+- **Centre everything on the way in**: door, label, hall, and the arrows leading to it, which run all the way to
+  the door.
+- **Nothing near a title competes with it**: a neon band from a neighbour beside the label was called out.
+  Look at what sits round a new sign before placing it.
+- **A body near a door must not go white.** Measure a pale block in renders at the door and inside against one in
+  the plaza (section 8); with Ambient at 250 any added fill light clips.
+- **Removing a thing means the building, the model and its pointers** (the black market: its kiosk, zone, and the
+  arrow strip that led to it became the range's). Its data elsewhere (a gun rarity of the same name) is not it.
+
+### The plaza's kit (old and new Lobby place, same coordinates)
+
+| Piece | Where (old file: `Workspace.Map`, new: `Workspace.Lobby.Map`) | Numbers |
+|---|---|---|
+| Stud | a `Texture` named `Stud` on all six faces | `rbxassetid://7447638591`, 2 studs a tile (1 on small Parts) |
+| Greys | every building | `#3e4048`, `#4b4c56`, `#5b5d69`, `#63667a`, `#767a93` (floor) |
+| Neon | every building | blue `#5978ce`, green `#6db665`, cream `#b0ae92` |
+| Portico | `Buildings.SHOP.Building.Base` (not `Cube`, its body: a closed shell) | 65 wide, 3.8 deep, band y 19 to 32.5, one opening 52 by 16; face 22.6 from the ring |
+| Body | `Base.Cube` | 70 wide, 34.9 high, 33 deep, a room 47 wide with a ceiling at 17.1 |
+| Label | `Building.text` | letter meshes (section 8), middles on the band's panel, 2.13 behind its face, y 25.6 to 25.8 |
+| Banners | `Building.flags` | frame 75 wide and 40 high, 10.9 behind the face; banners out to 45.8 each side; chevrons are Beams |
+| Ceiling lamps | `Building.Lamps` | flat cream panels at y 17 |
+| Planters | `SHOP.extra.plantbed2`, benches `extra.bench` | 2.7 square at the room's corners |
+| Floor lines | `Buildings.PLAY.Building.floor` | Parts 0.6 wide, 0.1 high, blue and green neon |
+| Arrow strips | `Floor.Arrows` (four) | Beam 10 wide, texture every 6 studs, a colour per destination |
+| Terraces | `Floor.Part` at z -76.8..-61.2 and 35.1..49.4 (x -35..20) | the 96-wide slot between them is the range's front |
+
+### Tools, and what each one cost to find out
+
+- **Reading**: edit-mode Tripwire reads give names and a few properties. The whole place comes from a playtest
+  (`preview.py dump`). `MaterialService` is empty in the new places: a look that depends on a MaterialVariant is
+  lost. The old Lobby file has everything, fully (Beams, sequences, meshes): `lune` reads it once stripped.
+- **Seeing**: `ror` draws the dump (`preview.py render`) and a model in the place (`ror render model.rbxmx --map
+  place.rbxl`). Every asset is private to it: fetch through Tripwire `download_asset` into `research/LobbyAssets`,
+  and in an `.rbxmx` rewrite `rbxassetid://N` to `file://<abs>/N` (setting `MeshId` in lune is not enough: the
+  file's `MeshContent` wins). Paths handed to `place.luau` must be absolute. Not drawn: Beams without both
+  attachments, SurfaceGui text. Studio's own window is usually off screen (`studio-shot` refuses).
+- **Writing**: `mass_create` builds Parts, Textures, lights and GUIs from typed values (no sequences, no Vector2,
+  no `MeshId`); `mass_set_property` moves existing parts when their names are unique; same-named siblings are
+  reached by renaming the ones before them and renaming back. Meshes and Beams go in as an uploaded Model
+  (`upload_asset` then `insert_model` with `unpack`), which lands at its authored world position.
+- **Playtests**: start, wait 8 s, poll `run_luau_live` up to four times. Two starts in a row that never answer
+  mean Studio is minimised: finish offline and say so. Edits made during a playtest are lost; the pusher refuses.
+- **Rojo and Lighting**: `lobby.project.json` owns Lighting's properties and they sync at once, except
+  `LightingStyle` (set it in Studio). Sky instances live in the place.
+- **Nothing is saved until the user saves the place.** Say so in every report that touched Studio.

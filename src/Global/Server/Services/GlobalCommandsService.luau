@@ -1,15 +1,22 @@
 -- Who may open the conch command console, in both places: a role by the player's rank in the studio's group, and
--- the full role for everybody in Studio and in the test places.
+-- the full role for everybody in Studio and in the test places. Also the commands both places share (gear).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Conch = require(ReplicatedStorage.Packages.conch)
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local NetworkMeta = require(ServerScriptService.GlobalServer.NetworkMeta)
+local DatabaseService = require(script.Parent.DatabaseService)
+local EquipmentService = require(script.Parent.EquipmentService)
+local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local CommandTypes = require(ReplicatedStorage.Types.CommandTypes)
+local EEquipmentIds = require(ReplicatedStorage.Types.Enums.Data.EEquipmentIds)
 local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkConsole = NetworkMeta.Server.Console
+local ServerNetworkEquipment = NetworkMeta.Server.Equipment
+local args = Conch.args
 
 local GlobalCommandsService = {}
 
@@ -62,7 +69,64 @@ function GlobalCommandsService.AssignRoles(player: Player): string?
 	return role
 end
 
+local function getContextPlayer(): Player?
+	return (Conch.get_command_context() :: any).executor.player
+end
+
+-- `gear give <piece|all>` gives pieces as a boss drop would (in a match, its reveal plays); `gear clear` takes every
+-- piece and choice back to a new player's.
+local function registerGear()
+	Conch.register("gear", {
+		permissions = { PERMISSION_DEV },
+		description = "Give yourself equipment as a boss drop would, or clear it back to a new player's.",
+		arguments = function()
+			return args.overload({
+				{
+					description = "Give a piece, or all",
+					arguments = { args.literal("give"), CommandTypes.equipmentOrAll("piece", "The piece, or all.") },
+				},
+				{
+					description = "Clear your equipment",
+					arguments = { args.literal("clear") },
+				},
+			})
+		end,
+		callback = function(verb: string, target: string?)
+			local player = getContextPlayer()
+			if not player or not DatabaseService.Get(player) then
+				Conch.log("error", "Your profile is not loaded.")
+				return
+			end
+
+			if verb == "clear" then
+				DatabaseService.Update(player, function(profile)
+					profile.Equipment = nil
+					return true
+				end)
+				EquipmentService.Sync(player)
+				Conch.log("normal", "Equipment cleared.")
+				return
+			end
+
+			local given = 0
+			for name, itemId in EEquipmentIds :: { [string]: number } do
+				if target ~= "all" and string.lower(name) ~= target then continue end
+				local item = DataCore.Equipment.ById[itemId]
+				if item and EquipmentService.Grant(player, item) then
+					given += 1
+					ServerNetworkEquipment.Dropped.Fire(player, item.Id)
+				end
+			end
+			Conch.log("normal", `Gave {given} piece(s).`)
+		end,
+	})
+end
+
 Conch.initiate_default_lifecycle()
+
+GlobalCommandsService.OnStart = function()
+	registerGear()
+end
 
 GlobalCommandsService.OnPlayerConnected = function(player)
 	GlobalCommandsService.AssignRoles(player)

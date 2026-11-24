@@ -85,6 +85,8 @@ export type TEnemy = {
 
 	-- Gold its killer earns (GDD 17), before the round's scaling.
 	GoldDrop: number,
+	-- The energy its kills drop for the Mutation Lab's brews (PotionsCore); nil for none.
+	Energy: TEnemyEnergy?,
 
 	-- Clips under ReplicatedStorage.Animations.Enemies.<AnimationSet>: Idle, Walk, and each attack's AnimationName
 	-- ("Attack" when it has none). A set rather than a clip per enemy: every R6 zombie shares one (tools/rig), since
@@ -96,6 +98,17 @@ export type TEnemy = {
 	-- What its model is painted in, for the stud pieces and pixels a blow knocks off it (Client/Utils/enemyImpacts).
 	-- Repaint the model and these change with it. nil: grey pieces.
 	Colors: TEnemyColors?,
+}
+
+-- What a kind's energy is (PotionsCore): the run upgrade a potion brewed from it adds to (an EUpgradesIds value), how
+-- much of it one brew takes, the chance one kill drops one for its killer (a boss's drops for everybody in the match,
+-- each on their own roll), and its colour on the lab's cards. A crowd's kind drops rarely and costs more; a boss's
+-- drops often and costs little, since there are few of them.
+export type TEnemyEnergy = {
+	Upgrade: number,
+	Cost: number,
+	Chance: number,
+	Color: Color3,
 }
 
 -- Head, arms and bare skin; the torso's clothes; the legs'.
@@ -141,7 +154,8 @@ export type TDefense = {
 	DamagePerLevel: number?,
 }
 
-export type TGunRarity = "Starter" | "Common" | "Rare" | "Epic" | "Legendary" | "BlackMarket"
+-- The one rarity ladder of guns, classes, equipment, potions and run upgrade cards, lowest first: ERarities's keys.
+export type TRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic"
 
 -- How the arms hold it, first and third person (ViewmodelController, BodyPoseController).
 export type TGunHold = "Rifle" | "Pistol" | "Heavy" | "Launcher"
@@ -151,7 +165,7 @@ export type TGun = {
 	Name: string,
 	-- ReplicatedStorage.Models.Guns.<rarity folder>.<ModelName> (GunsCore.GetModel).
 	ModelName: string,
-	Rarity: TGunRarity,
+	Rarity: TRarity,
 	-- Its loadout slot, 1-4.
 	Tier: number,
 	Price: number,
@@ -274,6 +288,10 @@ export type TAbility = {
 export type TClass = {
 	Id: number,
 	Name: string,
+	-- Its tag and colour on the classes screen.
+	Rarity: TRarity,
+	-- Its emblem on the classes screen and the head tag: an EIcons name.
+	Icon: string,
 	Abilities: { TAbility },
 	Ultimate: TAbility,
 }
@@ -282,7 +300,7 @@ export type TClass = {
 export type TUpgrade = {
 	Id: number,
 	Name: string,
-	-- Its picture: a cell of the HUD's icon atlas (GlobalClient.UI.Icons).
+	-- Its picture: an EIcons name.
 	Icon: string,
 	-- What one Common pick adds to the stat; a rarer card adds UpgradesCore.MULTIPLIERS times it.
 	Value: number,
@@ -292,6 +310,54 @@ export type TUpgrade = {
 	Description: string,
 	-- 100 where the stat is a share shown as a percentage, 1 where it is shown as it is.
 	PercentScale: number,
+}
+
+-- ============================== Potions ==============================
+
+-- A Mutation Lab recipe (PotionsCore): the two kinds of energy it is brewed from (enemy data Ids, either order), each
+-- adding its own run upgrade for a whole match. Found the first time it is brewed, and then shown in the index.
+export type TPotion = {
+	Id: number,
+	Name: string,
+	Energies: { number },
+	-- One line for the index: what it is like to drink.
+	Description: string,
+}
+
+-- ============================== Equipment ==============================
+
+-- Where a piece of equipment is worn: one of each at a time (EquipmentCore.SLOTS).
+export type TEquipmentSlot = "Head" | "Torso" | "Legs"
+
+-- What a piece adds in a match (EquipmentService.StatOf): MaxHealth in health points, Armor the share of every blow
+-- taken off it, KillGold the share added to the Gold each kill pays.
+export type TEquipmentStat = "MaxHealth" | "Armor" | "KillGold"
+
+export type TEquipmentBonus = {
+	Stat: TEquipmentStat,
+	Value: number,
+}
+
+-- Where a piece comes from when it is not everybody's: a boss that drops it, and the chance each player in the squad
+-- has of getting it when that boss dies.
+export type TEquipmentDrop = {
+	Enemy: number,
+	Chance: number,
+}
+
+-- A piece of equipment, kept for good once got (TProfile.Equipment) and worn on the avatar while it is in its slot.
+export type TEquipment = {
+	Id: number,
+	Name: string,
+	Slot: TEquipmentSlot,
+	Rarity: TRarity,
+	Description: string,
+	Stats: { TEquipmentBonus },
+	-- Its accessories under ReplicatedStorage.Models.Equipment (a Folder of Accessories, one per body attachment).
+	ModelName: string,
+	-- Everybody owns it from their first visit, so the profile never needs to hold it.
+	EarlyUnlock: boolean?,
+	Drop: TEquipmentDrop?,
 }
 
 return nil

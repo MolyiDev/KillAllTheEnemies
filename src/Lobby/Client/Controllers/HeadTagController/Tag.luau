@@ -9,6 +9,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local Palette = Theme.Palette
@@ -37,6 +38,7 @@ local Layout = table.freeze({
 	CLASS_HEIGHT = 28,
 	CLASS_PADDING = 14,
 	CLASS_TEXT = 15,
+	TAG_GAP = 8,
 	CHIP_Y = 128,
 	CHIP_LEFTS = { 22, 158, 294 },
 	CHIP_SIZE = Vector2.new(128, 34),
@@ -79,15 +81,33 @@ local function label(props: { [any]: any }): TextLabel
 	})
 end
 
--- A chip along the bottom: its glyph and its figure, punched as the figure changes.
-local function chip(
-	left: number,
-	glyph: string,
-	glyphColor: Color3,
-	edge: Color3,
-	textColor: Color3,
-	text: () -> string
-)
+-- A flat block with ink words, as the class's tag.
+local function flatTag(name: string, order: number, color: Color3, isShown: () -> boolean, text: () -> string): Frame
+	return create("Frame")({
+		Name = name,
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(0, Layout.CLASS_HEIGHT),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Visible = isShown,
+		create("UIPadding")({
+			PaddingLeft = UDim.new(0, Layout.CLASS_PADDING),
+			PaddingRight = UDim.new(0, Layout.CLASS_PADDING),
+		}),
+		label({
+			Size = UDim2.fromScale(0, 1),
+			AutomaticSize = Enum.AutomaticSize.X,
+			TextSize = Layout.CLASS_TEXT,
+			TextColor3 = Palette.Ink,
+			Text = text,
+		}),
+	})
+end
+
+-- A chip along the bottom: its picture and its figure, punched as the figure changes.
+local function chip(left: number, picture: string, edge: Color3, textColor: Color3, text: () -> string)
 	local pop, strike = Hand.Kick(Timing.POP_PERIOD, Timing.POP_DAMPING)
 	local last: string? = nil
 	vide.effect(function()
@@ -99,7 +119,7 @@ local function chip(
 	end)
 
 	return create("Frame")({
-		Name = glyph,
+		Name = picture,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(left + Layout.CHIP_SIZE.X / 2, Layout.CHIP_Y + Layout.CHIP_SIZE.Y / 2),
 		Size = UDim2.fromOffset(Layout.CHIP_SIZE.X, Layout.CHIP_SIZE.Y),
@@ -117,11 +137,10 @@ local function chip(
 				return 1 + Timing.POP * pop()
 			end,
 		}),
-		Components.Icon(glyph, {
+		Components.Picture(picture, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.CHIP_GLYPH.X, Layout.CHIP_GLYPH.Y),
-			Size = Components.GlyphBox(Layout.CHIP_GLYPH_SIZE),
-			ImageColor3 = glyphColor,
+			Size = Components.PictureBox(Layout.CHIP_GLYPH_SIZE),
 			ZIndex = 4,
 		}),
 		label({
@@ -135,9 +154,9 @@ local function chip(
 	})
 end
 
--- The tag of `name`, showing `public` (a source; nil until the server has said). Sized SIZE plus ROOM all round, held
--- by its middle so its arrival grows from there.
-function Tag.Build(name: string, public: () -> TPublic?): Frame
+-- The tag of `name`, showing `public` (a source; nil until the server has said) and VIP after the class while `isVip`.
+-- Sized SIZE plus ROOM all round, held by its middle so its arrival grows from there.
+function Tag.Build(name: string, public: () -> TPublic?, isVip: () -> boolean): Frame
 	local arrive, strikeArrive = Hand.Kick(Timing.ARRIVE_PERIOD, Timing.ARRIVE_DAMPING)
 	strikeArrive(Timing.ARRIVE_FROM)
 	local class = function()
@@ -162,7 +181,7 @@ function Tag.Build(name: string, public: () -> TPublic?): Frame
 				return 1 + arrive()
 			end,
 		}),
-		Components.Panel({ Brackets = 5 }, {
+		Components.Panel({ Brackets = true }, {
 			Name = "Panel",
 			Position = UDim2.fromOffset(Layout.ROOM, Layout.ROOM),
 			Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
@@ -171,18 +190,20 @@ function Tag.Build(name: string, public: () -> TPublic?): Frame
 				Tint = 0.5,
 				Edge = 3,
 				Marks = true,
-				Brackets = 4,
+				Brackets = true,
 				BracketLength = 16,
 			}, {
 				Name = "ClassSquare",
 				Position = UDim2.fromOffset(Layout.SQUARE.X, Layout.SQUARE.Y),
 				Size = UDim2.fromOffset(Layout.SQUARE_SIZE, Layout.SQUARE_SIZE),
 				ZIndex = 3,
-				Components.Icon("Helmet", {
+				Components.Picture(function()
+					local current = class()
+					return if current then current.Icon else EIcons.Helmet
+				end, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
-					Size = Components.GlyphBox(Layout.SQUARE_GLYPH),
-					ImageColor3 = Palette.White,
+					Size = Components.PictureBox(Layout.SQUARE_GLYPH),
 					ZIndex = 4,
 				}),
 			}),
@@ -196,37 +217,34 @@ function Tag.Build(name: string, public: () -> TPublic?): Frame
 				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
 			}),
 			create("Frame")({
-				Name = "ClassTag",
+				Name = "Tags",
 				Position = UDim2.fromOffset(Layout.CLASS.X, Layout.CLASS.Y),
 				Size = UDim2.fromOffset(0, Layout.CLASS_HEIGHT),
 				AutomaticSize = Enum.AutomaticSize.X,
-				BackgroundColor3 = Colors.CLASS,
-				BorderSizePixel = 0,
+				BackgroundTransparency = 1,
 				ZIndex = 3,
-				Visible = function()
+				create("UIListLayout")({
+					FillDirection = Enum.FillDirection.Horizontal,
+					Padding = UDim.new(0, Layout.TAG_GAP),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				}),
+				flatTag("ClassTag", 1, Colors.CLASS, function()
 					return class() ~= nil
-				end,
-				create("UIPadding")({
-					PaddingLeft = UDim.new(0, Layout.CLASS_PADDING),
-					PaddingRight = UDim.new(0, Layout.CLASS_PADDING),
-				}),
-				label({
-					Size = UDim2.fromScale(0, 1),
-					AutomaticSize = Enum.AutomaticSize.X,
-					TextSize = Layout.CLASS_TEXT,
-					TextColor3 = Palette.Ink,
-					Text = function()
-						local current = class()
-						return if current then string.upper(current.Name) else ""
-					end,
-				}),
+				end, function()
+					local current = class()
+					return if current then string.upper(current.Name) else ""
+				end),
+				-- His gold flat block, as the shop's VIP row wears it.
+				flatTag("VipTag", 2, Palette.Gold, isVip, function()
+					return "VIP"
+				end),
 			}),
-			chip(Layout.CHIP_LEFTS[1], "Rank", Palette.Gold, Colors.GOLD_EDGE, Palette.Gold, function(): string
+			chip(Layout.CHIP_LEFTS[1], EIcons.Rank, Colors.GOLD_EDGE, Palette.Gold, function(): string
 				local figures = public()
 				return if figures then `LV {figures.Level}` else "LV -"
 			end),
-			chip(Layout.CHIP_LEFTS[2], "Star", Palette.Gold, Colors.GOLD_EDGE, Palette.Gold, figure("Trophies")),
-			chip(Layout.CHIP_LEFTS[3], "Skull", Palette.Pink, Colors.PINK_EDGE, Palette.White, figure("Deaths")),
+			chip(Layout.CHIP_LEFTS[2], EIcons.Star, Colors.GOLD_EDGE, Palette.Gold, figure("Trophies")),
+			chip(Layout.CHIP_LEFTS[3], EIcons.Skull, Colors.PINK_EDGE, Palette.White, figure("Deaths")),
 		}),
 	})
 end

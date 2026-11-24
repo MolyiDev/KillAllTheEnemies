@@ -21,6 +21,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local EnemyAttacksService = require(script.Parent.EnemyAttacksService)
 local EnemyMovementService = require(script.Parent.EnemyMovementService)
+local MutationService = require(script.Parent.MutationService)
 local RoundService = require(script.Parent.RoundService)
 local TimeService = require(script.Parent.TimeService)
 local UpgradesService = require(script.Parent.UpgradesService)
@@ -28,6 +29,7 @@ local WeaponService = require(script.Parent.WeaponService)
 local arenaMap = require(ServerScriptService.Server.Utils.arenaMap)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
+local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -122,6 +124,8 @@ MatchService.EMatchState = EMatchState
 MatchService.State = EMatchState.Waiting
 MatchService.SupposedPlayers = 0
 MatchService.MapName = MapsCore.DEFAULT
+-- The difficulty the party's host picked (MapsCore.DIFFICULTIES).
+MatchService.Difficulty = MapsCore.DIFFICULTIES[1]
 
 local isArenaPlaced = false
 local isArenaBaked = false
@@ -226,6 +230,8 @@ local function startMatch()
 	AbilityService.ResetRun()
 	CharacterService.ResetRun()
 	UpgradesService.ResetRun()
+	-- After the run upgrades are cleared: a potion adds to their sums.
+	MutationService.DrinkAll(players)
 	-- The game clock starts over with the run, and so does everybody's line.
 	nextScoresAt = 0
 	for _, score in scores do
@@ -507,6 +513,10 @@ MatchService.OnPlayerConnected = function(player: Player)
 			takenTokens[token] = message
 			MatchService.SupposedPlayers = math.max(MatchService.SupposedPlayers, message.SupposedPlayers)
 			if MapsCore.MAPS[message.MapName] and not isArenaPlaced then MatchService.MapName = message.MapName end
+			local difficulty = message.Difficulty
+			if difficulty and table.find(MapsCore.DIFFICULTIES, difficulty) then
+				MatchService.Difficulty = difficulty
+			end
 			task.spawn(placeArena)
 		end
 	else
@@ -589,10 +599,12 @@ RoundService.OnRoundCleared:Connect(function(round: number)
 	local isBoss = RoundCore.IsBossRound(round)
 	for _, player in Players:GetPlayers() do
 		local run = runs[player]
+		local profile = DatabaseService.Get(player)
+		local paidXp = if profile then xpPercent * ShopCore.RunXpScale(profile) else xpPercent
 		if run and isBoss then
-			run.XpBosses += xpPercent
+			run.XpBosses += paidXp
 		elseif run then
-			run.XpWaves += xpPercent
+			run.XpWaves += paidXp
 		end
 
 		if EProducts.Revive ~= 0 and not CharacterService.IsAlive(player) then

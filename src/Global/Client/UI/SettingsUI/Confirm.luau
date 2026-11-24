@@ -9,6 +9,7 @@ local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Controls = require(script.Parent.Controls)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -111,7 +112,7 @@ local function tile(state: Types.TSettingsState, elapsed: () -> number): Frame
 			Edge = 2,
 			Tint = 0.45,
 			Glow = WARNING,
-			Brackets = 6,
+			Brackets = true,
 			BracketLength = 16,
 			GlowTransparency = function()
 				return Lerp(0.3, 0.6, Motion.Out(since(Timing.RING_DELAY, Timing.FLARE)))
@@ -126,11 +127,10 @@ local function tile(state: Types.TSettingsState, elapsed: () -> number): Frame
 					return Lerp(Timing.TILE_FROM, 1, Motion.Decelerate(since(Timing.TILE_DELAY, Timing.TILE)))
 				end,
 			}),
-			Components.Icon("Warning", {
+			Components.Picture(EIcons.Warning, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.new(0.5, 0, 0.5, -1),
-				Size = Components.GlyphBox(Layout.WARNING_SIZE),
-				ImageColor3 = WARNING,
+				Size = Components.PictureBox(Layout.WARNING_SIZE),
 				ZIndex = 3,
 			}),
 		}),
@@ -160,7 +160,7 @@ local function cancelButton(actions: Types.TActions): TextButton
 		events,
 		create("UIScale")({ Scale = scale }),
 		Components.Panel({
-			Brackets = 5,
+			Brackets = true,
 			Stroke = function()
 				return Palette.EdgePink:Lerp(Palette.Pink, hover())
 			end,
@@ -258,7 +258,7 @@ function Confirm.Build(state: Types.TSettingsState, actions: Types.TActions): Fr
 					return 1 - shown()
 				end,
 				-- Longer than half the streak texture: its window starts at the corner and it is tiled across.
-				Components.Panel({ Brackets = 5, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
+				Components.Panel({ Brackets = true, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
 					Name = "Panel",
 					Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
 					Size = UDim2.new(1, -2 * Layout.MARGIN, 1, -2 * Layout.MARGIN),

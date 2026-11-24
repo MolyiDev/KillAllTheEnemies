@@ -23,14 +23,16 @@ UpgradesCore.MAX_ARMOR = 0.6
 -- A rarer card is the same upgrade with more of it. The rarity is rolled for each card as it is dealt.
 UpgradesCore.MULTIPLIERS = table.freeze({
 	[ERarities.Common] = 1,
+	[ERarities.Uncommon] = 1.1,
 	[ERarities.Rare] = 1.25,
 	[ERarities.Epic] = 1.5,
 	[ERarities.Legendary] = 2,
 	[ERarities.Mythic] = 3,
 })
 local RARITY_WEIGHTS = table.freeze({
-	{ Rarity = ERarities.Common, Weight = 600 },
-	{ Rarity = ERarities.Rare, Weight = 250 },
+	{ Rarity = ERarities.Common, Weight = 450 },
+	{ Rarity = ERarities.Uncommon, Weight = 250 },
+	{ Rarity = ERarities.Rare, Weight = 150 },
 	{ Rarity = ERarities.Epic, Weight = 100 },
 	{ Rarity = ERarities.Legendary, Weight = 40 },
 	{ Rarity = ERarities.Mythic, Weight = 10 },

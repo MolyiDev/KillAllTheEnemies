@@ -7,6 +7,8 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local NetworkMeta = require(ServerScriptService.GlobalServer.NetworkMeta)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local PurchasesService = require(ServerScriptService.GlobalServer.Services.PurchasesService)
+local ShopService = require(ServerScriptService.GlobalServer.Services.ShopService)
+local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local DailyRewardsCore = require(ReplicatedStorage.Shared.Core.DailyRewardsCore)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
@@ -23,14 +25,21 @@ local SpinsService = {}
 
 local random = Random.new()
 
+-- The free spins a day this player gets: the passes add theirs where random prizes may be sold.
+local function perDay(player: Player, profile: TProfile.TProfile): number
+	return SpinsCore.FREE_PER_DAY + ShopCore.ExtraFreeSpins(profile, ShopService.IsRandomRestricted(player))
+end
+
 local function send(player: Player, profile: TProfile.TProfile)
 	local now = os.time()
 	local spins = profile.Spins
+	local daily = perDay(player, profile)
 	ServerNetworkSpins.State.Fire(
 		player,
-		SpinsCore.FreeLeft(spins, DailyRewardsCore.Today(now)),
+		SpinsCore.FreeLeft(spins, DailyRewardsCore.Today(now), daily),
 		if spins then spins.Bought else 0,
-		DailyRewardsCore.SecondsLeft(now)
+		DailyRewardsCore.SecondsLeft(now),
+		daily
 	)
 end
 
@@ -45,14 +54,14 @@ local function rollOver()
 end
 
 -- Uses up a free spin if one is left today, else a bought one. False when there is neither.
-local function useSpin(profile: TProfile.TProfile, today: number): boolean
+local function useSpin(profile: TProfile.TProfile, today: number, free: number): boolean
 	local spins = profile.Spins or { Day = today, Used = 0, Bought = 0 }
 	if spins.Day ~= today then
 		spins.Day = today
 		spins.Used = 0
 	end
 
-	if spins.Used < SpinsCore.FREE_PER_DAY then
+	if spins.Used < free then
 		spins.Used += 1
 	elseif spins.Bought > 0 then
 		spins.Bought -= 1
@@ -100,11 +109,12 @@ DatabaseService.OnProfileChanged:Connect(send)
 -- answered with a Landed, a refused one too, so the reel waiting on it always stops. It is fired in the same frame as
 -- the profile it changed, so the client hears both together and the HUD's hold puts its numbers back before drawing.
 ClientNetworkSpins.Spin.On(function(player: Player)
-	local index = SpinsCore.Draw(random)
-	local prize = SpinsCore.PRIZES[index]
 	local today = DailyRewardsCore.Today(os.time())
+	local index = 0
 	local hasSpun = DatabaseService.Update(player, function(profile)
-		if not useSpin(profile, today) then return false end
+		index = SpinsCore.Draw(random, ShopCore.Luck(profile, ShopService.IsRandomRestricted(player)))
+		if not useSpin(profile, today, perDay(player, profile)) then return false end
+		local prize = SpinsCore.PRIZES[index]
 		pay(profile, prize)
 		return true
 	end)

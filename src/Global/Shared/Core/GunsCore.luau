@@ -6,6 +6,10 @@ local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local EPSILON = 1e-6
+-- A lean toward one end this small, as a share of the gun's length, is no lean: a model of one mesh, or of meshes on
+-- one centre, weighs the same both ways, and the engine's float noise would pick an end differently for each copy
+-- and scale (a picture facing back while the hand holds it right). The nearest real lean is 3.4e-4 (Starter Rifle).
+local TIE_LEAN = 1e-4
 
 -- One step of the run's weapon upgrade: the gun, its Gold, and the word on the upgrade card.
 export type TLadderStep = {
@@ -55,16 +59,6 @@ GunsCore.Tune = table.freeze({
 	KICK_MAX_DEG = 3.5,
 })
 
--- Folder under ReplicatedStorage.Models.Guns per rarity, as the old Game place laid them out.
-local RARITY_FOLDERS: { [TData.TGunRarity]: string } = table.freeze({
-	Starter = "starter weapons",
-	Common = "Common",
-	Rare = "Rare",
-	Epic = "Epic",
-	Legendary = "Legendary",
-	BlackMarket = "BlackMarket",
-})
-
 local byName: { [string]: TData.TGun } = {}
 for _, gun in DataCore.Guns.All do
 	byName[gun.Name] = gun
@@ -75,10 +69,11 @@ function GunsCore.FromToolName(name: string): TData.TGun?
 	return byName[name]
 end
 
+-- A model sits in the folder named for its gun's rarity: ReplicatedStorage.Models.Guns.<Rarity>.<ModelName>.
 function GunsCore.GetModel(gun: TData.TGun): Model?
 	local models = ReplicatedStorage:FindFirstChild("Models")
 	local guns = if models then models:FindFirstChild("Guns") else nil
-	local folder = if guns then guns:FindFirstChild(RARITY_FOLDERS[gun.Rarity]) else nil
+	local folder = if guns then guns:FindFirstChild(gun.Rarity) else nil
 	local model = if folder then folder:FindFirstChild(gun.ModelName) else nil
 	return if model and model:IsA("Model") then model else nil
 end
@@ -122,8 +117,9 @@ function GunsCore.FindAxes(model: Model, gun: TData.TGun): CFrame
 		weighted += volume * (part.Position - center):Dot(axis)
 	end
 
-	-- The heavier end is the stock, so the barrel points the other way.
-	local forward = if total > 0 and weighted / total > 0 then -axis else axis
+	-- The heavier end is the stock, so the barrel points the other way. A tie keeps the biggest part's own axis.
+	local isStockAlongAxis = total > 0 and weighted / total > TIE_LEAN * size:Dot(side)
+	local forward = if isStockAlongAxis then -axis else axis
 	if gun.IsFlipped then forward = -forward end
 
 	local up = pivot.UpVector

@@ -1,11 +1,10 @@
--- The daily rewards screen (UIMatt.md, Daily Rewards): the 28-day streak by week, and claiming today's reward
--- (DailyRewardsService decides; this asks and shows). The lobby's DAILY REWARDS card opens it. While it is up the world
--- behind is blurred and heard under water.
+-- The daily screen's DAILY page (UIMatt.md, Daily Rewards): the 28-day streak by week, and claiming today's reward
+-- (DailyRewardsService decides; this asks and shows). DailyController owns the screen round it and shows the page
+-- (SetShown) and builds it into its gui (BuildPage).
 --
 -- A claim is shown in the order it is paid: the card winds up while the server is asked, lets go on the answer, and
 -- its Gems fly into the HUD's Gems pill (GemPayout), which holds what is still in the air (HeldGems) and takes each slice
 -- as it lands.
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -13,8 +12,6 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
--- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
-local BlurController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.BlurController)
 local DailyRewardsCore = require(ReplicatedStorage.Shared.Core.DailyRewardsCore)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
@@ -24,28 +21,27 @@ local Types = require(script.Types)
 
 local ServerNetworkDailyRewards = NetworkMeta.Server.DailyRewards
 local ClientNetworkDailyRewards = NetworkMeta.Client.DailyRewards
-local LocalPlayer = Players.LocalPlayer
 local source = vide.source
 local create = vide.create
 
 local Tune = table.freeze({
 	-- The screen is his 1920 x 1080, fitted inside the viewport whole.
 	DESIGN = Vector2.new(1920, 1080),
-	-- Above the lobby's HUD, under the settings screen.
-	DISPLAY_ORDER = 5,
-	-- It is drawn this long after it is shut, for its way out.
+	-- It is drawn this long after it is hidden, for its way out.
 	LEAVE_SECONDS = 0.4,
 	-- How long the clock keeps ticking after a stamp: the longest gesture is shorter.
 	MOTION_SECONDS = 2.4,
 	-- While today's reward waits on the screen, the light crosses its card this often.
 	CALL_EVERY = 2.6,
+	-- A claim has been shown this long after its card has settled, its Gems landed: the beat to take it in.
+	SHOWN_AFTER = 0.35,
 })
 
 -- A rarity's reveal, for a gun let go.
 local REVEALS = table.freeze({
 	Epic = "RevealEpic",
 	Legendary = "RevealLegendary",
-	BlackMarket = "RevealMythic",
+	Mythic = "RevealMythic",
 })
 
 local DailyRewardsController = {}
@@ -75,9 +71,13 @@ local state: Types.TDailyState = {
 	RefusedAt = source(-math.huge),
 }
 
--- The Gems the profile holds that are still in the air, and whether they are landing in the pill right now.
+-- The Gems the profile holds that are still in the air, whether they are landing in the pill right now, and whether
+-- any are still flying (the page stays drawn for them).
 local heldGems = source(0)
 local isLanding = source(false)
+local isPayingOut = source(false)
+-- How many claims have finished showing: the daily screen moves on after each.
+local claimsShown = source(0)
 
 -- os.clock until which Now keeps ticking.
 local motionUntil = -math.huge
@@ -90,24 +90,37 @@ local impactAt = math.huge
 -- A week's last day claimed: the moment the screen turns to the next week, and that week.
 local turnAt = math.huge
 local turnWeek = 1
+-- When the claim showing now is over, its Gems still to land.
+local shownAt = math.huge
 local nextCall = math.huge
 local payout: GemPayout.TPayout? = nil
 local glyphs: { ImageLabel } = {}
 local gemsTarget: GuiObject? = nil
-
--- Whether the screen is up. Reads a vide source, so a view that calls it follows it.
-function DailyRewardsController.IsOpen(): boolean
-	return state.IsOpen()
-end
 
 -- Whether today's reward waits to be claimed. Reads a vide source.
 function DailyRewardsController.IsClaimable(): boolean
 	return state.IsClaimable()
 end
 
+-- The day of the streak he is on. Reads a vide source.
+function DailyRewardsController.Day(): number
+	return state.Day()
+end
+
+-- Whether a claim's Gems are still flying to the pill: the page is drawn until they have landed. Reads a vide source.
+function DailyRewardsController.IsPayingOut(): boolean
+	return isPayingOut()
+end
+
 -- The Gems a claim paid that are still flying to the HUD's pill: the pill shows that many fewer. Reads a vide source.
 function DailyRewardsController.HeldGems(): number
 	return heldGems()
+end
+
+-- How many claims have finished showing (the card settled, the week turned, the Gems landed). Reads a vide source, so
+-- an effect on it runs once each claim is over.
+function DailyRewardsController.ClaimsShown(): number
+	return claimsShown()
 end
 
 -- Whether a claim's Gems are landing in the pill now. Reads a vide source.
@@ -141,32 +154,30 @@ local function showWeek(week: number)
 	end)
 end
 
-function DailyRewardsController.Open()
-	if state.IsOpen() then return end
+-- Puts the page on show or takes it off. Shown, it comes in `delay` seconds from now (a stamp in the future: the
+-- other page clears first), on the week of the next reward.
+function DailyRewardsController.SetShown(isShown: boolean, delay: number?)
+	if state.IsOpen() == isShown then return end
+	if not isShown then
+		local now = os.clock()
+		state.IsOpen(false)
+		-- Taken off before it came in: it stays out, rather than showing up to fade.
+		stamp(state.ToggledAt, if now < state.ToggledAt() then -math.huge else now)
+		return
+	end
+
 	local week = nextWeek()
-	local now = os.clock()
+	local at = os.clock() + (delay or 0)
 	vide.batch(function()
 		state.IsOpen(true)
-		stamp(state.ToggledAt, now)
-		-- Today's card pings once it has been dealt in, and is called once the screen has settled.
-		stamp(state.ReadyAt, now)
-		nextCall = now + Tune.CALL_EVERY
+		stamp(state.ToggledAt, at)
+		-- Today's card pings once it has been dealt in, and is called once the page has settled.
+		stamp(state.ReadyAt, at)
+		nextCall = at + Tune.CALL_EVERY
 		state.Week(week)
 		state.WeekFrom(week)
 		state.WeekAt(-math.huge)
 	end)
-	SoundsCore.SetMuffled("DailyRewards", true)
-	BlurController.SetBlurred("DailyRewards", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
-end
-
-function DailyRewardsController.Close()
-	if not state.IsOpen() then return end
-	state.IsOpen(false)
-	stamp(state.ToggledAt, os.clock())
-	SoundsCore.SetMuffled("DailyRewards", false)
-	BlurController.SetBlurred("DailyRewards", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function refuse(which: number)
@@ -178,7 +189,6 @@ local function refuse(which: number)
 end
 
 local actions: Types.TDailyActions = {
-	Close = DailyRewardsController.Close,
 	-- Checked here only to answer at once: the server checks it again.
 	Claim = function()
 		if state.IsPending() or not state.IsClaimable() then return end
@@ -247,40 +257,43 @@ local function release(now: number)
 	end)
 end
 
+-- Whether the page is on show. Reads a vide source.
+function DailyRewardsController.IsShown(): boolean
+	return state.IsOpen()
+end
+
+-- The page, for the shell to scale and cut (his 1920 x 1080, standing `lift` px under its own place), and the layer
+-- its Gems fly in; built once inside the daily screen's vide root.
+function DailyRewardsController.BuildPage(lift: () -> number): (Frame, Instance)
+	-- Drawn only while it is on show, still leaving, or its Gems are still in the air: hidden, it costs nothing.
+	local isDrawn = vide.derive(function(): boolean
+		return state.IsOpen() or state.Now() - state.ToggledAt() < Tune.LEAVE_SECONDS or isPayingOut()
+	end)
+	local built = GemPayout.Build(state.Scale, function(): Vector2?
+		local glyph = gemsTarget
+		if not glyph or not glyph.Parent then return nil end
+		return glyph.AbsolutePosition + glyph.AbsoluteSize / 2
+	end)
+	payout = built
+	local children, cardGlyphs = Screen.Build(state, actions, lift)
+	glyphs = cardGlyphs
+
+	return create("Frame")({
+		Name = "DailyRewards",
+		Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
+		BackgroundTransparency = 1,
+		Visible = isDrawn,
+		children,
+	}),
+		built.Layer
+end
+
 local function updateScale()
 	local viewport = Workspace.CurrentCamera.ViewportSize
 	state.Scale(math.max(math.min(viewport.Y / Tune.DESIGN.Y, viewport.X / Tune.DESIGN.X), 0.01))
 end
 
 DailyRewardsController.OnStart = function()
-	local isPayingOut = source(false)
-	vide.mount(function()
-		-- Drawn only while it is up, still leaving, or its Gems are still in the air: shut, it costs nothing.
-		local isDrawn = vide.derive(function(): boolean
-			return state.IsOpen() or state.Now() - state.ToggledAt() < Tune.LEAVE_SECONDS or isPayingOut()
-		end)
-		local built = GemPayout.Build(state.Scale, function(): Vector2?
-			local glyph = gemsTarget
-			if not glyph or not glyph.Parent then return nil end
-			return glyph.AbsolutePosition + glyph.AbsoluteSize / 2
-		end)
-		payout = built
-		local children, cardGlyphs = Screen.Build(state, actions)
-		glyphs = cardGlyphs
-
-		return create("ScreenGui")({
-			Name = "DailyRewards",
-			ResetOnSpawn = false,
-			IgnoreGuiInset = true,
-			ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
-			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-			DisplayOrder = Tune.DISPLAY_ORDER,
-			Enabled = isDrawn,
-			children,
-			built.Layer,
-		})
-	end, LocalPlayer:WaitForChild("PlayerGui"))
-
 	-- Now is written only while something moves, so a screen at rest, open or shut, redraws nothing.
 	RunService.PreRender:Connect(function()
 		local now = os.clock()
@@ -310,6 +323,10 @@ DailyRewardsController.OnStart = function()
 		local current = payout
 		local isBusy = current ~= nil and current.Step(now)
 		if isBusy ~= isPayingOut() then isPayingOut(isBusy) end
+		if now >= shownAt and not isBusy then
+			shownAt = math.huge
+			claimsShown(claimsShown() + 1)
+		end
 	end)
 
 	local camera = Workspace.CurrentCamera
@@ -342,10 +359,12 @@ ServerNetworkDailyRewards.Claimed.On(function(day: number, gems: number, gunId: 
 		releaseAt = math.max(now, state.PressedAt() + Screen.WIND_UP_SECONDS)
 		stamp(state.ClaimedAt, releaseAt)
 		motionUntil = math.max(motionUntil, releaseAt + Screen.CLAIM_SECONDS + Tune.MOTION_SECONDS)
+		shownAt = releaseAt + Screen.CLAIM_SECONDS + Tune.SHOWN_AFTER
 		-- A week's last day: once the card has settled, the screen turns to the week coming, so it reads as going on.
 		if day % DailyRewardsCore.WEEK == 0 and day < DailyRewardsCore.DAYS then
 			turnAt = releaseAt + Screen.TURN_SECONDS
 			turnWeek = DailyRewardsCore.WeekOf(day + 1)
+			shownAt = math.max(shownAt, turnAt + Screen.WINK_AFTER_TURN_SECONDS + Tune.SHOWN_AFTER)
 		end
 	end)
 end)

@@ -13,11 +13,13 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DailyRewardsCore = require(ReplicatedStorage.Shared.Core.DailyRewardsCore)
 local WeaponParts = require(script.Parent.Parent.WeaponsController.Parts)
 local Parts = require(script.Parent.Parts)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -28,28 +30,28 @@ local WEEK = DailyRewardsCore.WEEK
 
 -- His drawn rects in px at 1080: the cards' corners on the screen, then each piece from its card's top left.
 local Layout = table.freeze({
-	CARD = Vector2.new(256, 250),
-	CARD_XS = { 349, 623, 897 },
-	CARD_YS = { 300, 568 },
-	PRIZE = Vector2.new(1171, 300),
+	-- 4 px narrower and 2 shorter than his, 20 apart across (24 before day 7) and 22 down, over his span: a card under
+	-- the hand grows its brackets 13 px out (day 7's 16), and at his 18 they crossed the next card's.
+	CARD = Vector2.new(252, 248),
+	CARD_XS = { 350, 622, 894 },
+	CARD_YS = { 300, 570 },
+	PRIZE = Vector2.new(1170, 300),
 	PRIZE_SIZE = Vector2.new(400, 518),
 	-- The room round a card inside the group that fades it, for its glow, brackets and pop (a CanvasGroup clips).
 	MARGIN = 34,
 	BAND = 43,
 	PRIZE_BAND = 52,
-	BRACKETS = 6,
 	BRACKET_LENGTH = 20,
-	RING = 6,
 	DAY_TOP = 14,
 	DAY_TEXT = 24,
 	PRIZE_DAY_TEXT = 31,
-	GEM = Vector2.new(128, 106.5),
+	GEM = Vector2.new(126, 106.5),
 	GEM_GLYPH = 77,
 	VALUE_TOP = 156,
 	VALUE_TEXT = 39,
 	-- Both tags are centred on this line: his GEMS tag 204 down and 26 tall, his CLAIM NOW 202 and 30.
 	TAG_MIDDLE = 217,
-	STAMP = Vector2.new(129.5, 120.5),
+	STAMP = Vector2.new(127.5, 120.5),
 	STAMP_SIZE = Vector2.new(154, 43),
 	STAMP_TURN = -8,
 	STAMP_TEXT = 29,
@@ -58,6 +60,11 @@ local Layout = table.freeze({
 	DISC = Vector2.new(200, 270),
 	DISC_RADIUS = 150,
 	DISC_LINE = 2,
+	-- The art behind the prize when it is not his disc, where its floor is below the disc's middle, and the card's
+	-- edge it is clipped inside.
+	PRIZE_SHOWCASE = 600,
+	PRIZE_FLOOR = 110,
+	PRIZE_EDGE = 3,
 	GUN_BOX = 280,
 	GUN_LEAN = 38,
 	PRIZE_GEM_GLYPH = 150,
@@ -91,6 +98,8 @@ local CLAIMED_GEM = 0.72
 local CLAIMED_VALUE = 0.7
 local DISC_FILL = 0.9
 local DISC_LINE = 0.45
+-- How much of the art behind the prize goes once the day is claimed.
+local CLAIMED_ART = 0.65
 
 local Timing = table.freeze({
 	-- The cards are dealt in reading order, the gun last; each rises, the light crosses it as it lands and its number
@@ -154,7 +163,6 @@ local Timing = table.freeze({
 	WINK_POP = 0.03,
 	GLOW = 0.7,
 	GLOW_LIT = 0.35,
-	HOVER_BRACKETS = 3,
 })
 
 local Cards = {}
@@ -169,6 +177,8 @@ Cards.IMPACT_SECONDS = Timing.STAMP_DELAY + Timing.STAMP
 Cards.CLAIM_SECONDS = Timing.STAMP_DELAY + Timing.STAMP + Timing.SETTLE + Timing.GUN_SPIN
 -- When a week's last day claimed turns the screen to the next week, from its let-go: once the card has settled.
 Cards.TURN_SECONDS = Timing.STAMP_DELAY + Timing.STAMP + Timing.SETTLE + 0.5
+-- Tomorrow's card has winked this long after a week has turned.
+Cards.WINK_AFTER_TURN_SECONDS = Timing.WINK_AFTER_TURN + Timing.WINK
 
 local function lerp2(a: Vector2, b: Vector2, t: number): Vector2
 	return a + (b - a) * t
@@ -195,10 +205,9 @@ local function stamp(props: { [any]: any }): Frame
 				Padding = UDim.new(0, 5),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
-			Components.Icon("Check", {
+			Components.Picture(EIcons.Check, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.STAMP_CHECK),
-				ImageColor3 = Palette.Ink,
+				Size = Components.PictureBox(Layout.STAMP_CHECK),
 			}),
 			Label({
 				LayoutOrder = 2,
@@ -337,7 +346,9 @@ local function cardState(state: Types.TDailyState, elapsed: () -> number, shown:
 			+ Timing.PING_POP * Motion.Bump(pinged(Timing.PING_POP_SECONDS))
 			+ Timing.WINK_POP * Motion.Bump(wink())
 	end)
-	local hand = Hand.React("Take", isClaimable)
+	-- Operate, though a card is taken: a Take card this big grew 8 px a side under the hand (12 on day 7) and crossed the
+	-- next card's brackets 18 px off.
+	local hand = Hand.React("Operate", isClaimable)
 
 	-- The entrance, the week switch, a refusal and the stamp's jolt, as one offset.
 	local away = Parts.Away(state, elapsed, dealDelay)
@@ -435,7 +446,7 @@ local function gem(state: Types.TDailyState, card: TCard): ImageLabel
 	local at = if card.IsPrize then Layout.DISC else Layout.GEM
 	local claimShare = card.ClaimShare
 
-	return Components.Icon("Gem", {
+	return Components.Picture(EIcons.Gem, {
 		Name = "Gem",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = function()
@@ -447,8 +458,7 @@ local function gem(state: Types.TDailyState, card: TCard): ImageLabel
 				at.Y + Timing.RATTLE * wound * math.cos(now * 97)
 			)
 		end,
-		Size = Components.GlyphBox(if card.IsPrize then Layout.PRIZE_GEM_GLYPH else Layout.GEM_GLYPH),
-		ImageColor3 = Parts.GEM_BLUE,
+		Size = Components.PictureBox(if card.IsPrize then Layout.PRIZE_GEM_GLYPH else Layout.GEM_GLYPH),
 		Visible = function()
 			return not card.IsPrize or card.IsGemsPrize()
 		end,
@@ -586,31 +596,75 @@ local function gemsPieces(card: TCard): { Instance }
 	}
 end
 
+-- Day 7's art when it is not his disc, in two layers: behind the prize (in the card's group) and its particles (over
+-- the gun, among the effects). Each is inside the face under the band, so it is clipped to it, and dimmed once the
+-- day is claimed.
+local function prizeArt(state: Types.TDailyState, card: TCard): (Frame?, Frame?)
+	local inset = Vector2.new(Layout.PRIZE_EDGE, Layout.PRIZE_BAND + Layout.PRIZE_EDGE)
+	local at = UDim2.fromOffset(Layout.DISC.X - inset.X, Layout.DISC.Y - inset.Y)
+	local showcase, showcaseFront = Showcase.Build({
+		Look = Showcase.Looks.Prize,
+		Diameter = Layout.PRIZE_SHOWCASE,
+		Floor = Layout.PRIZE_FLOOR,
+		Accent = card.Accent,
+		Shown = function(): number
+			local dim = if card.Status() == "Claimed" then CLAIMED_ART * card.Settled() else 0
+			return (1 - card.Fade()) * (1 - dim)
+		end,
+		CheeredAt = function(): number
+			return if card.IsOwnClaim() then state.ClaimedAt() else -math.huge
+		end,
+		IsActive = state.IsOpen,
+	}, { Position = at }, { Position = at })
+	if not showcase then return nil, nil end
+
+	local function clipped(name: string, child: Frame?, zIndex: number): Frame
+		return create("Frame")({
+			Name = name,
+			Position = UDim2.fromOffset(inset.X, inset.Y),
+			Size = UDim2.fromOffset(
+				Layout.PRIZE_SIZE.X - 2 * inset.X,
+				Layout.PRIZE_SIZE.Y - inset.Y - Layout.PRIZE_EDGE
+			),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = zIndex,
+			child,
+		})
+	end
+
+	-- The particles go over the gun, which stands over the card's group (ZIndex 2 among the effects).
+	return clipped("Art", showcase, 2), clipped("ArtFront", showcaseFront, 3)
+end
+
 -- Day 7's disc, PERMANENT, the gun's name and its rarity; for a gun owned already, the Gems it pays and his GEMS tag.
-local function prizePieces(card: TCard): { Instance }
+-- `art` is the art behind the prize when it is not his disc.
+local function prizePieces(card: TCard, art: Frame?): { Instance }
 	local gun = card.Gun
 	local rarity = derive(function()
 		local current = gun()
-		return if current then WeaponParts.RARITIES[current.Rarity] or WeaponParts.RARITIES.Common else nil
+		return if current then WeaponParts.RARITIES[current.Rarity] else nil
 	end)
-
 	return {
-		create("Frame")({
-			Name = "Disc",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.DISC.X, Layout.DISC.Y),
-			Size = UDim2.fromOffset(2 * Layout.DISC_RADIUS, 2 * Layout.DISC_RADIUS),
-			BackgroundColor3 = card.Accent,
-			BackgroundTransparency = DISC_FILL,
-			BorderSizePixel = 0,
-			ZIndex = 3,
-			create("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
-			create("UIStroke")({
-				Color = card.Accent,
-				Thickness = Layout.DISC_LINE,
-				Transparency = DISC_LINE,
+		art,
+		if Showcase.Looks.Prize ~= "Rings"
+			then nil
+			else create("Frame")({
+				Name = "Disc",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(Layout.DISC.X, Layout.DISC.Y),
+				Size = UDim2.fromOffset(2 * Layout.DISC_RADIUS, 2 * Layout.DISC_RADIUS),
+				BackgroundColor3 = card.Accent,
+				BackgroundTransparency = DISC_FILL,
+				BorderSizePixel = 0,
+				ZIndex = 3,
+				create("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
+				create("UIStroke")({
+					Color = card.Accent,
+					Thickness = Layout.DISC_LINE,
+					Transparency = DISC_LINE,
+				}),
 			}),
-		}),
 		create("Frame")({
 			Name = "Permanent",
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -789,8 +843,8 @@ local function ring(name: string, share: () -> number, reach: number, color: any
 end
 
 -- What is drawn over the card's group, riding it: the claim's flash and ring (in the gun's rarity on day 7), today's
--- ping, and day 7's gun.
-local function effects(state: Types.TDailyState, card: TCard): { Instance }
+-- ping, and day 7's gun with its art's particles over it (`artFront`).
+local function effects(state: Types.TDailyState, card: TCard, artFront: Frame?): { Instance }
 	local claimShare = card.ClaimShare
 	local pieces = {
 		flash("Flash", function()
@@ -817,13 +871,20 @@ local function effects(state: Types.TDailyState, card: TCard): { Instance }
 		end, Timing.PING_REACH, Palette.Green, 0.2),
 	}
 	if card.IsPrize then table.insert(pieces, gunPicture(state, card)) end
+	if artFront then table.insert(pieces, artFront) end
 
 	return pieces
 end
 
--- The card itself: his card in the day's colour with the dark band at its top, his white ring round today's, and
--- what the day pays. Pressing today's claims it; pressing one still to come is turned down.
-local function face(state: Types.TDailyState, actions: Types.TDailyActions, card: TCard, gemGlyph: ImageLabel)
+-- The card itself: his card in the day's colour with the dark band at its top, his white ring round today's (its brackets closed),
+-- and what the day pays. Pressing today's claims it; pressing one still to come is turned down.
+local function face(
+	state: Types.TDailyState,
+	actions: Types.TDailyActions,
+	card: TCard,
+	gemGlyph: ImageLabel,
+	art: Frame?
+)
 	local hand = card.Hand
 	local size = card.Size
 	local greenness = card.Greenness
@@ -854,12 +915,14 @@ local function face(state: Types.TDailyState, actions: Types.TDailyActions, card
 			Tint = 0.27,
 			Marks = true,
 			Tall = card.IsPrize,
-			Brackets = function()
-				return Layout.BRACKETS + Timing.HOVER_BRACKETS * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketLength = Layout.BRACKET_LENGTH,
 			BracketTransparency = function()
-				return 0.6 + 0.4 * greenness() - 0.3 * hand.Light()
+				return 0.6 - 0.3 * hand.Light()
+			end,
+			-- His white ring round today's card: its brackets close into it, and part again as the claim settles.
+			BracketsClosed = function()
+				return greenness() > 0.5
 			end,
 		}, {
 			Name = "Face",
@@ -868,31 +931,6 @@ local function face(state: Types.TDailyState, actions: Types.TDailyActions, card
 			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromScale(1, 1),
 			create("UIScale")({ Scale = card.Scale }),
-			-- His white ring round today's card, standing where the brackets stand on the others.
-			create("Frame")({
-				Name = "Ring",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = function()
-					local out = 2
-						* math.round(Layout.RING + Timing.HOVER_BRACKETS * hand.Rise() + 6 * (1 - greenness()))
-					return UDim2.new(1, out, 1, out)
-				end,
-				BackgroundTransparency = 1,
-				Visible = function()
-					return greenness() > 0.01
-				end,
-				ZIndex = 0,
-				create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
-				create("UIStroke")({
-					Color = Palette.White,
-					Thickness = 1.5,
-					Transparency = function()
-						return 1 - 0.95 * greenness()
-					end,
-					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				}),
-			}),
 			create("Frame")({
 				Name = "Band",
 				Position = UDim2.fromOffset(3, 3),
@@ -915,7 +953,7 @@ local function face(state: Types.TDailyState, actions: Types.TDailyActions, card
 				end,
 			}),
 			gemGlyph,
-			if card.IsPrize then prizePieces(card) else gemsPieces(card),
+			if card.IsPrize then prizePieces(card, art) else gemsPieces(card),
 			claimedStamp(card),
 		}),
 	})
@@ -936,6 +974,10 @@ function Cards.Build(
 		local card = cardState(state, elapsed, shown, slot)
 		local size = card.Size
 		local gemGlyph = gem(state, card)
+		local art, artFront = nil, nil
+		if card.IsPrize then
+			art, artFront = prizeArt(state, card)
+		end
 		local topLeft = function(): UDim2
 			local at = card.Corner + card.Offset()
 			return UDim2.fromOffset(at.X, at.Y)
@@ -951,7 +993,7 @@ function Cards.Build(
 			BackgroundTransparency = 1,
 			GroupTransparency = card.Fade,
 			ZIndex = 3,
-			face(state, actions, card, gemGlyph),
+			face(state, actions, card, gemGlyph, art),
 		})
 		-- The same rect, offset and scale as the card, anchored in its middle so the scale grows it about the same point.
 		children[2 * slot] = create("Frame")({
@@ -964,7 +1006,7 @@ function Cards.Build(
 			BackgroundTransparency = 1,
 			ZIndex = 4,
 			create("UIScale")({ Scale = card.Scale }),
-			effects(state, card),
+			effects(state, card, artFront),
 		})
 	end
 

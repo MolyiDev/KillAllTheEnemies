@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local NetworkMeta = require(ServerScriptService.GlobalServer.NetworkMeta)
 local BackGunService = require(script.Parent.BackGunService)
+local RangeService = require(script.Parent.RangeService)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
@@ -59,14 +60,17 @@ ClientNetworkLoadout.Buy.On(function(player: Player, gunId: number)
 			return true
 		end)
 
-	if hasBought then DatabaseService.SaveAsync(player) end
+	if hasBought then
+		DatabaseService.SaveAsync(player)
+		RangeService.LoadoutChanged(player)
+	end
 	LoadoutService.Sync(player)
 end)
 
 ClientNetworkLoadout.Equip.On(function(player: Player, gunId: number)
 	local gun = DataCore.Guns.ById[gunId]
-	if gun then
-		DatabaseService.Update(player, function(profile)
+	local hasEquipped = gun ~= nil
+		and DatabaseService.Update(player, function(profile)
 			if not LoadoutCore.LevelOf(profile.Loadout.Owned, gun) then return false end
 			local tier = tostring(gun.Tier)
 			if LoadoutCore.EquippedOf(profile.Loadout.Equipped, gun.Tier) == gun then return false end
@@ -74,8 +78,8 @@ ClientNetworkLoadout.Equip.On(function(player: Player, gunId: number)
 			profile.Loadout.Equipped[tier] = if gun.Price == 0 then nil else gun.Name
 			return true
 		end)
-	end
 
+	if hasEquipped then RangeService.LoadoutChanged(player) end
 	LoadoutService.Sync(player)
 end)
 

@@ -7,14 +7,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
-local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
 local Parts = require(script.Parent.Parts)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
-local Palette = Theme.Palette
 local Scatter = Parts.Scatter
 
 local Tune = table.freeze({
@@ -108,14 +107,10 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 		return byPiece
 	end)
 
-	-- What every piece wears: the prize's glyph in its accent, lifted.
-	local cell = derive(function(): Vector2
+	-- What every piece wears: the prize's picture.
+	local picture = derive(function(): string
 		local current = prize()
-		return Components.IconCell(if current and current.Kind == "Xp" then "Rank" else "Gem")
-	end)
-	local color = derive(function(): Color3
-		local current = prize()
-		return if current then Parts.AccentOf(current):Lerp(Palette.White, 0.2) else Palette.White
+		return if current and current.Kind == "Xp" then EIcons.Rank else EIcons.Gem
 	end)
 
 	local pieces = table.create(Tune.POOL)
@@ -163,7 +158,7 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 			return state.PillAt() + Vector2.new(Scatter(index, 12) - 0.5, Scatter(index, 13) - 0.5) * 2 * Tune.JITTER
 		end
 
-		pieces[index] = Components.Icon("Gem", {
+		pieces[index] = Components.Picture(picture, {
 			Name = `Piece{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
@@ -193,9 +188,7 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 				)
 				return UDim2.fromOffset(at.X, at.Y)
 			end,
-			Size = Components.GlyphBox(Tune.GLYPH),
-			ImageRectOffset = cell,
-			ImageColor3 = color,
+			Size = Components.PictureBox(Tune.GLYPH),
 			ImageTransparency = function()
 				local share = flight() or 0
 				local appear = math.clamp(share / Tune.FADE_IN, 0, 1)

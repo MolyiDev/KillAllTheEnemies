@@ -355,6 +355,7 @@ local flightParts = motorParts.NewPool("GunFxShots", Tune.FLIGHT_PARTS)
 -- game's guns nothing to draw with.
 local benchParts = motorParts.NewPool("GunFxBenchShots", Tune.FLIGHT_PARTS)
 local pieces = thrownPieces.NewPool("GunFxBits", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local casings = thrownPieces.NewPool("GunFxCasings", Tune.CASING_PARTS)
 casings.Landed = function(position: Vector3, bounces: number)
 	local sound = if bounces == 1 then Tune.CASING_LAND_SOUND else Tune.CASING_BOUNCE_SOUND

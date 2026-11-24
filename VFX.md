@@ -2733,11 +2733,15 @@ The user: on every upgrade picked, after the UI disappears, the player's body sh
 `src/Game/Client/Utils/upgradeFx.luau`, said and stepped by `UpgradePickController`. Templates
 `ReplicatedStorage.Effects.UpgradeFx`, sources, the table of what each beat draws and every number in
 `Assets/effects/upgrade/` (its README). No sprite was drawn: the pistol kit's five. No bench: the `row` preview stands
-the five rarities.
+the six rarities.
 
 - **The card's rarity is the colour**: one template Folder a rarity, coloured in the generator (white-hot, a light, the
   card's colour, a deeper one for the half-lit solid shapes), never recoloured in code. A rarer card also throws more
-  pixels, 20% more a step.
+  pixels, 16% more a step (a Mythic 1.8 times a Common's).
+- **The colours are `Theme.Rarities`** (2026-11-23, when every rarity moved to one ladder and Uncommon was added): a
+  new colour's shades are worked out (white-hot 88% to white, light 42%, deep at HSV saturation x1.25 and value x0.92,
+  which gives Rare's hand-picked deep back within 5), not picked by eye. Common is the designer's grey, so its show
+  reads white: it is the plainest on purpose.
 - **After the screen, not under it**: the taker's own show starts when the curtain has gone (`Closing` to `Closed`), so
   its first frame is not dimmed. A run of hands shows once, in the rarest card taken. A teammate's starts as their
   PICKING tag goes, which the server sends at the same moment (`UpgradesCore.SHOW_SECONDS` after the pick).

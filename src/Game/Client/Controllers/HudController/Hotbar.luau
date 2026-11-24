@@ -13,6 +13,7 @@ local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Gu
 local HealthBar = require(script.Parent.HealthBar)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -256,11 +257,10 @@ local function money(state: Types.THudState): Frame
 				BorderSizePixel = 0,
 				create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
 			}),
-			Components.Icon("Coins", {
+			Components.Picture(EIcons.GoldCoin, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
-				Size = Components.GlyphBox(Layout.COIN_GLYPH),
-				ImageColor3 = Palette.Ink,
+				Size = Components.PictureBox(Layout.COIN_GLYPH),
 				ZIndex = 2,
 				Rotation = function()
 					return -8 * pulse() + Pack.SPIN * Motion.Swing(struck())

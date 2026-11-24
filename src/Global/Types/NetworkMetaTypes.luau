@@ -156,8 +156,12 @@ export type Server_Quests_QuestBoard = { Ids: { number }, Progress: { number }, 
 export type Server_Index_DataId_Type = number
 export type Server_Classes_DataId_Type = number
 export type Server_Classes_ClassLevels = { Class: number, Levels: { number } }
+export type Server_Equipment_Player_Type = Player
+export type Server_Mutation_DataId_Type = number
+export type Server_Mutation_Lab = { Discovered: { number }, EnergyIds: { number }, EnergyCounts: { number }, PotionIds: { number }, PotionRecipes: { number }, PotionRarities: { number }, PotionMatches: { number }, Equipped: { number }, SlotKinds: { number }, SlotsOpen: { boolean }, BrewsLeft: number, BrewsPerDay: number, SecondsLeft: number, Luck: number, FoundIds: { number }, FoundCounts: { number }, FoundNew: { boolean } }
 export type Client_Index_DataId_Type = number
 export type Client_Classes_DataId_Type = number
+export type Client_Mutation_DataId_Type = number
 
 
 
@@ -197,6 +201,16 @@ return {
 			DataId = {
 			},
 		},
+		Equipment = {
+			Player = {
+			},
+		},
+		Shop = {
+		},
+		Mutation = {
+			DataId = {
+			},
+		},
 	},
 	Client = {
 		Lobby = {
@@ -220,6 +234,14 @@ return {
 			},
 		},
 		Classes = {
+			DataId = {
+			},
+		},
+		Equipment = {
+		},
+		Shop = {
+		},
+		Mutation = {
 			DataId = {
 			},
 		},

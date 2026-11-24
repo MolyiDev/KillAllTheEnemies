@@ -23,7 +23,6 @@ local WeaponRunController = require(script.Parent.WeaponRunController)
 local copyCharacter = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Utils.copyCharacter)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one loads a second ProfileController, which
 -- Ignis refuses as already registered (the first playtest of the HUD).
-local CodesController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CodesController)
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
 local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
 local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
@@ -62,6 +61,7 @@ local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local LocalPlayer = Players.LocalPlayer
 local ENEMIES = DataCore.Enemies.ById
@@ -294,7 +294,6 @@ local squadMembers: { [Player]: Types.TSquadMember } = {}
 -- The Gold each squad row shows, before it is floored: it rolls toward the real amount.
 local squadCash: { [Player]: number } = {}
 local squadIcon: any = nil
-local codesIcon: any = nil
 local settingsIcon: any = nil
 -- os.clock until which Now keeps ticking (Tune.MOTION_SECONDS past the last gesture that started).
 local motionUntil = -math.huge
@@ -921,16 +920,15 @@ local function holdMotion(settledAt: number)
 	motionUntil = math.max(motionUntil, settledAt)
 end
 
--- The top bar's icons: SQUAD on the left with Roblox's own buttons, Codes and Settings in the right corner. Codes and
--- Settings are both modal over the same spot, so opening one shuts the other.
+-- The top bar's icons: SQUAD on the left with Roblox's own buttons, Settings in the right corner. Codes are the lobby's
+-- alone.
 local function createTopbarIcons()
-	local offset = Icons.Cells
 	squadIcon = TopbarPlus.new()
 	squadIcon
 		:setName("Squad")
-		:setImage(Icons.IMAGE)
-		:modifyTheme({ "IconImage", "ImageRectOffset", offset.Squad })
-		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
+		:setImage(Icons.Pictures[EIcons.Squad].Image)
+		:modifyTheme({ "IconImage", "ImageRectOffset", Icons.Pictures[EIcons.Squad].Offset })
+		:modifyTheme({ "IconImage", "ImageRectSize", Icons.PICTURE_CELL_SIZE })
 		:setLabel("SQUAD")
 		:setTextFont(Theme.Font.Display.Family, Enum.FontWeight.Heavy)
 		:bindEvent("selected", function()
@@ -947,40 +945,15 @@ local function createTopbarIcons()
 		OnPress = holdMotion,
 	})
 
-	-- Made first, so it stands left of Settings.
-	codesIcon = TopbarPlus.new()
-	codesIcon
-		:setName("Codes")
-		:setImage(Icons.IMAGE)
-		:modifyTheme({ "IconImage", "ImageRectOffset", offset.Ticket })
-		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
-		:setCaption("Codes")
-		:align("Right")
-		:bindEvent("selected", function()
-			SettingsController.Close()
-			CodesController.Open()
-		end)
-		:bindEvent("deselected", CodesController.Close)
-
-	Topbar.Dress(codesIcon, {
-		IsSelected = CodesController.IsOpen,
-		HasBrackets = false,
-		Now = state.Now,
-		OnPress = holdMotion,
-	})
-
 	settingsIcon = TopbarPlus.new()
 	settingsIcon
 		:setName("Settings")
-		:setImage(Icons.IMAGE)
-		:modifyTheme({ "IconImage", "ImageRectOffset", offset.Settings })
-		:modifyTheme({ "IconImage", "ImageRectSize", Icons.CELL_SIZE })
+		:setImage(Icons.Pictures[EIcons.Gear].Image)
+		:modifyTheme({ "IconImage", "ImageRectOffset", Icons.Pictures[EIcons.Gear].Offset })
+		:modifyTheme({ "IconImage", "ImageRectSize", Icons.PICTURE_CELL_SIZE })
 		:setCaption("Settings")
 		:align("Right")
-		:bindEvent("selected", function()
-			CodesController.Close()
-			SettingsController.Open()
-		end)
+		:bindEvent("selected", SettingsController.Open)
 		:bindEvent("deselected", SettingsController.Close)
 
 	Topbar.Dress(settingsIcon, {
@@ -1108,12 +1081,9 @@ HudController.OnStart = function()
 	createTopbarIcons()
 	update(0)
 	vide.mount(function()
-		-- The settings and codes screens shut by their own X too: the icon is let go with it.
+		-- The settings screen shuts by its own X too: the icon is let go with it.
 		vide.effect(function()
 			if not SettingsController.IsOpen() and settingsIcon then settingsIcon:deselect() end
-		end)
-		vide.effect(function()
-			if not CodesController.IsOpen() and codesIcon then codesIcon:deselect() end
 		end)
 
 		-- A list: mount keeps only the first value a component returns.
@@ -1121,9 +1091,10 @@ HudController.OnStart = function()
 			create("ScreenGui")({
 				Name = "Hud",
 				ResetOnSpawn = false,
-				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them.
+				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them. The
+				-- settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too.
 				Enabled = function()
-					return not UpgradePickController.IsCovering()
+					return not UpgradePickController.IsCovering() and not SettingsController.IsOpen()
 				end,
 				IgnoreGuiInset = true,
 				ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,

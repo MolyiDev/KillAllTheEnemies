@@ -786,11 +786,25 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
 - **One cue a bounce, as it is drawn.** A casing comes down about 0.4 s after its shot and once more 0.25 s later;
   `thrownPieces`' `Landed` callback plays a landing take on the first and a bag 6 dB lighter on the second.
 
+### Debris bricks on the floor (2026-11-23, `Assets/sounds/Review/Debris/`, J Lego Drop Whole shipped)
+
+- **A real toy brick is mostly click**: 44-77% of a dropped brick's energy sits over 6.5 kHz. The pick (E, then J)
+  is Stormwave's Lego drops through a 6.5 kHz low-pass, chosen over the unfiltered recording (H) and over plastic,
+  wood and designed-hit stand-ins with no toy brick in them (round 1).
+- **A drop is a chain, so keep it whole.** A dropped brick bounces 10-150 ms apart, each contact starting while the
+  last still sounds, so no single contact in these recordings dies on its own, and E's cut-out contacts were heard
+  "cutted too early". Plot a take against its source before offering it (`round3/cuts.png`). J is each drop from its
+  first hit to where it has died into the recording, with the fade after that point.
+- **A take with its own rattle plays once.** A brick comes down twice about 0.2 s apart; with whole drops the second
+  bounce is silent (`thrownPieces.BrickLanded`), unlike the casings' two contacts.
+
 ### Sources
 
 - The library at `/mnt/HDD/Assets/Sounds` gained the user's packs on 2026-11-21: `Balloon/`, `Rubber/`, `Plastic/`,
   `Foam/` and `Sci-Fi Weapons/` (zapsplat, plus glitchedtones' sci-fi elements and the Death Ray), each zip beside
-  its unpacked folder, without `__MACOSX`. Packs the user buys land in `~/Downloads/Sounds`.
+  its unpacked folder, without `__MACOSX`. Packs the user buys land in `~/Downloads/Sounds`. On 2026-11-23:
+  `Toy Blocks/` (zapsplat's toy building blocks and Stormwave's Lego Building Bricks), `Bricks/`, `Rocks/`, `Toys/`
+  and a robot-tracks pack in `Mecha/`. Packs from before November keep their zips in `Zips/` instead.
 - BeACastleLord's shard burst ice is Gamemaster `ice_spell_impact_shatter` (01, 02, 03, 05, 06, 08, 10), in this
   library too.
 - Gamemaster's sustained sci-fi files and the glitchedtones Force Field, Drone and Hover fade in and out: none is a

@@ -12,7 +12,8 @@ export type TWeaponsState = {
 	Scale: Source<number>,
 	-- os.clock(), written only while a timed gesture runs.
 	Now: Source<number>,
-	-- os.clock(), written every frame while the screen is drawn: only the stage's idle sway reads it.
+	-- os.clock(), written every frame while the screen is drawn: only the stage reads it (the idle sway and the gun
+	-- in the hand).
 	StageClock: Source<number>,
 	IsOpen: Source<boolean>,
 	ToggledAt: Source<number>,
@@ -38,9 +39,11 @@ export type TWeaponsState = {
 	BoughtAt: Source<number>,
 	UpgradedGun: Source<number>,
 	UpgradedAt: Source<number>,
-	-- When the Gems for the last purchase or upgrade set off, and which one it was.
+	-- When the Gems for the last purchase or upgrade set off, which one it was, and where from: the HUD's Gems glyph
+	-- in his 1920 x 1080, read as they set off.
 	PaidAt: Source<number>,
 	PaidFor: Source<TRequest>,
+	GemsFrom: Source<Vector2>,
 	EquippedAt: Source<number>,
 	-- A press the server turned down, or one the screen knew it would.
 	RefusedAt: Source<number>,

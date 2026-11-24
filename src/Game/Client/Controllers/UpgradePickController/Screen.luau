@@ -252,9 +252,7 @@ local function reroll(state: TScreenState, actions: TActions): CanvasGroup
 				end,
 			}),
 			Components.Panel({
-				Brackets = function()
-					return 6 + 3 * hand.Rise()
-				end,
+				Brackets = hand.Rise,
 				Stroke = function()
 					return Palette.EdgePink:Lerp(Palette.Pink, hand.Light())
 				end,

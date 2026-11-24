@@ -2,11 +2,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local data: TData.TUpgrade = {
 	Id = EUpgradesIds.Regeneration,
 	Name = "Regeneration",
-	Icon = "Health",
+	Icon = EIcons.UpgradeRegeneration,
 	Value = 2,
 	MaxLevel = 4,
 	Description = "Heal %d more health a second",

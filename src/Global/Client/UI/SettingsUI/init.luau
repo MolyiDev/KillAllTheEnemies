@@ -2,7 +2,7 @@
 -- The settings screen (UIMatt.md, Settings), in both places: the audio sliders and the camera switches, each row
 -- ending in its own reset, and RESET ALL behind a confirm (Confirm.luau). The world dims, the panel
 -- rises into place, the rules draw themselves out and the rows are dealt in one after another, each slider running up
--- to its value as it lands. Closed by its X or by a click on the dim.
+-- to its value as it lands, and EXIT rises in under the panel. Closed by EXIT or by a click on the dim.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(script.Parent.Components)
@@ -11,6 +11,7 @@ local Theme = require(script.Parent.Theme)
 local Confirm = require(script.Confirm)
 local Controls = require(script.Controls)
 local Types = require(script.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -31,9 +32,6 @@ local Layout = table.freeze({
 	TITLE_SIZE = 43,
 	HEADER_RULE = Vector2.new(32, 96),
 	HEADER_RULE_WIDTH = 984,
-	CLOSE = Vector2.new(951, 15),
-	CLOSE_SIZE = 66,
-	CLOSE_BAR = Vector2.new(23, 2),
 	-- A section header, from its own corner: the glyph's middle, the title, the rule.
 	SECTION_X = 40,
 	SECTION_WIDTH = 960,
@@ -42,7 +40,8 @@ local Layout = table.freeze({
 	SECTION_TITLE_SIZE = 24,
 	SECTION_RULE_Y = 37,
 	ROW_X = 40,
-	ROW_SIZE = Vector2.new(959, 71),
+	-- 2 px shorter than his, so two rows stand 13 apart: a row's brackets open to 6 px out under the hand.
+	ROW_SIZE = Vector2.new(959, 69),
 	-- From a row's corner. A row with a description carries its label higher.
 	LABEL_X = 24,
 	LABEL_Y = 22,
@@ -66,8 +65,8 @@ local Layout = table.freeze({
 
 -- Where each section's header and each row stands, down the panel.
 local SECTIONS = table.freeze({
-	table.freeze({ Text = "AUDIO", Icon = "Music", IconSize = 18, Y = 119 }),
-	table.freeze({ Text = "CAMERA", Icon = "Camera", IconSize = 18, Y = 429 }),
+	table.freeze({ Text = "AUDIO", Icon = EIcons.Music, IconSize = 18, Y = 119 }),
+	table.freeze({ Text = "CAMERA", Icon = EIcons.Camera, IconSize = 18, Y = 429 }),
 })
 local VOLUME_YS = table.freeze({ 173, 255, 337 })
 local TOGGLE_YS = table.freeze({ 483, 565 })
@@ -104,12 +103,13 @@ local Timing = table.freeze({
 	COUNT = 0.5,
 	FOOTER_DELAY = 0.5,
 	FOOTER = 0.3,
+	EXIT_DELAY = 0.28,
+	EXIT = 0.4,
 	-- Every gesture of an open or a shut is over by now.
 	SETTLED = 1.4,
 	-- Under the hand a row's glow comes up and its brackets open.
 	ROW_GLOW = 0.75,
 	HOVER_GLOW = 0.5,
-	HOVER_BRACKETS = 3,
 	-- The hint goes white as a change is sent, and falls back.
 	SAVED = 0.7,
 })
@@ -146,54 +146,6 @@ local function rule(position: UDim2, width: number, drawn: () -> number): Frame
 		BorderSizePixel = 0,
 		ZIndex = 2,
 	})
-end
-
--- His pink square with a thin white X. Under the hand it grows a little and the X turns a quarter; pressed, it dips.
-local function closeButton(actions: Types.TActions): TextButton
-	local events, isHovered, isPressed = Controls.Hand()
-	local hover = Controls.Spring(function()
-		return if isHovered() then 1 else 0
-	end, 0.22, 0.85)
-	local scale = Controls.Spring(function()
-		return if isPressed() then 0.93 elseif isHovered() then 1.06 else 1
-	end, 0.16, 0.85)
-
-	local function bar(rotation: number): Frame
-		return create("Frame")({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(Layout.CLOSE_BAR.X, Layout.CLOSE_BAR.Y),
-			Rotation = function()
-				return rotation + 90 * hover()
-			end,
-			BackgroundColor3 = Palette.White,
-			BorderSizePixel = 0,
-			ZIndex = 2,
-		})
-	end
-
-	return Components.Button({
-		Name = "Close",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(Layout.CLOSE.X + Layout.CLOSE_SIZE / 2, Layout.CLOSE.Y + Layout.CLOSE_SIZE / 2),
-		Size = UDim2.fromOffset(Layout.CLOSE_SIZE, Layout.CLOSE_SIZE),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = actions.Close,
-		events,
-		create("UIScale")({ Scale = scale }),
-		Components.Slab({
-			Kind = "Pink",
-			GlowTransparency = function()
-				return Lerp(0.6, 0.4, hover())
-			end,
-		}, {
-			Name = "Face",
-			Size = UDim2.fromScale(1, 1),
-			bar(45),
-			bar(-45),
-		}),
-	}) :: TextButton
 end
 
 function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions): Frame
@@ -242,11 +194,10 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 			Size = UDim2.fromOffset(Layout.SECTION_WIDTH, Layout.SECTION_RULE_Y + 1),
 			BackgroundTransparency = 1,
 			ZIndex = 2,
-			Components.Icon(data.Icon, {
+			Components.Picture(data.Icon, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromOffset(Layout.SECTION_ICON.X, Layout.SECTION_ICON.Y),
-				Size = Components.GlyphBox(data.IconSize),
-				ImageColor3 = Palette.Pink,
+				Size = Components.PictureBox(data.IconSize),
 				ImageTransparency = faded,
 				ZIndex = 2,
 			}),
@@ -323,19 +274,7 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 				MouseLeave = function()
 					isHovered(false)
 				end,
-				-- His stand 8 px off the row's ends and 5 off its top and bottom.
-				create("Frame")({
-					Name = "BracketsHolder",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5),
-					Size = function()
-						local open = Timing.HOVER_BRACKETS * hover() * 2
-						return UDim2.new(1, 6 + open, 1, open)
-					end,
-					BackgroundTransparency = 1,
-					ZIndex = 0,
-					Components.Brackets(5, 0.65, 20),
-				}),
+				Components.Brackets(hover, 0.65, 20),
 				label({
 					Name = "Label",
 					Position = UDim2.fromOffset(
@@ -438,6 +377,11 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 	local footer = function(): number
 		return 1 - Motion.Out(since(Timing.FOOTER_DELAY, Timing.FOOTER))
 	end
+	-- How far EXIT still has to come, 1 to 0. Derived: at rest the clock's ticks redraw nothing.
+	local exitGone = derive(function(): number
+		if state.IsOpen() then return 1 - Motion.Decelerate(Progress(elapsed(), Timing.EXIT_DELAY, Timing.EXIT)) end
+		return Motion.Accelerate(Progress(elapsed(), 0, Timing.CLOSE))
+	end)
 
 	return create("Frame")({
 		Name = "Settings",
@@ -486,7 +430,7 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 					return 1 - shown()
 				end,
 				-- Longer than the streak texture: its window starts at the corner and it is tiled across.
-				Components.Panel({ Brackets = 5, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
+				Components.Panel({ Brackets = true, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
 					Name = "Panel",
 					Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
 					Size = UDim2.new(1, -2 * Layout.MARGIN, 1, -2 * Layout.MARGIN),
@@ -503,11 +447,10 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 							end,
 							Size = UDim2.fromScale(1, 1),
 							BackgroundTransparency = 1,
-							Components.Icon("Settings", {
+							Components.Picture(EIcons.Gear, {
 								AnchorPoint = Vector2.new(0.5, 0.5),
 								Position = UDim2.fromOffset(Layout.HEADER_ICON.X, Layout.HEADER_ICON.Y),
-								Size = Components.GlyphBox(Layout.HEADER_ICON_SIZE),
-								ImageColor3 = Palette.Pink,
+								Size = Components.PictureBox(Layout.HEADER_ICON_SIZE),
 								ImageTransparency = away,
 								ZIndex = 2,
 							}),
@@ -527,7 +470,6 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 							return since(Timing.RULE_DELAY, Timing.RULE)
 						end
 					),
-					closeButton(actions),
 					section(1),
 					section(2),
 					rule(UDim2.fromOffset(Layout.SECTION_X, Layout.FOOTER_RULE_Y), Layout.SECTION_WIDTH, function()
@@ -557,6 +499,16 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 				}),
 			}),
 			rows,
+		}),
+		-- His 1920 x 1080 round the screen's middle, where EXIT has its place.
+		create("Frame")({
+			Name = "Bottom",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(1920, 1080),
+			BackgroundTransparency = 1,
+			ZIndex = 3,
+			Components.Exit(exitGone, actions.Close),
 		}),
 		Confirm.Build(state, actions),
 	})

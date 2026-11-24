@@ -13,7 +13,7 @@ MOUNTS="--mount ReplicatedStorage/Packages=Packages --mount ReplicatedStorage/Ty
 mkdir -p "$OUT" "$MESHES"
 for data in src/Global/Data/Guns/*.luau; do
 	name=$(sed -n 's/^\tName = "\(.*\)",$/\1/p' "$data"); model=$(sed -n 's/^\tModelName = "\(.*\)",$/\1/p' "$data")
-	rarity=$(sed -n 's/^\tRarity = "\(.*\)",$/\1/p' "$data"); [ "$rarity" = Starter ] && rarity="starter weapons"
+	rarity=$(sed -n 's/^\tRarity = "\(.*\)",$/\1/p' "$data")
 	if [ $# -gt 0 ]; then
 		wanted=0; for arg in "$@"; do [ "$arg" = "$name" ] && wanted=1; done; [ $wanted = 1 ] || continue
 	fi

@@ -7,6 +7,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -16,6 +17,11 @@ local Font = Theme.Font
 local Progress = Motion.Progress
 
 local Parts = {}
+
+-- His panel's top in px at 1080, and how far it is raised to just under the top bar, its bottom staying put: the
+-- header and the quests ride up with its top, the cards grow into the room (Card), and CLAIM ALL keeps its place.
+Parts.PANEL_TOP = 169
+Parts.Lift = panelTop.Lift(Parts.PANEL_TOP)
 
 -- A screen's open and shut (UI.md 5o): pieces decelerate in, staged by what the screen is for, and accelerate out
 -- faster; every fade runs on its own clock.
@@ -129,15 +135,6 @@ function Parts.ReadyCount(view: Types.TBoardView?): number
 	end
 
 	return count
-end
-
--- "13:24:58" under a day, "4D 13H" past one, as his.
-function Parts.Clock(seconds: number): string
-	seconds = math.max(0, math.floor(seconds))
-	local days = seconds // 86400
-	local hours = seconds // 3600 % 24
-	if days > 0 then return `{days}D {hours}H` end
-	return string.format("%02d:%02d:%02d", hours, seconds // 60 % 60, seconds % 60)
 end
 
 return Parts

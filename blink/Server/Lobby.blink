@@ -1,11 +1,12 @@
 -- The queue pads (Lobby/Server/Services/LobbyService). Fired to everybody: every player sees every pad.
--- (pad, phase (PadsCore.EPhase), playersOnIt, maxPlayers, map (MapsCore.LIST), isFriendsOnly, hostUserId,
--- secondsLeft). hostUserId 0 is no host; secondsLeft < 0 is no countdown running.
+-- (pad, phase (PadsCore.EPhase), playersOnIt, maxPlayers, map (MapsCore.LIST), difficulty (MapsCore.DIFFICULTIES),
+-- isFriendsOnly, hostUserId, secondsLeft). hostUserId 0 is no host; secondsLeft < 0 is no countdown running. While
+-- the host is choosing, secondsLeft is his time left to pick (PadsCore.CHOOSE_SECONDS).
 event PadState {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (u8, u8, u8, u8, u8, boolean, f64, f32)
+	data: (u8, u8, u8, u8, u8, u8, boolean, f64, f32)
 }
 
 -- You are on this pad now (0 is no pad), so the client shows Leave, and the host's menu while it is his to pick.

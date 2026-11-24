@@ -19,9 +19,9 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
+local AvatarPose = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AvatarPose)
 
 local hud = StarterPlayer.StarterPlayerScripts.Client.Controllers.HudController
-local AvatarPose = require(hud.AvatarPose)
 local Wave = require(hud.Wave)
 local Items = require(hud.Items)
 local Announce = require(hud.Announce)
@@ -40,6 +40,11 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
 }
@@ -76,7 +81,7 @@ local function standIns()
 		part.Parent = model
 	end
 
-	local starters = guns["starter weapons"]
+	local starters = guns.Common
 	for name, barrel in { ["1"] = 0.9, ["2"] = 2.4, ["4"] = 1.6, TerminatorGun = 1.4 } do
 		local old = starters:FindFirstChild(name)
 		if old then old:Destroy() end

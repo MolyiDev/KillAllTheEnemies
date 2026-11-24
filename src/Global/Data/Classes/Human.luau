@@ -3,10 +3,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EClassesIds = require(ReplicatedStorage.Types.Enums.Data.EClassesIds)
 local TData = require(ReplicatedStorage.Types.TData)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local data: TData.TClass = {
 	Id = EClassesIds.Human,
 	Name = "Human",
+	Rarity = "Common",
+	Icon = EIcons.ClassHuman,
 	Abilities = {
 		{
 			Kind = "Decoy",

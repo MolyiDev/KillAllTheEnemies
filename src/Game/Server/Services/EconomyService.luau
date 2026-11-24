@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
+local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkEconomy = Network.Server.Economy
@@ -38,21 +39,21 @@ function EconomyService.TrySpendGold(player: Player, amount: number): boolean
 	return true
 end
 
--- Gems from playing (a cleared round, a boss). The 2x Gems pass doubles these and only these: packs and the starter
--- pack grant their advertised amount (GDD 19).
-function EconomyService.AddGameplayGems(player: Player, amount: number)
-	if amount <= 0 then return end
+-- Gems from playing (a cleared round, a boss), and returns what was paid. The Double Gems and VIP passes scale these
+-- and only these: packs and bundles grant their advertised amount (GDD 19).
+function EconomyService.AddGameplayGems(player: Player, amount: number): number
+	if amount <= 0 then return 0 end
 	local granted = 0
 	local isGranted = DatabaseService.Update(player, function(profile)
-		local scale = if profile.Entitlements.DoubleGems then 2 else 1
-		granted = math.floor(amount * scale)
+		granted = math.floor(amount * ShopCore.RunGemsScale(profile))
 		profile.Gems += granted
 		return true
 	end)
-	if not isGranted then return end
+	if not isGranted then return 0 end
 
 	runGems[player] = (runGems[player] or 0) + granted
 	DatabaseService.SaveAsync(player)
+	return granted
 end
 
 function EconomyService.GetRunGems(player: Player): number

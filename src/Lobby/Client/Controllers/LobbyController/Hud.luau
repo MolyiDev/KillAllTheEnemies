@@ -1,9 +1,9 @@
 --!nonstrict
--- The lobby's HUD (UIMatt.md, Lobby HUD), on the designer's drawn rects at 1080: the level plate top left, the rail of
--- five cards on the left and WEAPONS / MENU / CLASSES along the bottom, and the Gems counter (BuildGems, a gui of its
--- own over the lobby's screens) top centre, docked in his coin slot on the classes and weapons pages. The screens not
+-- The lobby's HUD (UIMatt.md, Lobby HUD), on the designer's drawn rects at 1080: the rail of four cards on the left and
+-- WEAPONS / PLAY / CLASSES along the bottom, and the top row (BuildTop, a gui of its own over the lobby's screens): the
+-- Gems counter top centre, docked at the right on the classes and weapons pages, and the level plate left of it. The screens not
 -- built yet (and the counter's +) are drawn and answer the hand but do nothing; INVITE FRIENDS opens Roblox's invite,
--- and DAILY REWARDS its screen (shaking now and then while today's reward waits).
+-- and PLAY puts the player on a pad. The daily rewards and spins are on the top bar's Daily button (init).
 --
 -- The pieces slide in from their nearest edge when the lobby opens, the action row first, each catching the light as
 -- it lands; then the XP bar and the Gems roll up to the profile. Every gesture timed from a stamp reads state.Now,
@@ -14,8 +14,10 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -25,16 +27,19 @@ local Font = Theme.Font
 local Progress = Motion.Progress
 
 -- His drawn rects (outer, edge included) in px at 1920 x 1080, each from the edge it hangs on. The HUD stands under
--- Roblox's top bar, so the top row is lifted 35 from his (the plate was at 47): it keeps the gap the bar's own buttons
--- keep from the screen's top.
+-- Roblox's top bar.
 local Layout = table.freeze({
-	-- The level plate, from the top left; inside it the rank glyph's middle, LV, the rule, XP, the count's right edge
-	-- and the bar.
-	LEVEL = Vector2.new(38, 12),
+	-- The level plate, laid out at his size and drawn at the top row's height (the + square's), LEVEL_GAP left of the
+	-- Gems counter: wide, so the two read as different things (the user's reference: 58 px at 768 tall, ~86 at 1080).
+	-- Where that would run under Roblox's buttons on the left, the gap closes to LEVEL_GAP_MIN first, then the plate
+	-- shrinks, to stop LEVEL_CLEAR short of them.
+	-- Inside it the level picture's middle and longer side, LV, the rule, XP, the count's right edge and the bar.
+	LEVEL_GAP = 86,
+	LEVEL_GAP_MIN = 40,
+	LEVEL_CLEAR = 16,
 	LEVEL_SIZE = Vector2.new(474, 82),
-	LEVEL_BRACKETS = 5,
 	RANK = Vector2.new(36, 41),
-	RANK_GLYPH = 30,
+	RANK_PICTURE = 36,
 	LV = Vector2.new(67, 19),
 	LV_TEXT = 44,
 	RULE = Vector2.new(200, 15),
@@ -45,15 +50,15 @@ local Layout = table.freeze({
 	BAR = Vector2.new(233, 48),
 	BAR_SIZE = Vector2.new(226, 12),
 	-- The Gems counter, in its own gui from the SCREEN's top (it stands up in Roblox's top bar strip): its middle,
-	-- centred across the top, and DOCKED at the right of his currency on the classes and weapons pages, our + on his +
-	-- (its left 853 right of the middle and its top 52 down, measured off his renders) and the pill beside it; his coin
-	-- pill, its glyph's middle and its number's left; his + square, PLUS_GAP right of the pill, and its cross.
+	-- centred across the top, and DOCKED at the right on the classes and weapons pages, on the same row: our + ending
+	-- where his does, on the pages' panels' right edge (920 right of the middle in the pages' own 1080, measured off his
+	-- renders), the pill beside it, and the panels reaching up to just under it (panelTop); his coin pill, its gem's
+	-- middle and longer side and its number's left; his + square, PLUS_GAP right of the pill, and its cross.
 	COUNTER_MIDDLE = 44,
-	DOCKED_PLUS = Vector2.new(853, 52),
+	DOCKED_RIGHT = 920,
 	PILL_SIZE = Vector2.new(225, 62),
-	PILL_BRACKETS = 3,
 	GEM = Vector2.new(55, 31),
-	GEM_GLYPH = 36,
+	GEM_PICTURE = 42,
 	GEMS_TEXT_LEFT = 91,
 	PILL_TEXT_TOP = 16,
 	PILL_TEXT = 28,
@@ -61,13 +66,12 @@ local Layout = table.freeze({
 	PLUS_SIZE = 67,
 	PLUS_ARM = Vector2.new(24, 8),
 	-- The rail: each card's left and its drawn top from the screen's middle; inside a card the key and the label's top.
-	-- His four stood 175 apart at 119 px; QUESTS and INDEX make six, so each is drawn at CARD_SCALE of his (the card
-	-- is laid out at his size inside) and they stand 142 apart about the same middle, a label clearing the next card.
+	-- Five at his size (SHOP, QUESTS, INDEX, LAB, INVITE FRIENDS: the daily ones went to the top bar), 160 apart where
+	-- his four were 175, centred on the screen's middle: 41 px between cards, past the bracket check's 18 and the
+	-- Notice's 20 over a card's top corner.
 	CARD_LEFT = 48,
 	CARD = 119,
-	CARD_SCALE = 0.875,
-	CARD_TOPS = { -421, -279, -137, 5, 147, 289 },
-	CARD_BRACKETS = 7,
+	CARD_TOPS = { -380, -220, -60, 100, 260 },
 	CARD_BRACKET_LENGTH = 22,
 	KEY = Vector2.new(78, 7),
 	KEY_SIZE = Vector2.new(33, 28),
@@ -75,17 +79,27 @@ local Layout = table.freeze({
 	KEY_BADGE = 32,
 	CARD_LABEL_TOP = 130,
 	CARD_LABEL_TEXT = 21,
+	-- A card's picture's longer side: it fills his lighter tile inside the card.
+	CARD_PICTURE = 64,
 	-- The action row: each slab's left from the screen's middle, their bottom from the screen's bottom.
-	SLAB_LEFTS = { -593, -195, 211 },
+	-- Each slab is laid out at his size inside and drawn at its spec's Scale: PLAY up, WEAPONS and CLASSES down, so
+	-- PLAY is the one the eye lands on. Their middles from the screen's middle and their bottoms on one line. 41 px
+	-- between their drawn edges (UI.md's reach check): the worst case is PLAY under the hand while the Notice on
+	-- CLASSES's corner, 19 px out past its edge, is still popping in; the row stays symmetric.
+	SLAB_MIDDLES = { -389, 0, 389 },
+	SLAB_SCALES = { 0.78, 1.12, 0.78 },
 	SLAB_BOTTOM = 70,
 	SLAB_SIZE = Vector2.new(366, 101),
-	SLAB_BRACKETS = 5,
 	SLAB_TEXT = 34,
-	MENU_TEXT = 42,
-	-- MENU's bars, by their top left.
-	HAMBURGER = Vector2.new(97, 41),
-	HAMBURGER_BAR = Vector2.new(28, 4),
-	HAMBURGER_STEP = 8,
+	-- PLAY's word alone, centred, filling the face.
+	PLAY_TEXT = 58,
+	-- A Notice's middle and side on a rail card and on a slab (laid out at his size, so drawn at the slab's scale): its
+	-- middle exactly on the button's top left corner, over the bracket's corner (the user's placement), clear of the
+	-- picture and the key. A little bigger than the key badge on a card.
+	CARD_NOTICE = Vector2.new(0, 0),
+	CARD_NOTICE_SIZE = 40,
+	SLAB_NOTICE = Vector2.new(0, 0),
+	SLAB_NOTICE_SIZE = 48,
 })
 
 -- His colours that are not in the Palette: the slabs' flat faces, the rule, the bar's track, +'s edge and face, and
@@ -111,82 +125,81 @@ local SLAB_GLOW_TRANSPARENCY = 0.55
 local CARD_EDGE = 0.85
 local CARD_TINT = 0.5
 
--- A rail card: its word, its glyph, the glyph's longest side and middle in the card, its key, its accent (and its glow
--- where his is not the accent), the action's name in TLobbyActions (nil: nothing to open yet), and what it calls (in
--- light) for: Daily while today's daily reward waits, Index while a type found in a run is still to be shown.
+-- What waits behind a button, worn as a Notice: the index's discoveries and the finished quests (counted), and a gun
+-- or a class ability the Gems held can pay for (the up arrow). The button also calls for it in light.
+type TNotice = "Index" | "Quests" | "Lab" | "Weapons" | "Classes"
+
+-- A rail card: its word, its picture (Icons.Pictures) and the picture's middle in the card, its key, its accent (and
+-- its glow where his is not the accent), the action's name in TLobbyActions (nil: nothing to open yet), and what waits
+-- behind it.
 type TCardSpec = {
 	Name: string,
-	Icon: string,
-	Glyph: number,
+	Picture: string,
 	At: Vector2,
 	Key: Enum.KeyCode,
 	Accent: Color3,
 	Glow: Color3?,
 	Action: string?,
-	Calls: ("Daily" | "Index")?,
+	Notice: TNotice?,
 }
--- A slab: its word, its face, its glyph (nil: MENU's drawn bars) with the glyph's longest side and middle, where the
--- word starts, its size and its letters' tracking (his are spaced out), IsLight for his lighter weight, and the
--- action's name in TLobbyActions (nil: nothing to open yet).
+-- A slab: its word, its face, its picture (nil: the word alone, centred) with the picture's longer side and middle,
+-- where the word starts, its size and its letters' tracking (his are spaced out), the action's name in TLobbyActions
+-- (nil: nothing to open yet), IsPlay for PLAY's own life (its call, its launch, its refusal), and what waits behind it.
 type TSlabSpec = {
 	Name: string,
 	Face: Color3,
-	Icon: string?,
-	Glyph: number?,
+	Picture: string?,
+	PictureSize: number?,
 	At: Vector2?,
-	TextLeft: number,
+	TextLeft: number?,
 	TextSize: number,
 	Tracking: number,
-	IsLight: boolean?,
 	Action: string?,
+	IsPlay: boolean?,
+	Notice: TNotice?,
 }
 
 -- The rail, top to bottom.
 local CARDS: { TCardSpec } = table.freeze({
-	{ Name = "SHOP", Icon = "Shop", Glyph = 46, At = Vector2.new(60, 57), Key = Enum.KeyCode.B, Accent = Palette.Gold },
 	{
-		Name = "DAILY REWARDS",
-		Icon = "Gift",
-		Glyph = 40,
-		At = Vector2.new(60, 59),
-		Key = Enum.KeyCode.R,
-		Accent = Palette.Pink,
-		Action = "OpenDailyRewards",
-		Calls = "Daily",
-	},
-	{
-		Name = "DAILY SPINS",
-		Icon = "Spin",
-		Glyph = 43,
+		Name = "SHOP",
+		Picture = EIcons.ShoppingBag,
 		At = Vector2.new(60, 57),
-		Key = Enum.KeyCode.T,
-		Accent = Palette.Violet,
-		Action = "OpenSpins",
+		Key = Enum.KeyCode.B,
+		Accent = Palette.Gold,
+		Action = "OpenShop",
 	},
 	{
 		Name = "QUESTS",
-		Icon = "Scroll",
-		Glyph = 46,
+		Picture = EIcons.Scroll,
 		At = Vector2.new(60, 59),
 		Key = Enum.KeyCode.Q,
 		Accent = Palette.Steel,
 		Action = "OpenQuests",
+		Notice = "Quests",
 	},
 	{
 		Name = "INDEX",
-		Icon = "Skull",
-		Glyph = 44,
+		Picture = EIcons.MonsterBook,
 		At = Vector2.new(60, 58),
 		-- Not I: Roblox's camera zooms in on it.
 		Key = Enum.KeyCode.X,
 		Accent = INDEX_RED,
 		Action = "OpenIndex",
-		Calls = "Index",
+		Notice = "Index",
+	},
+	{
+		Name = "LAB",
+		Picture = EIcons.Flask,
+		At = Vector2.new(60, 58),
+		Key = Enum.KeyCode.L,
+		Accent = Palette.Violet,
+		Action = "OpenLab",
+		Notice = "Lab",
 	},
 	{
 		Name = "INVITE FRIENDS",
-		Icon = "Friends",
-		Glyph = 46,
+		Picture = EIcons.AddFriend,
 		At = Vector2.new(60, 57),
 		Key = Enum.KeyCode.F,
 		Accent = Palette.Green,
@@ -200,31 +213,40 @@ local SLABS: { TSlabSpec } = table.freeze({
 	{
 		Name = "WEAPONS",
 		Face = SLAB_GOLD,
-		Icon = "Rifle",
-		Glyph = 45,
+		Picture = EIcons.Rifle,
+		PictureSize = 55,
 		At = Vector2.new(84, 50),
 		TextLeft = 119,
 		TextSize = Layout.SLAB_TEXT,
 		Tracking = 3,
 		Action = "OpenWeapons",
+		Notice = "Weapons",
 	},
-	-- His MENU is the lighter weight.
-	{ Name = "MENU", Face = Palette.Pink, TextLeft = 145, TextSize = Layout.MENU_TEXT, Tracking = 5, IsLight = true },
+	-- In his MENU's place and face.
+	{
+		Name = "PLAY",
+		Face = Palette.Pink,
+		TextSize = Layout.PLAY_TEXT,
+		Tracking = 4,
+		Action = "Play",
+		IsPlay = true,
+	},
 	{
 		Name = "CLASSES",
 		Face = SLAB_GREEN,
-		Icon = "Helmet",
-		Glyph = 41,
+		Picture = EIcons.Helmet,
+		PictureSize = 50,
 		At = Vector2.new(83, 48),
 		TextLeft = 118,
 		TextSize = Layout.SLAB_TEXT,
 		Tracking = 4,
 		Action = "OpenClasses",
+		Notice = "Classes",
 	},
 })
 
 -- Seconds from the lobby opening: each piece's start, how long it slides, and the light crossing it as it lands. The
--- row leads, since PLAY lives behind MENU; the plates and the rail follow.
+-- row leads, PLAY first; the plates and the rail follow.
 local Arrive = table.freeze({
 	SLIDE = 0.5,
 	SHEEN = 0.6,
@@ -235,7 +257,7 @@ local Arrive = table.freeze({
 	-- The counter, and its gem tumbling in after it.
 	COUNTER = 0.2,
 	GLYPH = 0.3,
-	CARDS = { 0.18, 0.25, 0.32, 0.39, 0.46, 0.53 },
+	CARDS = { 0.18, 0.25, 0.32, 0.39, 0.46 },
 	-- How far each piece starts past its rest, in px: off the screen's edge, glow included.
 	FROM_BOTTOM = 220,
 	FROM_TOP = 190,
@@ -263,34 +285,55 @@ local XpBar = table.freeze({
 	RING_REACH = 22,
 	RING_PERIOD = 0.5,
 })
--- What a card, a slab and their glyph do under the hand: the brackets open this many px, the glyph grows this share
--- with the rise; a press that goes through pops the glyph and throws it up this far, the spin card's wheel turns once,
--- WEAPONS's rifle kicks back.
+-- What a card, a slab and their glyph do under the hand: the glyph grows this share with the rise; a press that goes through pops the glyph and throws it up this far, WEAPONS's rifle kicks back.
 local Gesture = table.freeze({
-	BRACKETS_OPEN = 4,
 	GLYPH_RISE = 0.12,
 	GLOW_LIT = 0.35,
 	HOP = 7,
 	HOP_PERIOD = 0.32,
 	HOP_DAMPING = 0.45,
-	SPIN_PERIOD = 0.9,
-	SPIN_DAMPING = 0.85,
 	KICK = Vector2.new(-9, 2),
 	KICK_TURN = 14,
 	KICK_PERIOD = 0.3,
 	KICK_DAMPING = 0.5,
-	-- The daily rewards card's call while today's reward waits, in light only (nothing on a control moves at rest): its
-	-- glow is lit this much and the light crosses it in CALL_SHEEN seconds each time init calls.
+	-- A button's call while something waits behind it: its glow is lit this much and the light crosses it in CALL_SHEEN
+	-- seconds each time init calls, and its Notice calls with it. The buttons call one after another down the rail and
+	-- along the row, NOTICE_STAGGER apart, so they read as a wave rather than one blink.
 	CALL_GLOW = 0.3,
 	CALL_SHEEN = 0.6,
+	NOTICE_STAGGER = 0.09,
+	-- A Notice pops in once its button has landed and caught the light, this long after.
+	NOTICE_AFTER = 0.15,
 })
+-- Each Notice's place in the wave, and the last place.
+local NOTICE_ORDER = table.freeze({ Quests = 0, Index = 1, Lab = 2, Weapons = 3, Classes = 4 })
+local NOTICE_LAST = 4
+-- PLAY's life, every beat a curve of the clock from its stamp. Every few seconds (init's call) the light crosses it
+-- and its glow swells CALL_GLOW. A press launches it: the face flashes white, its glow surges and one white ring
+-- leaves the slab; the HUD then steps aside for the pad. A press the server refused (no pad free) shakes it SHAKE px.
+local Play = table.freeze({
+	CALL_SHEEN = 0.7,
+	CALL_GLOW = 0.3,
+	-- Squared as it fades: a hit of white, gone before the face reads as pale.
+	FLASH = 0.6,
+	FLASH_SECONDS = 0.2,
+	-- The glow's surge fades with the ring, over RING_SECONDS.
+	SURGE = 0.45,
+	RING_REACH = 30,
+	RING_LINE = 3,
+	RING_SECONDS = 0.5,
+	SHAKE = 10,
+	SHAKE_SECONDS = 0.4,
+})
+-- The launch's longest beat: where its clock (playBeats) stops.
+local LAUNCH_SECONDS = math.max(Play.FLASH_SECONDS, Play.RING_SECONDS)
 -- The Gems counter's life. The pill swells PILL_SWELL while Gems land in it and the gem GLYPH_SWELL, and its glow
 -- climbs; a roll that lands punches it (the gem harder, it is what was paid), and a gain also flashes the pill white,
 -- rattles the gem, sends one ring off the pill and throws CHIPS chips out of the gem. Gems spent squeeze the gem as the
 -- count starts down. Every few seconds the light catches the gem (a twinkle at its top right).
 local Counter = table.freeze({
 	FED_PERIOD = 0.12,
-	-- The glide between the top centre and his coin slot as the classes or weapons page opens or shuts: critically
+	-- The glide between the top centre and the right as the classes or weapons page opens or shuts: critically
 	-- damped, so it settles onto the slot with no overshoot.
 	DOCK_PERIOD = 0.5,
 	PILL_SWELL = 0.06,
@@ -342,25 +385,36 @@ local Counter = table.freeze({
 
 local Hud = {}
 
+-- The HUD's scale, its top row's included: his 1080 fitted to the height under Roblox's inset, within Theme's bounds.
+function Hud.ScaleFor(viewportHeight: number, inset: number): number
+	return math.clamp((viewportHeight - inset) / Theme.DESIGN_HEIGHT, Theme.MIN_SCALE, Theme.MAX_SCALE)
+end
+
 -- Where a roll from `from` to `to` stamped at `at` stands at `now`.
 function Hud.Rolled(from: number, to: number, at: number, now: number): number
 	local t = Progress(now, at, Roll.SECONDS)
 	return from + (to - from) * (Roll.LINEAR * t + (1 - Roll.LINEAR) * t * t)
 end
 
--- How long a roll and the entrance take, so init keeps the clock ticking for them.
+-- How long a roll, the entrance and PLAY's beats take, so init keeps the clock ticking for them.
 Hud.ROLL_SECONDS = Roll.SECONDS
 Hud.ARRIVE_SECONDS = Arrive.CARDS[#Arrive.CARDS] + Arrive.SLIDE + Arrive.SHEEN
+Hud.PLAY_SECONDS = math.max(LAUNCH_SECONDS, Play.SHAKE_SECONDS)
+Hud.PLAY_CALL_SHEEN = Play.CALL_SHEEN
+-- How long the buttons' call runs, the last Notice's included.
+Hud.NOTICE_CALL_SECONDS = Notice.CALL_SECONDS + Gesture.NOTICE_STAGGER * NOTICE_LAST
+-- How far down the top row (the Gems counter, the level plate) reaches, in its own 1080 units from the screen's top.
+Hud.TOP_ROW_BOTTOM = Layout.COUNTER_MIDDLE + Layout.PLUS_SIZE / 2
 
 -- A piece's slide in from `from` (px past its rest) starting `delay` after the lobby opens: an offset to add to its
--- Position, nothing once it has landed. `isCovered` is a piece a screen over the lobby sends away while it is up;
--- `isBareOnly` one only a screen that takes the whole view sends away. Derived, so it is written only while it moves.
+-- Position, nothing once it has landed. `aside` is what sends it away while it is up: "Covered", any screen over the
+-- lobby; "Plate", any but the daily screen (the level plate, which a spin's XP flies into); "Bare", only a screen that
+-- takes the whole view. Derived, so it is written only while it moves.
 local function arrival(
 	state: Types.TLobbyState,
 	delay: number,
 	from: Vector2,
-	isCovered: boolean?,
-	isBareOnly: boolean?
+	aside: ("Covered" | "Plate" | "Bare")?
 ): () -> UDim2
 	local leaveDelay = delay * Arrive.LEAVE_STAGGER
 	local returnDelay = Arrive.RETURN_DELAY + delay * Arrive.RETURN_STAGGER
@@ -368,13 +422,19 @@ local function arrival(
 	return derive(function(): UDim2
 		local now = state.Now()
 		local away = 1 - Motion.Decelerate(Progress(now, state.EnteredAt(), Arrive.SLIDE, delay))
-		if isCovered or isBareOnly then
-			local at = if isBareOnly then state.BareAt() else state.CoveredAt()
-			local isAside = if isBareOnly then state.IsBare() else state.IsCovered()
-			local aside = if isAside
+		if aside then
+			local at, isAside
+			if aside == "Bare" then
+				at, isAside = state.BareAt(), state.IsBare()
+			elseif aside == "Plate" then
+				at, isAside = state.PlateCoveredAt(), state.IsPlateCovered()
+			else
+				at, isAside = state.CoveredAt(), state.IsCovered()
+			end
+			local share = if isAside
 				then Motion.Accelerate(Progress(now, at, Arrive.LEAVE, leaveDelay))
 				else 1 - Motion.Decelerate(Progress(now, at, Arrive.RETURN, returnDelay))
-			away = math.max(away, aside)
+			away = math.max(away, share)
 		end
 
 		return UDim2.fromOffset(math.round(from.X * away), math.round(from.Y * away))
@@ -386,6 +446,62 @@ local function landing(state: Types.TLobbyState, delay: number): () -> number
 	return derive(function(): number
 		return Progress(state.Now(), state.EnteredAt(), Arrive.SHEEN, delay + Arrive.SLIDE - Arrive.SHEEN_LEAD)
 	end)
+end
+
+-- What waits behind a button, as the button shows it: whether it calls (lights its glow), the light crossing it on
+-- the lobby's call (1 at rest), and the Notice it wears (nil when nothing can wait behind it).
+type TWaiting = {
+	IsCalling: () -> boolean,
+	Called: () -> number,
+	Chip: Frame?,
+}
+
+local NOTHING_WAITS: TWaiting = table.freeze({
+	IsCalling = function(): boolean
+		return false
+	end,
+	Called = function(): number
+		return 1
+	end,
+})
+
+-- What waits behind the button `name` names, whose entrance starts `delay` after the lobby opens: its Notice, `size`
+-- px with its middle at `at`, shows once the button has landed, and the button calls in its place in the wave.
+local function waiting(state: Types.TLobbyState, name: TNotice?, delay: number, size: number, at: Vector2): TWaiting
+	if not name then return NOTHING_WAITS end
+
+	local count = if name == "Index" then state.IndexCount elseif name == "Quests" then state.QuestsReady else nil
+	local isCalling = derive(function(): boolean
+		if count then return count() > 0 end
+		if name == "Lab" then return state.CanBrew() end
+		return if name == "Weapons" then state.CanUpgradeWeapons() else state.CanUpgradeClasses()
+	end)
+	local callDelay = Gesture.NOTICE_STAGGER * NOTICE_ORDER[name]
+	local landsAt = delay + Arrive.SLIDE + Gesture.NOTICE_AFTER
+	local hasLanded = derive(function(): boolean
+		return state.Now() >= state.EnteredAt() + landsAt
+	end)
+
+	return {
+		IsCalling = isCalling,
+		Called = derive(function(): number
+			if not isCalling() then return 1 end
+			return Progress(state.Now(), state.CallAt(), Gesture.CALL_SHEEN, callDelay)
+		end),
+		Chip = Notice.Build({
+			Kind = if count or name == "Lab" then "New" else "Upgrade",
+			Size = size,
+			IsShown = function()
+				return hasLanded() and isCalling()
+			end,
+			Count = count,
+			Now = state.Now,
+			CallAt = state.CallAt,
+			CallDelay = callDelay,
+		}, {
+			Position = UDim2.fromOffset(at.X, at.Y),
+		}),
+	}
 end
 
 local function label(props: { [any]: any }): TextLabel
@@ -419,9 +535,22 @@ end
 -- ============================== The level plate ==============================
 
 -- The plate's level, its bar's share and its count, rolled toward the profile's.
-local function levelPlate(state: Types.TLobbyState): Frame
-	local arrive = arrival(state, Arrive.LEVEL, Vector2.new(0, -Arrive.FROM_TOP), true)
+local function levelPlate(state: Types.TLobbyState, actions: Types.TLobbyActions): Frame
+	local arrive = arrival(state, Arrive.LEVEL, Vector2.new(0, -Arrive.FROM_TOP), "Plate")
 	local landed = landing(state, Arrive.LEVEL)
+	-- The room from the Gems counter's left (centred at rest, its + PLUS_GAP right of its pill) to Roblox's buttons,
+	-- shared by the gap and the plate.
+	local counterHalf = (Layout.PILL_SIZE.X + Layout.PLUS_GAP + Layout.PLUS_SIZE) / 2
+	local rowScale = Layout.PLUS_SIZE / Layout.LEVEL_SIZE.Y
+	local room = derive(function(): number
+		return state.TopbarRoom() - counterHalf - Layout.LEVEL_CLEAR
+	end)
+	local gap = derive(function(): number
+		return math.clamp(room() - Layout.LEVEL_SIZE.X * rowScale, Layout.LEVEL_GAP_MIN, Layout.LEVEL_GAP)
+	end)
+	local fit = derive(function(): number
+		return math.clamp((room() - gap()) / Layout.LEVEL_SIZE.X, 0, rowScale)
+	end)
 	local shown = derive(function(): number
 		return Hud.Rolled(state.XpFrom(), state.XpTo(), state.XpAt(), state.Now())
 	end)
@@ -469,13 +598,14 @@ local function levelPlate(state: Types.TLobbyState): Frame
 
 	return create("Frame")({
 		Name = "Level",
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		-- Scaled from its right edge, so it shrinks away from the counter.
+		AnchorPoint = Vector2.new(1, 0.5),
 		Position = function()
-			return UDim2.fromOffset(Layout.LEVEL.X + Layout.LEVEL_SIZE.X / 2, Layout.LEVEL.Y + Layout.LEVEL_SIZE.Y / 2)
-				+ arrive()
+			return UDim2.new(0.5, -math.round(counterHalf + gap()), 0, Layout.COUNTER_MIDDLE) + arrive()
 		end,
 		Size = UDim2.fromOffset(Layout.LEVEL_SIZE.X, Layout.LEVEL_SIZE.Y),
 		BackgroundTransparency = 1,
+		create("UIScale")({ Scale = fit }),
 		-- The ring is the plate's, not carried by its punch.
 		create("Frame")({
 			Name = "Ring",
@@ -495,19 +625,18 @@ local function levelPlate(state: Types.TLobbyState): Frame
 				LineJoinMode = Enum.LineJoinMode.Miter,
 			}),
 		}),
-		Components.Panel({ Brackets = Layout.LEVEL_BRACKETS }, {
+		Components.Panel({ Brackets = true }, {
 			Name = "Plate",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromScale(1, 1),
 			create("UIScale")({ Scale = punch.Scale }),
 			Components.Sheen(Hand.Sheen(punch, landed), 3),
-			Components.Icon("Rank", {
+			Components.Picture(EIcons.Rank, {
 				Name = "Rank",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromOffset(Layout.RANK.X, Layout.RANK.Y),
-				Size = Components.GlyphBox(Layout.RANK_GLYPH),
-				ImageColor3 = Palette.Gold,
+				Size = Components.PictureBox(Layout.RANK_PICTURE),
 				ZIndex = 4,
 				create("UIScale")({
 					Scale = function()
@@ -560,6 +689,9 @@ local function levelPlate(state: Types.TLobbyState): Frame
 				Name = "Track",
 				Position = UDim2.fromOffset(Layout.BAR.X, Layout.BAR.Y),
 				Size = UDim2.fromOffset(Layout.BAR_SIZE.X, Layout.BAR_SIZE.Y),
+				vide.action(function(instance: Instance)
+					actions.MarkXpBar(instance :: GuiObject)
+				end),
 				BackgroundColor3 = Palette.White,
 				BackgroundTransparency = TRACK_TRANSPARENCY,
 				BorderSizePixel = 0,
@@ -707,7 +839,7 @@ local function twinkle(amount: () -> number): Frame
 end
 
 -- +: his violet-edged ink square with a white cross, beside the pill. Nothing to open yet.
-local function plusButton(): TextButton
+local function plusButton(actions: Types.TLobbyActions): TextButton
 	local hand = Hand.React("Operate")
 	local arms = table.create(2)
 	for index, size in { Layout.PLUS_ARM, Vector2.new(Layout.PLUS_ARM.Y, Layout.PLUS_ARM.X) } do
@@ -728,7 +860,10 @@ local function plusButton(): TextButton
 		Position = UDim2.fromScale(1, 0.5),
 		Size = UDim2.fromOffset(Layout.PLUS_SIZE, Layout.PLUS_SIZE),
 		BackgroundTransparency = 1,
-		Activated = hand.Commit,
+		Activated = function()
+			hand.Commit()
+			actions.OpenShop("Gems")
+		end,
 		hand.Events,
 		create("Frame")({
 			Name = "Body",
@@ -767,21 +902,25 @@ local function plusButton(): TextButton
 end
 
 -- The Gems counter: his coin pill with our Gems and his + beside it, alone at the top centre, up in the middle of
--- Roblox's top bar strip (only its left corner and the icons on its right are taken), gliding into his coin slot while
+-- Roblox's top bar strip (only its left corner and the icons on its right are taken), gliding to the right while
 -- the classes or weapons page is up (init puts the top bar's icons away meanwhile). The count rolls up to the profile; Gems flown into it (state.GemsHeld) land a slice at a time while it swells and its glow climbs; a roll or the
 -- last slice landing punches it, and a gain also flashes it, rattles the gem, sends one ring off it and throws chips out
 -- of the gem. Gems spent squeeze the gem as the count starts down; every few seconds the light catches the gem.
 local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyActions): Frame
 	local pill = Layout.PILL_SIZE
 	local width = pill.X + Layout.PLUS_GAP + Layout.PLUS_SIZE
-	-- The counter's middle when docked: the + on his +, the pill to its left. The + is odd-sized, so its middle is on a
-	-- half pixel; floored, the drawn edge lands on his (rounded, it came out a pixel low).
-	local docked = Layout.DOCKED_PLUS + Vector2.new(Layout.PLUS_SIZE - width / 2, Layout.PLUS_SIZE // 2)
+	-- The counter's middle when docked, in the row's units. The + ends on the panels' edge, which stands at the pages'
+	-- scale; the row's scale has a floor the pages' has not, so on a phone it is far bigger, and a + placed in the row's
+	-- own units ran off the screen.
+	local docked = function(): Vector2
+		local right = Layout.DOCKED_RIGHT * state.PageScale() / state.Scale()
+		return Vector2.new(right - width / 2, Layout.COUNTER_MIDDLE)
+	end
 
 	local dock = Hand.Spring(function()
 		return if state.IsGemsDocked() then 1 else 0
 	end, Counter.DOCK_PERIOD)
-	local arrive = arrival(state, Arrive.COUNTER, Vector2.new(0, -Arrive.FROM_TOP), false, true)
+	local arrive = arrival(state, Arrive.COUNTER, Vector2.new(0, -Arrive.FROM_TOP), "Bare")
 	local landed = landing(state, Arrive.COUNTER)
 	local glyphAway = derive(function(): number
 		return 1 - Motion.Decelerate(Progress(state.Now(), state.EnteredAt(), Arrive.SLIDE, Arrive.GLYPH))
@@ -881,9 +1020,9 @@ local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyAction
 	return create("Frame")({
 		Name = "Gems",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		-- Glides between the top centre and his coin slot.
+		-- Glides along its row between the top centre and the right.
 		Position = function()
-			local at = Vector2.new(0, Layout.COUNTER_MIDDLE):Lerp(docked, dock())
+			local at = Vector2.new(0, Layout.COUNTER_MIDDLE):Lerp(docked(), dock())
 			return UDim2.new(0.5, math.round(at.X), 0, math.round(at.Y)) + arrive()
 		end,
 		Size = UDim2.fromOffset(width, Layout.PLUS_SIZE),
@@ -910,7 +1049,7 @@ local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyAction
 		Components.Pill({
 			Face = Palette.Gold,
 			Lip = Palette.Gold,
-			Brackets = Layout.PILL_BRACKETS,
+			Brackets = true,
 			GlowTransparency = function()
 				return PILL_GLOW - Counter.GLOW_LIT * math.max(fed(), rollLight())
 			end,
@@ -941,7 +1080,7 @@ local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyAction
 				create("UICorner")({ CornerRadius = UDim.new(0, 3) }),
 			}),
 			chips(travel, isBursting, Layout.GEM),
-			Components.Icon("Gem", {
+			Components.Picture(EIcons.Gem, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function()
 					return UDim2.fromOffset(Layout.GEM.X, Layout.GEM.Y - math.round(Counter.GLYPH_DROP * glyphAway()))
@@ -949,8 +1088,7 @@ local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyAction
 				Rotation = function()
 					return Counter.GLYPH_SPIN * glyphAway() + Counter.RATTLE * rattle()
 				end,
-				Size = Components.GlyphBox(Layout.GEM_GLYPH),
-				ImageColor3 = Palette.White,
+				Size = Components.PictureBox(Layout.GEM_PICTURE),
 				ZIndex = 5,
 				vide.action(function(instance: Instance)
 					actions.MarkGemsGlyph(instance :: GuiObject)
@@ -976,7 +1114,7 @@ local function gemsCounter(state: Types.TLobbyState, actions: Types.TLobbyAction
 				end,
 			}),
 		}),
-		plusButton(),
+		plusButton(actions),
 	})
 end
 
@@ -990,58 +1128,44 @@ local function railCard(
 	spec: TCardSpec
 ): TextButton
 	local delay = Arrive.CARDS[index]
-	local arrive = arrival(state, delay, Vector2.new(-Arrive.FROM_LEFT, 0), true)
+	local arrive = arrival(state, delay, Vector2.new(-Arrive.FROM_LEFT, 0), "Covered")
 	local landed = landing(state, delay)
 	local hand = Hand.React("Operate")
 	local hop, strikeHop = Hand.Kick(Gesture.HOP_PERIOD, Gesture.HOP_DAMPING)
-	local turn, strikeTurn = Hand.Kick(Gesture.SPIN_PERIOD, Gesture.SPIN_DAMPING)
 	local action = if spec.Action then (actions :: any)[spec.Action] else nil
-	local isCalling = derive(function(): boolean
-		if spec.Calls == "Daily" then return state.IsDailyReady() end
-		if spec.Calls == "Index" then return state.IsIndexNew() end
-		return false
-	end)
-	local called = derive(function(): number
-		if not isCalling() then return 1 end
-		return Progress(state.Now(), state.CallAt(), Gesture.CALL_SHEEN)
-	end)
+	local waits = waiting(state, spec.Notice, delay, Layout.CARD_NOTICE_SIZE, Layout.CARD_NOTICE)
 
 	local function activate()
 		hand.Commit()
 		strikeHop(-Gesture.HOP)
-		if spec.Icon == "Spin" then strikeTurn(-360) end
 		if action then action() end
 	end
 	bindKey(state, spec.Key, hand, activate)
 
 	local edge = Color3.new(spec.Accent.R * CARD_EDGE, spec.Accent.G * CARD_EDGE, spec.Accent.B * CARD_EDGE)
 	local half = Layout.CARD / 2
-	local drawnHalf = Layout.CARD * Layout.CARD_SCALE / 2
 
 	return Components.Button({
-		Name = spec.Icon,
+		Name = spec.Picture,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = function()
-			return UDim2.new(0, Layout.CARD_LEFT + drawnHalf, 0.5, Layout.CARD_TOPS[index] + drawnHalf) + arrive()
+			return UDim2.new(0, Layout.CARD_LEFT + half, 0.5, Layout.CARD_TOPS[index] + half) + arrive()
 		end,
 		Size = UDim2.fromOffset(Layout.CARD, Layout.CARD),
 		BackgroundTransparency = 1,
 		Activated = activate,
 		hand.Events,
-		create("UIScale")({ Scale = Layout.CARD_SCALE }),
 		Components.Card({
 			Accent = edge,
 			Glow = spec.Glow or spec.Accent,
 			GlowTransparency = function()
 				return GLOW_TRANSPARENCY
 					- Gesture.GLOW_LIT * hand.Light()
-					- (if isCalling() then Gesture.CALL_GLOW else 0)
+					- (if waits.IsCalling() then Gesture.CALL_GLOW else 0)
 			end,
 			Tint = CARD_TINT,
 			Marks = true,
-			Brackets = function()
-				return Layout.CARD_BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketLength = Layout.CARD_BRACKET_LENGTH,
 			BracketTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
@@ -1056,19 +1180,17 @@ local function railCard(
 			Components.Sheen(
 				Hand.Sheen(hand, function(): number
 					local light = landed()
-					return if light < 1 then light else called()
+					return if light < 1 then light else waits.Called()
 				end),
 				3
 			),
-			Components.Icon(spec.Icon, {
+			Components.Picture(spec.Picture, {
 				Name = "Glyph",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function()
 					return UDim2.fromOffset(spec.At.X, spec.At.Y + math.round(hop()))
 				end,
-				Size = Components.GlyphBox(spec.Glyph),
-				ImageColor3 = spec.Accent,
-				Rotation = turn,
+				Size = Components.PictureBox(Layout.CARD_PICTURE),
 				ZIndex = 4,
 				create("UIScale")({
 					Scale = function()
@@ -1094,62 +1216,130 @@ local function railCard(
 				-- a phone's scale the ink thins under a pixel and goes.
 				Components.Ink(Layout.CARD_LABEL_TEXT, 2),
 			}),
+			waits.Chip,
 		}),
 	})
 end
 
 -- ============================== The action row ==============================
 
--- His MENU glyph: three white bars.
-local function hamburger(): Frame
-	local bars = table.create(3)
-	for index = 1, 3 do
-		bars[index] = create("Frame")({
-			Position = UDim2.fromOffset(0, (index - 1) * Layout.HAMBURGER_STEP),
-			Size = UDim2.fromOffset(Layout.HAMBURGER_BAR.X, Layout.HAMBURGER_BAR.Y),
-			BackgroundColor3 = Palette.White,
-			BorderSizePixel = 0,
-			create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
-		})
-	end
+-- PLAY's beats, each derived so it is written only while it moves. The launch's beats read one clock held at
+-- LAUNCH_SECONDS once the launch is over, so they rest while the lobby's clock ticks for something else.
+type TPlayBeats = {
+	Flash: () -> number,
+	Ring: () -> number,
+	Surge: () -> number,
+	-- A Components.Sheen's travel: 1 at rest.
+	Call: () -> number,
+	Shake: () -> number,
+}
 
+local function playBeats(state: Types.TLobbyState): TPlayBeats
+	-- Seconds since PLAY was pressed.
+	local launch = derive(function(): number
+		return math.min(state.Now() - state.PlayAt(), LAUNCH_SECONDS)
+	end)
+
+	return {
+		Flash = derive(function(): number
+			local fade = 1 - Progress(launch(), 0, Play.FLASH_SECONDS)
+			return Play.FLASH * fade * fade
+		end),
+		Ring = derive(function(): number
+			return Progress(launch(), 0, Play.RING_SECONDS)
+		end),
+		Surge = derive(function(): number
+			return Play.SURGE * (1 - Progress(launch(), 0, Play.RING_SECONDS))
+		end),
+		Call = derive(function(): number
+			return Progress(state.Now(), state.PlayCallAt(), Play.CALL_SHEEN)
+		end),
+		Shake = derive(function(): number
+			local at = state.PlayRefusedAt()
+			return math.round(Play.SHAKE * Motion.Shake(Progress(state.Now(), at, Play.SHAKE_SECONDS), at))
+		end),
+	}
+end
+
+-- The launch's white across the face, under the word.
+local function launchFlash(beats: TPlayBeats): Frame
 	return create("Frame")({
-		Name = "Glyph",
-		Position = UDim2.fromOffset(Layout.HAMBURGER.X, Layout.HAMBURGER.Y),
-		Size = UDim2.fromOffset(Layout.HAMBURGER_BAR.X, 2 * Layout.HAMBURGER_STEP + Layout.HAMBURGER_BAR.Y),
+		Name = "Flash",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Palette.White,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Visible = function()
+			return beats.Flash() > 0.01
+		end,
+		BackgroundTransparency = function()
+			return 1 - beats.Flash()
+		end,
+		create("UICorner")({ CornerRadius = UDim.new(0, 3) }),
+	})
+end
+
+-- The launch's one ring, the slab's own shape growing by px; the slab's, not carried by its punch.
+local function launchRing(beats: TPlayBeats): Frame
+	return create("Frame")({
+		Name = "Ring",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = function()
+			local grow = math.round(Play.RING_REACH * Motion.Out(beats.Ring()))
+			return UDim2.new(1, 2 * grow, 1, 2 * grow)
+		end,
 		BackgroundTransparency = 1,
-		ZIndex = 4,
-		bars,
+		Visible = function()
+			local t = beats.Ring()
+			return t > 0 and t < 1
+		end,
+		create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
+		create("UIStroke")({
+			Color = Palette.White,
+			Thickness = Play.RING_LINE,
+			Transparency = beats.Ring,
+			LineJoinMode = Enum.LineJoinMode.Miter,
+		}),
 	})
 end
 
 -- One of the row's slabs: his flat slab in its colour, its glyph and its spaced-out word.
 local function slab(state: Types.TLobbyState, actions: Types.TLobbyActions, index: number, spec: TSlabSpec): TextButton
 	local delay = Arrive.SLABS[index]
-	local arrive = arrival(state, delay, Vector2.new(0, Arrive.FROM_BOTTOM), true)
+	local arrive = arrival(state, delay, Vector2.new(0, Arrive.FROM_BOTTOM), "Covered")
 	local landed = landing(state, delay)
 	local hand = Hand.React("Operate")
 	local hop, strikeHop = Hand.Kick(Gesture.HOP_PERIOD, Gesture.HOP_DAMPING)
 	local recoil, strikeRecoil = Hand.Kick(Gesture.KICK_PERIOD, Gesture.KICK_DAMPING)
 	local action = if spec.Action then (actions :: any)[spec.Action] else nil
 	local size = Layout.SLAB_SIZE
+	local scale = Layout.SLAB_SCALES[index]
+	local middleY = -Layout.SLAB_BOTTOM - size.Y * scale / 2
+	local beats = if spec.IsPlay then playBeats(state) else nil
+	local waits = waiting(state, spec.Notice, delay, Layout.SLAB_NOTICE_SIZE, Layout.SLAB_NOTICE)
+	-- The glow PLAY's beats add, or the call's while something waits.
+	local function callGlow(): number
+		if not beats then return if waits.IsCalling() then Gesture.CALL_GLOW else 0 end
+		return Play.CALL_GLOW * Motion.Bump(beats.Call()) + beats.Surge()
+	end
 
-	local glyph = if spec.Icon
-		then Components.Icon(spec.Icon, {
+	local at = spec.At or Vector2.zero
+	local glyph = if spec.Picture
+		then Components.Picture(spec.Picture, {
 			Name = "Glyph",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
 				local back = recoil()
 				return UDim2.fromOffset(
-					spec.At.X + math.round(Gesture.KICK.X * back),
-					spec.At.Y + math.round(Gesture.KICK.Y * back + hop())
+					at.X + math.round(Gesture.KICK.X * back),
+					at.Y + math.round(Gesture.KICK.Y * back + hop())
 				)
 			end,
 			Rotation = function()
 				return Gesture.KICK_TURN * recoil()
 			end,
-			Size = Components.GlyphBox(spec.Glyph),
-			ImageColor3 = Palette.White,
+			Size = Components.PictureBox(spec.PictureSize :: number),
 			ZIndex = 4,
 			create("UIScale")({
 				Scale = function()
@@ -1157,36 +1347,44 @@ local function slab(state: Types.TLobbyState, actions: Types.TLobbyActions, inde
 				end,
 			}),
 		})
-		else hamburger()
+		else nil
+
+	-- Beside its picture from TextLeft, or alone in the middle.
+	local textTop = math.round((size.Y - spec.TextSize) / 2)
+	local word = Components.Tracked(spec.Name, spec.TextSize, spec.Tracking, Font.Display, {
+		AnchorPoint = Vector2.new(if spec.TextLeft then 0 else 0.5, 0),
+		Position = UDim2.fromOffset(spec.TextLeft or size.X / 2, textTop),
+	})
 
 	return Components.Button({
 		Name = spec.Name,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = function()
-			return UDim2.new(0.5, Layout.SLAB_LEFTS[index] + size.X / 2, 1, -Layout.SLAB_BOTTOM - size.Y / 2) + arrive()
+			local shake = if beats then beats.Shake() else 0
+			return UDim2.new(0.5, Layout.SLAB_MIDDLES[index] + shake, 1, middleY) + arrive()
 		end,
 		Size = UDim2.fromOffset(size.X, size.Y),
 		BackgroundTransparency = 1,
+		create("UIScale")({ Scale = scale }),
 		Activated = function()
 			hand.Commit()
-			if spec.Icon == "Rifle" then
+			if spec.Picture == EIcons.Rifle then
 				strikeRecoil(1)
-			else
+			elseif not spec.IsPlay then
 				strikeHop(-Gesture.HOP)
 			end
 			if action then action() end
 		end,
 		hand.Events,
+		if beats then launchRing(beats) else nil,
 		Components.FlatSlab({
 			Face = spec.Face,
-			Brackets = function()
-				return Layout.SLAB_BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
 			end,
 			GlowTransparency = function()
-				return SLAB_GLOW_TRANSPARENCY - Gesture.GLOW_LIT * hand.Light()
+				return math.max(SLAB_GLOW_TRANSPARENCY - Gesture.GLOW_LIT * hand.Light() - callGlow(), 0)
 			end,
 		}, {
 			Name = "Slab",
@@ -1195,29 +1393,31 @@ local function slab(state: Types.TLobbyState, actions: Types.TLobbyActions, inde
 			Size = UDim2.fromScale(1, 1),
 			create("UIScale")({ Scale = hand.Scale }),
 			Hand.WashLayer(hand, 3, 3),
-			Components.Sheen(Hand.Sheen(hand, landed), 3),
-			glyph,
-			Components.Tracked(
-				spec.Name,
-				spec.TextSize,
-				spec.Tracking,
-				if spec.IsLight then Font.DisplayBold else Font.Display,
-				{
-					Position = UDim2.fromOffset(spec.TextLeft, math.round((size.Y - spec.TextSize) / 2)),
-				}
+			Components.Sheen(
+				Hand.Sheen(hand, function(): number
+					local light = landed()
+					if light < 1 then return light end
+					return if beats then beats.Call() else waits.Called()
+				end),
+				3
 			),
+			if beats then launchFlash(beats) else nil,
+			glyph,
+			word,
+			waits.Chip,
 		}),
 	})
 end
 
--- The Gems counter, for a gui of its own laid from the screen's top, over the lobby's screens and their dims.
-function Hud.BuildGems(state: Types.TLobbyState, actions: Types.TLobbyActions): Frame
-	return gemsCounter(state, actions)
+-- The top row (the level plate and the Gems counter), for a gui of its own laid from the screen's top, over the
+-- lobby's screens and their dims: the daily screen's spins fly XP into the plate and Gems into the counter.
+function Hud.BuildTop(state: Types.TLobbyState, actions: Types.TLobbyActions): { Instance }
+	return { levelPlate(state, actions), gemsCounter(state, actions) }
 end
 
 function Hud.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): { Instance }
-	local children = { levelPlate(state) }
-	local count = #children
+	local children = table.create(#CARDS + #SLABS)
+	local count = 0
 	for index, spec in CARDS do
 		count += 1
 		children[count] = railCard(state, actions, index, spec)

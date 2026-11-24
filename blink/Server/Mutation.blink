@@ -1,0 +1,73 @@
+import "../Types/DataId.blink"
+
+-- Everything the lab and the index's potions page show of one player's lab (PotionsCore), in arrays read side by side.
+struct Lab {
+	-- The kinds that drop energy this player has met (in the index): the rest are drawn locked.
+	Discovered: DataId.Type[],
+	-- Energy held: enemy data Ids, and how much of each.
+	EnergyIds: DataId.Type[],
+	EnergyCounts: u32[],
+	-- Potions held: each one's Id, recipe, rarity (ERarities) and matches left.
+	PotionIds: u16[],
+	PotionRecipes: u8[],
+	PotionRarities: u8[],
+	PotionMatches: u8[],
+	-- Potion Ids in the slots, in slot order.
+	Equipped: u16[],
+	-- The slots as the screen lists them (PotionsCore.Slots): 1 free, 2 the pass's, 3 the Gems'; and whether each is open.
+	SlotKinds: u8[],
+	SlotsOpen: boolean[],
+	-- The day's free brews left plus the bought ones.
+	BrewsLeft: u16,
+	BrewsPerDay: u8,
+	-- Seconds until the next UTC day, when the brews come back.
+	SecondsLeft: u32,
+	-- What the Luck pass multiplies the best rarities' weights by here (1 without it, or where it is not offered).
+	Luck: u8,
+	-- Recipes found: their Ids, how many times each was brewed, and whether each is still to be shown found.
+	FoundIds: u8[],
+	FoundCounts: u32[],
+	FoundNew: boolean[],
+}
+
+-- To one player: their lab, once their profile loads, after every change to it, and as a new UTC day starts.
+event Sync {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Lab
+}
+
+-- To one player, after every Brew, in the same frame as the Sync it made: the potions brewed (their Ids, in brew
+-- order), none when refused.
+event Brewed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16[]
+}
+
+-- To one player, after every Dissolve, in the same frame as the Sync it made: the potions dissolved (their Ids), none
+-- when refused.
+event Dissolved {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16[]
+}
+
+-- To one player in a match: a kill dropped energy for them. (enemy data Id)
+event EnergyDropped {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: DataId.Type
+}
+
+-- To one player as a match starts: the potions they drank for it. (potion data Ids, their rarities)
+event Drunk {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8[], u8[])
+}

@@ -199,6 +199,11 @@
                 "Abilities": {
                     "$path": "Assets/models/Abilities/ability_models.rbxmx"
                 },
+                // The equipment's accessories, worn on every avatar and drawn on the equipment screen
+                // (Assets/models/Equipment/make_equipment_models.luau). Rojo's too.
+                "Equipment": {
+                    "$path": "Assets/models/Equipment/equipment_models.rbxmx"
+                },
                 // The run upgrades' models for their cards (Assets/models/Upgrades/make_upgrade_models.py). Rojo's too.
                 "Upgrades": {
                     "$path": "Assets/models/Upgrades/upgrade_models.rbxmx"

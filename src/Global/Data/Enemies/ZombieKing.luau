@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 14: the proposed boss, every tenth round alongside the ordinary round. A marked ground slam at where its target
@@ -48,6 +49,7 @@ local data: TData.TEnemy = {
 	SpawnWeight = 0,
 	IsBoss = true,
 	GoldDrop = 250,
+	Energy = { Upgrade = EUpgradesIds.Greed, Cost = 1, Chance = 0.5, Color = Color3.fromRGB(255, 193, 59) },
 }
 
 return table.freeze(data)

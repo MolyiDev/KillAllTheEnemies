@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 11, required: an ordinary zombie with a charged area attack. It plants, shows its circle, and slams.
@@ -26,6 +27,7 @@ local data: TData.TEnemy = {
 	IntroRound = 6,
 	SpawnWeight = 2,
 	GoldDrop = 8,
+	Energy = { Upgrade = EUpgradesIds.Lifesteal, Cost = 4, Chance = 0.05, Color = Color3.fromRGB(140, 90, 255) },
 }
 
 return table.freeze(data)

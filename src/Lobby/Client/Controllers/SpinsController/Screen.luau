@@ -1,12 +1,10 @@
 --!nonstrict
--- The spins screen on his 1920 x 1080 (UIMatt.md, Daily Spins): the lobby dimmed, his panel under the daily rewards'
--- header (the pink glyph, SPINS, the rule), the reel (Reel), how many spins are left, SPIN and the time to the next free ones; the prize flies out of it
--- into the HUD (Payout). The panel rises into place as it fades in, the cards fall into the well from the middle out
--- and the pointer drops onto them; it sinks and fades on the way out.
+-- The daily screen's SPIN page on his 1920 x 1080 (UIMatt.md, Daily Spins): the reel (Reel), how many spins are left,
+-- SPIN and the time to the next free ones, on the panel DailyController draws under his DAILY | SPIN tabs, riding its
+-- top as it changes shape; the prize flies out of it into the HUD (Payout). The page rises in as it fades in, the
+-- cards fall into the well from the middle out and the pointer drops onto them; it sinks and fades on the way out.
 --
--- His DAILY | SPIN tabs are not drawn: the daily rewards are a screen of their own, and the two screens share that
--- header instead. His token balance (bottom right) is left out: the prizes are Gems and XP, and the HUD's pill already
--- shows the Gems.
+-- His token balance (bottom right) is left out: the prizes are Gems and XP, and the HUD's pill already shows the Gems.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -15,11 +13,13 @@ local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
+local formatCountdown = require(ReplicatedStorage.GlobalShared.Utils.Functions.formatCountdown)
 local Payout = require(script.Parent.Payout)
 local Parts = require(script.Parent.Parts)
 local Reel = require(script.Parent.Reel)
 local ReelMotion = require(script.Parent.ReelMotion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -33,27 +33,11 @@ local Layout = table.freeze({
 	-- The panel, from the screen's top left.
 	PANEL = Vector2.new(310, 251),
 	SIZE = Vector2.new(1300, 560),
-	PANEL_BRACKETS = 5,
-	-- The header, as the daily rewards draw theirs: the glyph's middle and longer side, the title's corner and letter
-	-- height, the gold words by their right end, the X, and the rule under it all.
-	GLYPH = Vector2.new(48.5, 48),
-	GLYPH_SIZE = 30,
-	TITLE = Vector2.new(81, 26),
-	TITLE_TEXT = 44,
-	HEADER_RIGHT = 1187,
-	HEADER_Y = 38,
-	HEADER_TEXT = 20,
-	CLOSE = Vector2.new(1212, 15),
-	CLOSE_SIZE = 66,
-	CLOSE_BAR = Vector2.new(23, 2),
-	RULE = Vector2.new(31, 96),
-	RULE_WIDTH = 1238,
 	-- Under the reel: the spins left (centred), SPIN, the clock.
 	LEFT_Y = 388,
 	LEFT_TEXT = 22,
 	BUTTON = Vector2.new(459, 430),
 	BUTTON_SIZE = Vector2.new(382, 82),
-	BUTTON_BRACKETS = 5,
 	DIE = 28,
 	BUTTON_TEXT = 31,
 	BUTTON_TRACKING = 3,
@@ -68,34 +52,38 @@ local Layout = table.freeze({
 	MARGIN = 160,
 })
 
--- His rule's lavender, sampled off the art.
-local RULE = Color3.fromRGB(140, 111, 210)
-local RULE_TRANSPARENCY = 0.55
-
 local Timing = table.freeze({
-	-- The panel decelerates up into place and accelerates down out of it, the exit the faster; its fade runs on the
+	-- The page decelerates up into place and accelerates down out of it, the exit the faster; its fade runs on the
 	-- clock, not on the move.
 	OPEN = 0.34,
 	FADE = 0.27,
 	RISE = 26,
 	CLOSE = 0.2,
 	SINK = 14,
-	-- His lobby modals dim the world this much (UIMatt.md section 2: 0.7 transparent).
-	DIM = 0.3,
 	-- Every gesture of an open is over by now.
 	SETTLED = 1.6,
-	-- The header's words slide in from the left and the rule draws itself out under them.
-	TITLE_DELAY = 0.06,
-	TITLE = 0.32,
-	TITLE_SLIDE = 22,
-	RULE_DELAY = 0.1,
-	RULE = 0.45,
 	-- SPIN catches the light as the open lands, and again every INVITE seconds while a spin waits for it.
 	SHEEN_DELAY = 0.45,
 	SHEEN = 0.6,
 	INVITE = 3,
 	-- The spins left sting white when their number changes.
 	STING_PERIOD = 0.35,
+	-- With a spin waiting, SPIN wobbles once to be pressed (BeckonAt): it pops and hops, its width and height
+	-- trade places a few times as it dies out (a jelly: nothing turns, or the brackets' windows stop clipping), the die
+	-- rolls round once, the light crosses it, its glow comes up and one ring leaves it.
+	BECKON = 0.95,
+	BECKON_POP = 0.12,
+	BECKON_POP_SECONDS = 0.32,
+	BECKON_HOP = 12,
+	BECKON_HOP_SECONDS = 0.36,
+	BECKON_JELLY = 0.09,
+	BECKON_WOBBLES = 2.6,
+	BECKON_ROLL = 0.7,
+	BECKON_SHEEN_DELAY = 0.08,
+	BECKON_SHEEN = 0.55,
+	BECKON_RING = 0.6,
+	BECKON_REACH = 36,
+	BECKON_GLOW = 0.35,
 	-- A refused press shakes SPIN.
 	REFUSED = 0.35,
 	REFUSED_SHAKE = 7,
@@ -111,123 +99,6 @@ Screen.LEAVE_SECONDS = Timing.CLOSE
 
 local function plural(count: number, word: string): string
 	return if count == 1 then `{count} {word}` else `{count} {word}S`
-end
-
-local function clock(seconds: number): string
-	return string.format("%02d:%02d:%02d", seconds // 3600, seconds // 60 % 60, seconds % 60)
-end
-
--- The daily rewards' header: the pink glyph and the title slide in from the left, the gold words beside the X, the
--- rule drawing itself out under them.
-local function header(state: Types.TSpinsState, elapsed: () -> number): { Instance }
-	local away = derive(function(): number
-		if not state.IsOpen() then return 0 end
-		return 1 - Motion.Decelerate(Progress(elapsed(), Timing.TITLE_DELAY, Timing.TITLE))
-	end)
-	local drawn = derive(function(): number
-		if not state.IsOpen() then return 1 end
-		return Motion.Decelerate(Progress(elapsed(), Timing.RULE_DELAY, Timing.RULE))
-	end)
-
-	return {
-		create("Frame")({
-			Name = "Header",
-			Size = UDim2.new(1, 0, 0, Layout.RULE.Y),
-			BackgroundTransparency = 1,
-			ClipsDescendants = true,
-			ZIndex = 3,
-			create("Frame")({
-				Name = "Title",
-				Position = function()
-					return UDim2.fromOffset(-math.round(Timing.TITLE_SLIDE * away()), 0)
-				end,
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				Components.Icon("Spin", {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromOffset(Layout.GLYPH.X, Layout.GLYPH.Y),
-					Size = Components.GlyphBox(Layout.GLYPH_SIZE),
-					ImageColor3 = Palette.Pink,
-					ImageTransparency = away,
-					ZIndex = 4,
-				}),
-				Parts.Label({
-					Position = UDim2.fromOffset(Layout.TITLE.X, Layout.TITLE.Y),
-					Size = UDim2.fromOffset(500, Layout.TITLE_TEXT),
-					TextSize = Layout.TITLE_TEXT,
-					TextTransparency = away,
-					Text = "SPINS",
-				}),
-			}),
-		}),
-		Parts.Label({
-			Name = "FreeEveryDay",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromOffset(Layout.HEADER_RIGHT, Layout.HEADER_Y),
-			Size = UDim2.fromOffset(400, Layout.HEADER_TEXT),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			TextSize = Layout.HEADER_TEXT,
-			TextColor3 = Palette.Gold,
-			TextTransparency = away,
-			Text = `{SpinsCore.FREE_PER_DAY} FREE SPINS EVERY DAY`,
-		}),
-		create("Frame")({
-			Name = "Rule",
-			Position = UDim2.fromOffset(Layout.RULE.X, Layout.RULE.Y),
-			Size = function()
-				return UDim2.fromOffset(math.round(Layout.RULE_WIDTH * drawn()), 1)
-			end,
-			BackgroundColor3 = RULE,
-			BackgroundTransparency = RULE_TRANSPARENCY,
-			BorderSizePixel = 0,
-			ZIndex = 3,
-		}),
-	}
-end
-
--- His pink X: a slab with two white bars that turn a quarter under the hand.
-local function closeButton(actions: Types.TSpinsActions): TextButton
-	local hand = Hand.React("Operate")
-	local function bar(rotation: number): Frame
-		return create("Frame")({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(Layout.CLOSE_BAR.X, Layout.CLOSE_BAR.Y),
-			Rotation = function()
-				return rotation + 90 * hand.Rise()
-			end,
-			BackgroundColor3 = Palette.White,
-			BorderSizePixel = 0,
-			ZIndex = 5,
-		})
-	end
-
-	return Components.Button({
-		Name = "Close",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(Layout.CLOSE.X + Layout.CLOSE_SIZE / 2, Layout.CLOSE.Y + Layout.CLOSE_SIZE / 2),
-		Size = UDim2.fromOffset(Layout.CLOSE_SIZE, Layout.CLOSE_SIZE),
-		BackgroundTransparency = 1,
-		ZIndex = 4,
-		Activated = function()
-			hand.Commit()
-			actions.Close()
-		end,
-		hand.Events,
-		create("UIScale")({ Scale = hand.Scale }),
-		Components.Slab({
-			Kind = "Pink",
-			GlowTransparency = function()
-				return 0.6 - 0.25 * hand.Light()
-			end,
-		}, {
-			Name = "Face",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 4, 3),
-			bar(45),
-			bar(-45),
-		}),
-	}) :: TextButton
 end
 
 -- SPIN: his green slab with the die. Selling a spin it turns his violet Robux slab with the price; with nothing to
@@ -265,10 +136,40 @@ local function spinButton(
 		if not state.IsOpen() then return 1 end
 		return Progress(elapsed(), Timing.SHEEN_DELAY, Timing.SHEEN)
 	end)
+	-- The wobble, 0 to 1 from BeckonAt, and 1 at rest; and its light's travel.
+	local beckoned = derive(function(): number
+		return Progress(state.Now(), state.BeckonAt(), Timing.BECKON)
+	end)
+	local beckonSheen = derive(function(): number
+		return Progress(state.Now(), state.BeckonAt(), Timing.BECKON_SHEEN, Timing.BECKON_SHEEN_DELAY)
+	end)
 	local light = function(): number
 		local travel = math.min(invite(), 1)
-		return if travel < 1 then travel else landed()
+		if travel < 1 then return travel end
+		local beckon = beckonSheen()
+		return if beckon > 0 and beckon < 1 then beckon else landed()
 	end
+	-- Its jelly: + wider and shorter, - narrower and taller; first up, as it hops.
+	local jelly = derive(function(): number
+		local t = beckoned()
+		if t <= 0 or t >= 1 then return 0 end
+		return -Timing.BECKON_JELLY * math.sin(2 * math.pi * Timing.BECKON_WOBBLES * t) * (1 - t) * (1 - t)
+	end)
+	local hop = derive(function(): number
+		return Timing.BECKON_HOP * Motion.Bump(Progress(state.Now(), state.BeckonAt(), Timing.BECKON_HOP_SECONDS))
+	end)
+	local beckonPop = derive(function(): number
+		return Timing.BECKON_POP * Motion.Bump(Progress(state.Now(), state.BeckonAt(), Timing.BECKON_POP_SECONDS))
+	end)
+	-- One turn of the die, back to 0 once round rather than resting at -360.
+	local beckonRoll = derive(function(): number
+		local t = Progress(state.Now(), state.BeckonAt(), Timing.BECKON_ROLL)
+		if t >= 1 then return 0 end
+		return -360 * Motion.Decelerate(t)
+	end)
+	local ring = derive(function(): number
+		return Progress(state.Now(), state.BeckonAt(), Timing.BECKON_RING)
+	end)
 
 	local shake = derive(function(): number
 		local at = state.RefusedAt()
@@ -284,10 +185,16 @@ local function spinButton(
 		Position = function()
 			return UDim2.fromOffset(
 				Layout.BUTTON.X + Layout.BUTTON_SIZE.X / 2 + math.round(shake()),
-				Layout.BUTTON.Y + Layout.BUTTON_SIZE.Y / 2
+				Layout.BUTTON.Y + Layout.BUTTON_SIZE.Y / 2 - math.round(hop())
 			)
 		end,
-		Size = UDim2.fromOffset(Layout.BUTTON_SIZE.X, Layout.BUTTON_SIZE.Y),
+		Size = function()
+			local j = jelly()
+			return UDim2.fromOffset(
+				math.round(Layout.BUTTON_SIZE.X * (1 + j)),
+				math.round(Layout.BUTTON_SIZE.Y * (1 - 1.4 * j))
+			)
+		end,
 		BackgroundTransparency = 1,
 		ZIndex = 4,
 		Activated = function()
@@ -296,7 +203,34 @@ local function spinButton(
 			actions.Spin()
 		end,
 		hand.Events,
-		create("UIScale")({ Scale = hand.Scale }),
+		create("UIScale")({
+			Scale = function()
+				return hand.Scale() + beckonPop()
+			end,
+		}),
+		-- The wobble's one ring, the slab's own outline grown off it.
+		create("Frame")({
+			Name = "Beckon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = function()
+				local grow = math.round(Timing.BECKON_REACH * Motion.Out(ring()))
+				return UDim2.new(1, 2 * grow, 1, 2 * grow)
+			end,
+			BackgroundTransparency = 1,
+			Visible = function()
+				local t = ring()
+				return t > 0 and t < 1
+			end,
+			create("UICorner")({ CornerRadius = UDim.new(0, 6) }),
+			create("UIStroke")({
+				Color = Palette.Green,
+				Thickness = function()
+					return 3 * (1 - ring()) + 1
+				end,
+				Transparency = ring,
+			}),
+		}),
 		Components.Slab({
 			Kind = function()
 				local mode = state.Mode()
@@ -304,9 +238,9 @@ local function spinButton(
 				return if mode == "Buy" then "Violet" else "Off"
 			end,
 			Marks = true,
-			Brackets = Layout.BUTTON_BRACKETS,
+			Brackets = true,
 			GlowTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
+				return 0.6 - 0.3 * hand.Light() - Timing.BECKON_GLOW * Motion.Bump(beckoned())
 			end,
 		}, {
 			Name = "Slab",
@@ -325,13 +259,12 @@ local function spinButton(
 					Padding = UDim.new(0, Layout.BUTTON_GAP),
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
-				Components.Icon("Dice", {
+				Components.Picture(EIcons.Dice, {
 					Name = "Die",
 					LayoutOrder = 1,
-					Size = Components.GlyphBox(Layout.DIE),
-					ImageColor3 = Palette.White,
+					Size = Components.PictureBox(Layout.DIE),
 					Rotation = function()
-						return roll() + kick()
+						return roll() + kick() + beckonRoll()
 					end,
 					ZIndex = 5,
 				}),
@@ -396,7 +329,14 @@ local function spinsLeft(state: Types.TSpinsState): TextLabel
 	})
 end
 
-function Screen.Build(state: Types.TSpinsState, actions: Types.TSpinsActions): { any }
+-- The page, standing `lift` px under its own place as the shell's panel changes shape; the prize's flight into the HUD,
+-- to be laid over the shell's header; and the jackpot's shake across the page in px, for the shell to shake the panel
+-- by too. All in his 1920 x 1080, unscaled.
+function Screen.Build(
+	state: Types.TSpinsState,
+	actions: Types.TSpinsActions,
+	lift: () -> number
+): ({ Instance }, { Instance }, () -> number)
 	-- Seconds since the screen opened or shut, held once every gesture is over, so the clock ticking for a spin works
 	-- none of the open out again.
 	local elapsed = derive(function(): number
@@ -431,82 +371,46 @@ function Screen.Build(state: Types.TSpinsState, actions: Types.TSpinsActions): {
 		return Timing.SHAKE * math.sin(t * Timing.SHAKE_RATE) * (1 - t / Timing.SHAKE_SECONDS) ^ 2
 	end)
 	local windowAt = function(): UDim2
-		return UDim2.fromOffset(Layout.PANEL.X + math.round(shake()), Layout.PANEL.Y + math.round(drop()))
+		return UDim2.fromOffset(Layout.PANEL.X + math.round(shake()), Layout.PANEL.Y + math.round(lift() + drop()))
 	end
 
 	return {
-		-- Past the screen's edges whatever its shape. A click on it shuts the screen, but never while the reel turns.
-		create("TextButton")({
-			Name = "Dim",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(4, 4),
-			BackgroundColor3 = Color3.new(),
-			BorderSizePixel = 0,
-			AutoButtonColor = false,
-			Modal = true,
-			Text = "",
-			BackgroundTransparency = function()
-				return 1 - Timing.DIM * shown()
-			end,
-			Activated = function()
-				if state.Mode() ~= "Busy" then actions.Close() end
-			end,
-		}),
 		create("Frame")({
 			Name = "Window",
 			Position = windowAt,
 			Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
 			BackgroundTransparency = 1,
 			ZIndex = 2,
-			-- A press on the panel stops here. A Frame lets it through to the dim, which would shut the screen.
-			create("TextButton")({
-				Name = "Sink",
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				AutoButtonColor = false,
-				Text = "",
-			}),
-			create("CanvasGroup")({
-				Name = "Chrome",
+			Components.FadeGroup("Content", shown, {
 				Position = UDim2.fromOffset(-Layout.MARGIN, -Layout.MARGIN),
 				Size = UDim2.new(1, 2 * Layout.MARGIN, 1, 2 * Layout.MARGIN),
-				BackgroundTransparency = 1,
-				GroupTransparency = function()
-					return 1 - shown()
-				end,
-				-- Longer than the streak texture: its window starts at the corner and it is tiled across.
-				Components.Panel(
-					{ Brackets = Layout.PANEL_BRACKETS, TexturePhase = Vector2.zero, Wide = true, Tall = true },
-					{
-						Name = "Panel",
-						Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
-						Size = UDim2.new(1, -2 * Layout.MARGIN, 1, -2 * Layout.MARGIN),
-						header(state, elapsed),
-						closeButton(actions),
-						Reel.Build(state, reading, elapsed),
-						spinsLeft(state),
-						spinButton(state, actions, reading, elapsed),
-						Components.Icon("Stopwatch", {
-							Name = "Watch",
-							AnchorPoint = Vector2.new(0.5, 0.5),
-							Position = UDim2.fromOffset(Layout.WATCH.X, Layout.WATCH.Y),
-							Size = Components.GlyphBox(Layout.WATCH_SIZE),
-							ImageColor3 = Palette.Lavender,
-							ZIndex = 4,
-						}),
-						Parts.Label({
-							Name = "Clock",
-							Position = UDim2.fromOffset(Layout.CLOCK.X, Layout.CLOCK.Y),
-							Size = UDim2.fromOffset(320, Layout.CLOCK_TEXT),
-							TextSize = Layout.CLOCK_TEXT,
-							TextColor3 = Palette.Lavender,
-							Text = function()
-								return `NEXT FREE SPIN  {clock(state.SecondsLeft())}`
-							end,
-						}),
-					}
-				),
+			}, {
+				create("Frame")({
+					Name = "Page",
+					Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
+					Size = UDim2.new(1, -2 * Layout.MARGIN, 1, -2 * Layout.MARGIN),
+					BackgroundTransparency = 1,
+					Reel.Build(state, reading, elapsed),
+					spinsLeft(state),
+					spinButton(state, actions, reading, elapsed),
+					Components.Picture(EIcons.Stopwatch, {
+						Name = "Watch",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						Position = UDim2.fromOffset(Layout.WATCH.X, Layout.WATCH.Y),
+						Size = Components.PictureBox(Layout.WATCH_SIZE),
+						ZIndex = 4,
+					}),
+					Parts.Label({
+						Name = "Clock",
+						Position = UDim2.fromOffset(Layout.CLOCK.X, Layout.CLOCK.Y),
+						Size = UDim2.fromOffset(320, Layout.CLOCK_TEXT),
+						TextSize = Layout.CLOCK_TEXT,
+						TextColor3 = Palette.Lavender,
+						Text = function()
+							return `NEXT FREE SPIN  {formatCountdown(state.SecondsLeft())}`
+						end,
+					}),
+				}),
 			}),
 			create("Frame")({
 				Name = "Fx",
@@ -516,8 +420,9 @@ function Screen.Build(state: Types.TSpinsState, actions: Types.TSpinsActions): {
 				Reel.BuildFx(state),
 			}),
 		}),
+	},
 		Payout.Build(state),
-	}
+		shake
 end
 
 return Screen

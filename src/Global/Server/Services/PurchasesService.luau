@@ -12,8 +12,9 @@ local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 -- Grants into the draft and returns true, or returns false when it cannot be fulfilled right now (the GDD's
 -- "charge only for a revive that can be fulfilled": the receipt stays pending and Roblox retries or refunds).
--- `afterSave` runs once the grant is in the profile, for run-side effects (respawn the player, add Gold).
-export type THandler = (player: Player, profile: TProfile.TProfile) -> (boolean, (() -> ())?)
+-- `afterSave` runs once the grant is in the profile, for run-side effects (respawn the player, add Gold). `receiptId`
+-- names the purchase, for a grant that travels on (a gift).
+export type THandler = (player: Player, profile: TProfile.TProfile, receiptId: string) -> (boolean, (() -> ())?)
 
 local PurchasesService = {}
 
@@ -39,7 +40,7 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 			isDuplicate = true
 			return false
 		end
-		local ok, after = handler(player, profile)
+		local ok, after = handler(player, profile, receiptId)
 		afterSave = after
 		return ok
 	end)

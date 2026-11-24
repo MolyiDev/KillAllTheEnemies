@@ -67,7 +67,108 @@ Icons.FLOOR_OFFSET = Vector2.new(512, 936)
 Icons.FLOOR_SIZE = Vector2.new(470, 84)
 Icons.FLOOR_TRANSPARENCY = 0.55
 
+-- The art behind a thing on show (Showcase, icons.py's showcase()): white drawings, tinted where they are drawn.
+Icons.SHOWCASE = "rbxassetid://130717967552271"
+Icons.ShowcaseCells = table.freeze({
+	Rays = table.freeze({ Offset = Vector2.new(0, 0), Size = Vector2.new(512, 512) }),
+	Dots = table.freeze({ Offset = Vector2.new(512, 0), Size = Vector2.new(512, 512) }),
+	Reticle = table.freeze({ Offset = Vector2.new(0, 512), Size = Vector2.new(512, 512) }),
+	Glow = table.freeze({ Offset = Vector2.new(512, 512), Size = Vector2.new(256, 256) }),
+	Pulse = table.freeze({ Offset = Vector2.new(512, 768), Size = Vector2.new(256, 256) }),
+	Beam = table.freeze({ Offset = Vector2.new(768, 512), Size = Vector2.new(256, 512) }),
+})
+-- The floors under it (icons.py's showcase_floor()): ellipses at the stages' floor shape, seen in perspective.
+Icons.SHOWCASE_FLOOR = "rbxassetid://130779767541614"
+Icons.ShowcaseFloorCells = table.freeze({
+	Pad = table.freeze({ Offset = Vector2.new(0, 0), Size = Vector2.new(1024, 184) }),
+	Dots = table.freeze({ Offset = Vector2.new(0, 192), Size = Vector2.new(1024, 184) }),
+	Reticle = table.freeze({ Offset = Vector2.new(0, 384), Size = Vector2.new(1024, 184) }),
+	Ring = table.freeze({ Offset = Vector2.new(0, 576), Size = Vector2.new(1024, 184) }),
+	Glow = table.freeze({ Offset = Vector2.new(0, 768), Size = Vector2.new(1024, 184) }),
+})
+
 -- icons.py fits each glyph's longer side to this much of its cell.
 Icons.GLYPH_SHARE = 116 / 128
+
+-- BEGIN Pictures (Assets/ui/rendered/build.py writes this block)
+-- The rendered icons: full colour, never tinted. key.py leaves a margin round each, so its longer side fills
+-- PICTURE_SHARE of its cell.
+Icons.PICTURE_CELL_SIZE = Vector2.new(256, 256)
+Icons.PICTURE_SHARE = 0.88
+Icons.Pictures = table.freeze({
+	Gem = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(0, 0) }),
+	GemPile = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(256, 0) }),
+	GoldCoin = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(512, 0) }),
+	GoldSack = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(768, 0) }),
+	Rank = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(0, 256) }),
+	ShoppingBag = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(256, 256) }),
+	GiftBox = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(512, 256) }),
+	PrizeWheel = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(768, 256) }),
+	Scroll = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(0, 512) }),
+	MonsterBook = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(256, 512) }),
+	AddFriend = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(512, 512) }),
+	Squad = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(768, 512) }),
+	Ticket = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(0, 768) }),
+	Gear = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(256, 768) }),
+	Rifle = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(512, 768) }),
+	Helmet = table.freeze({ Image = "rbxassetid://121967489305929", Offset = Vector2.new(768, 768) }),
+	ClassHuman = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(0, 0) }),
+	Zombie = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(256, 0) }),
+	ZombieKing = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(512, 0) }),
+	Bomb = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(768, 0) }),
+	Potion = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(0, 256) }),
+	UpgradeDamage = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(256, 256) }),
+	UpgradeFireRate = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(512, 256) }),
+	UpgradeRegeneration = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(768, 256) }),
+	UpgradeArmor = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(0, 512) }),
+	UpgradeGreed = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(256, 512) }),
+	UpgradeLifesteal = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(512, 512) }),
+	Skull = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(768, 512) }),
+	Stopwatch = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(0, 768) }),
+	Star = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(256, 768) }),
+	Check = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(512, 768) }),
+	Lock = table.freeze({ Image = "rbxassetid://103977304531430", Offset = Vector2.new(768, 768) }),
+	Arrow = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(0, 0) }),
+	Replay = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(256, 0) }),
+	Skip = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(512, 0) }),
+	Pencil = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(768, 0) }),
+	Warning = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(0, 256) }),
+	Music = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(256, 256) }),
+	Camera = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(512, 256) }),
+	Player = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(768, 256) }),
+	Friends = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(0, 512) }),
+	Advert = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(256, 512) }),
+	Revive = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(512, 512) }),
+	Dice = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(768, 512) }),
+	Pointer = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(0, 768) }),
+	Chart = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(256, 768) }),
+	Magnifier = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(512, 768) }),
+	Trophy = table.freeze({ Image = "rbxassetid://120452785674769", Offset = Vector2.new(768, 768) }),
+	UpArrow = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(0, 0) }),
+	Exclamation = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(256, 0) }),
+	ArrowUp = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(512, 0) }),
+	LockShackle = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(768, 0) }),
+	LockBody = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(0, 256) }),
+	Crown = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(256, 256) }),
+	Clover = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(512, 256) }),
+	GemHeap = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(768, 256) }),
+	GemChest = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(0, 512) }),
+	GemTrio = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(256, 512) }),
+	GemPouch = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(512, 512) }),
+	GemVault = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(768, 512) }),
+	GemDouble = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(0, 768) }),
+	XpWings = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(256, 768) }),
+	SpinPlus = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(512, 768) }),
+	StarterCrate = table.freeze({ Image = "rbxassetid://130432190996504", Offset = Vector2.new(768, 768) }),
+	ArsenalCase = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(0, 0) }),
+	SurvivorVest = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(256, 0) }),
+	Flask = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(512, 0) }),
+	PotionBottle = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(768, 0) }),
+	PotionRack = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(0, 256) }),
+	Cauldron = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(256, 256) }),
+	EnergyBolt = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(512, 256) }),
+	Soul = table.freeze({ Image = "rbxassetid://135350610440036", Offset = Vector2.new(768, 256) }),
+})
+-- END Pictures
 
 return table.freeze(Icons)

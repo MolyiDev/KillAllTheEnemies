@@ -1,29 +1,57 @@
 --!nonstrict
 -- The enemy grid (his middle panel): the page on show, each of its enemies as his card with the enemy's own rig on it,
--- a dark silhouette with a "?" until it is discovered. A page's cards are dealt in when the screen opens and when the
--- page is picked, and swept away as another is; the white ring glides to the picked card.
+-- a dark silhouette under a padlock until it is discovered. A page's cards are dealt in when the screen opens and when
+-- the page is picked, and swept away as another is; the picked card's brackets close round it. The POTIONS page deals
+-- the same cards with the recipe's bottle in its colour, or its silhouette under the padlock until it is brewed.
 --
 -- A discovery not shown yet is drawn unknown until its page comes up, then revealed on its card (Parts.Known): the
--- silhouette burns white, the card pops, flashes and throws a ring, the lock is thrown off, and the enemy comes
--- through in its colours. It keeps NEW until it is picked.
+-- padlock rattles, springs open and blows away, the silhouette burns white, the card pops, flashes and throws a ring,
+-- and the enemy comes through in its colours. It keeps NEW until it is picked.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Ribbon = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Ribbon)
+local Scrollbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Scrollbar)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Parts = require(script.Parent.Parts)
 local Picture = require(script.Parent.Picture)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
-local spring = vide.spring
 local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
 local Label = Parts.Label
+
+-- A reveal's padlock, in seconds from the reveal's start (Parts.Timing.REVEAL_UNLOCK long, then it blows away while the
+-- silhouette burns): it shakes in its hasp, the shackle clicks up out of its sockets and swings open on its long leg, the
+-- body jumps at the click, and it all rises, swells and fades.
+local Unlock = table.freeze({
+	SHAKE = 0.2,
+	SHAKE_DEGREES = 12,
+	LIFT = 0.1,
+	-- How far the shackle lifts and turns, as a share of the padlock's box and in degrees (anticlockwise).
+	LIFT_SHARE = 0.07,
+	SWING_DELAY = 0.04,
+	SWING = 0.22,
+	SWING_DEGREES = -22,
+	JUMP = 0.18,
+	JUMP_GROW = 0.16,
+	LEAVE = 0.3,
+	LEAVE_RISE = 18,
+	LEAVE_GROW = 0.35,
+	LEAVE_DEGREES = -8,
+})
+-- The shackle's long leg's foot, which it swings on, from the box's middle as a share of its side (split_lock.py's
+-- lock.png pixels 305, 453 of 1024), and the shackle's middle from that foot.
+local SHACKLE_PIVOT = Vector2.new(305 / 1024 - 0.5, 453 / 1024 - 0.5)
+local SHACKLE_FROM_PIVOT = -SHACKLE_PIVOT
 
 -- His drawn rects in px at 1080, from the panel's top left.
 local Layout = table.freeze({
@@ -31,7 +59,6 @@ local Layout = table.freeze({
 	SIZE = Vector2.new(912, 750),
 	-- The room round the panel inside the group that fades it, for its shadow and brackets.
 	MARGIN = 48,
-	BRACKETS = 5,
 	-- The header: the glyph's middle and longer side, the page's word, the count's right edge, the rule.
 	GLYPH = Vector2.new(35, 39),
 	GLYPH_SIZE = 19,
@@ -45,27 +72,32 @@ local Layout = table.freeze({
 	-- The cards scroll in a window under the rule once a page has more than three rows; the first row's top in it, the
 	-- steps between cards and their size.
 	WINDOW_Y = 70,
+	-- The scrollbar in the margin right of the cards, clear of their brackets at a press, and its ends' room.
+	SCROLLBAR_X = 899,
+	SCROLLBAR_MARGIN = 12,
 	COLUMNS = 4,
-	FIRST = Vector2.new(23, 19),
-	STEP = Vector2.new(220, 212),
-	CARD = Vector2.new(204, 195),
-	-- Inside a card: the picture's middle and box, the "?" over a silhouette, the rule over the name band, the name,
-	-- the corner badge and NEW.
-	PICTURE = Vector2.new(102, 84),
+	-- 6 px narrower than his and 22 apart across and down (his 16 and 17), over his span: a card grows its brackets
+	-- 15 px out under a press, and at his they crossed the next card's.
+	FIRST = Vector2.new(26, 19),
+	STEP = Vector2.new(220, 217),
+	CARD = Vector2.new(198, 195),
+	-- Inside a card: the picture's middle and box, the padlock's longer side over a silhouette, the rule over the name
+	-- band, the name and the NEW ribbon (its middle line meets the edges NEW_ALONG from the corner).
+	PICTURE = Vector2.new(99, 84),
 	PICTURE_BOX = 158,
-	MYSTERY_TEXT = 64,
+	-- A recipe's bottle, its longer side.
+	BOTTLE = 124,
+	LOCK = 80,
 	BAND = 29,
 	CARD_RULE = Vector2.new(11, 161),
-	CARD_RULE_WIDTH = 182,
+	CARD_RULE_WIDTH = 176,
 	NAME_Y = 172,
 	NAME_TEXT = 16,
-	BADGE = 25,
-	BADGE_AT = Vector2.new(171, 8),
-	NEW_AT = Vector2.new(8, 8),
-	NEW_HEIGHT = 22,
+	NEW_ALONG = 72,
+	NEW_THICKNESS = 22,
 	NEW_TEXT = 14,
-	CARD_BRACKETS = 6,
-	RING = 5,
+	-- 3 out, opening 1 under the hand: cards 16 apart grow 6 px a side under the hand and more on a press, and his 6 + 4
+	-- crossed the next card's and ran out past the grid's edge.
 })
 
 local Timing = table.freeze({
@@ -80,25 +112,30 @@ local Timing = table.freeze({
 	-- The header's word slides in as the page changes.
 	TITLE = 0.25,
 	TITLE_SLIDE = 14,
-	RING_PERIOD = 0.3,
-	RING_DAMPING = 0.8,
 	-- Under the hand a card's enemy turns to face you.
 	HOVER_TURN = 28,
 	HOVER_GROW = 0.08,
-	HOVER_BRACKETS = 4,
-	-- A reveal, from the moment the enemy starts coming through: the card pops, flashes and throws a ring, and its lock
-	-- is thrown off.
+	-- A reveal, from the moment the enemy starts coming through: the card pops, flashes and throws a ring.
 	POP_PERIOD = 0.28,
 	POP_DAMPING = 0.5,
 	POP = 0.18,
 	FLASH = 0.45,
 	BURST = 0.55,
 	BURST_REACH = 26,
-	LOCK_THROW = 0.4,
-	LOCK_RISE = 22,
+	-- Under the hand a locked card's padlock grows; pressed, it rattles on its spring (degrees).
+	LOCK_GROW = 0.1,
+	RATTLE_PERIOD = 0.11,
+	RATTLE_DAMPING = 0.22,
+	RATTLE = 14,
 	-- The count going up punches it this much.
 	COUNT_PUNCH = 0.3,
 })
+
+-- The panel is raised to just under the top bar, its bottom staying put: the window of cards grows with it.
+local panelLift = panelTop.Lift(Layout.PANEL.Y)
+local function panelSize(): UDim2
+	return UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y + panelLift())
+end
 
 local Grid = {}
 
@@ -112,35 +149,98 @@ local function placeOf(order: number): Vector2
 	)
 end
 
--- One enemy's card.
-local function card(
-	state: Types.TIndexState,
-	actions: Types.TIndexActions,
-	enemy,
-	order: number,
-	dealt: () -> number
-): TextButton
-	local id = enemy.Id
-	local threat = Parts.Threat(enemy)
-	local accent = threat.Accent
-	local hand = Hand.React("Take")
-	local known = Parts.Known(state, function()
-		return id
+-- The padlock over an unknown enemy's silhouette, the two parts split_lock.py cut from the Lock picture: `unlocking`
+-- is seconds into its reveal (0 shut), `rattle` and `rise` the hand's.
+local function lock(unlocking: () -> number, rattle: () -> number, rise: () -> number): Frame
+	-- 0 to 1 as it blows away, and how far it has faded.
+	local leaving = derive(function(): number
+		return Progress(unlocking(), Parts.Timing.REVEAL_UNLOCK, Unlock.LEAVE)
 	end)
+	local faded = derive(function(): number
+		return Motion.Out(leaving())
+	end)
+	local box = Components.PictureBox(Layout.LOCK)
+	local side = box.X.Offset
+	local shake = function(): number
+		return Unlock.SHAKE_DEGREES * Motion.Swing(Progress(unlocking(), 0, Unlock.SHAKE))
+	end
+	local lift = function(): number
+		return Unlock.LIFT_SHARE * side * Motion.OutBack(Progress(unlocking(), Parts.Timing.REVEAL_CLICK, Unlock.LIFT))
+	end
+	local swing = function(): number
+		local swung = Progress(unlocking(), Parts.Timing.REVEAL_CLICK + Unlock.SWING_DELAY, Unlock.SWING)
+		return Unlock.SWING_DEGREES * Motion.OutBack(swung)
+	end
+
+	return create("Frame")({
+		Name = "Lock",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = function()
+			return UDim2.fromOffset(
+				Layout.PICTURE.X,
+				Layout.PICTURE.Y - Unlock.LEAVE_RISE * Motion.Decelerate(leaving())
+			)
+		end,
+		Size = box,
+		Rotation = function()
+			return shake() + rattle() + Unlock.LEAVE_DEGREES * faded()
+		end,
+		BackgroundTransparency = 1,
+		-- Taken out only once it has faded away; derived, so it is written once, not every frame of the fade.
+		Visible = derive(function(): boolean
+			return leaving() < 1
+		end),
+		ZIndex = 5,
+		create("UIScale")({
+			Scale = function()
+				local jump = Unlock.JUMP_GROW
+					* Motion.Bump(Progress(unlocking(), Parts.Timing.REVEAL_CLICK, Unlock.JUMP))
+				return 1 + Timing.LOCK_GROW * rise() + jump + Unlock.LEAVE_GROW * faded()
+			end,
+		}),
+		Components.Picture(EIcons.LockBody, {
+			Name = "Body",
+			Size = UDim2.fromScale(1, 1),
+			ImageTransparency = faded,
+		}),
+		-- A GuiObject turns about its own middle, so swinging on the long leg's foot moves the middle round that foot.
+		Components.Picture(EIcons.LockShackle, {
+			Name = "Shackle",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = function()
+				local radians = math.rad(swing())
+				local cos, sin = math.cos(radians), math.sin(radians)
+				local out = SHACKLE_FROM_PIVOT
+				local turned = Vector2.new(out.X * cos - out.Y * sin, out.X * sin + out.Y * cos)
+				local at = (SHACKLE_PIVOT + turned) * side
+				return UDim2.new(0.5, at.X, 0.5, at.Y - lift())
+			end,
+			Size = UDim2.fromScale(1, 1),
+			Rotation = swing,
+			ImageTransparency = faded,
+			ZIndex = 2,
+		}),
+	})
+end
+
+-- One card, an enemy's or a recipe's. `spec`: Name, Accent, Known (Parts.Known's 0 to 1), SinceLit (Parts.SinceLit),
+-- IsSelected, IsNew (whether it wears NEW once known), Select (the press) and Picture (burned, lit, hand) -> the
+-- thing drawn over its silhouette.
+local function card(state: Types.TIndexState, spec, order: number, dealt: () -> number): TextButton
+	local accent = spec.Accent
+	local hand = Hand.React("Take")
+	local known = spec.Known
 	local burned = Parts.Burned(known)
 	local lit = Parts.Lit(known)
-	local isSelected = derive(function(): boolean
-		return state.Selected() == id
-	end)
-	local sinceLit = Parts.SinceLit(state, function()
-		return id
-	end)
+	local isSelected = spec.IsSelected
+	local sinceLit = spec.SinceLit
 	local flash = Parts.Fading(sinceLit, Timing.FLASH)
 	local burst = Parts.Over(sinceLit, Timing.BURST, 1)
-	local thrown = Parts.Over(sinceLit, Timing.LOCK_THROW, 0)
-	local isLockShown = derive(function(): boolean
-		return lit() < 1 or (thrown() > 0 and thrown() < 1)
-	end)
+	-- Seconds into the reveal, for the padlock: 0 while unknown, past its leaving once known.
+	local unlocking = function(): number
+		return known() * Parts.REVEAL_SECONDS
+	end
+	local rattle, strikeRattle = Hand.Kick(Timing.RATTLE_PERIOD, Timing.RATTLE_DAMPING)
 
 	local pop, strikePop = Hand.Kick(Timing.POP_PERIOD, Timing.POP_DAMPING)
 	local isComingThrough = derive(function(): boolean
@@ -162,7 +262,7 @@ local function card(
 	local at = placeOf(order)
 
 	return Components.Button({
-		Name = enemy.Name,
+		Name = spec.Name,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(at.X, at.Y),
 		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
@@ -170,7 +270,8 @@ local function card(
 		ZIndex = 3,
 		Activated = function()
 			hand.Commit()
-			actions.Select(id)
+			if unlocking() == 0 then strikeRattle(Timing.RATTLE) end
+			spec.Select()
 		end,
 		hand.Events,
 		create("UIScale")({
@@ -190,58 +291,19 @@ local function card(
 			Tint = 0.35,
 			Band = Layout.BAND,
 			Marks = true,
-			Brackets = function()
-				return Layout.CARD_BRACKETS + Timing.HOVER_BRACKETS * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketLength = 20,
 			BracketTransparency = function()
-				return if isSelected() then 1 else 0.6 - 0.3 * hand.Light()
+				return 0.6 - 0.3 * hand.Light()
 			end,
+			BracketsClosed = isSelected,
 		}, {
 			Name = "Card",
 			Size = UDim2.fromScale(1, 1),
 			Hand.WashLayer(hand, 3, 2),
 			Components.Sheen(hand.Glint, 3),
-			Picture.Build(function()
-				return enemy
-			end, {
-				Burned = burned,
-				Lit = lit,
-				-- Under the hand it turns to face you and walks.
-				Moving = hand.IsHovered,
-				Yaw = function()
-					return Timing.HOVER_TURN * hand.Rise()
-				end,
-			}, {
-				Name = "Enemy",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
-				Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.PICTURE_BOX),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + Timing.HOVER_GROW * hand.Rise()
-					end,
-				}),
-			}),
-			Label({
-				Name = "Mystery",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
-				Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.MYSTERY_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextYAlignment = Enum.TextYAlignment.Center,
-				TextSize = Layout.MYSTERY_TEXT,
-				TextColor3 = Palette.Lavender,
-				TextTransparency = function()
-					return 0.35 + 0.65 * burned()
-				end,
-				Visible = function()
-					return burned() < 1
-				end,
-				Text = "?",
-				ZIndex = 5,
-			}),
+			spec.Picture(burned, lit, hand),
+			lock(unlocking, rattle, hand.Rise),
 			create("Frame")({
 				Name = "Rule",
 				Position = UDim2.fromOffset(Layout.CARD_RULE.X, Layout.CARD_RULE.Y),
@@ -264,64 +326,23 @@ local function card(
 					return Palette.Lavender:Lerp(Palette.White, lit())
 				end,
 				Text = function()
-					return if lit() > 0 then string.upper(enemy.Name) else Parts.UNKNOWN
+					return if lit() > 0 then string.upper(spec.Name) else Parts.UNKNOWN
 				end,
 				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
 			}),
-			Parts.Badge("Check", Layout.BADGE, {
-				Name = "Found",
-				Position = UDim2.fromOffset(Layout.BADGE_AT.X, Layout.BADGE_AT.Y),
-				Visible = function()
-					return lit() >= 1
+			Ribbon.Build({
+				Corner = "TopRight",
+				Text = "NEW",
+				Color = Palette.Pink,
+				IsShown = function()
+					return spec.IsNew() and lit() >= 1
 				end,
-				ZIndex = 5,
-			}),
-			-- Thrown off as the enemy comes through: up, turning, growing and fading as one picture.
-			create("CanvasGroup")({
-				Name = "Lock",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = function()
-					return UDim2.fromOffset(
-						Layout.BADGE_AT.X + Layout.BADGE / 2,
-						Layout.BADGE_AT.Y + Layout.BADGE / 2 - math.round(Timing.LOCK_RISE * Motion.Out(thrown()))
-					)
-				end,
-				Size = UDim2.fromOffset(Layout.BADGE, Layout.BADGE),
-				Rotation = function()
-					return 25 * Motion.Out(thrown())
-				end,
-				BackgroundTransparency = 1,
-				GroupTransparency = thrown,
-				Visible = isLockShown,
+				Along = Layout.NEW_ALONG,
+				Thickness = Layout.NEW_THICKNESS,
+				TextSize = Layout.NEW_TEXT,
+				Delay = Timing.DEAL_DELAY + Timing.DEAL_STAGGER * (order - 1) + Timing.DEAL,
+				CallOrder = order,
 				ZIndex = 6,
-				create("UIScale")({
-					Scale = function()
-						return 1 + 0.5 * Motion.Out(thrown())
-					end,
-				}),
-				Parts.Badge("Lock", Layout.BADGE, {}),
-			}),
-			create("Frame")({
-				Name = "New",
-				AutomaticSize = Enum.AutomaticSize.X,
-				Position = UDim2.fromOffset(Layout.NEW_AT.X, Layout.NEW_AT.Y),
-				Size = UDim2.fromOffset(0, Layout.NEW_HEIGHT),
-				BackgroundColor3 = Palette.Pink,
-				BorderSizePixel = 0,
-				Visible = function()
-					return state.Unread()[id] == true and lit() >= 1
-				end,
-				ZIndex = 5,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-				create("UIPadding")({ PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }),
-				Label({
-					AutomaticSize = Enum.AutomaticSize.X,
-					Size = UDim2.fromScale(0, 1),
-					TextYAlignment = Enum.TextYAlignment.Center,
-					TextSize = Layout.NEW_TEXT,
-					Text = "NEW",
-					ZIndex = 6,
-				}),
 			}),
 			create("Frame")({
 				Name = "Flash",
@@ -341,11 +362,121 @@ local function card(
 	}) :: TextButton
 end
 
--- One page's cards and the ring, for vide.switch: grown in when the page comes up and shrunk away when another does.
-local function page(state: Types.TIndexState, actions: Types.TIndexActions, category, present: () -> boolean)
+local function enemyCard(
+	state: Types.TIndexState,
+	actions: Types.TIndexActions,
+	enemy,
+	order: number,
+	dealt: () -> number
+): TextButton
+	local id = enemy.Id
+	local function idOf(): number
+		return id
+	end
+
+	return card(state, {
+		Name = enemy.Name,
+		Accent = Parts.Threat(enemy).Accent,
+		Known = Parts.Known(state, idOf),
+		SinceLit = Parts.SinceLit(state, idOf),
+		IsSelected = derive(function(): boolean
+			return state.Selected() == id
+		end),
+		IsNew = function(): boolean
+			return state.Unread()[id] == true
+		end,
+		Select = function()
+			actions.Select(id)
+		end,
+		Picture = function(burned: () -> number, lit: () -> number, hand)
+			return Picture.Build(function()
+				return enemy
+			end, {
+				Burned = burned,
+				Lit = lit,
+				-- Under the hand it turns to face you and walks.
+				Moving = hand.IsHovered,
+				Yaw = function()
+					return Timing.HOVER_TURN * hand.Rise()
+				end,
+			}, {
+				Name = "Enemy",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
+				Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.PICTURE_BOX),
+				ZIndex = 4,
+				create("UIScale")({
+					Scale = function()
+						return 1 + Timing.HOVER_GROW * hand.Rise()
+					end,
+				}),
+			})
+		end,
+	}, order, dealt)
+end
+
+-- A recipe's card: its bottle in its colour once brewed, a dark bottle under the padlock before. A recipe new from the
+-- lab is revealed on it as an enemy is.
+local function potionCard(
+	state: Types.TIndexState,
+	actions: Types.TIndexActions,
+	recipe,
+	order: number,
+	dealt: () -> number
+): TextButton
+	local id = recipe.Id
+	local color = Parts.PotionColor(recipe)
+	local function idOf(): number
+		return id
+	end
+
+	return card(state, {
+		Name = recipe.Name,
+		Accent = color,
+		Known = Parts.PotionKnown(state, idOf),
+		SinceLit = Parts.PotionSinceLit(state, idOf),
+		IsSelected = derive(function(): boolean
+			return state.SelectedPotion() == id
+		end),
+		IsNew = function(): boolean
+			return Parts.IsPotionNew(state, id)
+		end,
+		Select = function()
+			actions.SelectPotion(id)
+		end,
+		Picture = function(burned: () -> number, lit: () -> number, hand)
+			return Components.Picture(EIcons.PotionBottle, {
+				Name = "Bottle",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
+				Size = Components.PictureBox(Layout.BOTTLE),
+				ImageColor3 = function()
+					return Parts.SILHOUETTE:Lerp(Palette.White, burned()):Lerp(color, lit())
+				end,
+				ZIndex = 4,
+				create("UIScale")({
+					Scale = function()
+						return 1 + Timing.HOVER_GROW * hand.Rise()
+					end,
+				}),
+			})
+		end,
+	}, order, dealt)
+end
+
+-- One page's cards, for vide.switch: grown in when the page comes up and shrunk away when another does.
+-- `shown` is the panel's fade, which the scrollbar follows: the cards are not in the panel's group.
+local function page(
+	state: Types.TIndexState,
+	actions: Types.TIndexActions,
+	category,
+	present: () -> boolean,
+	shown: () -> number
+)
 	-- When this page's cards start growing in: the later of the open and the pick of the page.
 	local builtAt = os.clock()
-	actions.Stir(Timing.DEAL_DELAY + Timing.DEAL + Timing.DEAL_STAGGER * #category.Enemies)
+	local size = Parts.Size(category)
+	actions.Stir(Timing.DEAL_DELAY + Timing.DEAL + Timing.DEAL_STAGGER * size)
 	local function dealt(order: number): () -> number
 		return derive(function(): number
 			if not present() then
@@ -360,23 +491,15 @@ local function page(state: Types.TIndexState, actions: Types.TIndexActions, cate
 		end)
 	end
 
-	local children = {}
-	local orders = {}
+	local children = table.create(size)
 	for order, enemy in category.Enemies do
-		orders[enemy.Id] = order
-		children[order] = card(state, actions, enemy, order, dealt(order))
+		children[order] = enemyCard(state, actions, enemy, order, dealt(order))
+	end
+	for order, recipe in category.Potions or {} do
+		children[order] = potionCard(state, actions, recipe, order, dealt(order))
 	end
 
-	local whole = dealt(1)
-	local ringTarget = derive(function(): Vector2?
-		local order = orders[state.Selected()]
-		return if order then placeOf(order) else nil
-	end)
-	local ringAt = spring(function(): Vector2
-		return ringTarget() or Vector2.zero
-	end, Timing.RING_PERIOD, Timing.RING_DAMPING)
-
-	local rows = math.max(1, math.ceil(#category.Enemies / Layout.COLUMNS))
+	local rows = math.max(1, math.ceil(size / Layout.COLUMNS))
 	local window = create("ScrollingFrame")({
 		Name = category.Word,
 		Position = UDim2.fromOffset(0, Layout.WINDOW_Y),
@@ -385,29 +508,32 @@ local function page(state: Types.TIndexState, actions: Types.TIndexActions, cate
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.fromOffset(0, 2 * Layout.FIRST.Y + (rows - 1) * Layout.STEP.Y + Layout.CARD.Y),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = Palette.Lavender,
-		ScrollBarImageTransparency = 0.4,
+		ScrollBarThickness = 0,
 		ZIndex = 2,
 		children,
-		Parts.Ring(Layout.RING, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = function()
-				local position = ringAt()
-				return UDim2.fromOffset(math.round(position.X), math.round(position.Y))
+	}) :: ScrollingFrame
+	local holder = create("Frame")({
+		Name = `{category.Word}Page`,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 2,
+		window,
+		Scrollbar.Build(window, {
+			Length = function(): number
+				return Layout.SIZE.Y + panelLift() - Layout.WINDOW_Y - 2 * Layout.SCROLLBAR_MARGIN
 			end,
-			Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
-			Visible = function()
-				return ringTarget() ~= nil and whole() > 0.5
-			end,
-			ZIndex = 2,
+			Shown = shown,
+		}, {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.fromOffset(Layout.SCROLLBAR_X, Layout.WINDOW_Y + Layout.SCROLLBAR_MARGIN),
+			ZIndex = 3,
 		}),
 	})
 	vide.cleanup(function()
-		window:Destroy()
+		holder:Destroy()
 	end)
 
-	return window, Timing.SWEEP + 0.02
+	return holder, Timing.SWEEP + 0.02
 end
 
 function Grid.Build(state: Types.TIndexState, actions: Types.TIndexActions, elapsed: () -> number): Frame
@@ -420,14 +546,16 @@ function Grid.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 		return Progress(state.Now(), state.CategoryAt(), Timing.TITLE)
 	end)
 	local found = derive(function(): number
-		return Parts.ShownCount(state, category().Enemies)
+		return Parts.FoundCount(state, category())
 	end)
 	local punch = Parts.Punched(found, Timing.COUNT_PUNCH, state.Category)
 
 	local pages = {}
 	for key, each in Parts.CATEGORIES do
 		pages[key] = function(present)
-			return page(state, actions, each, present)
+			return page(state, actions, each, present, function(): number
+				return 1 - faded()
+			end)
 		end
 	end
 	local margin = Layout.MARGIN
@@ -438,9 +566,12 @@ function Grid.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 	return create("Frame")({
 		Name = "Grid",
 		Position = function()
-			return UDim2.fromOffset(Layout.PANEL.X, Layout.PANEL.Y + math.round(Timing.PANEL_SLIDE * away()))
+			return UDim2.fromOffset(
+				Layout.PANEL.X,
+				Layout.PANEL.Y - panelLift() + math.round(Timing.PANEL_SLIDE * away())
+			)
 		end,
-		Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+		Size = panelSize,
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 		create("CanvasGroup")({
@@ -449,17 +580,16 @@ function Grid.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 			Size = UDim2.new(1, 2 * margin, 1, 2 * margin),
 			BackgroundTransparency = 1,
 			GroupTransparency = faded,
-			Components.Panel({ Brackets = Layout.BRACKETS, Tall = true, Wide = true }, {
+			Components.Panel({ Brackets = true, Tall = true, Wide = true }, {
 				Name = "Panel",
 				Position = UDim2.fromOffset(margin, margin),
-				Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
-				Components.Icon("Skull", {
+				Size = panelSize,
+				Components.Picture(function()
+					return category().Picture
+				end, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromOffset(Layout.GLYPH.X, Layout.GLYPH.Y),
-					Size = Components.GlyphBox(Layout.GLYPH_SIZE),
-					ImageColor3 = function()
-						return category().Accent
-					end,
+					Size = Components.PictureBox(Layout.GLYPH_SIZE),
 					ZIndex = 4,
 				}),
 				Label({
@@ -489,7 +619,7 @@ function Grid.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 					TextSize = Layout.COUNT_TEXT,
 					TextColor3 = Palette.Gold,
 					Text = function()
-						return `DISCOVERED  {found()} / {#category().Enemies}`
+						return `DISCOVERED  {found()} / {Parts.Size(category())}`
 					end,
 					create("UIScale")({
 						Scale = function()

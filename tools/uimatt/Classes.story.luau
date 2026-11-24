@@ -77,6 +77,7 @@ end
 
 local vide = require(ReplicatedStorage.Packages.vide)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local EClassesIds = require(ReplicatedStorage.Types.Enums.Data.EClassesIds)
 local Classes = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.LobbyController.Classes)
 
@@ -85,8 +86,15 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
+	[Icons.SHOWCASE] = ROOT .. "Showcase.png",
+	[Icons.SHOWCASE_FLOOR] = ROOT .. "ShowcaseFloor.png",
 }
 local MOMENT_AT = 0.2
 
@@ -142,27 +150,34 @@ return {
 		-- The shown ability's level, and the Gems held.
 		Level = 2,
 		Gems = 1000,
+		-- The art behind the avatar (Showcase.LOOKS); Game is the look the game draws.
+		Look = { "Game", table.unpack(Showcase.LOOKS) },
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
+		local look = props.controls.Look()
+		Showcase.Looks.Classes = if look == "Game" then Showcase.GAME_LOOKS.Classes else look
 		local level = props.controls.Level()
 		local at = os.clock() + MOMENT_AT
 		local levels = { level, level, level }
 		local landsAt = at + Classes.FLIGHT_SECONDS
-		-- Where the HUD's Gems glyph stands while this page is up (docked at the right of his currency).
+		-- Where the HUD's Gems glyph stands while this page is up (docked at the right, on the top row).
 		local gemsGlyph = create("Frame")({
 			Name = "GemsGlyph",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(1627, 85),
+			Position = UDim2.fromOffset(1627, 44),
 			Size = UDim2.fromOffset(40, 40),
 			BackgroundTransparency = 1,
 		})
 
 		local state = {
 			Scale = source(1),
+			PageScale = source(1),
 			Now = source(os.clock()),
 			IsClassesOpen = source(moment ~= "Close"),
 			ClassesToggledAt = source(if moment == "Open" or moment == "Close" then at else -math.huge),
+			ClassesPage = source("Classes"),
+			ClassesPageAt = source(-math.huge),
 			ShownAbility = source(if moment == "Pick" then 3 else 1),
 			AbilityPickedAt = source(if moment == "Pick" then at else -math.huge),
 			ClassLevels = source({ [EClassesIds.Human] = levels }),
@@ -190,6 +205,7 @@ return {
 			CloseClasses = noop,
 			PickAbility = noop,
 			UpgradeAbility = noop,
+			PickClassesPage = noop,
 		})
 		local root = create("Frame")({
 			Name = "Root",

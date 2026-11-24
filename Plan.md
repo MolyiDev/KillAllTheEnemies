@@ -50,7 +50,7 @@ Assets the code expects (each is a missing-asset warning until it is there, neve
 - `ReplicatedStorage.Models.Enemies.<ModelName>` rigs and `ReplicatedStorage.Animations.Enemies.<Set>` clips
   (Models.md 8, Animations.md 7).
 - Players are R6 and animated by Roblox's default Animate (as in the old places). The code's own directional walks
-  (`MovementController`, `ReplicatedStorage.Animations`) and `blockyBody`'s R15 swap came from games with R15 bodies:
+  (`MovementController`, `ReplicatedStorage.Animations`) came from games with R15 bodies:
   their clips are R15 and never apply here. Own R6 clips later need an empty Animate back in the project files.
 - `ReplicatedStorage.Models.Defenses.*` (a coloured block stands in).
 - `Workspace.Lobby.Pads` in the lobby place.

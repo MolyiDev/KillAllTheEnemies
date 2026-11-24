@@ -1,19 +1,22 @@
 --!nonstrict
 -- The weapon list (his left panel): the tier on show, its guns owned and not, each as his card with the gun's own model
 -- on it. A tier's cards are dealt in when the screen opens and when the tier is picked, and swept away as another is.
--- Within a tier the cards glide to their places, so a gun bought crosses from NOT OWNED into OWNED; the white ring
--- glides to the picked card and the green tick to the card its tier holds.
+-- Within a tier the cards glide to their places, so a gun bought crosses from NOT OWNED into OWNED; the picked card's
+-- brackets close round it and the green tick glides to the card its tier holds.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local Parts = require(script.Parent.Parts)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -32,7 +35,6 @@ local Layout = table.freeze({
 	SIZE = Vector2.new(440, 850),
 	-- The room round the panel inside the group that fades it, for its shadow and brackets.
 	MARGIN = 48,
-	BRACKETS = 5,
 	-- The header: the rifle's middle and longer side, the tier, the count's right edge, the rule.
 	RIFLE = Vector2.new(35, 39),
 	RIFLE_GLYPH = 19,
@@ -52,12 +54,15 @@ local Layout = table.freeze({
 	OWNED_BADGE_X = 106,
 	LOCKED_BADGE_X = 150,
 	OWNED_Y = 84,
-	-- From a section's word to its first row, and from a section's last row to the next word.
-	ROWS_DROP = 32,
+	-- From a section's word to its first row, and from a section's last row to the next word. 40, not his 32: a card's
+	-- brackets under the hand reached up into the count badge beside the word.
+	ROWS_DROP = 40,
 	SECTION_GAP = 30,
-	CARD_XS = { 24, 160, 296 },
+	-- 18 apart across and 19 down (his 16): a card grows its brackets 12 px out across and 13 down under a press, and at
+	-- his they crossed the next card's.
+	CARD_XS = { 22, 160, 298 },
 	CARD = Vector2.new(120, 150),
-	ROW_STEP = 166,
+	ROW_STEP = 169,
 	-- Inside a card: the gun's box and middle, the rule over the name band, the name, the corner badges.
 	GUN_BOX = 92,
 	GUN = Vector2.new(60, 62),
@@ -71,8 +76,8 @@ local Layout = table.freeze({
 	CHIP_HEIGHT = 26,
 	CHIP_TEXT = 14,
 	CHIP_GEM = 15,
-	CARD_BRACKETS = 6,
-	RING = 5,
+	-- 3 out, opening 1 under the hand: cards 16 apart grow 4 px a side under the hand and 6 on a press, and his 6 + 4
+	-- crossed the next card's.
 })
 
 local Timing = table.freeze({
@@ -108,7 +113,6 @@ local Timing = table.freeze({
 	COUNT_PERIOD = 0.3,
 	COUNT_DAMPING = 0.5,
 	COUNT_PUNCH = 0.3,
-	HOVER_BRACKETS = 4,
 })
 
 local List = {}
@@ -194,10 +198,9 @@ local function priceChip(gun, props: { [any]: any }): Frame
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				Padding = UDim.new(0, 4),
 			}),
-			Components.Icon("Gem", {
+			Components.Picture(EIcons.Gem, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.CHIP_GEM),
-				ImageColor3 = Palette.Gold,
+				Size = Components.PictureBox(Layout.CHIP_GEM),
 			}),
 			Label({
 				LayoutOrder = 2,
@@ -240,14 +243,14 @@ local function arrange(guns, levels: { [number]: number }, held: number)
 	return { Places = places, Owned = #owned, Locked = #locked, LockedY = lockedY }
 end
 
--- One gun's card.
+-- One gun's card, and how much the hand and the purchase's pop grow it, which the tick on it takes too.
 local function card(
 	state: Types.TWeaponsState,
 	actions: Types.TWeaponsActions,
 	gun,
 	place: () -> Vector2,
 	dealt: () -> number
-): TextButton
+): (TextButton, () -> number)
 	local rarity = Parts.RARITIES[gun.Rarity]
 	local accent = rarity.Accent
 	local hand = Hand.React("Take")
@@ -291,6 +294,9 @@ local function card(
 
 	-- The purchase's pop, struck the frame the Gems land.
 	local pop, strikePop = Hand.Kick(Timing.POP_PERIOD, Timing.POP_DAMPING)
+	local grown = function(): number
+		return hand.Scale() + pop()
+	end
 	local hasLanded = derive(function(): boolean
 		return state.BoughtGun() == gun.Id and state.Now() >= state.BoughtAt()
 	end)
@@ -322,7 +328,7 @@ local function card(
 		hand.Events,
 		create("UIScale")({
 			Scale = function()
-				return Motion.Decelerate(dealt()) * (hand.Scale() + pop())
+				return Motion.Decelerate(dealt()) * grown()
 			end,
 		}),
 		-- The purchase's one ring, the card's own outline grown off it.
@@ -349,13 +355,12 @@ local function card(
 			end,
 			Tint = 0.35,
 			Marks = true,
-			Brackets = function()
-				return Layout.CARD_BRACKETS + Timing.HOVER_BRACKETS * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketLength = 20,
 			BracketTransparency = function()
-				return if isSelected() then 1 else 0.6 - 0.3 * hand.Light()
+				return 0.6 - 0.3 * hand.Light()
 			end,
+			BracketsClosed = isSelected,
 		}, {
 			Name = "Card",
 			Size = UDim2.fromScale(1, 1),
@@ -402,10 +407,13 @@ local function card(
 				Text = string.upper(gun.Name),
 				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
 			}),
-			Parts.Badge("Upgrade", Layout.CORNER_BADGE, {
+			-- Where his gold badge stood: placed by its middle.
+			Notice.Build({ Kind = "Upgrade", Size = Layout.CORNER_BADGE, IsShown = canUpgrade }, {
 				Name = "CanUpgrade",
-				Position = UDim2.fromOffset(Layout.CORNER_LEFT.X, Layout.CORNER_LEFT.Y),
-				Visible = canUpgrade,
+				Position = UDim2.fromOffset(
+					Layout.CORNER_LEFT.X + Layout.CORNER_BADGE / 2,
+					Layout.CORNER_LEFT.Y + Layout.CORNER_BADGE / 2
+				),
 				ZIndex = 5,
 			}),
 			-- Gone the frame the purchase lands, under the card's flash.
@@ -458,7 +466,8 @@ local function card(
 				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
 			}),
 		}),
-	}) :: TextButton
+	}) :: TextButton,
+		grown
 end
 
 -- One tier's cards, its two sections' words and counts, the ring and the tick, for vide.switch: grown in when the tier
@@ -495,14 +504,13 @@ local function tierPage(
 	end
 
 	local children = {}
-	local glides = {}
+	local scales = {}
 	for order, gun in guns do
 		local target = derive(function(): Vector2
 			return arranged().Places[gun.Id]
 		end)
 		local glide = spring(target, Timing.GLIDE_PERIOD, Timing.GLIDE_DAMPING)
-		glides[gun.Id] = glide
-		children[order] = card(state, actions, gun, glide, dealt(order))
+		children[order], scales[gun.Id] = card(state, actions, gun, glide, dealt(order))
 	end
 
 	local whole = dealt(1)
@@ -510,11 +518,7 @@ local function tierPage(
 		return 1 - Motion.Out(whole())
 	end)
 
-	-- The ring on the picked card and the tick on the one the tier holds, each one piece gliding between cards.
-	local selectedAt = derive(function(): Vector2?
-		local glide = glides[state.Selected()]
-		return if glide then glide() else nil
-	end)
+	-- The tick on the card the tier holds, one piece gliding between cards.
 	local equippedGun = derive(function(): number
 		return state.Equipped()[tier] or LoadoutCore.Starters[tier].Id
 	end)
@@ -522,6 +526,10 @@ local function tierPage(
 		return arranged().Places[equippedGun()] or Vector2.zero
 	end)
 	local tick = spring(tickTarget, Timing.GLIDE_PERIOD, Timing.GLIDE_DAMPING)
+	local equippedScale = function(): number
+		local grown = scales[equippedGun()]
+		return if grown then grown() else 1
+	end
 	local tickPop, strikeTick = Hand.Kick(0.3, 0.5)
 	vide.effect(function()
 		state.EquippedAt()
@@ -569,26 +577,16 @@ local function tierPage(
 			return Vector2.new(Layout.LOCKED_BADGE_X, arranged().LockedY + Layout.BADGE_DROP)
 		end, sectionsFade),
 		children,
-		Parts.Ring(Layout.RING, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = function()
-				local at = selectedAt() or Vector2.zero
-				return UDim2.fromOffset(math.round(at.X), math.round(at.Y))
-			end,
-			Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
-			Visible = function()
-				return selectedAt() ~= nil and whole() > 0.5
-			end,
-			ZIndex = 2,
-		}),
 		Parts.Badge("Check", Layout.CORNER_BADGE, {
 			Name = "Equipped",
 			AnchorPoint = Vector2.new(0.5, 0.5),
+			-- On the corner of the card it lies on as that card grows and presses under the hand.
 			Position = function()
 				local at = tick()
+				local grown = equippedScale()
 				return UDim2.fromOffset(
-					math.round(at.X - Layout.CARD.X / 2 + Layout.CORNER_RIGHT.X + Layout.CORNER_BADGE / 2),
-					math.round(at.Y - Layout.CARD.Y / 2 + Layout.CORNER_RIGHT.Y + Layout.CORNER_BADGE / 2)
+					math.round(at.X + grown * (Layout.CORNER_RIGHT.X + Layout.CORNER_BADGE / 2 - Layout.CARD.X / 2)),
+					math.round(at.Y + grown * (Layout.CORNER_RIGHT.Y + Layout.CORNER_BADGE / 2 - Layout.CARD.Y / 2))
 				)
 			end,
 			Visible = function()
@@ -597,7 +595,7 @@ local function tierPage(
 			ZIndex = 4,
 			create("UIScale")({
 				Scale = function()
-					return Motion.Decelerate(whole()) * (1 + tickPop())
+					return Motion.Decelerate(whole()) * (1 + tickPop()) * equippedScale()
 				end,
 			}),
 		}),
@@ -636,6 +634,11 @@ function List.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 		end
 	end
 	local margin = Layout.MARGIN
+	-- Raised to just under the top bar, its bottom staying put: the cards ride up with the top.
+	local lift = panelTop.Lift(Layout.PANEL.Y)
+	local size = function(): UDim2
+		return UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y + lift())
+	end
 
 	-- The panel and its header fade as one picture in a group with room for its shadow. The cards are not in it:
 	-- they carry the guns' own pictures and move under the hand, and a group redraws its whole canvas whenever
@@ -643,9 +646,9 @@ function List.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 	return create("Frame")({
 		Name = "List",
 		Position = function()
-			return UDim2.fromOffset(Layout.PANEL.X - math.round(Timing.PANEL_SLIDE * away()), Layout.PANEL.Y)
+			return UDim2.fromOffset(Layout.PANEL.X - math.round(Timing.PANEL_SLIDE * away()), Layout.PANEL.Y - lift())
 		end,
-		Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+		Size = size,
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 		create("CanvasGroup")({
@@ -654,15 +657,14 @@ function List.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 			Size = UDim2.new(1, 2 * margin, 1, 2 * margin),
 			BackgroundTransparency = 1,
 			GroupTransparency = faded,
-			Components.Panel({ Brackets = Layout.BRACKETS, Tall = true }, {
+			Components.Panel({ Brackets = true, Tall = true }, {
 				Name = "Panel",
 				Position = UDim2.fromOffset(margin, margin),
-				Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
-				Components.Icon("Rifle", {
+				Size = size,
+				Components.Picture(EIcons.Rifle, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromOffset(Layout.RIFLE.X, Layout.RIFLE.Y),
-					Size = Components.GlyphBox(Layout.RIFLE_GLYPH),
-					ImageColor3 = Palette.Pink,
+					Size = Components.PictureBox(Layout.RIFLE_GLYPH),
 					ZIndex = 4,
 				}),
 				Label({

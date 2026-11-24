@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 11: more health and a slower, readable strike. Not staggered by every hit.
@@ -26,6 +27,7 @@ local data: TData.TEnemy = {
 	IntroRound = 5,
 	SpawnWeight = 2,
 	GoldDrop = 10,
+	Energy = { Upgrade = EUpgradesIds.Armor, Cost = 4, Chance = 0.05, Color = Color3.fromRGB(158, 186, 217) },
 }
 
 return table.freeze(data)

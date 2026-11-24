@@ -514,6 +514,12 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		end
 
 		local isWindingUp = attackWindup > 0
+		local windingUp = if isWindingUp
+			then data.Attacks[EnemyWorld:get(entity, Components.AttackIndex) :: number]
+			else nil
+		-- A ground warning stays where it was shown, so a body winding one up holds still on it: no momentum, crowd,
+		-- wall or shove moves it, and it keeps the facing it aimed with.
+		local isHeld = windingUp ~= nil and windingUp.Kind ~= "Melee"
 		local walkSpeed = if hasTargets and not isWindingUp then speed else 0
 		local walkVelX = walkDirX * walkSpeed
 		local walkVelZ = walkDirZ * walkSpeed
@@ -613,6 +619,10 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 			walkVelZ *= SPEED_CAP / mag
 		end
 
+		if isHeld then
+			walkVelX, walkVelZ = 0, 0
+		end
+
 		-- 4. Gravity onto whichever is higher: the floor it can step onto here, or a body it stands on.
 		local groundY = cbStandOn
 		if grid then
@@ -657,19 +667,17 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		if attackWindup > 0 then
 			newWindup = attackWindup - dt
 			if newWindup <= 0 then
-				local index = EnemyWorld:get(entity, Components.AttackIndex) :: number
-				local attack = attacks[index]
-				if attack and attack.Kind == "Melee" then
-					local hits = sweepSwing(tick, newPos, walkDirX, walkDirZ, halfExtents, attack.Range)
+				if windingUp and windingUp.Kind == "Melee" then
+					local hits = sweepSwing(tick, newPos, walkDirX, walkDirZ, halfExtents, windingUp.Range)
 					for i = 1, hits do
 						landedCount += 1
 						landedEntity[landedCount] = entity
 						landedTarget[landedCount] = swingHits[i]
-						landedScale[landedCount] = attack.DamageScale
+						landedScale[landedCount] = windingUp.DamageScale
 					end
 				end
 
-				newWindup = -(if attack then attack.Cooldown else 1)
+				newWindup = -(if windingUp then windingUp.Cooldown else 1)
 			end
 		elseif attackWindup < 0 then
 			newWindup = min(attackWindup + dt, 0)
@@ -715,7 +723,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		end
 
 		-- Facing is where it WANTS to go, not its position delta: a knocked-back body keeps facing its target.
-		local newYaw = atan2(walkDirX, walkDirZ)
+		local newYaw = if isHeld then yaw else atan2(walkDirX, walkDirZ)
 
 		EnemyWorld:set(entity, Components.Position, newPos)
 		EnemyWorld:set(entity, Components.Velocity, vectorCreate(walkVelX, vy, walkVelZ))

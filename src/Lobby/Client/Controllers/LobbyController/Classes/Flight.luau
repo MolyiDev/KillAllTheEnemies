@@ -42,7 +42,7 @@ function Flight.Build(state: Types.TLobbyState, ends: TEnds): Frame
 			local from, to = ends.From(), ends.To()
 			if not layer or not from or not to then return { From = Vector2.zero, To = Vector2.zero } end
 			local origin = layer.AbsolutePosition
-			local scale = state.Scale()
+			local scale = state.PageScale()
 			return { From = (from - origin) / scale, To = (to - origin) / scale }
 		end)
 	end)

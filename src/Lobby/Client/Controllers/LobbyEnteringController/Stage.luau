@@ -199,11 +199,18 @@ local function load(animator: Animator, id: string, isLooped: boolean): Animatio
 	return track
 end
 
--- How far `model`'s pivot stands over its feet, standing at the origin.
+-- How far `model`'s pivot stands over its feet, standing at the origin. Only the body's own parts count: an accessory's
+-- handle stays where the description built it until the model is in the Workspace and its weld puts it on the head,
+-- so a hat still under the feet would lift the body out of the shot.
 local function liftOf(model: Model): number
 	model:PivotTo(CFrame.identity)
-	local box, size = model:GetBoundingBox()
-	return size.Y / 2 - box.Position.Y
+
+	local lowest = 0
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then lowest = math.min(lowest, part.Position.Y - part.Size.Y / 2) end
+	end
+
+	return -lowest
 end
 
 local function bodyOf(model: Model, slot: number): TBody

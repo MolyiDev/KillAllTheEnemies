@@ -14,13 +14,18 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local CodesCore = require(ReplicatedStorage.GlobalShared.Core.CodesCore)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
-local CodesUI = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.CodesUI)
+local CodesUI = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.CodesController.CodesUI)
 
 local source = vide.source
 local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
 }

@@ -1,0 +1,54 @@
+import "../Types/DataId.blink"
+
+-- The Mutation Lab's requests (MutationService). Each names only what the hand picked: whether the energy is there, a
+-- brew is left, a slot is free or the Gems are enough is the server's.
+
+-- Brew potions from two different kinds of souls, up to a count: as many as the souls and the brews allow. (enemy
+-- data Ids, the most to brew)
+event Brew {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (DataId.Type, DataId.Type, u8)
+}
+
+-- Put a held potion in the first free slot. (potion Id)
+event Equip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16
+}
+
+-- Take a potion out of its slot. (potion Id)
+event Unequip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16
+}
+
+-- Dissolve held potions back into a share of their souls (PotionsCore.Refund). Potions in a slot are skipped.
+-- (potion Ids)
+event Dissolve {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16[]
+}
+
+-- Buy the potion slot sold for Gems.
+event BuySlot {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}
+
+-- The index has shown these recipes found, so their reveal does not play again. (potion data Ids)
+event Seen {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8[]
+}

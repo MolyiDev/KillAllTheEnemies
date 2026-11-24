@@ -344,8 +344,9 @@ end
 -- ============================== UI ==============================
 -- Flat, on the UI bus. Never played: every UI clip is authored PlayOnRemove, so parenting the clone and destroying it
 -- IS the play, and nothing is left to clean up.
-local function playFlat(source: Sound)
+local function playFlat(source: Sound, playbackSpeed: number?)
 	local sound = source:Clone()
+	if playbackSpeed then sound.PlaybackSpeed = source.PlaybackSpeed * playbackSpeed end
 	sound.Parent = SoundService
 	sound:Destroy()
 end
@@ -357,7 +358,8 @@ function SoundsCore.PlayUISound(soundId: number)
 end
 
 -- A UI clip by name: `name` is a clip, or a bag of takes to roll. Silent when it is not in the tree.
-function SoundsCore.PlayUINamed(group: string, name: string)
+-- `playbackSpeed` scales the take's own pitch (a rising run).
+function SoundsCore.PlayUINamed(group: string, name: string, playbackSpeed: number?)
 	local folder = resolveGroup(group)
 	local node = if folder then folder:FindFirstChild(name) else nil
 	if not node then return end
@@ -366,7 +368,7 @@ function SoundsCore.PlayUINamed(group: string, name: string)
 	if not takes and not isClip then return end
 	if not claim(node, 0) then return end
 
-	playFlat(if takes then takes[rollIndex(takes)] else node :: Sound)
+	playFlat(if takes then takes[rollIndex(takes)] else node :: Sound, playbackSpeed)
 end
 
 -- Every UI's hover and click (bags under Sounds.UI), named once here for all their callers.

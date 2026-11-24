@@ -1,9 +1,8 @@
 --!nonstrict
 -- The quests screen on his 1920 x 1080 (UIMatt.md, Quests - Daily / Weekly): the lobby dimmed as his lobby screens dim
--- it, the title, the board's panel with its DAILY / WEEKLY tabs and reset clock, the board's five quests (Card),
--- CLAIM ALL, and the X at the panel's top right as on the daily rewards and spins. The HUD's Gems pill stays up over it
--- as the screen's balance. The panel arrives first, its cards are dealt onto it one under another, then the tabs, the X
--- and the title, and CLAIM ALL last.
+-- it, the board's panel with its DAILY / WEEKLY tabs and reset clock, the board's five quests (Card), CLAIM ALL, and
+-- EXIT. The HUD's Gems pill stays up over it as the screen's balance. The panel arrives first, its cards are dealt onto
+-- it one under another, then the tabs, CLAIM ALL, and EXIT last.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -12,9 +11,11 @@ local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
+local formatCountdown = require(ReplicatedStorage.GlobalShared.Utils.Functions.formatCountdown)
 local Card = require(script.Parent.Card)
 local Parts = require(script.Parent.Parts)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -26,27 +27,18 @@ local Label = Parts.Label
 
 -- His drawn rects in px at 1080, from the screen's top left.
 local Layout = table.freeze({
-	TITLE_SCROLL = Vector2.new(64, 68),
-	TITLE_SCROLL_GLYPH = 45,
-	TITLE = Vector2.new(96, 40),
-	TITLE_TEXT = 55,
-	SUBTITLE_GLYPH = Vector2.new(105.5, 110),
-	SUBTITLE_GLYPH_SIZE = 13,
-	SUBTITLE = Vector2.new(120, 101),
-	SUBTITLE_TEXT = 17,
-	PANEL = Vector2.new(299, 169),
+	PANEL = Vector2.new(299, Parts.PANEL_TOP),
 	PANEL_SIZE = Vector2.new(1322, 772),
-	PANEL_BRACKETS = 5,
-	-- The tabs' rects, their glyphs and words, and the pink slab gliding under the one on show.
-	TABS = { Vector2.new(327, 193), Vector2.new(582, 194) },
+	-- The tabs' rects, their glyphs and words, and the pink slab gliding under the one on show. WEEKLY stands 22 px off
+	-- DAILY (his 13): each tab's brackets stand up to 8 px out under the hand, and closer, the two tabs' corners crossed.
+	TABS = { Vector2.new(327, 193), Vector2.new(591, 194) },
 	TAB_SIZES = { Vector2.new(242, 62), Vector2.new(241, 60) },
 	TAB_GLIDER = Vector2.new(242, 62),
-	TAB_BRACKETS = 5,
 	TAB_TEXT = 22,
 	TAB_GLYPH = 22,
-	-- The reset clock beside the X, as the daily rewards' streak and the spins' words: 25 px off the X and centred on
-	-- it, the stopwatch just left of the words.
-	CLOCK_RIGHT = 1508,
+	-- The reset clock at the header's right, ending where the rule does, the stopwatch just left of the words.
+	CLOCK_RIGHT = 1590,
+	CLOCK_Y = 217,
 	CLOCK_TEXT = 20,
 	STOPWATCH_GLYPH = 22,
 	STOPWATCH_GAP = 10,
@@ -57,10 +49,6 @@ local Layout = table.freeze({
 	CLAIM_ALL_SIZE = Vector2.new(1266, 71),
 	CLAIM_ALL_TEXT = 28,
 	CLAIM_ALL_CHECK = 26,
-	-- The X, set in from the panel's top right corner as the daily rewards set theirs.
-	CLOSE = Vector2.new(1533, 184),
-	CLOSE_SIZE = 66,
-	CLOSE_BAR = Vector2.new(23, 2),
 })
 
 local Timing = table.freeze({
@@ -68,8 +56,6 @@ local Timing = table.freeze({
 	DIM = 0.3,
 	PANEL_DELAY = 0,
 	PANEL_RISE = 30,
-	TITLE_DELAY = 0.08,
-	TITLE_SLIDE = 22,
 	TABS_DELAY = 0.14,
 	TABS_STAGGER = 0.05,
 	TABS_DROP = 20,
@@ -84,10 +70,10 @@ local Timing = table.freeze({
 	-- The clock's words slide in as the board changes.
 	CLOCK = 0.25,
 	CLOCK_SLIDE = 14,
-	-- The X comes in with the tabs; CLAIM ALL rises in last.
-	CLOSE_DELAY = 0.19,
+	-- CLAIM ALL rises in after the tabs, EXIT last.
 	BOTTOM_DELAY = 0.24,
 	RISE = 24,
+	EXIT_DELAY = 0.28,
 	-- A press on CLAIM ALL moves it by its width, so it takes this share of a button's reach, and goes in this much
 	-- while the server is asked.
 	CLAIM_ALL_REACH = 1 / 3,
@@ -102,6 +88,8 @@ local Timing = table.freeze({
 	COUNT_PUNCH = 0.35,
 })
 
+local lift = Parts.Lift
+
 local Screen = {}
 
 -- How long a board's deal and its bars' fill take, for the controller's clock.
@@ -111,51 +99,6 @@ Screen.DEAL_SECONDS = Timing.DEAL_DELAY
 	+ Timing.DEAL
 	+ Card.FILL_SECONDS
 	+ 0.4
-
-local function title(state: Types.TQuestsState, elapsed: () -> number): Frame
-	local away = Parts.Away(state, elapsed, Timing.TITLE_DELAY)
-	local faded = Parts.Faded(state, elapsed, Timing.TITLE_DELAY)
-
-	return create("Frame")({
-		Name = "Title",
-		Position = function()
-			return UDim2.fromOffset(-math.round(Timing.TITLE_SLIDE * away()), 0)
-		end,
-		Size = UDim2.fromOffset(420, 130),
-		BackgroundTransparency = 1,
-		ZIndex = 2,
-		Components.Icon("Scroll", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.TITLE_SCROLL.X, Layout.TITLE_SCROLL.Y),
-			Size = Components.GlyphBox(Layout.TITLE_SCROLL_GLYPH),
-			ImageColor3 = Palette.Pink,
-			ImageTransparency = faded,
-		}),
-		Label({
-			Position = UDim2.fromOffset(Layout.TITLE.X, Layout.TITLE.Y),
-			Size = UDim2.fromOffset(320, Layout.TITLE_TEXT),
-			TextSize = Layout.TITLE_TEXT,
-			TextTransparency = faded,
-			Text = "QUESTS",
-		}),
-		Components.Icon("Star", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.SUBTITLE_GLYPH.X, Layout.SUBTITLE_GLYPH.Y),
-			Size = Components.GlyphBox(Layout.SUBTITLE_GLYPH_SIZE),
-			ImageColor3 = Palette.Gold,
-			ImageTransparency = faded,
-		}),
-		Label({
-			Position = UDim2.fromOffset(Layout.SUBTITLE.X, Layout.SUBTITLE.Y),
-			Size = UDim2.fromOffset(320, Layout.SUBTITLE_TEXT),
-			FontFace = Font.DisplayBold,
-			TextSize = Layout.SUBTITLE_TEXT,
-			TextColor3 = Palette.Gold,
-			TextTransparency = faded,
-			Text = "COMPLETE TASKS FOR REWARDS",
-		}),
-	})
-end
 
 -- The panel, its rule and the reset clock: they fade as one picture in a group with room for the panel's shadow.
 local function panel(state: Types.TQuestsState, elapsed: () -> number): Frame
@@ -169,22 +112,29 @@ local function panel(state: Types.TQuestsState, elapsed: () -> number): Frame
 	end
 	local margin = 40
 	local origin = Layout.PANEL
-	local clockY = Layout.CLOSE.Y + Layout.CLOSE_SIZE / 2 - origin.Y
+	local clockY = Layout.CLOCK_Y - origin.Y
 
 	return create("CanvasGroup")({
 		Name = "Chrome",
 		Position = function()
-			return UDim2.fromOffset(origin.X - margin, origin.Y - margin + math.round(Timing.PANEL_RISE * away()))
+			return UDim2.fromOffset(
+				origin.X - margin,
+				origin.Y - lift() - margin + math.round(Timing.PANEL_RISE * away())
+			)
 		end,
-		Size = UDim2.fromOffset(Layout.PANEL_SIZE.X + 2 * margin, Layout.PANEL_SIZE.Y + 2 * margin),
+		Size = function()
+			return UDim2.fromOffset(Layout.PANEL_SIZE.X + 2 * margin, Layout.PANEL_SIZE.Y + lift() + 2 * margin)
+		end,
 		BackgroundTransparency = 1,
 		GroupTransparency = faded,
 		ZIndex = 2,
-		Components.Panel({ Brackets = Layout.PANEL_BRACKETS, Tall = true, Wide = true }, {
+		Components.Panel({ Brackets = true, Tall = true, Wide = true }, {
 			Name = "Panel",
 			Position = UDim2.fromOffset(margin, margin),
-			Size = UDim2.fromOffset(Layout.PANEL_SIZE.X, Layout.PANEL_SIZE.Y),
-			-- Grows left from the X as the words change; the stopwatch rides its left edge.
+			Size = function()
+				return UDim2.fromOffset(Layout.PANEL_SIZE.X, Layout.PANEL_SIZE.Y + lift())
+			end,
+			-- Grows left from its right end as the words change; the stopwatch rides its left edge.
 			Label({
 				Name = "Clock",
 				AnchorPoint = Vector2.new(1, 0.5),
@@ -200,13 +150,12 @@ local function panel(state: Types.TQuestsState, elapsed: () -> number): Frame
 				TextColor3 = Palette.Gold,
 				TextTransparency = clockFaded,
 				Text = function()
-					return `RESETS IN {Parts.Clock(state.SecondsLeft())}`
+					return `RESETS IN {formatCountdown(state.SecondsLeft())}`
 				end,
-				Components.Icon("Stopwatch", {
+				Components.Picture(EIcons.Stopwatch, {
 					AnchorPoint = Vector2.new(1, 0.5),
 					Position = UDim2.new(0, -Layout.STOPWATCH_GAP, 0.5, 0),
-					Size = Components.GlyphBox(Layout.STOPWATCH_GLYPH),
-					ImageColor3 = Palette.Gold,
+					Size = Components.PictureBox(Layout.STOPWATCH_GLYPH),
 					ImageTransparency = clockFaded,
 					ZIndex = 4,
 				}),
@@ -223,7 +172,13 @@ local function panel(state: Types.TQuestsState, elapsed: () -> number): Frame
 	})
 end
 
-local function tab(state: Types.TQuestsState, actions: Types.TQuestsActions, elapsed: () -> number, board: number)
+-- One tab and its word; and the hand's scale on it, which the glider takes while it lies on this tab.
+local function tab(
+	state: Types.TQuestsState,
+	actions: Types.TQuestsActions,
+	elapsed: () -> number,
+	board: number
+): ({ Instance }, () -> number)
 	local delay = Timing.TABS_DELAY + Timing.TABS_STAGGER * (board - 1)
 	local away = Parts.Away(state, elapsed, delay)
 	local hand = Hand.React("Take", function(): boolean
@@ -236,7 +191,7 @@ local function tab(state: Types.TQuestsState, actions: Types.TQuestsActions, ela
 	local at, size = Layout.TABS[board], Layout.TAB_SIZES[board]
 	local word = if board == 1 then "DAILY" else "WEEKLY"
 	local position = function()
-		return UDim2.fromOffset(at.X + size.X / 2, at.Y + size.Y / 2 - math.round(Timing.TABS_DROP * away()))
+		return UDim2.fromOffset(at.X + size.X / 2, at.Y - lift() + size.Y / 2 - math.round(Timing.TABS_DROP * away()))
 	end
 
 	-- The word is its own piece over the glider, which slides between the plaque and it.
@@ -265,9 +220,9 @@ local function tab(state: Types.TQuestsState, actions: Types.TQuestsActions, ela
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				Padding = UDim.new(0, 12),
 			}),
-			Components.Icon(if board == 1 then "Scroll" else "Star", {
+			Components.Picture(if board == 1 then EIcons.Scroll else EIcons.Star, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.TAB_GLYPH),
+				Size = Components.PictureBox(Layout.TAB_GLYPH),
 				ImageColor3 = function()
 					return Palette.Lavender:Lerp(Palette.White, picked())
 				end,
@@ -306,19 +261,25 @@ local function tab(state: Types.TQuestsState, actions: Types.TQuestsActions, ela
 		Parts.Plaque({
 			Name = "Plaque",
 			Size = UDim2.fromScale(1, 1),
-			Components.Brackets(function()
-				return Layout.TAB_BRACKETS + 3 * hand.Rise()
-			end, function()
-				return 0.6 - 0.3 * hand.Light()
-			end, 14),
+			Components.Brackets(
+				hand.Rise,
+				function()
+					return 0.6 - 0.3 * hand.Light()
+				end,
+				14,
+				function()
+					return state.Board() == board
+				end
+			),
 			Hand.WashLayer(hand, 3, 2),
 		}),
 	}) :: TextButton
 
-	return { button, label }
+	return { button, label }, hand.Scale
 end
 
--- The two tabs and his pink slab under the one on show: one piece gliding from tab to tab.
+-- The two tabs and his pink slab under the one on show: one piece gliding from tab to tab. No brackets of its own: the
+-- tab's, under it, close round it, and two sets read as a double corner (UI.md).
 local function tabs(state: Types.TQuestsState, actions: Types.TQuestsActions, elapsed: () -> number): { Instance }
 	local away = Parts.Away(state, elapsed, Timing.TABS_DELAY)
 	local glideX = spring(function(): number
@@ -327,24 +288,28 @@ local function tabs(state: Types.TQuestsState, actions: Types.TQuestsActions, el
 	end, Timing.GLIDE_PERIOD, Timing.GLIDE_DAMPING)
 	local centerY = Layout.TABS[1].Y + Layout.TAB_GLIDER.Y / 2
 
+	local daily, dailyScale = tab(state, actions, elapsed, 1)
+	local weekly, weeklyScale = tab(state, actions, elapsed, 2)
+	local scales = { dailyScale, weeklyScale }
+
 	return {
-		tab(state, actions, elapsed, 1),
-		tab(state, actions, elapsed, 2),
+		daily,
+		weekly,
 		Components.Slab({
 			Kind = "Pink",
 			Marks = true,
-			Brackets = Layout.TAB_BRACKETS,
 		}, {
 			Name = "Glider",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
-				return UDim2.fromOffset(math.round(glideX()), centerY - math.round(Timing.TABS_DROP * away()))
+				return UDim2.fromOffset(math.round(glideX()), centerY - lift() - math.round(Timing.TABS_DROP * away()))
 			end,
 			Size = UDim2.fromOffset(Layout.TAB_GLIDER.X, Layout.TAB_GLIDER.Y),
 			ZIndex = 4,
+			-- It grows and presses with the tab it lies on, or the plaque under it shows round its edge.
 			create("UIScale")({
 				Scale = function()
-					return 1 - away()
+					return (1 - away()) * scales[state.Board()]()
 				end,
 			}),
 		}),
@@ -383,7 +348,9 @@ local function page(state: Types.TQuestsState, actions: Types.TQuestsActions, bo
 
 	return create("Frame")({
 		Name = QuestsCore.BOARDS[board],
-		Position = UDim2.fromOffset(Layout.CARDS.X, Layout.CARDS.Y),
+		Position = function()
+			return UDim2.fromOffset(Layout.CARDS.X, Layout.CARDS.Y - lift())
+		end,
 		Size = UDim2.fromOffset(Card.SIZE.X, Card.SIZE.Y),
 		BackgroundTransparency = 1,
 		ZIndex = 3,
@@ -452,9 +419,7 @@ local function claimAll(state: Types.TQuestsState, actions: Types.TQuestsActions
 				return if isLive() then "Go" else "Off"
 			end,
 			Marks = true,
-			Brackets = function()
-				return 5 + 3 * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
 			end,
@@ -480,9 +445,9 @@ local function claimAll(state: Types.TQuestsState, actions: Types.TQuestsActions
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 14),
 				}),
-				Components.Icon("Check", {
+				Components.Picture(EIcons.Check, {
 					LayoutOrder = 1,
-					Size = Components.GlyphBox(Layout.CLAIM_ALL_CHECK),
+					Size = Components.PictureBox(Layout.CLAIM_ALL_CHECK),
 					ImageColor3 = textColor,
 				}),
 				Components.Tracked("CLAIM ALL", Layout.CLAIM_ALL_TEXT, 2, Font.Display, {
@@ -516,61 +481,6 @@ local function claimAll(state: Types.TQuestsState, actions: Types.TQuestsActions
 	}) :: TextButton
 end
 
--- His pink X: a slab with two white bars that turn a quarter under the hand.
-local function closeButton(state: Types.TQuestsState, actions: Types.TQuestsActions, elapsed: () -> number): TextButton
-	local away = Parts.Away(state, elapsed, Timing.CLOSE_DELAY)
-	local hand = Hand.React("Operate")
-	local function bar(rotation: number): Frame
-		return create("Frame")({
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(Layout.CLOSE_BAR.X, Layout.CLOSE_BAR.Y),
-			Rotation = function()
-				return rotation + 90 * hand.Rise()
-			end,
-			BackgroundColor3 = Palette.White,
-			BorderSizePixel = 0,
-			ZIndex = 5,
-		})
-	end
-
-	return Components.Button({
-		Name = "Close",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = function()
-			return UDim2.fromOffset(
-				Layout.CLOSE.X + Layout.CLOSE_SIZE / 2,
-				Layout.CLOSE.Y + Layout.CLOSE_SIZE / 2 - math.round(Timing.TABS_DROP * away())
-			)
-		end,
-		Size = UDim2.fromOffset(Layout.CLOSE_SIZE, Layout.CLOSE_SIZE),
-		BackgroundTransparency = 1,
-		ZIndex = 4,
-		Activated = function()
-			hand.Commit()
-			actions.Close()
-		end,
-		hand.Events,
-		create("UIScale")({
-			Scale = function()
-				return (1 - away()) * hand.Scale()
-			end,
-		}),
-		Components.Slab({
-			Kind = "Pink",
-			GlowTransparency = function()
-				return 0.6 - 0.25 * hand.Light()
-			end,
-		}, {
-			Name = "Face",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 4, 3),
-			bar(45),
-			bar(-45),
-		}),
-	}) :: TextButton
-end
-
 function Screen.Build(state: Types.TQuestsState, actions: Types.TQuestsActions): { any }
 	local elapsed = Parts.Elapsed(state)
 	local dimFaded = Parts.Faded(state, elapsed, 0)
@@ -597,7 +507,6 @@ function Screen.Build(state: Types.TQuestsState, actions: Types.TQuestsActions):
 				return 1 - Timing.DIM * (1 - dimFaded())
 			end,
 		}),
-		title(state, elapsed),
 		panel(state, elapsed),
 		tabs(state, actions, elapsed),
 		create("Frame")({
@@ -608,7 +517,7 @@ function Screen.Build(state: Types.TQuestsState, actions: Types.TQuestsActions):
 			vide.switch(state.Board)(pages),
 		}),
 		claimAll(state, actions, elapsed),
-		closeButton(state, actions, elapsed),
+		Components.Exit(Parts.Away(state, elapsed, Timing.EXIT_DELAY), actions.Close),
 	}
 end
 

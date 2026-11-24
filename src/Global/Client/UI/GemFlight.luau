@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(script.Parent.Components)
 local Motion = require(script.Parent.Motion)
-local Theme = require(script.Parent.Theme)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -87,7 +87,7 @@ function GemFlight.Build(spec: TSpec): { ImageLabel }
 			return Progress(spec.Now(), spec.PaidAt(), Tune.FLIGHT, Tune.STAGGER * (index - 1))
 		end)
 
-		pieces[index] = Components.Icon("Gem", {
+		pieces[index] = Components.Picture(EIcons.Gem, {
 			Name = `Gem{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
@@ -99,8 +99,7 @@ function GemFlight.Build(spec: TSpec): { ImageLabel }
 				local at = bezier(from, from + throw, to + side - trip * 0.15, to, along)
 				return UDim2.fromOffset(at.X, at.Y)
 			end,
-			Size = Components.GlyphBox(Tune.GEM),
-			ImageColor3 = Theme.Color.Gem,
+			Size = Components.PictureBox(Tune.GEM),
 			ImageTransparency = function()
 				local progress = t()
 				local appear = math.clamp(progress / Tune.FADE_IN, 0, 1)

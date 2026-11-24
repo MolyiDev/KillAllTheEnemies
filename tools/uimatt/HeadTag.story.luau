@@ -15,6 +15,11 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
 }
@@ -51,7 +56,10 @@ return {
 				BackgroundTransparency = 1,
 				Tag.Build(
 					spec.Name,
-					source({ Level = spec.Level, ClassId = 1, Trophies = spec.Trophies, Deaths = spec.Deaths })
+					source({ Level = spec.Level, ClassId = 1, Trophies = spec.Trophies, Deaths = spec.Deaths }),
+					function()
+						return index == 1
+					end
 				),
 			})
 		end

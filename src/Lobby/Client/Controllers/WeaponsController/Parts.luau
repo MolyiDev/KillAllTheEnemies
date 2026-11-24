@@ -1,5 +1,5 @@
 --!nonstrict
--- What the weapons screen's pieces share: his colours for tiers and rarities, his badges and selection ring, a gun's
+-- What the weapons screen's pieces share: his rarity colours, his badges and selection ring, a gun's
 -- picture, and the clock every piece's entrance reads.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -8,7 +8,10 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local Types = require(script.Parent.Types)
+local TData = require(ReplicatedStorage.Types.TData)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -30,17 +33,7 @@ Parts.Timing = table.freeze({
 
 -- His card colours. A card's edge is its accent a little darker; the glow is the accent itself.
 Parts.EDGE_SHARE = 0.85
-local RED = Color3.fromRGB(230, 60, 72)
-Parts.TIER_ACCENTS = table.freeze({ Palette.Steel, Palette.Green, Palette.Violet, Palette.Gold })
--- A rarity's accent, its word, and whether its tag is lettered in ink (his gold tag) rather than white.
-Parts.RARITIES = table.freeze({
-	Starter = table.freeze({ Accent = Palette.Steel, Text = "STARTER", IsInk = true }),
-	Common = table.freeze({ Accent = Palette.Green, Text = "COMMON", IsInk = true }),
-	Rare = table.freeze({ Accent = Palette.Violet, Text = "RARE", IsInk = false }),
-	Epic = table.freeze({ Accent = Palette.Pink, Text = "EPIC", IsInk = false }),
-	Legendary = table.freeze({ Accent = Palette.Gold, Text = "LEGENDARY", IsInk = true }),
-	BlackMarket = table.freeze({ Accent = RED, Text = "BLACK MARKET", IsInk = false }),
-})
+Parts.RARITIES = Theme.Rarities
 -- A gun not owned yet, drawn dim as his grey glyphs are.
 Parts.LOCKED_TINT = Color3.fromRGB(128, 124, 140)
 Parts.LOCKED_TRANSPARENCY = 0.25
@@ -98,34 +91,45 @@ function Parts.Faded(state: Types.TWeaponsState, elapsed: () -> number, delay: n
 	end)
 end
 
--- His badges, `size` px square: Check (his green tick square), Upgrade (his gold square with the chevrons: an upgrade
--- he can pay for), Lock (his grey-edged ink square with a white lock).
+-- Whether the Gems held buy one of `guns` not owned yet or raise one that is: the up arrow (Notice) on the WEAPONS
+-- slab, on a tier's tab. Reads vide sources.
+function Parts.HasOffer(state: Types.TWeaponsState, guns: { TData.TGun }): boolean
+	local gems, levels = state.Gems(), state.Levels()
+	for _, gun in guns do
+		local level = levels[gun.Id]
+		-- A starter is always owned; before the first Sync it is only not listed yet.
+		if not level and gun.Price == 0 then continue end
+		local cost = if level then LoadoutCore.UpgradeCost(gun, level) else gun.Price
+		if cost and cost <= gems then return true end
+	end
+
+	return false
+end
+
+-- His badges, `size` px square: Check (his green tick square), Lock (his grey-edged ink square with a lock).
 function Parts.Badge(kind: string, size: number, props: { [any]: any }): Frame
 	if kind == "Lock" then
 		return Components.Plaque({
 			Size = UDim2.fromOffset(size, size),
-			Components.Icon("Lock", {
+			Components.Picture(EIcons.Lock, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
-				Size = Components.GlyphBox(math.round(size * 0.56)),
-				ImageColor3 = Palette.White,
+				Size = Components.PictureBox(math.round(size * 0.56)),
 				ZIndex = 2,
 			}),
 			props,
 		})
 	end
 
-	local isCheck = kind == "Check"
 	return create("Frame")({
 		Size = UDim2.fromOffset(size, size),
-		BackgroundColor3 = if isCheck then Palette.Green else Palette.Gold,
+		BackgroundColor3 = Palette.Green,
 		BorderSizePixel = 0,
 		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-		Components.Icon(if isCheck then "Check" else "Rank", {
+		Components.Picture(EIcons.Check, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = Components.GlyphBox(math.round(size * (if isCheck then 0.62 else 0.58))),
-			ImageColor3 = Palette.Ink,
+			Size = Components.PictureBox(math.round(size * 0.62)),
 			ZIndex = 2,
 		}),
 		props,
@@ -155,8 +159,10 @@ function Parts.Ring(outset: number, props: { [any]: any }): Frame
 	})
 end
 
--- A gun's own model, side on, the barrel to the right (GunPicture). `spec` is GunPicture.Build's.
+-- A gun's own model, side on, the barrel to the right and turned as on the match's weapon card (GunPicture.CARD_TILT).
+-- `spec` is GunPicture.Build's.
 function Parts.Gun(gunId: () -> number, spec: { [any]: any }, props: { [any]: any }): Frame
+	if spec.Rotation == nil then spec.Rotation = GunPicture.CARD_TILT end
 	return GunPicture.Build(function()
 		return GunPicture.FromGun(gunId())
 	end, spec, props)

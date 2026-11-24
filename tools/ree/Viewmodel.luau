@@ -77,7 +77,7 @@ return function(Context)
 	guns.Name = "Guns"
 	guns.Parent = models
 	local rarity = Instance.new("Folder")
-	rarity.Name = if gun.Rarity == "Starter" then "starter weapons" else gun.Rarity
+	rarity.Name = gun.Rarity
 	rarity.Parent = guns
 	local mounted = Context.Mount("ReplicatedStorage/GunSource", Context.Model)
 	local model = if mounted:IsA("Model") then mounted else mounted:FindFirstChildWhichIsA("Model", true)

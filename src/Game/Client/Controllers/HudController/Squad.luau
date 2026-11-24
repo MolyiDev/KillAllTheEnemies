@@ -11,6 +11,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -115,7 +116,6 @@ local Timing = table.freeze({
 	DEATH = 0.55,
 	-- Under the hand a row's glow comes up and its brackets open.
 	HOVER_GLOW = 0.45,
-	HOVER_BRACKETS = 3,
 })
 
 -- Each row's colour in party order, as his four, and how far its face warms toward it at the bottom.
@@ -175,7 +175,7 @@ local function avatar(member: () -> Types.TSquadMember): Frame
 				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
 			}),
 		}),
-		Components.Brackets(6, 0.7, 22),
+		Components.Brackets(nil, 0.7, 22),
 	})
 end
 
@@ -272,19 +272,7 @@ local function row(
 				MouseLeave = function()
 					isHovered(false)
 				end,
-				-- His stand 8 px off the row's ends and 5 off its top and bottom.
-				create("Frame")({
-					Name = "BracketsHolder",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(0.5, 0.5),
-					Size = function()
-						local open = Timing.HOVER_BRACKETS * hover() * 2
-						return UDim2.new(1, 6 + open, 1, open)
-					end,
-					BackgroundTransparency = 1,
-					ZIndex = 0,
-					Components.Brackets(5, 0.65, 20),
-				}),
+				Components.Brackets(hover, 0.65, 20),
 				if index == 1
 					then create("Frame")({
 						Name = "Own",
@@ -464,11 +452,10 @@ local function header(state: Types.THudState, elapsed: () -> number): Frame
 				end,
 				Size = UDim2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				Components.Icon("Squad", {
+				Components.Picture(EIcons.Squad, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromOffset(Layout.ICON.X, Layout.ICON.Y),
-					Size = Components.GlyphBox(Layout.ICON_SIZE),
-					ImageColor3 = Palette.White,
+					Size = Components.PictureBox(Layout.ICON_SIZE),
 				}),
 				label({
 					Position = UDim2.fromOffset(Layout.TITLE.X, Layout.TITLE.Y),
@@ -589,7 +576,7 @@ function Squad.Build(state: Types.THudState, actions: Types.TActions): Frame
 					return 1 - shown()
 				end,
 				-- Longer than the streak texture: its window starts at the corner and it is tiled across.
-				Components.Panel({ Brackets = 5, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
+				Components.Panel({ Brackets = true, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
 					Name = "Panel",
 					Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
 					Size = UDim2.new(1, -Layout.MARGIN * 2, 1, -Layout.MARGIN * 2),

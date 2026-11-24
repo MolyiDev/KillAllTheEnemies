@@ -866,7 +866,7 @@ added round a pad (a sign, a floor trim) goes into the same check.
 
 The brick-toy guns (a slide with a diamond lattice, a grip with rows of stud bumps) are plain Parts written by a
 generator, no mesh and no upload: `Assets/models/GunSources/StarterPistol/make_pistol.py` writes
-`Assets/models/Guns/starter weapons/1.rbxmx`, and Rojo serves `Assets/models/Guns` into
+`Assets/models/Guns/Common/1.rbxmx`, and Rojo serves `Assets/models/Guns` into
 `ReplicatedStorage.Models.Guns`.
 
 - **Everything under `Assets/models/Guns` lands in the place**, a generator, its `__pycache__` and its renders
@@ -887,3 +887,37 @@ generator, no mesh and no upload: `Assets/models/GunSources/StarterPistol/make_p
   0.03, the round in it 0.04, so no two faces share a plane where they cross.
 - Looked at with `ror render` at three cameras (side, three-quarter, over the sights as in first person), at rest
   and with the slide back: `preview/`.
+
+## 15. Lifting a place's own meshes into Studio (the range's front, 2026-11-23)
+
+The shooting range's front is the SHOP's portico, banners, lamps and planters, with a label in the same letter
+meshes (Maps.md sections 8 and 9). None of it could be built in place: no plugin writes `MeshPart.MeshId`, so
+Tripwire's create calls and Rojo make blank boxes, and Tripwire has no clone. The route that works, start to finish
+without the user:
+
+```
+python3 tools/uimatt/strip.py <LobbyOld.rbxl> /tmp/old.rbxl Tags          # lune cannot read the Tags chunk
+lune run tools/lobby/range_front.luau /tmp/old.rbxl Assets/models/Lobby/Range/RangeFront.rbxm
+# Tripwire: upload_asset (Model) -> insert_model (assetId, parentPath, unpack = true)
+```
+
+- **Lift, do not rebuild** (section 11's rule): `range_front.luau` deserializes the old place, takes the real
+  instances (reparenting them keeps their Beams' attachment refs, textures and SurfaceAppearances), and places each
+  with ONE transform from where the kit stands in its building to where it stands in the new one
+  (`CFrame.new(target) * turn * CFrame.new(-source)`), so every relation inside the kit survives.
+- **Write a turn as its twelve components**, not `CFrame.Angles` or `lookAt`: lune's are not trusted (CLAUDE.md).
+  A quarter turn that faces a -Z front toward -X is `0, 0, 1, 0, 1, 0, -1, 0, 0`. Check it in a render: a sign that
+  reads backwards is the first thing seen.
+- **A new MeshPart made in lune** needs `MeshId`, `InitialSize` (the mesh file's own bounding size) and `Size`;
+  it renders and inserts fine without collision data when `CanCollide` is off.
+- **Finding a mesh the place does not have** (four letters of an alphabet pack): bulk-imported meshes get rising
+  ids with gaps. Download the ids between two known ones through Tripwire `download_asset` (about 0.5 s each) and
+  keep the files whose mesh has the pack's bounding size; draw the candidates' triangles flat to tell them apart.
+  A `version 2.00` mesh is a 12-byte header (vertex size, face size, counts), then vertices starting with three
+  float positions, then faces of three uint32.
+- **Rendering a lifted model offline**: write `.rbxmx` and rewrite every `rbxassetid://N` in it to
+  `file://<abs>/research/LobbyAssets/N`, then `ror render model.rbxmx --map place.rbxl` draws it in the lobby.
+- **The upload is a private Model in the group** and cannot be archived (`archive_asset` answers "not an
+  archivable asset type"): build and check the model offline first, upload once. An inserted model lands at its
+  authored world position, so author it in place.
+- A shell mesh (the SHOP's body) cannot be given a door: build the room behind a lifted front from Parts.

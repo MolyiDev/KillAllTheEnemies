@@ -15,7 +15,9 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local Parts = require(script.Parent.Parts)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -32,7 +34,6 @@ local Layout = table.freeze({
 	PANEL_Y = 190,
 	SIZE = Vector2.new(440, 850),
 	MARGIN = 48,
-	BRACKETS = 5,
 	TAG = Vector2.new(24, 24),
 	TAG_HEIGHT = 31,
 	TAG_PAD = 22,
@@ -75,13 +76,13 @@ local Layout = table.freeze({
 	BALANCE_TEXT = 14,
 	ACTION = Vector2.new(23, 463),
 	SLAB_SIZE = Vector2.new(394, 78),
-	SLAB_BRACKETS = 5,
 	SLAB_TEXT = 30,
 	EQUIP_TEXT = 33,
 	SLAB_GLYPH = 30,
 	TRY = Vector2.new(24, 666),
-	SHOW = Vector2.new(228, 666),
-	SMALL_SIZE = Vector2.new(188, 64),
+	-- A px narrower each than his, 18 apart (his 16): under a press one's brackets reach 11 px out, and his crossed.
+	SHOW = Vector2.new(229, 666),
+	SMALL_SIZE = Vector2.new(187, 64),
 	SMALL_TEXT = 25,
 	EQUIP = Vector2.new(23, 749),
 })
@@ -134,6 +135,9 @@ local COST_FACE = Color3.fromRGB(28, 23, 45)
 local TILE_FACE = Color3.fromRGB(54, 41, 44)
 local SMALL_EDGE = Color3.fromRGB(150, 28, 92)
 local STAR_OFF = Color3.fromRGB(61, 57, 76)
+-- The panel is raised to just under the top bar, its bottom staying put: what is written on it rides up with the top,
+-- and so does the button under the cost; TRY, SHOW and EQUIP keep their place.
+local lift = panelTop.Lift(Layout.PANEL_Y)
 
 local Info = {}
 
@@ -141,7 +145,7 @@ local Info = {}
 function Info.StarAt(level: number): Vector2
 	return Vector2.new(
 		1920 - Layout.PANEL_RIGHT - Layout.SIZE.X + Layout.STAR_X + Layout.STAR_STEP * (level - 1),
-		Layout.PANEL_Y + Layout.STAR_Y
+		Layout.PANEL_Y - lift() + Layout.STAR_Y
 	)
 end
 
@@ -258,9 +262,9 @@ local function statBox(
 	})
 end
 
--- His slab with a glyph and a spaced-out word, both changing with `look` ({ Kind, Glyph, Word }).
+-- His slab with a picture and a spaced-out word, both changing with `look` ({ Kind, Picture, Word }).
 local function slab(
-	look: () -> { Kind: string, Glyph: string?, Word: string },
+	look: () -> { Kind: string, Picture: string?, Word: string },
 	hand: Hand.TReaction,
 	textSize: number,
 	extra: { [any]: any },
@@ -277,9 +281,7 @@ local function slab(
 				return look().Kind
 			end,
 			Marks = true,
-			Brackets = function()
-				return Layout.SLAB_BRACKETS + 3 * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
 			end,
@@ -304,7 +306,7 @@ local function slab(
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					Padding = UDim.new(0, 12),
 				}),
-				extra.Glyph,
+				extra.Picture,
 				derive(function()
 					local word = look().Word
 					return vide.untrack(function()
@@ -414,12 +416,12 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 				create("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
 				create("UIStroke")({ Color = Palette.Gold, Thickness = 2, Transparency = ring }),
 			}),
-			Components.Icon("Star", {
+			Components.Picture(EIcons.Star, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
-				Size = Components.GlyphBox(Layout.STAR),
+				Size = Components.PictureBox(Layout.STAR),
 				ImageColor3 = function()
-					return STAR_OFF:Lerp(Palette.Gold, lit())
+					return STAR_OFF:Lerp(Palette.White, lit())
 				end,
 				ZIndex = 4,
 				create("UIScale")({
@@ -443,16 +445,16 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 	local actionHand = Hand.React("Operate", canPay)
 	local actionLook = derive(function()
 		local current = level()
-		if not current then return { Kind = if canPay() then "Gold" else "Off", Glyph = "Gem", Word = "BUY" } end
+		if not current then return { Kind = if canPay() then "Gold" else "Off", Picture = EIcons.Gem, Word = "BUY" } end
 		if current >= LoadoutCore.MAX_LEVEL then return { Kind = "Off", Word = "MAXED" } end
-		return { Kind = if canPay() then "Gold" else "Off", Glyph = "Rank", Word = "UPGRADE" }
+		return { Kind = if canPay() then "Gold" else "Off", Picture = EIcons.Rank, Word = "UPGRADE" }
 	end)
 	local equipHand = Hand.React("Operate", function()
 		return level() ~= nil and not isEquipped() and state.Pending() == nil
 	end)
 	local equipLook = derive(function()
-		if not level() then return { Kind = "Off", Glyph = "Lock", Word = "LOCKED" } end
-		if isEquipped() then return { Kind = "Go", Glyph = "Check", Word = "EQUIPPED" } end
+		if not level() then return { Kind = "Off", Picture = EIcons.Lock, Word = "LOCKED" } end
+		if isEquipped() then return { Kind = "Go", Picture = EIcons.Check, Word = "EQUIPPED" } end
 		return { Kind = "Violet", Word = "EQUIP" }
 	end)
 	local tickPop, strikeTick = Hand.Kick(0.26, 0.58)
@@ -463,26 +465,23 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 		end)
 	end)
 
-	-- The glyph sits in a slot of the words' list, which places it by its corner: it swells inside the slot instead.
-	local function slabGlyph(look: () -> { Glyph: string? }, size: number, pop: (() -> number)?): Frame
+	-- The picture sits in a slot of the words' list, which places it by its corner: it swells inside the slot instead.
+	local function slabPicture(look: () -> { Picture: string? }, size: number, pop: (() -> number)?): Frame
 		return create("Frame")({
-			Name = "Glyph",
+			Name = "Picture",
 			LayoutOrder = 1,
-			Size = Components.GlyphBox(size),
+			Size = Components.PictureBox(size),
 			BackgroundTransparency = 1,
 			Visible = function()
-				return look().Glyph ~= nil
+				return look().Picture ~= nil
 			end,
 			ZIndex = 4,
-			Components.Icon("Rank", {
+			Components.Picture(function()
+				return look().Picture or EIcons.Rank
+			end, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromScale(1, 1),
-				ImageRectOffset = function()
-					local glyph = look().Glyph
-					return Components.IconCell(glyph or "Rank")
-				end,
-				ImageColor3 = Palette.White,
 				create("UIScale")({
 					Scale = function()
 						return 1 + (if pop then pop() else 0)
@@ -509,9 +508,7 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 			hand.Events,
 			Components.Panel({
 				Stroke = SMALL_EDGE,
-				Brackets = function()
-					return 5 + 3 * hand.Rise()
-				end,
+				Brackets = hand.Rise,
 			}, {
 				Name = "Face",
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -633,9 +630,7 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 				Stroke = function()
 					return SMALL_EDGE:Lerp(flashColor(), flash())
 				end,
-				Brackets = function()
-					return 5 + 3 * hand.Rise()
-				end,
+				Brackets = hand.Rise,
 			}, {
 				Name = "Face",
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -672,7 +667,9 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 	end
 
 	local margin = Layout.MARGIN
-	local size = Layout.SIZE
+	local size = function(): UDim2
+		return UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y + lift())
+	end
 
 	-- The panel and what is written on it fade as one picture in a group with room for its shadow. The buttons are not
 	-- in it: they move under the hand, and a group redraws its whole canvas for every frame of that. They grow in on
@@ -681,9 +678,14 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 		Name = "Info",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = function()
-			return UDim2.new(1, -Layout.PANEL_RIGHT + math.round(Timing.PANEL_SLIDE * away()), 0, Layout.PANEL_Y)
+			return UDim2.new(
+				1,
+				-Layout.PANEL_RIGHT + math.round(Timing.PANEL_SLIDE * away()),
+				0,
+				Layout.PANEL_Y - lift()
+			)
 		end,
-		Size = UDim2.fromOffset(size.X, size.Y),
+		Size = size,
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 		create("CanvasGroup")({
@@ -692,10 +694,10 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 			Size = UDim2.new(1, 2 * margin, 1, 2 * margin),
 			BackgroundTransparency = 1,
 			GroupTransparency = faded,
-			Components.Panel({ Brackets = Layout.BRACKETS, Tall = true }, {
+			Components.Panel({ Brackets = true, Tall = true }, {
 				Name = "Panel",
 				Position = UDim2.fromOffset(margin, margin),
-				Size = UDim2.fromOffset(size.X, size.Y),
+				Size = size,
 				create("Frame")({
 					Name = "Tags",
 					Position = function()
@@ -779,11 +781,10 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 				statBox(state, actions, 3, "FIRE RATE", function()
 					return LoadoutCore.FireRate(gun())
 				end),
-				Components.Icon("Rank", {
+				Components.Picture(EIcons.Rank, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromOffset(Layout.HEADER_GLYPH.X, Layout.HEADER_GLYPH.Y),
-					Size = Components.GlyphBox(Layout.HEADER_GLYPH_SIZE),
-					ImageColor3 = Palette.Gold,
+					Size = Components.PictureBox(Layout.HEADER_GLYPH_SIZE),
 					ZIndex = 4,
 				}),
 				Label({
@@ -852,11 +853,10 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 							BorderSizePixel = 0,
 							create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
 						}),
-						Components.Icon("Gem", {
+						Components.Picture(EIcons.Gem, {
 							AnchorPoint = Vector2.new(0.5, 0.5),
 							Position = UDim2.fromScale(0.5, 0.5),
-							Size = Components.GlyphBox(Layout.TILE_GLYPH),
-							ImageColor3 = Palette.Gold,
+							Size = Components.PictureBox(Layout.TILE_GLYPH),
 							ZIndex = 3,
 						}),
 					}),
@@ -916,20 +916,27 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 				}),
 			}),
 		}),
+		-- His rect, so the bottom buttons keep their place as the panel grows over them.
 		create("Frame")({
 			Name = "Buttons",
-			Size = UDim2.fromScale(1, 1),
+			Position = function()
+				return UDim2.fromOffset(0, lift())
+			end,
+			Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
 			BackgroundTransparency = 1,
 			ZIndex = 2,
 			slab(actionLook, actionHand, Layout.SLAB_TEXT, {
-				Glyph = slabGlyph(actionLook, Layout.SLAB_GLYPH),
+				Picture = slabPicture(actionLook, Layout.SLAB_GLYPH),
 			}, {
 				Name = "Action",
 				grown(1),
-				Position = UDim2.fromOffset(
-					Layout.ACTION.X + Layout.SLAB_SIZE.X / 2,
-					Layout.ACTION.Y + Layout.SLAB_SIZE.Y / 2
-				),
+				-- Under the cost it pays, so it rides up with what is written on the panel.
+				Position = function()
+					return UDim2.fromOffset(
+						Layout.ACTION.X + Layout.SLAB_SIZE.X / 2,
+						Layout.ACTION.Y + Layout.SLAB_SIZE.Y / 2 - lift()
+					)
+				end,
 				Activated = function()
 					actionHand.Commit()
 					if level() then
@@ -942,7 +949,7 @@ function Info.Build(state: Types.TWeaponsState, actions: Types.TWeaponsActions, 
 			small("TRY", Layout.TRY, grown(2), actions.Try),
 			showButton(Layout.SHOW, grown(3)),
 			slab(equipLook, equipHand, Layout.EQUIP_TEXT, {
-				Glyph = slabGlyph(equipLook, Layout.SLAB_GLYPH, tickPop),
+				Picture = slabPicture(equipLook, Layout.SLAB_GLYPH, tickPop),
 			}, {
 				Name = "Equip",
 				grown(4),

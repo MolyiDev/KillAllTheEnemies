@@ -1,6 +1,6 @@
 -- The index in the lobby: each player's discoveries told to their screen (Index.Sync), their reveals marked as played,
--- and the `index` console command that edits them for a test. Discoveries and kills are counted in the Game place (its
--- IndexService); here they are only read.
+-- and the `index` console command that edits them and the lab's found recipes (the POTIONS page) for a test.
+-- Discoveries and kills are counted in the Game place (its IndexService); here they are only read.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Conch = require(ReplicatedStorage.Packages.conch)
@@ -8,8 +8,10 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local NetworkMeta = require(ServerScriptService.GlobalServer.NetworkMeta)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
 local CommandTypes = require(ReplicatedStorage.Types.CommandTypes)
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EPotionsIds = require(ReplicatedStorage.Types.Enums.Data.EPotionsIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
@@ -39,60 +41,86 @@ local function send(player: Player, profile: TProfile.TProfile)
 	ServerNetworkIndex.Sync.Fire(player, ids, kills, isNew)
 end
 
--- The enemies a command names: every one for "all", else the one whose EEnemiesIds key it is in lower case.
-local function named(target: string): { TData.TEnemy }
-	if target == "all" then return DataCore.Enemies.All end
+-- The enemies and the recipes a command names: everything for "all", a whole page for "enemies" or "potions", else
+-- the one whose EEnemiesIds or EPotionsIds key it is in lower case.
+local function named(target: string): ({ TData.TEnemy }, { TData.TPotion })
+	if target == "all" then return DataCore.Enemies.All, DataCore.Potions.All end
+	if target == "enemies" then return DataCore.Enemies.All, {} end
+	if target == "potions" then return {}, DataCore.Potions.All end
 	for key, id in EEnemiesIds :: { [string]: number } do
 		if string.lower(key) ~= target then continue end
 		local enemy = DataCore.Enemies.ById[id]
-		return if enemy then { enemy } else {}
+		return if enemy then { enemy } else {}, {}
+	end
+	for key, id in EPotionsIds :: { [string]: number } do
+		if string.lower(key) ~= target then continue end
+		local potion = DataCore.Potions.ById[id]
+		return {}, if potion then { potion } else {}
 	end
 
-	return {}
+	return {}, {}
 end
 
--- Changes the executor's index with `change` (entry by Name, nil when not found, to the new entry or nil) for each
--- enemy `target` names, then sends it, so an open screen plays what changed. Returns how many it touched.
-local function edit(target: string, change: (entry: TProfile.TIndexEntry?) -> TProfile.TIndexEntry?): number
+local function none(): nil
+	return nil
+end
+
+-- Changes the executor's entry (by Name, nil when not found, to the new one or nil) of each enemy `target` names with
+-- `changeEnemy`, and of each recipe with `changePotion`. The enemies are sent here, so an open screen plays what
+-- changed; the recipes are the lab's (Mutation.Found), which MutationService sends on any write. Returns how many it
+-- touched.
+local function edit(
+	target: string,
+	changeEnemy: (entry: TProfile.TIndexEntry?) -> TProfile.TIndexEntry?,
+	changePotion: ((found: TProfile.TPotionFound?) -> TProfile.TPotionFound?)?
+): number
 	local player = (Conch.get_command_context() :: any).executor.player :: Player?
-	local enemies = named(target)
-	if not player or #enemies == 0 then return 0 end
+	local enemies, potions = named(target)
+	local count = #enemies + #potions
+	if not player or count == 0 then return 0 end
 	DatabaseService.Update(player, function(profile)
 		local index = profile.Index or {}
 		for _, enemy in enemies do
-			index[enemy.Name] = change(index[enemy.Name])
+			index[enemy.Name] = changeEnemy(index[enemy.Name])
 		end
 		profile.Index = if next(index) then index else nil
+		if not changePotion or #potions == 0 then return true end
+		local mutation = profile.Mutation or PotionsCore.Empty()
+		local found: { [string]: TProfile.TPotionFound? } = mutation.Found
+		for _, potion in potions do
+			found[potion.Name] = changePotion(found[potion.Name])
+		end
+		profile.Mutation = mutation
 		return true
 	end)
 
 	local profile = DatabaseService.Get(player)
-	if profile then send(player, profile) end
-	return #enemies
+	if profile and #enemies > 0 then send(player, profile) end
+	return count
 end
 
 local function registerIndex()
 	Conch.register("index", {
 		permissions = { PERMISSION_DEV },
-		description = "Test the index: discover or forget enemies, replay every reveal, or set an enemy's kills.",
+		description = "Test the index: discover or forget enemies and potions, replay the reveals, or set kills.",
 		arguments = function()
 			return args.overload({
 				{
-					description = "Discover every enemy, or one: each newly found one is revealed on its page",
+					description = "Discover everything, a page, or one enemy or potion: each one new is revealed",
 					arguments = {
 						args.literal("discover"),
-						CommandTypes.enemyOrAll("name", "The enemy to discover, or all."),
+						CommandTypes.indexTarget("name", "The enemy or potion, enemies, potions or all."),
 					},
 				},
 				{
-					description = "Forget every enemy, or one, as if never met",
+					description = "Forget everything, a page, or one enemy or potion, as if never met or brewed",
 					arguments = {
 						args.literal("forget"),
-						CommandTypes.enemyOrAll("name", "The enemy to forget, or all."),
+						CommandTypes.indexTarget("name", "The enemy or potion, enemies, potions or all."),
 					},
 				},
 				{
-					description = "Show every found enemy as just found again, so each reveal plays once more",
+					description = "Show every found enemy and potion as just found, so each reveal plays again",
 					arguments = { args.literal("replay") },
 				},
 				{
@@ -109,18 +137,20 @@ local function registerIndex()
 			if action == "discover" then
 				local count = edit(target or "all", function(entry)
 					return entry or { Kills = 0, IsNew = true }
+				end, function(found)
+					return found or { Brewed = 1, IsNew = true }
 				end)
 				Conch.log("normal", `Discovered {count}: open the index to see them revealed.`)
 			elseif action == "forget" then
-				local count = edit(target or "all", function()
-					return nil
-				end)
+				local count = edit(target or "all", none, none)
 				Conch.log("normal", `Forgot {count}.`)
 			elseif action == "replay" then
 				local count = edit("all", function(entry)
 					return if entry then { Kills = entry.Kills, IsNew = true } else nil
+				end, function(found)
+					return if found then { Brewed = found.Brewed, IsNew = true } else nil
 				end)
-				Conch.log("normal", `Every found enemy is new again ({count} checked): open the index.`)
+				Conch.log("normal", `Every found enemy and potion is new again ({count} checked): open the index.`)
 			elseif action == "kills" then
 				local kills = math.max(math.floor(amount or 0), 0)
 				local count = edit(target or "", function(entry)

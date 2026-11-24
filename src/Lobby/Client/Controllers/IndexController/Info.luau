@@ -1,7 +1,8 @@
 --!nonstrict
 -- The enemy info panel (his right panel): the picked enemy walking on a stage in its own rig, then its page and
 -- attacks as tags, its name, what it does, the maps it comes on and three numbers. His TRACK ENEMY is left out, and the
--- stage takes its room.
+-- stage takes its room. On the POTIONS page it is the picked recipe: its bottle on the stage, its two energies as the
+-- tags, its name and words, how often it was brewed, and what it adds.
 --
 -- The stage answers the hand: a drag turns the enemy and a quick one throws it spinning, and a click makes it attack
 -- (an unknown one shakes its head). A newly picked enemy swings in from the side. Between picks it sways and comes
@@ -15,11 +16,18 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
+-- The lab's words for an energy and an effect; its pure Parts, never its init, which waits on the network.
+local LabParts = require(script.Parent.Parent.MutationController.Parts)
 local Parts = require(script.Parent.Parts)
 local Picture = require(script.Parent.Picture)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
+local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 
 local create = vide.create
 local derive = vide.derive
@@ -29,6 +37,7 @@ local Font = Theme.Font
 local Progress = Motion.Progress
 local Label = Parts.Label
 local ENEMIES = DataCore.Enemies.ById
+local POTIONS = DataCore.Potions.ById
 
 -- His drawn rects in px at 1080, from the panel's top left. Everything under the stage is his, moved down the 96 px
 -- TRACK ENEMY left, which the stage grew into.
@@ -37,18 +46,24 @@ local Layout = table.freeze({
 	PANEL_Y = 190,
 	SIZE = Vector2.new(440, 850),
 	MARGIN = 48,
-	BRACKETS = 5,
 	STAGE = Vector2.new(24, 24),
 	STAGE_SIZE = Vector2.new(392, 396),
-	STAGE_BRACKETS = 6,
 	-- Inside the stage: the rings' middle and radii, the floor's middle and size, the enemy's box and middle, the "?".
 	RINGS = Vector2.new(196, 176),
 	OUTER_RADIUS = 122,
 	INNER_RADIUS = 86,
+	-- The art behind the enemy when it is not his rings, and the stage card's edge it is clipped inside.
+	SHOWCASE = 340,
+	EDGE = 3,
 	FLOOR = Vector2.new(196, 352),
 	FLOOR_SIZE = Vector2.new(250, 45),
 	ENEMY = Vector2.new(196, 205),
 	ENEMY_BOX = 340,
+	-- A recipe's bottle in place of the enemy: its middle and longer side.
+	BOTTLE = Vector2.new(196, 220),
+	BOTTLE_SIZE = 230,
+	-- How far below its middle the bottle's round belly is, where an unknown one's "?" stands.
+	BOTTLE_BELLY = 40,
 	MYSTERY_TEXT = 120,
 	-- The tags: their row, height, side padding, gap and letters.
 	TAGS = Vector2.new(24, 444),
@@ -69,6 +84,9 @@ local Layout = table.freeze({
 	STAT_LABEL_TEXT = 14,
 	STAT_VALUE = Vector2.new(16, 38),
 	STAT_VALUE_TEXT = 30,
+	-- A recipe's effects box, across both columns of the second row: its two lines' tops and letters.
+	EFFECT_YS = { 36, 58 },
+	EFFECT_TEXT = 18,
 })
 
 local Timing = table.freeze({
@@ -120,8 +138,19 @@ local Turn = table.freeze({
 local HOME_STIFFNESS = (2 * math.pi / Turn.HOME_PERIOD) ^ 2
 local HOME_FRICTION = 2 * Turn.HOME_DAMPING * 2 * math.pi / Turn.HOME_PERIOD
 
--- What an unknown enemy's panel says.
+-- What an unknown enemy's panel says, and an unknown recipe's.
 local UNKNOWN_DESCRIPTION = "Kill one in a run to discover it."
+local UNKNOWN_RECIPE = "Brew it in the Mutation Lab to discover it."
+-- What a rarer brew adds and how long the rarest lasts, worded off the lab's rules.
+local RARER_WORDS = `UP TO {PotionsCore.MULTIPLIERS[ERarities.Mythic]}X`
+local MYTHIC_WORDS = `MYTHIC LASTS {PotionsCore.MYTHIC_MATCHES} MATCHES`
+
+-- The panel is raised to just under the top bar, its bottom staying put: the stage grows into the room, its picture
+-- kept in its middle, and what is written under it keeps its place.
+local lift = panelTop.Lift(Layout.PANEL_Y)
+local function lowered(): number
+	return math.round(lift() / 2)
+end
 
 local Info = {}
 
@@ -181,6 +210,65 @@ local function statBox(column: number, row: number, caption: string, value: () -
 	})
 end
 
+-- A recipe's effects at Common: a stat box across both columns of the second row, its caption, how long the rarest
+-- lasts on the right, and a line for each effect.
+local function effectsBox(lines: () -> { string }): Frame
+	local width = Layout.STAT_XS[2] + Layout.STAT_SIZE.X - Layout.STAT_XS[1]
+	local function line(index: number): TextLabel
+		return Label({
+			Name = `Effect{index}`,
+			Position = UDim2.fromOffset(Layout.STAT_LABEL.X, Layout.EFFECT_YS[index]),
+			Size = UDim2.fromOffset(width - 2 * Layout.STAT_LABEL.X, Layout.EFFECT_TEXT),
+			TextScaled = true,
+			Text = function()
+				return lines()[index] or ""
+			end,
+			ZIndex = 5,
+			create("UITextSizeConstraint")({ MaxTextSize = Layout.EFFECT_TEXT }),
+		})
+	end
+
+	return create("Frame")({
+		Name = "EFFECTS",
+		Position = UDim2.fromOffset(Layout.STAT_XS[1], Layout.STAT_YS[2]),
+		Size = UDim2.fromOffset(width, Layout.STAT_SIZE.Y),
+		BackgroundColor3 = Parts.STAT_EDGE,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+		create("Frame")({
+			Name = "Face",
+			Position = UDim2.fromOffset(1, 1),
+			Size = UDim2.new(1, -2, 1, -2),
+			BackgroundColor3 = Parts.STAT_FACE,
+			BorderSizePixel = 0,
+			create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
+		}),
+		Label({
+			Position = UDim2.fromOffset(Layout.STAT_LABEL.X, Layout.STAT_LABEL.Y),
+			Size = UDim2.fromOffset(width / 2, Layout.STAT_LABEL_TEXT),
+			FontFace = Font.DisplayBold,
+			TextSize = Layout.STAT_LABEL_TEXT,
+			TextColor3 = Palette.Lavender,
+			Text = "EFFECTS AT COMMON",
+			ZIndex = 5,
+		}),
+		Label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromOffset(width - Layout.STAT_LABEL.X, Layout.STAT_LABEL.Y),
+			Size = UDim2.fromOffset(width / 2, Layout.STAT_LABEL_TEXT),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			FontFace = Font.DisplayBold,
+			TextSize = Layout.STAT_LABEL_TEXT,
+			TextColor3 = Theme.Rarities.Mythic.Accent,
+			Text = MYTHIC_WORDS,
+			ZIndex = 5,
+		}),
+		line(1),
+		line(2),
+	})
+end
+
 -- A tag: filled in its colour (lettered in ink), or outlined in it.
 local function tag(word: string, color: Color3, isFilled: boolean, order: number, fade: () -> number): Frame
 	return create("Frame")({
@@ -217,13 +305,16 @@ local function tag(word: string, color: Color3, isFilled: boolean, order: number
 	})
 end
 
--- The stage: the picked enemy on its floor between his rings, turning to the hand.
+-- The stage: the picked enemy on its floor between his rings, turning to the hand; on the POTIONS page the picked
+-- recipe's bottle (`potion`, nil on the other pages) standing there instead, a dark one under the "?" until brewed.
 local function stage(
 	state: Types.TIndexState,
 	actions: Types.TIndexActions,
 	elapsed: () -> number,
 	enemy: () -> any,
-	known: () -> number
+	known: () -> number,
+	potion: () -> any,
+	isBrewed: () -> boolean
 ): Frame
 	-- It grows in from nearly its size, and shrinks away whole as the screen shuts: it is not under the panel's fade.
 	local stageScale = derive(function(): number
@@ -235,8 +326,18 @@ local function stage(
 	local lit = Parts.Lit(known)
 	local burned = Parts.Burned(known)
 	local accent = derive(function(): Color3
+		local recipe = potion()
+		if recipe then return if isBrewed() then Parts.PotionColor(recipe) else Parts.LOCKED end
 		return Parts.LOCKED:Lerp(Parts.Threat(enemy()).Accent, lit())
 	end)
+	-- The rig on show: none on the POTIONS page.
+	local shownEnemy = derive(function()
+		return if potion() then nil else enemy()
+	end)
+	-- What the reveal's flash and ring follow: no recipe has a reveal here.
+	local revealedId = function(): number
+		return if potion() then 0 else state.Selected()
+	end
 	-- The moment the enemy on the stage last came on: the open, or the pick of another.
 	local cameAt = derive(function(): number
 		return math.max(state.ToggledAt() + Timing.STAGE_DELAY, state.SelectedAt())
@@ -245,7 +346,7 @@ local function stage(
 		if not state.IsOpen() then return 1 end
 		return Progress(state.Now(), cameAt(), Timing.RISE)
 	end)
-	local sinceLit = Parts.SinceLit(state, state.Selected)
+	local sinceLit = Parts.SinceLit(state, revealedId)
 	local flash = Parts.Fading(sinceLit, Timing.FLASH)
 	local burst = Parts.Over(sinceLit, Timing.BURST, 1)
 	local hop, strikeHop = Hand.Kick(Timing.HOP_PERIOD, Timing.HOP_DAMPING)
@@ -366,10 +467,48 @@ local function stage(
 		if stepper then stepper:Disconnect() end
 	end)
 
+	-- The art behind the enemy when it is not his rings, and its particles over the enemy: each inside the stage's
+	-- face, so it is clipped to it.
+	local look = Showcase.Looks.Index
+	local at = function(): UDim2
+		return UDim2.fromOffset(Layout.RINGS.X - Layout.EDGE, Layout.RINGS.Y - Layout.EDGE + lowered())
+	end
+	local showcase, showcaseFront = Showcase.Build({
+		Look = look,
+		Diameter = Layout.SHOWCASE,
+		Floor = Layout.FLOOR.Y - Layout.RINGS.Y,
+		FloorSize = Layout.FLOOR_SIZE,
+		Accent = accent,
+		Shown = function(): number
+			return 1 - stageFade()
+		end,
+		-- A reveal, as the enemy starts coming through its silhouette, and a click.
+		CheeredAt = function(): number
+			local revealed = state.RevealAt()[revealedId()]
+			local litAt = if revealed then revealed + Parts.REVEAL_LIT else -math.huge
+			return math.max(litAt, state.PokedAt())
+		end,
+		IsActive = state.IsOpen,
+	}, { Position = at }, { Position = at })
+	local function clipped(name: string, child: Frame?, zIndex: number): Frame?
+		if not child then return nil end
+		return create("Frame")({
+			Name = name,
+			Position = UDim2.fromOffset(Layout.EDGE, Layout.EDGE),
+			Size = UDim2.new(1, -2 * Layout.EDGE, 1, -2 * Layout.EDGE),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = zIndex,
+			child,
+		})
+	end
+
 	local function circle(radius: number, edgeFade: number, fill: number): Frame
 		return create("Frame")({
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.RINGS.X, Layout.RINGS.Y),
+			Position = function()
+				return UDim2.fromOffset(Layout.RINGS.X, Layout.RINGS.Y + lowered())
+			end,
 			Size = UDim2.fromOffset(2 * radius, 2 * radius),
 			BackgroundColor3 = accent,
 			BackgroundTransparency = fill,
@@ -397,21 +536,35 @@ local function stage(
 		end,
 		Tint = 0.4,
 		Tall = true,
-		Brackets = Layout.STAGE_BRACKETS,
+		Brackets = true,
 		BracketLength = 22,
 	}, {
 		Name = "Stage",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(Layout.STAGE.X + Layout.STAGE_SIZE.X / 2, Layout.STAGE.Y + Layout.STAGE_SIZE.Y / 2),
-		Size = UDim2.fromOffset(Layout.STAGE_SIZE.X, Layout.STAGE_SIZE.Y),
+		Position = function()
+			return UDim2.fromOffset(
+				Layout.STAGE.X + Layout.STAGE_SIZE.X / 2,
+				Layout.STAGE.Y + (Layout.STAGE_SIZE.Y + lift()) / 2
+			)
+		end,
+		Size = function()
+			return UDim2.fromOffset(Layout.STAGE_SIZE.X, Layout.STAGE_SIZE.Y + lift())
+		end,
 		ZIndex = 3,
 		create("UIScale")({ Scale = stageScale }),
-		circle(Layout.OUTER_RADIUS, 0.72, 1),
-		circle(Layout.INNER_RADIUS, 0.78, 0.94),
+		if look == "Rings" then circle(Layout.OUTER_RADIUS, 0.72, 1) else nil,
+		if look == "Rings" then circle(Layout.INNER_RADIUS, 0.78, 0.94) else nil,
+		clipped("Art", showcase, 2),
+		-- Over the enemy (3), under the reveal's flash.
+		clipped("ArtFront", showcaseFront, 4),
 		create("ImageLabel")({
 			Name = "Floor",
+			-- His floor goes with his rings: every other look draws its own.
+			Visible = look == "Rings",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.FLOOR.X, Layout.FLOOR.Y),
+			Position = function()
+				return UDim2.fromOffset(Layout.FLOOR.X, Layout.FLOOR.Y + lowered())
+			end,
 			Size = UDim2.fromOffset(Layout.FLOOR_SIZE.X, Layout.FLOOR_SIZE.Y),
 			BackgroundTransparency = 1,
 			Image = Icons.IMAGE,
@@ -425,7 +578,9 @@ local function stage(
 		create("ImageLabel")({
 			Name = "FloorRing",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.FLOOR.X, Layout.FLOOR.Y),
+			Position = function()
+				return UDim2.fromOffset(Layout.FLOOR.X, Layout.FLOOR.Y + lowered())
+			end,
 			Size = UDim2.fromOffset(Layout.FLOOR_SIZE.X, Layout.FLOOR_SIZE.Y),
 			BackgroundTransparency = 1,
 			Image = Icons.IMAGE,
@@ -436,7 +591,7 @@ local function stage(
 				return Icons.FLOOR_TRANSPARENCY + (1 - Icons.FLOOR_TRANSPARENCY) * floorRing()
 			end,
 			Visible = function()
-				return floorRing() < 1
+				return look == "Rings" and floorRing() < 1
 			end,
 			ZIndex = 2,
 			create("UIScale")({
@@ -445,7 +600,7 @@ local function stage(
 				end,
 			}),
 		}),
-		Picture.Build(enemy, {
+		Picture.Build(shownEnemy, {
 			Burned = burned,
 			Lit = lit,
 			Yaw = yaw,
@@ -461,9 +616,34 @@ local function stage(
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
 				local rise = Timing.RISE_FROM * (1 - Motion.Decelerate(risen()))
-				return UDim2.fromOffset(Layout.ENEMY.X, Layout.ENEMY.Y + math.round(rise + hop()))
+				return UDim2.fromOffset(Layout.ENEMY.X, Layout.ENEMY.Y + lowered() + math.round(rise + hop()))
 			end,
 			Size = UDim2.fromOffset(Layout.ENEMY_BOX, Layout.ENEMY_BOX),
+			ZIndex = 3,
+			create("UIScale")({
+				Scale = function()
+					return Motion.Lerp(Timing.GROW_FROM, 1, Motion.Decelerate(risen()))
+				end,
+			}),
+		}),
+		Components.Picture(EIcons.PotionBottle, {
+			Name = "Bottle",
+			Visible = function()
+				return potion() ~= nil
+			end,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = function()
+				local rise = Timing.RISE_FROM * (1 - Motion.Decelerate(risen()))
+				return UDim2.fromOffset(Layout.BOTTLE.X, Layout.BOTTLE.Y + lowered() + math.round(rise + hop()))
+			end,
+			Size = Components.PictureBox(Layout.BOTTLE_SIZE),
+			ImageColor3 = function()
+				local recipe = potion()
+				return if recipe and isBrewed() then Parts.PotionColor(recipe) else Parts.SILHOUETTE
+			end,
+			ImageTransparency = function()
+				return math.max(stageFade(), 1 - Motion.Out(risen()))
+			end,
 			ZIndex = 3,
 			create("UIScale")({
 				Scale = function()
@@ -474,16 +654,22 @@ local function stage(
 		Label({
 			Name = "Mystery",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.RINGS.X, Layout.RINGS.Y),
+			-- On a bottle's belly, which sits lower than a body's middle.
+			Position = function()
+				return if potion()
+					then UDim2.fromOffset(Layout.BOTTLE.X, Layout.BOTTLE.Y + Layout.BOTTLE_BELLY + lowered())
+					else UDim2.fromOffset(Layout.RINGS.X, Layout.RINGS.Y + lowered())
+			end,
 			Size = UDim2.fromOffset(Layout.MYSTERY_TEXT, Layout.MYSTERY_TEXT),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
 			TextSize = Layout.MYSTERY_TEXT,
 			TextColor3 = Palette.Lavender,
 			TextTransparency = function()
-				return 0.4 + 0.6 * burned()
+				return if potion() then 0.4 else 0.4 + 0.6 * burned()
 			end,
 			Visible = function()
+				if potion() then return not isBrewed() end
 				return burned() < 1
 			end,
 			Text = "?",
@@ -549,12 +735,75 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 	local health = rolled(state, actions, function(): number
 		return enemy().BaseMaxHealth
 	end)
+	local isPotions = derive(function(): boolean
+		return state.Category() == Parts.POTIONS
+	end)
+	local potion = derive(function()
+		return if isPotions() then POTIONS[state.SelectedPotion()] else nil
+	end)
+	local potionLit = Parts.Lit(Parts.PotionKnown(state, state.SelectedPotion))
+	-- As isKnown: shown once its card's reveal starts coming through.
+	local isBrewed = derive(function(): boolean
+		return potion() ~= nil and potionLit() > 0
+	end)
+	local brewed = rolled(state, actions, function(): number
+		local recipe = potion()
+		local found = if recipe then state.Potions()[recipe.Id] else nil
+		return if found then found.Brewed else 0
+	end)
+	local effects = derive(function(): { string }
+		local recipe = potion()
+		if not recipe then return {} end
+		if not isBrewed() then return { Parts.UNKNOWN, Parts.UNKNOWN } end
+		return LabParts.EffectLines(recipe, ERarities.Common)
+	end)
+
+	-- A recipe's souls as its tags, one plus the other; hidden until it is brewed.
+	local function recipeTags(recipe, isShown: boolean): { Instance }
+		local row = {}
+		for index, enemyId in recipe.Energies do
+			local energyEnemy = ENEMIES[enemyId]
+			local energy = if energyEnemy then energyEnemy.Energy else nil
+			local word = if isShown and energyEnemy then LabParts.SoulsWord(energyEnemy) else Parts.UNKNOWN
+			local color = if isShown and energy then energy.Color else Palette.Lavender
+			if index > 1 then
+				table.insert(
+					row,
+					Label({
+						Name = "Plus",
+						LayoutOrder = 2 * index - 2,
+						AutomaticSize = Enum.AutomaticSize.X,
+						Size = UDim2.fromOffset(0, Layout.TAG_HEIGHT),
+						TextYAlignment = Enum.TextYAlignment.Center,
+						TextSize = Layout.TAG_TEXT,
+						TextColor3 = Palette.Lavender,
+						TextTransparency = pickFade,
+						Text = "+",
+					})
+				)
+			end
+			table.insert(row, tag(word, color, false, 2 * index - 1, pickFade))
+		end
+
+		return row
+	end
 
 	-- Rebuilt for each pick and as the enemy becomes known: a row's tags are laid out once.
 	local tags = derive(function()
 		local current = enemy()
 		local isShown = isKnown()
+		local recipe = potion()
+		local isRecipeShown = isBrewed()
 		return vide.untrack(function()
+			if recipe then
+				local row = recipeTags(recipe, isRecipeShown)
+				vide.cleanup(function()
+					for _, item in row do
+						item:Destroy()
+					end
+				end)
+				return row
+			end
 			local category = Parts.CATEGORIES[Parts.CategoryOf(current)]
 			local row = {
 				tag(if current.IsBoss then "BOSS" else "MONSTER", category.Accent, true, 1, pickFade),
@@ -574,7 +823,9 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 	end)
 
 	local margin = Layout.MARGIN
-	local size = Layout.SIZE
+	local size = function(): UDim2
+		return UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y + lift())
+	end
 
 	-- The panel and what is written on it fade as one picture in a group with room for its shadow. The stage is not in
 	-- it: it holds the enemy's picture and turns every frame, and a group redraws its whole canvas for every frame of
@@ -583,9 +834,14 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 		Name = "Info",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = function()
-			return UDim2.new(1, -Layout.PANEL_RIGHT + math.round(Timing.PANEL_SLIDE * away()), 0, Layout.PANEL_Y)
+			return UDim2.new(
+				1,
+				-Layout.PANEL_RIGHT + math.round(Timing.PANEL_SLIDE * away()),
+				0,
+				Layout.PANEL_Y - lift()
+			)
 		end,
-		Size = UDim2.fromOffset(size.X, size.Y),
+		Size = size,
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 		create("CanvasGroup")({
@@ -594,14 +850,14 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 			Size = UDim2.new(1, 2 * margin, 1, 2 * margin),
 			BackgroundTransparency = 1,
 			GroupTransparency = faded,
-			Components.Panel({ Brackets = Layout.BRACKETS, Tall = true }, {
+			Components.Panel({ Brackets = true, Tall = true }, {
 				Name = "Panel",
 				Position = UDim2.fromOffset(margin, margin),
-				Size = UDim2.fromOffset(size.X, size.Y),
+				Size = size,
 				create("Frame")({
 					Name = "Tags",
 					Position = function()
-						return UDim2.fromOffset(Layout.TAGS.X + pickSlide(), Layout.TAGS.Y)
+						return UDim2.fromOffset(Layout.TAGS.X + pickSlide(), Layout.TAGS.Y + lift())
 					end,
 					Size = UDim2.fromOffset(Layout.NAME_SIZE.X, Layout.TAG_HEIGHT),
 					BackgroundTransparency = 1,
@@ -617,13 +873,15 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 				Label({
 					Name = "Name",
 					Position = function()
-						return UDim2.fromOffset(Layout.NAME.X + pickSlide(), Layout.NAME.Y)
+						return UDim2.fromOffset(Layout.NAME.X + pickSlide(), Layout.NAME.Y + lift())
 					end,
 					Size = UDim2.fromOffset(Layout.NAME_SIZE.X, Layout.NAME_SIZE.Y),
 					TextScaled = true,
 					TextYAlignment = Enum.TextYAlignment.Center,
 					TextTransparency = pickFade,
 					Text = function()
+						local recipe = potion()
+						if recipe then return if isBrewed() then string.upper(recipe.Name) else Parts.UNKNOWN end
 						return if isKnown() then string.upper(enemy().Name) else Parts.UNKNOWN
 					end,
 					create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_SIZE.Y }),
@@ -631,7 +889,7 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 				Label({
 					Name = "Description",
 					Position = function()
-						return UDim2.fromOffset(Layout.DESCRIPTION.X + pickSlide(), Layout.DESCRIPTION.Y)
+						return UDim2.fromOffset(Layout.DESCRIPTION.X + pickSlide(), Layout.DESCRIPTION.Y + lift())
 					end,
 					Size = UDim2.fromOffset(Layout.DESCRIPTION_SIZE.X, Layout.DESCRIPTION_SIZE.Y),
 					FontFace = Font.DisplayBold,
@@ -640,32 +898,69 @@ function Info.Build(state: Types.TIndexState, actions: Types.TIndexActions, elap
 					TextColor3 = Palette.Lavender,
 					TextTransparency = pickFade,
 					Text = function()
+						local recipe = potion()
+						if recipe then return if isBrewed() then recipe.Description else UNKNOWN_RECIPE end
 						return if isKnown() then enemy().Description else UNKNOWN_DESCRIPTION
 					end,
 				}),
-				statBox(1, 1, "DEFEATED", function()
-					return Components.Commas(if isKnown() then math.round(kills()) else 0)
-				end, function()
-					return Palette.White
-				end),
-				statBox(2, 1, "FOUND IN", function()
-					return Parts.MapsText(enemy())
-				end, function()
-					return Palette.White
-				end),
-				statBox(1, 2, "HEALTH", function()
-					return if isKnown() then Components.Commas(math.round(health())) else Parts.UNKNOWN
-				end, function()
-					return Palette.Pink
-				end),
-				statBox(2, 2, "THREAT", function()
-					return if isKnown() then threat().Word else Parts.UNKNOWN
-				end, function()
-					return if isKnown() then threat().Accent else Palette.Lavender
-				end),
+				-- An enemy's numbers, and in their place a recipe's: never both, never one page's left empty.
+				-- His rect, so the numbers keep their place as the panel grows over them.
+				create("Frame")({
+					Name = "EnemyStats",
+					Position = function()
+						return UDim2.fromOffset(0, lift())
+					end,
+					Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+					BackgroundTransparency = 1,
+					Visible = function()
+						return not isPotions()
+					end,
+					ZIndex = 4,
+					statBox(1, 1, "DEFEATED", function()
+						return Components.Commas(if isKnown() then math.round(kills()) else 0)
+					end, function()
+						return Palette.White
+					end),
+					statBox(2, 1, "FOUND IN", function()
+						return Parts.MapsText(enemy())
+					end, function()
+						return Palette.White
+					end),
+					statBox(1, 2, "HEALTH", function()
+						return if isKnown() then Components.Commas(math.round(health())) else Parts.UNKNOWN
+					end, function()
+						return Palette.Pink
+					end),
+					statBox(2, 2, "THREAT", function()
+						return if isKnown() then threat().Word else Parts.UNKNOWN
+					end, function()
+						return if isKnown() then threat().Accent else Palette.Lavender
+					end),
+				}),
+				create("Frame")({
+					Name = "PotionStats",
+					Position = function()
+						return UDim2.fromOffset(0, lift())
+					end,
+					Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+					BackgroundTransparency = 1,
+					Visible = isPotions,
+					ZIndex = 4,
+					statBox(1, 1, "BREWED", function()
+						return `x{Components.Commas(if isBrewed() then math.round(brewed()) else 0)}`
+					end, function()
+						return Palette.White
+					end),
+					statBox(2, 1, "RARER BREWS", function()
+						return RARER_WORDS
+					end, function()
+						return Palette.Gold
+					end),
+					effectsBox(effects),
+				}),
 			}),
 		}),
-		stage(state, actions, elapsed, enemy, known),
+		stage(state, actions, elapsed, enemy, known, potion, isBrewed),
 	})
 end
 

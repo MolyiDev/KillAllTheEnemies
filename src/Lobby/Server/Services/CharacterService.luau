@@ -1,9 +1,9 @@
--- Lobby avatars: loaded on the blocky body like in the match (GlobalServer.Utils.loadBlockyCharacter), and loaded
--- again when one dies. CharacterAutoLoads is false in lobby.project.json, so this is the only thing that loads them.
+-- Lobby avatars: loaded, and loaded again when one dies. CharacterAutoLoads is false in lobby.project.json, so this is
+-- the only thing that loads them.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
-local loadBlockyCharacter = require(ServerScriptService.GlobalServer.Utils.loadBlockyCharacter)
+local loadCharacter = require(ServerScriptService.GlobalServer.Utils.loadCharacter)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local getPlayerFromCharacterEntity =
@@ -16,7 +16,7 @@ local RESPAWN_SECONDS = 3
 local CharacterService = {}
 
 local function spawn(player: Player)
-	local ok, err = pcall(loadBlockyCharacter, player)
+	local ok, err = pcall(loadCharacter, player)
 	if not ok then warn(`[CharacterService] could not load {player.Name}: {err}`) end
 end
 

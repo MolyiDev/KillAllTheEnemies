@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
 local healthUpgrades = require(ReplicatedStorage.Shared.Utils.healthUpgrades)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local BarJuice = require(script.Parent.BarJuice)
@@ -20,9 +21,11 @@ local create = vide.create
 local derive = vide.derive
 local Palette = Theme.Palette
 
--- Health a cell, and the most cells a bar can have: every HEALTH level bought.
+-- Health a cell, and the most cells a bar can have: every HEALTH level bought, on the most the equipment can add.
 local CELL = 10
-local MAX_CELLS = (healthUpgrades.BASE + healthUpgrades.GAIN * healthUpgrades.MAX_LEVEL) / CELL
+local MAX_CELLS = math.ceil(
+	(healthUpgrades.BASE + healthUpgrades.GAIN * healthUpgrades.MAX_LEVEL + EquipmentCore.MOST_MAX_HEALTH) / CELL
+)
 local RIM = 2
 -- The well showing between the rim and the fill.
 local GAP = 1

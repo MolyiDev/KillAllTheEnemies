@@ -1,11 +1,11 @@
 -- The lobby's shooting range on this client (RangeCore). The shooting is the match's own (WeaponController and the
 -- rest of GlobalClient: the first person, the recoil and shake, the body's jolt, the crosshair and its markers, the
 -- damage numbers); this adds what only the range has:
---   - its dummies drawn where the server has them (swaying on their rails), each an EnemyWorld row the guns aim at,
+--   - its dummies drawn where the server has them (some swaying side to side), each an EnemyWorld row the guns aim at,
 --     answering every blow (RangeService's Range.Hit) as an enemy does: the white flash, the jolt away from the
 --     shooter, the stand-in monster's bursts and sounds, and a killed one knocked flat and back up;
---   - the strip of the guns the range offers across the bottom while the player stands in it (Strip): their loadout,
---     or only the gun TRY brought;
+--   - the strip of the guns the range offers across the bottom while the player stands in it and no lobby screen is up
+--     (Strip): their loadout, or only the gun TRY brought;
 --   - the weapons screen's TRY: the screen covers over, the player is stood in a booth facing the targets with that gun.
 --
 -- The engine draws at most 255 Highlights; the lobby has no enemies, so the dummies' twelve flashes are its only ones.
@@ -114,7 +114,8 @@ local state: Types.TRangeState = {
 	Scale = source(1),
 	Now = source(os.clock()),
 	IsInside = source(false),
-	InsideAt = source(-math.huge),
+	IsUp = source(false),
+	UpAt = source(-math.huge),
 	Shown = source({} :: { number }),
 	Held = source(0),
 	HeldAt = source(-math.huge),
@@ -139,6 +140,8 @@ local hasAskedTry = false
 local tryGiveUpAt = 0
 -- The server took its offer back; the strip lets it go once it has dropped away.
 local isOfferWithdrawn = false
+-- A lobby screen is up (LobbyController's word, through SetCovered).
+local isCovered = false
 -- Scratch for one BulkMoveTo a frame.
 local moveParts: { BasePart } = {}
 local moveFrames: { CFrame } = {}
@@ -151,6 +154,23 @@ end
 local function stamp(at: Types.Source<number>, moment: number)
 	at(moment)
 	motionUntil = math.max(motionUntil, moment + Strip.SETTLED)
+end
+
+-- The strip is up while the player stands in the range and no lobby screen covers it, so a screen shut after walking
+-- out does not bring it back.
+local function updateUp(now: number)
+	local isUp = state.IsInside() and not isCovered
+	if isUp == state.IsUp() then return end
+	vide.batch(function()
+		state.IsUp(isUp)
+		stamp(state.UpAt, now)
+	end)
+end
+
+-- A lobby screen opened or shut: the strip drops away under it as the lobby HUD does, and rises again as it shuts.
+function RangeController.SetCovered(isCoveredNow: boolean)
+	isCovered = isCoveredNow
+	updateUp(os.clock())
 end
 
 local function hold(gunId: number)
@@ -345,10 +365,8 @@ local function updateInside(now: number)
 	local root = selfRoot
 	local isInside = root ~= nil and root.Parent ~= nil and RangeCore.IsInside(root.Position)
 	if isInside ~= state.IsInside() then
-		vide.batch(function()
-			state.IsInside(isInside)
-			stamp(state.InsideAt, now)
-		end)
+		state.IsInside(isInside)
+		updateUp(now)
 	end
 
 	-- The strip shows the gun the server put in hand, as soon as it changes, and once a pick shown ahead of it has gone
@@ -411,7 +429,7 @@ local function frame()
 		drawBodies(now)
 	end
 
-	if isOfferWithdrawn and not state.IsInside() and now - state.InsideAt() >= Strip.SETTLED then
+	if isOfferWithdrawn and not state.IsUp() and now - state.UpAt() >= Strip.SETTLED then
 		isOfferWithdrawn = false
 		state.Shown({})
 	end
@@ -501,7 +519,7 @@ end :: TCharacterEvents.OnCharacterRemoving
 RangeController.OnStart = function()
 	vide.mount(function()
 		local isDrawn = vide.derive(function(): boolean
-			return state.IsInside() or state.Now() - state.InsideAt() < Strip.SETTLED
+			return state.IsUp() or state.Now() - state.UpAt() < Strip.SETTLED
 		end)
 
 		return {
@@ -542,7 +560,7 @@ RangeController.OnStart = function()
 	end, LocalPlayer:WaitForChild("PlayerGui"))
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, isProcessed: boolean)
-		if isProcessed or not state.IsInside() then return end
+		if isProcessed or not state.IsUp() then return end
 		local keyCode = input.KeyCode
 		local index = table.find(Strip.SLOT_KEYS, keyCode)
 		if index then

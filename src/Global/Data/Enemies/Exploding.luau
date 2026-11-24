@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 11, required: runs in and blows up. The fuse shows its blast circle on the ground for its whole length, and
@@ -37,6 +38,7 @@ local data: TData.TEnemy = {
 	IntroRound = 4,
 	SpawnWeight = 2,
 	GoldDrop = 5,
+	Energy = { Upgrade = EUpgradesIds.Damage, Cost = 4, Chance = 0.05, Color = Color3.fromRGB(255, 46, 139) },
 }
 
 return table.freeze(data)

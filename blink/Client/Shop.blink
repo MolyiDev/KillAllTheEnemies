@@ -1,0 +1,9 @@
+-- The shop screen's request (ShopService): gift an offer (its index in ShopCore.OFFERS) to a player in this server, by
+-- user id. The server checks the pick, keeps it in the buyer's profile and prompts the gift product; buying for
+-- oneself is a plain Roblox prompt the client opens.
+event Gift {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, f64)
+}

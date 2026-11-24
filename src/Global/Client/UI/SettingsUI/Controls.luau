@@ -11,6 +11,7 @@ local Hand = require(script.Parent.Parent.Hand)
 local Motion = require(script.Parent.Parent.Motion)
 local Theme = require(script.Parent.Parent.Theme)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local source = vide.source
@@ -393,11 +394,11 @@ function Controls.Reset(
 			}, {
 				Name = "Face",
 				Size = UDim2.fromScale(1, 1),
-				Components.Icon("Reset", {
+				Components.Picture(EIcons.Replay, {
 					Name = "Arrow",
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
-					Size = Components.GlyphBox(Layout.RESET_GLYPH),
+					Size = Components.PictureBox(Layout.RESET_GLYPH),
 					ZIndex = 2,
 					ImageColor3 = function()
 						return Palette.Lavender:Lerp(Palette.Gold, math.clamp(lit(), 0, 1))
@@ -445,7 +446,7 @@ function Controls.ResetSlab(
 				return if isEnabled() then "Red" else "Off"
 			end,
 			Marks = true,
-			Brackets = 5,
+			Brackets = true,
 			GlowTransparency = function()
 				return Lerp(0.6, 0.35, hover())
 			end,
@@ -463,8 +464,8 @@ function Controls.ResetSlab(
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 					Padding = UDim.new(0, Layout.SLAB_GAP),
 				}),
-				Components.Icon("Reset", {
-					Size = Components.GlyphBox(Layout.SLAB_GLYPH),
+				Components.Picture(EIcons.Replay, {
+					Size = Components.PictureBox(Layout.SLAB_GLYPH),
 					ImageColor3 = Palette.White,
 					ImageTransparency = ink,
 					LayoutOrder = 1,

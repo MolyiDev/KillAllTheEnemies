@@ -10,6 +10,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
 
 local create = vide.create
 local source = vide.source
@@ -28,6 +29,11 @@ local HOVER_PERIOD = 0.12
 -- comes back the same way, critically damped over about SHOW_PERIOD.
 local SHOW_PERIOD = 0.3
 local SHOW_LIFT = 10
+-- The count (a Notice, as every lobby button wears): its side; its middle is on the panel's top left corner.
+local BADGE = 26
+-- While something waits: the glow lit this much, and the light crossing in CALL_SECONDS.
+local CALL_GLOW = 0.6
+local CALL_SECONDS = 0.7
 
 -- How one icon is dressed. `Now` is the caller's UI clock, which only moves while the caller ticks it: a press hands
 -- `OnPress` the os.clock it has come back by, and the caller keeps `Now` ticking until then.
@@ -39,6 +45,11 @@ export type TOptions = {
 	OnPress: (settledAt: number) -> (),
 	-- Whether the icon is up; nil for always. Read as a vide source.
 	IsShown: (() -> boolean)?,
+	-- How many things wait behind the icon, worn as a count on its corner while above 0; nil for none. While above 0
+	-- the icon also glows, and the light crosses it each time `CallAt` (an os.clock stamp on `Now`) is stamped. Read as
+	-- vide sources.
+	Count: (() -> number)?,
+	CallAt: (() -> number)?,
 }
 
 local Topbar = {}
@@ -73,6 +84,21 @@ local function skinPanel(options: TOptions, isHovered: () -> boolean, pressedAt:
 			configure({ position = lit() })
 		end)
 	end)
+	local count = options.Count
+	local callAt = options.CallAt
+	local isCalling = vide.derive(function(): boolean
+		return count ~= nil and count() > 0
+	end)
+	local calling = Hand.Spring(function(): number
+		return if isCalling() then 1 else 0
+	end, SHOW_PERIOD)
+	local glowLight = function(): number
+		return math.max(lit(), CALL_GLOW * calling())
+	end
+	local called = vide.derive(function(): number
+		if not callAt or not isCalling() then return 1 end
+		return Motion.Progress(options.Now(), callAt(), CALL_SECONDS)
+	end)
 
 	return create("Frame")({
 		Name = "Skin",
@@ -90,22 +116,23 @@ local function skinPanel(options: TOptions, isHovered: () -> boolean, pressedAt:
 					return 1 - PRESS_DEPTH * Motion.Fade(options.Now(), pressedAt(), PRESS_SECONDS)
 				end,
 			}),
-			-- His dark drop shadow at rest, warming to a pink glow under the hand.
+			-- His dark drop shadow at rest, warming to a pink glow under the hand or while something waits.
 			Components.Panel({
 				Stroke = function()
 					return Palette.EdgePink:Lerp(Palette.Pink, lit())
 				end,
 				Glow = function()
-					return Color3.new():Lerp(Palette.Pink, lit())
+					return Color3.new():Lerp(Palette.Pink, glowLight())
 				end,
 				GlowTransparency = function()
-					return 0.6 - 0.1 * lit()
+					return 0.6 - 0.1 * glowLight()
 				end,
 			}, {
 				Name = "Face",
 				Size = UDim2.fromScale(1, 1),
+				if callAt then Components.Sheen(called, 3) else nil,
 				if options.HasBrackets
-					then Components.Brackets(INSET - 1, function()
+					then Components.Brackets(nil, function()
 						return 0.6 - 0.3 * lit()
 					end, BRACKET_LENGTH)
 					else nil,
@@ -176,6 +203,19 @@ function Topbar.Dress(icon: any, options: TOptions)
 	vide.mount(function()
 		return {
 			skinPanel(options, isHovered, pressedAt),
+			-- Over TopbarPlus's own image and caption, which the skin is under.
+			if options.Count
+				then Notice.Build({
+					Kind = "New",
+					Size = BADGE,
+					Count = options.Count,
+					Now = options.Now,
+					CallAt = options.CallAt,
+				}, {
+					Position = UDim2.fromOffset(INSET, INSET),
+					ZIndex = 20,
+				})
+				else nil,
 			if options.IsShown then stepAside(icon, button, options.IsShown) else nil,
 		}
 	end, button)

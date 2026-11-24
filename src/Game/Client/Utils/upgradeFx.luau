@@ -25,8 +25,8 @@ local Tune = table.freeze({
 	FLECKS = NumberRange.new(8, 11),
 	SPOUT = NumberRange.new(9, 12),
 	SPARKS = NumberRange.new(7, 9),
-	-- A rarer card throws more pixels: this much more each step up from Common.
-	RARITY_STEP = 0.2,
+	-- A rarer card throws more pixels: this much more each step up from Common (a Mythic 1.8 times a Common's).
+	RARITY_STEP = 0.16,
 	-- A body's copies go this long after the cast: past the halo and its longest particle.
 	LIFE = 2,
 })

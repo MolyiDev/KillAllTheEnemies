@@ -137,6 +137,7 @@ type TBeam = {
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("OrbitalPieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local parts = motorParts.NewPool("OrbitalBeams", Tune.BEAMS * 4)
 local templates: Instance? = nil
 local bricks: { BasePart } = {}

@@ -26,44 +26,49 @@
                 "$ignoreUnknownInstances": true
             }
         },
+        // The old Lobby place's lighting, which this map was built under: a sun straight overhead over a deep-space
+        // sky (the two Sky instances are in the place, not here), full ambient indoors, a strong bloom on the neon.
         "Lighting": {
             "$className": "Lighting",
             "$ignoreUnknownInstances": true,
             "$properties": {
                 "Ambient": [
-                    0.32549,
-                    0.25098,
-                    0.384314
+                    0.980392,
+                    0.980392,
+                    0.980392
                 ],
-                "Brightness": 2,
+                "Brightness": 1,
+                "ClockTime": 12,
+                "GeographicLatitude": 0,
                 "ColorShift_Bottom": [
                     0,
                     0,
                     0
                 ],
                 "ColorShift_Top": [
-                    0.647059,
-                    0.576471,
-                    0.478431
+                    0,
+                    0,
+                    0
                 ],
-                "EnvironmentDiffuseScale": 0,
-                "EnvironmentSpecularScale": 0,
+                "EnvironmentDiffuseScale": 1,
+                "EnvironmentSpecularScale": 1,
                 "GlobalShadows": true,
-                "LightingStyle": "Soft",
+                "ShadowSoftness": 0.15,
+                "LightingStyle": "Realistic",
                 "OutdoorAmbient": [
-                    0.470588,
-                    0.470588,
-                    0.470588
+                    0.039216,
+                    0.027451,
+                    0.133333
                 ],
                 "PrioritizeLightingQuality": true,
-                "ExposureCompensation": 0.05
+                "ExposureCompensation": 0
             },
             "Atmosphere": {
                 "$className": "Atmosphere",
                 "$ignoreUnknownInstances": true,
                 "$properties": {
-                    "Density": 0.25,
-                    "Offset": 1,
+                    "Density": 0.3,
+                    "Offset": 0.25,
                     "Color": [
                         0.780392,
                         0.780392,
@@ -83,11 +88,12 @@
                 "$ignoreUnknownInstances": true,
                 "$properties": {
                     "Enabled": true,
-                    "Intensity": 0.1,
-                    "Size": 6,
-                    "Threshold": 1.789
+                    "Intensity": 1,
+                    "Size": 24,
+                    "Threshold": 2
                 }
             },
+            // Zero at rest: the world blur behind screens drives it.
             "Blur": {
                 "$className": "BlurEffect",
                 "$ignoreUnknownInstances": true,
@@ -95,13 +101,14 @@
                     "Size": 0
                 }
             },
+            // The old place had neither of these two: kept with their values, switched off.
             "ColorCorrection": {
                 "$className": "ColorCorrectionEffect",
                 "$ignoreUnknownInstances": true,
                 "$properties": {
                     "Brightness": 0.15,
                     "Contrast": 0.15,
-                    "Enabled": true,
+                    "Enabled": false,
                     "Saturation": 0.85,
                     "TintColor": [
                         1,
@@ -114,7 +121,7 @@
                 "$className": "ColorGradingEffect",
                 "$ignoreUnknownInstances": true,
                 "$properties": {
-                    "Enabled": true,
+                    "Enabled": false,
                     "TonemapperPreset": "Retro"
                 }
             },
@@ -127,7 +134,7 @@
                 "$ignoreUnknownInstances": true,
                 "$properties": {
                     "Enabled": true,
-                    "Intensity": 0.1,
+                    "Intensity": 0.25,
                     "Spread": 1
                 }
             }
@@ -174,6 +181,11 @@
                 "Abilities": {
                     "$path": "Assets/models/Abilities/ability_models.rbxmx"
                 },
+                // The equipment's accessories, worn on every avatar and drawn on the equipment screen
+                // (Assets/models/Equipment/make_equipment_models.luau). Rojo's too.
+                "Equipment": {
+                    "$path": "Assets/models/Equipment/equipment_models.rbxmx"
+                },
                 // The guns, for the weapons screen's cards and stage (as the Game place's, which says where they are
                 // made). Rojo's too.
                 "Guns": {
@@ -202,7 +214,7 @@
             "$properties": {
                 "EnableMouseLockOption": false,
                 "CreateDefaultPlayerModule": false,
-                "CharacterWalkSpeed": 22
+                "CharacterWalkSpeed": 33
             },
             // No Animate here: Roblox's default one animates the R6 body with Roblox's own clips (they play in any game).
             "StarterCharacterScripts": {

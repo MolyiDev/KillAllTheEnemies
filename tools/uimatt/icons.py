@@ -4,6 +4,7 @@ streaks his panel faces carry into a texture laid over every panel.
     python3 tools/uimatt/icons.py                          # write both
     python3 tools/uimatt/icons.py --upload Icons           # and upload one (or both) as group 34796361
     python3 tools/uimatt/icons.py --upload PanelTexture
+    python3 tools/uimatt/icons.py --upload Showcase
 
 
 Reads the PNGs rur saved beside the In-Game HUD render (Assets/ui/UIMatt/renders/15_In_Game_HUD/assets; a file
@@ -17,6 +18,9 @@ owned by the group in ROBLOX_CREATOR_GROUP_ID), then reads the Image id the Deca
 ImageLabel needs the Image, not the Decal), records both in Assets/ui/hud/asset_ids.json and writes the Image into
 its line of src/Global/Client/UI/Icons.luau. Each upload is a new asset: Open Cloud cannot update a Decal's image in
 place, so upload only what changed.
+
+The showcase atlas (Showcase.png, showcase()) is the art behind a thing on show (GlobalClient/UI/Showcase): white on
+transparent, tinted where it is drawn. Its cells are listed in Icons.luau's ShowcaseCells.
 
 The texture is drawn, not cut: his faces are too small to tile from. White streaks on transparent, 1 px per design px,
 1024 square so any panel up to 512 px finds a window into it at any phase. Its alpha is stretched to full range
@@ -70,7 +74,33 @@ FLOOR_FILL = 0.25
 UPLOADS = {
     "Icons": ("Icons.png", "IMAGE"),
     "PanelTexture": ("PanelTexture.png", "PANEL_TEXTURE"),
+    "Showcase": ("Showcase.png", "SHOWCASE"),
+    "ShowcaseFloor": ("ShowcaseFloor.png", "SHOWCASE_FLOOR"),
 }
+# The floors under a thing on show, each an ellipse at the stages' floor shape (his 470 x 84) seen in perspective, as
+# Icons.luau's ShowcaseFloorCells has them. Drawn about twice the size they are shown at, so their lines are twice
+# the px they land at.
+SHOWCASE_FLOOR_CELLS = {
+    "Pad": (0, 0, 1024, 184),
+    "Dots": (0, 192, 1024, 184),
+    "Reticle": (0, 384, 1024, 184),
+    "Ring": (0, 576, 1024, 184),
+    "Glow": (0, 768, 1024, 184),
+}
+FLOOR_DOTS_PITCH = 30.0
+# The showcase atlas: each drawing's cell (x, y, w, h), as Icons.luau's ShowcaseCells has them. Supersampled SHOWCASE_SS
+# times each way.
+SHOWCASE_CELLS = {
+    "Rays": (0, 0, 512, 512),
+    "Dots": (512, 0, 512, 512),
+    "Reticle": (0, 512, 512, 512),
+    "Glow": (512, 512, 256, 256),
+    "Pulse": (512, 768, 256, 256),
+    "Beam": (768, 512, 256, 512),
+}
+SHOWCASE_SS = 4
+RAYS = 16
+DOTS_PITCH = 17.0
 
 
 def white(a):
@@ -318,6 +348,223 @@ def texture():
     print(f"[ICONS] texture -> Assets/ui/hud/PanelTexture.png (peak alpha {TEXTURE_PEAK})")
 
 
+def supersampled(w, h):
+    """Pixel centres of a w x h cell at SHOWCASE_SS samples a side, in the cell's own px."""
+    k = SHOWCASE_SS
+    ys, xs = np.mgrid[0 : h * k, 0 : w * k].astype(float) + 0.5
+    return xs / k, ys / k
+
+
+def averaged(a, w, h):
+    k = SHOWCASE_SS
+    return a.reshape(h, k, w, k).mean(axis=(1, 3))
+
+
+def smoothstep(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def rays(size):
+    """RAYS wedges, each half its pitch, with a 1 px soft side; dark in the very middle, fading out to the rim."""
+    xs, ys = supersampled(size, size)
+    c = size / 2
+    dx, dy = xs - c, ys - c
+    r = np.sqrt(dx * dx + dy * dy) / c
+    pitch = 2 * np.pi / RAYS
+    phase = np.mod(np.arctan2(dy, dx), pitch) / pitch
+    soft = 1.0 / np.maximum(r * c * pitch, 1e-3)
+    wedge = smoothstep(-soft, soft, np.minimum(phase, 0.5 - phase))
+    radial = smoothstep(0.0, 0.22, r) * np.clip(1 - r, 0, 1) ** 1.6
+    return averaged(wedge * radial, size, size)
+
+
+def dots(size):
+    """A halftone disc: a hex lattice of dots, each as big as its distance from the middle allows."""
+    xs, ys = supersampled(size, size)
+    c = size / 2
+    pitch = DOTS_PITCH
+    row = np.floor(ys / (pitch * 0.866))
+    best = np.full(xs.shape, 1e9)
+    bx, by = np.zeros(xs.shape), np.zeros(xs.shape)
+    for drow in (-1, 0, 1):
+        rr = row + drow
+        cy = (rr + 0.5) * pitch * 0.866
+        off = 0.5 * (rr % 2)
+        base = np.floor(xs / pitch - off)
+        for dcol in (-1, 0, 1):
+            cx = (base + dcol + 0.5 + off) * pitch
+            d = (xs - cx) ** 2 + (ys - cy) ** 2
+            nearer = d < best
+            best, bx, by = np.where(nearer, d, best), np.where(nearer, cx, bx), np.where(nearer, cy, by)
+    grow = np.clip(1 - np.sqrt((bx - c) ** 2 + (by - c) ** 2) / c, 0, 1) ** 0.9
+    radius = pitch * 0.46 * grow
+    return averaged(smoothstep(radius + 0.6, radius - 0.6, np.sqrt(best)) * (radius > 0.5), size, size)
+
+
+def reticle(size):
+    """A sight: broken arcs round the rim, a ring of ticks inside it (every sixth long), a faint thin circle within."""
+    xs, ys = supersampled(size, size)
+    c = size / 2
+    dx, dy = xs - c, ys - c
+    rpx = np.sqrt(dx * dx + dy * dy)
+    deg = np.degrees(np.arctan2(dy, dx)) % 360
+    rim, line = c - 4, 3.2
+    on = np.zeros(xs.shape)
+    for start, length in [(0, 70), (80, 8), (96, 64), (172, 6), (186, 82), (276, 10), (294, 56)]:
+        on = np.maximum(on, ((deg - start) % 360 < length).astype(float))
+    out = smoothstep(line / 2 + 0.7, line / 2 - 0.7, np.abs(rpx - rim)) * on
+    ticks_at, pitch = rim * 0.89, 360 / 72
+    within = deg % pitch
+    across = np.minimum(within, pitch - within) * np.pi / 180 * rpx
+    length = np.where(np.floor(deg / pitch).astype(int) % 6 == 0, 14, 6)
+    ticks = smoothstep(1.5, 0.3, across) * ((rpx < ticks_at) & (rpx > ticks_at - length))
+    out = np.maximum(out, ticks)
+    out = np.maximum(out, 0.6 * smoothstep(1.6, 0.4, np.abs(rpx - rim * 0.74)))
+    return averaged(out, size, size)
+
+
+def soft_glow(size):
+    xs, ys = supersampled(size, size)
+    c = size / 2
+    r = np.sqrt((xs - c) ** 2 + (ys - c) ** 2) / c
+    return averaged(np.clip(1 - r, 0, 1) ** 2.2, size, size)
+
+
+def pulse(size):
+    """A soft ring, its brightest at 0.86 of the radius."""
+    xs, ys = supersampled(size, size)
+    c = size / 2
+    r = np.sqrt((xs - c) ** 2 + (ys - c) ** 2) / c
+    return averaged(np.exp(-(((r - 0.86) / 0.07) ** 2)) * smoothstep(1.0, 0.97, r), size, size)
+
+
+def beam(w, h):
+    """A spotlight's cone from a narrow top to the full width at the bottom, brighter as it falls, with soft shafts."""
+    xs, ys = supersampled(w, h)
+    y = ys / h
+    half = (0.16 + 0.84 * y) * (w / 2) - 2
+    u = (xs - w / 2) / half
+    across = np.clip(1 - np.abs(u), 0, 1) ** 0.8
+    shafts = 0.82 + 0.12 * np.sin(u * 9.0 + 0.7) + 0.06 * np.sin(u * 23.0)
+    along = smoothstep(0.0, 0.35, y) * (0.5 + 0.5 * y) * smoothstep(1.0, 0.92, y)
+    return averaged(across * along * np.clip(shafts, 0, 1), w, h)
+
+
+def showcase():
+    drawings = {"Rays": rays, "Dots": dots, "Reticle": reticle, "Glow": soft_glow, "Pulse": pulse}
+    alpha = np.zeros((1024, 1024))
+    for name, (x, y, w, h) in SHOWCASE_CELLS.items():
+        alpha[y : y + h, x : x + w] = beam(w, h) if name == "Beam" else drawings[name](w)
+    image = np.zeros((1024, 1024, 4), np.uint8)
+    image[..., :3] = 255
+    image[..., 3] = np.round(np.clip(alpha, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(image, "RGBA").save(os.path.join(OUT, "Showcase.png"))
+    print("[ICONS] showcase -> Assets/ui/hud/Showcase.png")
+
+
+def floor_space(w, h):
+    """An ellipse filling a w x h cell, seen as a floor: per sample its normalised radius, the screen px per unit of
+    that radius (so a rim is the same px thick all round), and the ground plane's own coordinates (u, v), square."""
+    xs, ys = supersampled(w, h)
+    a, b = w / 2 - 2, h / 2 - 2
+    dx, dy = xs - w / 2, ys - h / 2
+    nx, ny = dx / a, dy / b
+    r = np.sqrt(nx * nx + ny * ny)
+    gradient = np.sqrt((nx / a) ** 2 + (ny / b) ** 2) / np.maximum(r, 1e-6)
+    return r, 1 / np.maximum(gradient, 1e-9), dx, dy * a / b, a, b
+
+
+def rim_at(r, px_per_unit, radius, line):
+    """A line `line` px thick on the ellipse at `radius`, even all round."""
+    distance = np.abs(r - radius) * px_per_unit
+    return smoothstep(line / 2 + 0.7, line / 2 - 0.7, distance)
+
+
+def floor_pad(w, h):
+    """A lit pad: a bright rim, a fainter one inside it, a fill brightest in the middle."""
+    r, px, _, _, _, _ = floor_space(w, h)
+    out = np.maximum(rim_at(r, px, 0.985, 5.5), 0.45 * rim_at(r, px, 0.8, 3.5))
+    out = np.maximum(out, 0.32 * np.clip(1 - r * r, 0, 1) * (r < 1))
+    return averaged(out, w, h)
+
+
+def floor_dots(w, h):
+    """The halftone disc laid flat: a hex lattice on the ground, each dot as big as its distance from the middle
+    allows, squashed by the floor's perspective."""
+    r, _, u, v, a, b = floor_space(w, h)
+    pitch = FLOOR_DOTS_PITCH
+    row = np.floor(v / (pitch * 0.866))
+    best = np.full(u.shape, 1e9)
+    bu, bv = np.zeros(u.shape), np.zeros(u.shape)
+    for drow in (-1, 0, 1):
+        rr = row + drow
+        cv = (rr + 0.5) * pitch * 0.866
+        off = 0.5 * (rr % 2)
+        base = np.floor(u / pitch - off)
+        for dcol in (-1, 0, 1):
+            cu = (base + dcol + 0.5 + off) * pitch
+            d = (u - cu) ** 2 + (v - cv) ** 2
+            nearer = d < best
+            best, bu, bv = np.where(nearer, d, best), np.where(nearer, cu, bu), np.where(nearer, cv, bv)
+    grow = np.clip(1 - np.sqrt(bu * bu + bv * bv) / a, 0, 1) ** 0.8
+    radius = pitch * 0.45 * grow
+    du, dv = u - bu, v - bv
+    reach = np.sqrt(best)
+    # The edge's distance on screen: the ground's v is squashed by b / a.
+    squash = np.sqrt(du * du + (dv * b / a) ** 2) / np.maximum(reach, 1e-6)
+    distance = (reach - radius) * squash
+    return averaged(smoothstep(0.6, -0.6, distance) * (radius > 1), w, h)
+
+
+def floor_reticle(w, h):
+    """The sight laid flat: broken arcs round the rim, a ring of ticks inside it (every sixth long), a thin circle."""
+    r, px, u, v, a, _ = floor_space(w, h)
+    deg = np.degrees(np.arctan2(v, u)) % 360
+    on = np.zeros(r.shape)
+    for start, length in [(0, 70), (80, 8), (96, 64), (172, 6), (186, 82), (276, 10), (294, 56)]:
+        on = np.maximum(on, ((deg - start) % 360 < length).astype(float))
+    out = rim_at(r, px, 0.985, 5.5) * on
+    pitch = 360 / 72
+    within = deg % pitch
+    across = np.minimum(within, pitch - within) * np.pi / 180 * r * a
+    long = np.floor(deg / pitch).astype(int) % 6 == 0
+    inner = np.where(long, 0.8, 0.85)
+    ticks = smoothstep(2.8, 1.6, across) * ((r < 0.9) & (r > inner))
+    out = np.maximum(out, ticks)
+    out = np.maximum(out, 0.55 * rim_at(r, px, 0.66, 3.0))
+    return averaged(out, w, h)
+
+
+def floor_ring(w, h):
+    """One thin ring on the floor's edge, for ripples."""
+    r, px, _, _, _, _ = floor_space(w, h)
+    return averaged(rim_at(r, px, 0.97, 6.5), w, h)
+
+
+def floor_glow(w, h):
+    r, _, _, _, _, _ = floor_space(w, h)
+    return averaged(np.clip(1 - r, 0, 1) ** 1.8, w, h)
+
+
+def showcase_floor():
+    drawings = {
+        "Pad": floor_pad,
+        "Dots": floor_dots,
+        "Reticle": floor_reticle,
+        "Ring": floor_ring,
+        "Glow": floor_glow,
+    }
+    alpha = np.zeros((1024, 1024))
+    for name, (x, y, w, h) in SHOWCASE_FLOOR_CELLS.items():
+        alpha[y : y + h, x : x + w] = drawings[name](w, h)
+    image = np.zeros((1024, 1024, 4), np.uint8)
+    image[..., :3] = 255
+    image[..., 3] = np.round(np.clip(alpha, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(image, "RGBA").save(os.path.join(OUT, "ShowcaseFloor.png"))
+    print("[ICONS] showcase floor -> Assets/ui/hud/ShowcaseFloor.png")
+
+
 def env():
     values = {}
     with open(os.path.join(ROOT, ".env")) as f:
@@ -407,6 +654,8 @@ def upload(name):
 if __name__ == "__main__":
     main()
     texture()
+    showcase()
+    showcase_floor()
     if "--upload" in sys.argv:
         for name in sys.argv[sys.argv.index("--upload") + 1 :]:
             upload(name)

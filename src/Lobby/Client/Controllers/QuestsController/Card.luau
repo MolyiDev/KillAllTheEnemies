@@ -18,6 +18,7 @@ local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local Parts = require(script.Parent.Parts)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -28,10 +29,11 @@ local Label = Parts.Label
 
 -- His drawn rects in px at 1080, from the card's top left.
 local Layout = table.freeze({
-	SIZE = Vector2.new(1265, 97),
+	-- A px shorter than his, so two stand 12 apart: a card's brackets open to 6 px out under the hand.
+	SIZE = Vector2.new(1265, 96),
 	-- From one card's top to the next one's.
 	ROW_STEP = 108,
-	BRACKETS = 7,
+	-- 3 out, opening 2 under the hand: two quests stand 11 apart, and his 7 + 3 crossed.
 	BRACKET_LENGTH = 18,
 	TILE = Vector2.new(14, 12),
 	TILE_SIZE = 72,
@@ -50,11 +52,9 @@ local Layout = table.freeze({
 	REWARD_TEXT = 24,
 	BUTTON = Vector2.new(1074, 19),
 	BUTTON_SIZE = Vector2.new(174, 59),
-	BUTTON_BRACKETS = 5,
 	BUTTON_TEXT = 22,
 	PLAQUE = Vector2.new(1076, 21),
 	PLAQUE_SIZE = Vector2.new(170, 56),
-	PLAQUE_BRACKETS = 6,
 	PLAQUE_TEXT = 16,
 	PLAQUE_CHECK = 15,
 })
@@ -93,7 +93,6 @@ local Timing = table.freeze({
 	SHAKE = 0.42,
 	SHAKE_REACH = 9,
 	-- The hand over a card opens its brackets and lights its glow.
-	HOVER_BRACKETS = 3,
 	GLOW = 0.7,
 	GLOW_LIT = 0.3,
 })
@@ -130,6 +129,19 @@ type TCardMotion = {
 }
 
 local Card = {}
+
+-- The room the panel's rise makes (Parts.Lift) is shared by the board's cards: each grows by a share, its pieces
+-- staying in its middle.
+local function growth(): number
+	return math.floor(Parts.Lift() / QuestsCore.BOARD_SIZE)
+end
+
+-- A piece laid at `at` in his card, moved down with the card's middle.
+local function inCard(at: Vector2): () -> UDim2
+	return function(): UDim2
+		return UDim2.fromOffset(at.X, at.Y + math.round(growth() / 2))
+	end
+end
 
 Card.SIZE = Layout.SIZE
 -- The wind-up's length: the controller holds a fast answer's strike until it is over.
@@ -240,7 +252,7 @@ end
 local function bar(motion: TCardMotion): Frame
 	return create("Frame")({
 		Name = "Bar",
-		Position = UDim2.fromOffset(Layout.BAR.X, Layout.BAR.Y),
+		Position = inCard(Layout.BAR),
 		Size = UDim2.fromOffset(Layout.BAR_SIZE.X, Layout.BAR_SIZE.Y),
 		BackgroundColor3 = Parts.BAR_TRACK,
 		BorderSizePixel = 0,
@@ -288,10 +300,7 @@ local function claimButton(motion: TCardMotion, press: () -> ()): TextButton
 	return Components.Button({
 		Name = "Claim",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(
-			Layout.BUTTON.X + Layout.BUTTON_SIZE.X / 2,
-			Layout.BUTTON.Y + Layout.BUTTON_SIZE.Y / 2
-		),
+		Position = inCard(Layout.BUTTON + Layout.BUTTON_SIZE / 2),
 		Size = UDim2.fromOffset(Layout.BUTTON_SIZE.X, Layout.BUTTON_SIZE.Y),
 		BackgroundTransparency = 1,
 		Visible = function()
@@ -314,9 +323,7 @@ local function claimButton(motion: TCardMotion, press: () -> ()): TextButton
 		Components.Slab({
 			Kind = "Go",
 			Marks = true,
-			Brackets = function()
-				return Layout.BUTTON_BRACKETS + 3 * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
 			end,
@@ -364,10 +371,7 @@ local function plaque(motion: TCardMotion): Frame
 	return Parts.Plaque({
 		Name = "Plaque",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(
-			Layout.PLAQUE.X + Layout.PLAQUE_SIZE.X / 2,
-			Layout.PLAQUE.Y + Layout.PLAQUE_SIZE.Y / 2
-		),
+		Position = inCard(Layout.PLAQUE + Layout.PLAQUE_SIZE / 2),
 		Size = UDim2.fromOffset(Layout.PLAQUE_SIZE.X, Layout.PLAQUE_SIZE.Y),
 		Visible = function()
 			return not motion.IsDone() or motion.IsShownClaimed()
@@ -379,7 +383,7 @@ local function plaque(motion: TCardMotion): Frame
 				return Motion.Lerp(0.5, 1, motion.SwapIn()) + checkPop()
 			end,
 		}),
-		Components.Brackets(Layout.PLAQUE_BRACKETS, 0.6, 14),
+		Components.Brackets(nil, 0.6, 14),
 		create("Frame")({
 			Name = "Word",
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -394,9 +398,9 @@ local function plaque(motion: TCardMotion): Frame
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				Padding = UDim.new(0, 8),
 			}),
-			Components.Icon("Check", {
+			Components.Picture(EIcons.Check, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.PLAQUE_CHECK),
+				Size = Components.PictureBox(Layout.PLAQUE_CHECK),
 				ImageColor3 = Palette.Green,
 				Visible = motion.IsShownClaimed,
 			}),
@@ -419,7 +423,7 @@ end
 local function tile(motion: TCardMotion, hand: Hand.TReaction): Frame
 	return create("Frame")({
 		Name = "Tile",
-		Position = UDim2.fromOffset(Layout.TILE.X, Layout.TILE.Y),
+		Position = inCard(Layout.TILE),
 		Size = UDim2.fromOffset(Layout.TILE_SIZE, Layout.TILE_SIZE),
 		BackgroundColor3 = function()
 			return Parts.TILE_FACE:Lerp(motion.Accent(), 0.12)
@@ -432,11 +436,10 @@ local function tile(motion: TCardMotion, hand: Hand.TReaction): Frame
 			Thickness = 1,
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		}),
-		Components.Icon("Scroll", {
+		Components.Picture(EIcons.Scroll, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = Components.GlyphBox(Layout.SCROLL_GLYPH),
-			ImageColor3 = motion.Accent,
+			Size = Components.PictureBox(Layout.SCROLL_GLYPH),
 			ZIndex = 2,
 			create("UIScale")({
 				Scale = function()
@@ -513,12 +516,15 @@ function Card.Build(
 		Name = `Quest{slot}`,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = function()
+			local grow = growth()
 			return UDim2.fromOffset(
 				Layout.SIZE.X / 2 + math.round(Timing.SHAKE_REACH * motion.Shake()),
-				Layout.SIZE.Y / 2 + (slot - 1) * Layout.ROW_STEP
+				(Layout.SIZE.Y + grow) / 2 + (slot - 1) * (Layout.ROW_STEP + grow)
 			)
 		end,
-		Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+		Size = function()
+			return UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y + growth())
+		end,
 		BackgroundTransparency = 1,
 		ZIndex = 2 + slot,
 		Activated = function()
@@ -540,9 +546,7 @@ function Card.Build(
 			end,
 			Tint = 0.3,
 			Wide = true,
-			Brackets = function()
-				return Layout.BRACKETS + Timing.HOVER_BRACKETS * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketLength = Layout.BRACKET_LENGTH,
 			BracketTransparency = function()
 				return 0.6 - 0.3 * hand.Light()
@@ -573,7 +577,7 @@ function Card.Build(
 			tile(motion, hand),
 			Label({
 				Name = "Title",
-				Position = UDim2.fromOffset(Layout.NAME.X, Layout.NAME.Y),
+				Position = inCard(Layout.NAME),
 				Size = UDim2.fromOffset(400, Layout.NAME_TEXT),
 				TextSize = Layout.NAME_TEXT,
 				Text = function()
@@ -583,7 +587,7 @@ function Card.Build(
 			}),
 			Label({
 				Name = "Description",
-				Position = UDim2.fromOffset(Layout.DESCRIPTION.X, Layout.DESCRIPTION.Y),
+				Position = inCard(Layout.DESCRIPTION),
 				Size = UDim2.fromOffset(400, Layout.DESCRIPTION_TEXT),
 				FontFace = Font.DisplayBold,
 				TextSize = Layout.DESCRIPTION_TEXT,
@@ -597,7 +601,7 @@ function Card.Build(
 			Label({
 				Name = "Count",
 				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(Layout.BAR.X + Layout.BAR_SIZE.X / 2, Layout.COUNT_Y),
+				Position = inCard(Vector2.new(Layout.BAR.X + Layout.BAR_SIZE.X / 2, Layout.COUNT_Y)),
 				Size = UDim2.fromOffset(Layout.BAR_SIZE.X, Layout.COUNT_TEXT),
 				TextXAlignment = Enum.TextXAlignment.Center,
 				TextSize = Layout.COUNT_TEXT,
@@ -606,12 +610,11 @@ function Card.Build(
 					return `{Components.Commas(shown)} / {Components.Commas(motion.Goal())}`
 				end,
 			}),
-			Components.Icon("Gem", {
+			Components.Picture(EIcons.Gem, {
 				Name = "Gem",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.GEM.X, Layout.GEM.Y),
-				Size = Components.GlyphBox(Layout.GEM_GLYPH),
-				ImageColor3 = Parts.REWARD_COLORS[board],
+				Position = inCard(Layout.GEM),
+				Size = Components.PictureBox(Layout.GEM_GLYPH),
 				ZIndex = 4,
 				vide.action(function(instance: Instance)
 					actions.MarkGem(board, slot, instance :: GuiObject)
@@ -624,7 +627,7 @@ function Card.Build(
 			}),
 			Label({
 				Name = "Reward",
-				Position = UDim2.fromOffset(Layout.REWARD.X, Layout.REWARD.Y),
+				Position = inCard(Layout.REWARD),
 				Size = UDim2.fromOffset(160, Layout.REWARD_TEXT),
 				TextSize = Layout.REWARD_TEXT,
 				TextColor3 = Parts.REWARD_COLORS[board],

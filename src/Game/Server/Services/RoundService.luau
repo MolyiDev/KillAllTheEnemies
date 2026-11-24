@@ -13,12 +13,14 @@ local Signal = require(ReplicatedStorage.Packages.Signal)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
+local EquipmentService = require(ServerScriptService.GlobalServer.Services.EquipmentService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local NavService = require(script.Parent.NavService)
 local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
+local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -372,9 +374,11 @@ local function payClear(round: number)
 
 	for _, player in Players:GetPlayers() do
 		EconomyService.AddGold(player, gold)
-		EconomyService.AddGameplayGems(player, gems)
+		local paidGems = EconomyService.AddGameplayGems(player, gems)
+		local paidXp = xpPercent
 		DatabaseService.Update(player, function(profile)
-			profile.Xp += xpPercent
+			paidXp = xpPercent * ShopCore.RunXpScale(profile)
+			profile.Xp += paidXp
 			while profile.Xp >= 100 do
 				profile.Xp -= 100
 				profile.Level += 1
@@ -388,7 +392,7 @@ local function payClear(round: number)
 		end)
 
 		DatabaseService.SaveAsync(player)
-		ServerNetworkRounds.Rewards.Fire(player, round, gold, gems, xpPercent)
+		ServerNetworkRounds.Rewards.Fire(player, round, gold, paidGems, paidXp)
 	end
 end
 
@@ -412,7 +416,7 @@ end
 EnemiesService.OnEnemyDied:Connect(function(position: vector, enemyData: TData.TEnemy, killer: Player?)
 	-- Not only while Fighting: a skipped wave keeps pouring in through the next countdown, and its kills pay too.
 	if not killer or RoundService.State == ERoundState.Idle then return end
-	local greed = 1 + upgradeStats.Get(killer, EUpgradesIds.Greed)
+	local greed = 1 + upgradeStats.Get(killer, EUpgradesIds.Greed) + EquipmentService.StatOf(killer, "KillGold")
 	local amount = math.floor(RoundCore.GetKillGold(enemyData, RoundService.Round) * greed + 0.5)
 	EconomyService.AddGold(killer, amount)
 	-- The coins are a picture of Gold already credited (GDD 17): they fly to the killer whatever happens to them.

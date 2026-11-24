@@ -3,7 +3,7 @@
 -- offers (state.Shown: the player's loadout, one a tier, or only the gun TRY brought), each on its rarity's card with
 -- its number key in the corner. The one in hand stands raised in a white frame, its name stamped over the strip. A
 -- click or its number picks one. The strip rises in slot by slot from the middle out as the player walks into the
--- range, and drops away as they leave.
+-- range or a lobby screen over it shuts, and drops away as they leave or one opens (state.IsUp).
 --
 -- Also the cover drawn over TRY's trip to the range, so the player is not seen sliding across the lobby.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,9 +31,10 @@ local Progress = Motion.Progress
 local Layout = table.freeze({
 	SLOT = 96,
 	GAP = 14,
-	-- Over the lobby HUD's WEAPONS / MENU / CLASSES row, which stays up in the range: its slabs reach 176 up
-	-- (LobbyController/Hud: SLAB_BOTTOM 70, SLAB_SIZE.Y 101, brackets 5), and the slot in hand grows below its own.
-	BOTTOM = 204,
+	-- Over the lobby HUD's WEAPONS / PLAY / CLASSES row, which stays up in the range: PLAY reaches 189 up
+	-- (LobbyController/Hud: SLAB_BOTTOM 70, SLAB_SIZE.Y 101 and brackets 5 at its 1.12), and the slot in hand grows
+	-- below its own.
+	BOTTOM = 217,
 	KEY = 4,
 	KEY_SIZE = 24,
 	-- The gun in hand: this much bigger, raised, and framed this far off its edge.
@@ -90,15 +91,15 @@ Strip.WIDTH = LoadoutCore.TIERS * PITCH - Layout.GAP + Layout.SLOT * (Layout.HEL
 
 local function rarityOf(gunId: number): typeof(Parts.RARITIES.Common)
 	local gun = GUNS[gunId]
-	return if gun then Parts.RARITIES[gun.Rarity] or Parts.RARITIES.Common else Parts.RARITIES.Common
+	return if gun then Parts.RARITIES[gun.Rarity] else Parts.RARITIES.Common
 end
 
 -- 0 in place, 1 gone: slots rise in from the middle out, and leave together.
 local function awayOf(state: Types.TRangeState, delay: number): () -> number
 	return derive(function(): number
 		local now = state.Now()
-		local at = state.InsideAt()
-		if state.IsInside() then return 1 - Motion.Decelerate(Progress(now, at, Timing.ARRIVE, delay)) end
+		local at = state.UpAt()
+		if state.IsUp() then return 1 - Motion.Decelerate(Progress(now, at, Timing.ARRIVE, delay)) end
 		return Motion.Accelerate(Progress(now, at, Timing.LEAVE))
 	end)
 end

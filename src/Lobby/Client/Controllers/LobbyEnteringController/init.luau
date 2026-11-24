@@ -1,8 +1,8 @@
 -- The results of the last run, back in the lobby (UIMatt.md, Lobby Entering): the server sends the run the profile
 -- holds as it loads (Results.Show), whether the player came back from it or walked out of it and came in again, and
 -- LOBBY drops it (Results.Dismiss). The camera goes to the elevator in the map (Stage), where the squad stands with
--- their tags over their heads (Squad); Header and Stats are over it. This owns the state, loads the squad's avatars on
--- the blocky body, cuts to black and back across each jump of the camera, and drives the stage and the clock.
+-- their tags over their heads (Squad); Header and Stats are over it. This owns the state, loads the squad's avatars,
+-- cuts to black and back across each jump of the camera, and drives the stage and the clock.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -16,7 +16,6 @@ local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local blockyBody = require(ReplicatedStorage.GlobalShared.Utils.blockyBody)
 local Header = require(script.Header)
 local Squad = require(script.Squad)
 local Stage = require(script.Stage)
@@ -123,19 +122,18 @@ local function clearAvatars()
 	end
 end
 
--- Builds `member`'s avatar as the server loads players' own (loadBlockyCharacter): their description on the blocky
--- body, or the default avatar for an account that has none (Studio's test players). Yields on the web, so spawned.
+-- Builds `member`'s avatar as it spawns (GlobalServer.Utils.loadCharacter), or the default avatar for an account that
+-- has none (Studio's test players). Yields on the web, so spawned.
 local function loadAvatar(member: Types.TMember, shownGeneration: number)
-	local description: HumanoidDescription? = nil
+	local fetched, description = false, nil
 	if member.UserId > 0 then
-		local found, fetched = pcall(Players.GetHumanoidDescriptionFromUserId, Players, member.UserId)
-		if found then description = fetched end
+		fetched, description = pcall(Players.GetHumanoidDescriptionFromUserIdAsync, Players, member.UserId)
 	end
-	local used = description or Instance.new("HumanoidDescription")
-	blockyBody.Describe(used)
+	if not fetched then description = Instance.new("HumanoidDescription") end
 
 	-- R6, as the lobby loads its players.
-	local built, model = pcall(Players.CreateHumanoidModelFromDescription, Players, used, Enum.HumanoidRigType.R6)
+	local built, model =
+		pcall(Players.CreateHumanoidModelFromDescriptionAsync, Players, description, Enum.HumanoidRigType.R6)
 	if shownGeneration ~= generation then
 		if built and model then model:Destroy() end
 		return

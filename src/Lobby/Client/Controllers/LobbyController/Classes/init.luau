@@ -1,10 +1,14 @@
 --!nonstrict
--- The lobby's classes screen (UIMatt.md, Classes), on the designer's drawn rects at 1080: the title and the CLASSES /
--- EQUIPMENT tabs along the top, ALL CLASSES on the left, the class on its stage in the middle, ABILITIES on the
--- right, EXIT at the bottom. The HUD's currency stays where it is and the rest of the HUD steps aside (Hud).
+-- The lobby's classes screen (UIMatt.md, Classes), on the designer's drawn rects at 1080: the CLASSES / EQUIPMENT tabs
+-- along the top, ALL CLASSES on the left, the class on its stage in the middle, ABILITIES on the right, EXIT at the
+-- bottom. The HUD's currency stays where it is and the rest of the HUD steps aside (Hud).
 -- Our content in his style: Human is the only class and everybody's, the stage holds the player's own avatar (Stage),
--- and the abilities are drawn as the run's cards draw them (AbilityPicture). What he drew that has no system yet
--- (EQUIPMENT) is drawn and does nothing. An ability's levels are bought here with Gems (ClassesService decides).
+-- and the abilities are drawn as the run's cards draw them (AbilityPicture). An ability's levels are bought here with
+-- Gems (ClassesService decides).
+--
+-- Two pages, one screen: the tabs and EXIT are the screen's; the rest is the CLASSES page, and EQUIPMENT is
+-- EquipmentController's page (handed to Build), laid over it on the same panels' rects. It fades in and out over this one, so a tab
+-- swaps what is in the panels and the panels stay; under it, this page's pieces deal in again as it comes back.
 --
 -- Every gesture timed from a stamp reads state.Now, which init ticks only while one runs, through a derive, so it is
 -- written only while it moves; the hand's reactions are vide springs.
@@ -23,45 +27,37 @@ local EClassesIds = require(ReplicatedStorage.Types.Enums.Data.EClassesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local Flight = require(script.Flight)
 local Stage = require(script.Stage)
+local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
-local spring = vide.spring
 local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
 
--- His drawn rects (outer, edge included) in px at 1920 x 1080. The title and the list from the screen's top left,
--- the tabs and EXIT from its top middle, the info panel's right edge from the screen's right.
+-- His drawn rects (outer, edge included) in px at 1920 x 1080. The list from the frame's top left, the tabs from its
+-- top middle, the info panel's right edge from the frame's right.
 local Layout = table.freeze({
-	TITLE_HELMET = Vector2.new(64, 68),
-	TITLE_HELMET_GLYPH = 44,
-	TITLE = Vector2.new(96, 40),
-	TITLE_TEXT = 55,
-	SUBTITLE_STAR = Vector2.new(105, 111),
-	SUBTITLE_STAR_GLYPH = 12,
-	SUBTITLE = Vector2.new(120, 101),
-	SUBTITLE_TEXT = 17,
-	-- The tabs, each one's left from the middle and its top; inside them the glyph's middle, the word's corner.
-	TAB_CLASSES = Vector2.new(-249, 51),
-	TAB_CLASSES_SIZE = Vector2.new(242, 66),
-	TAB_EQUIPMENT = Vector2.new(8, 52),
-	TAB_EQUIPMENT_SIZE = Vector2.new(240, 64),
-	TAB_BRACKETS = 4,
-	TAB_HELMET = Vector2.new(58, 33),
-	TAB_HELMET_GLYPH = 22,
-	TAB_CLASSES_TEXT = Vector2.new(82, 19),
-	TAB_EQUIPMENT_TEXT = Vector2.new(43, 18),
+	-- The tabs, each one's left from the middle, over his span: 237 wide and 23 apart rather than his 240 and 15, as a
+	-- Take tab's brackets reach 17 px out under a press (UI.md, "Brackets, picked and side by side"). The glider is a px
+	-- bigger all round than the plate it lies on; the picked tab's glyph stands GLYPH_GAP before its word.
+	TAB_LEFTS = { -249, 12 },
+	TAB_TOP = 52,
+	TAB_SIZE = Vector2.new(237, 64),
+	TAB_BRACKET_LENGTH = 16,
+	TAB_GLYPH = 22,
+	TAB_GLYPH_GAP = 12,
 	TAB_TEXT = 26,
 	-- The two side panels; the info panel's right edge is INFO_RIGHT from the screen's.
 	LIST = Vector2.new(40, 190),
 	INFO_RIGHT = 40,
-	-- Where each panel looks into the streak texture: it is 1024 px square, and the panels 850 tall.
+	-- Where each panel looks into the streak texture: it is 1024 px square, and the panels up to about 940 tall once
+	-- grown under the top bar.
 	LIST_TEXTURE = Vector2.new(120, 60),
-	INFO_TEXTURE = Vector2.new(380, 140),
+	INFO_TEXTURE = Vector2.new(380, 80),
 	PANEL_SIZE = Vector2.new(440, 850),
-	PANEL_BRACKETS = 5,
 	PANEL_BRACKET_LENGTH = 24,
 	-- A panel's header, from its corner: the glyph's middle, the title, the count's right edge, the rule.
 	HEADER_GLYPH = Vector2.new(35, 39),
@@ -74,12 +70,10 @@ local Layout = table.freeze({
 	HEADER_INFO_TEXT = 18,
 	RULE = Vector2.new(24, 64),
 	RULE_WIDTH = 392,
-	-- A class card in the list, and inside it the glyph's box, the rarity, the name and the EQUIPPED tag. The picked
-	-- card wears a white ring RING_OUTSET px out.
+	-- A class card in the list, and inside it the glyph's box, the rarity, the name and the EQUIPPED tag.
 	CLASS_CARD = Vector2.new(24, 84),
 	CLASS_CARD_SIZE = Vector2.new(392, 88),
 	CLASS_CARD_STEP = 98,
-	RING_OUTSET = 6,
 	GLYPH_BOX = Vector2.new(12, 12),
 	GLYPH_BOX_SIZE = Vector2.new(63, 64),
 	CLASS_GLYPH = 44,
@@ -91,15 +85,16 @@ local Layout = table.freeze({
 	TAG_SIZE = Vector2.new(95, 24),
 	TAG_TEXT = 13,
 	-- The ability cards, from the info panel's corner, and inside one its price tag, its name and its picture.
-	ABILITY_LEFTS = { 23, 158, 293 },
+	-- 117 wide and 21 apart rather than his 123 and 12, over the same span: two cards' brackets crossed at his.
+	ABILITY_LEFTS = { 23, 161, 299 },
 	ABILITY_TOP = 88,
-	ABILITY_SIZE = Vector2.new(123, 128),
+	ABILITY_SIZE = Vector2.new(117, 128),
 	ABILITY_TAG = Vector2.new(8, 8),
 	ABILITY_TAG_SIZE = Vector2.new(50, 21),
 	ABILITY_TAG_TEXT = 13,
 	ABILITY_LABEL_Y = 102,
 	ABILITY_LABEL_TEXT = 15,
-	PICTURE = Vector2.new(61, 56),
+	PICTURE = Vector2.new(58, 56),
 	PICTURE_SIZE = 84,
 	-- The picked ability's name, ?, stars, stat rows and the two slabs, from the info panel's corner.
 	ABILITY_NAME = Vector2.new(24, 240),
@@ -134,7 +129,6 @@ local Layout = table.freeze({
 	UPGRADE = Vector2.new(22, 652),
 	EQUIP = Vector2.new(22, 749),
 	SLAB_SIZE = Vector2.new(394, 78),
-	SLAB_BRACKETS = 4,
 	UPGRADE_TEXT = 29,
 	UPGRADE_TRACKING = 1,
 	EQUIP_TEXT = 35,
@@ -143,12 +137,10 @@ local Layout = table.freeze({
 	-- The check on EQUIPPED: its middle from the slab's corner, and its longer side.
 	CHECK = Vector2.new(106, 39),
 	CHECK_GLYPH = 31,
-	EXIT = Vector2.new(-151, 969),
-	EXIT_SIZE = Vector2.new(302, 72),
-	EXIT_BRACKETS = 4,
-	EXIT_TEXT = 32,
-	EXIT_TRACKING = 2,
 })
+-- The side panels are raised to just under the top bar, their bottoms staying put: what is written on them rides up
+-- with the top, and ABILITIES' price and its two slabs keep their place.
+local lift = panelTop.Lift(Layout.LIST.Y)
 
 -- His colours that are not in the Palette, sampled off his art: the rules, the glyph box's face, a stat row's edge
 -- and face, an unlit star, the price tag's edge, the ULT tag.
@@ -195,8 +187,12 @@ local Timing = table.freeze({
 	STAGE_NAME = 0.12,
 	AVATAR = 0.18,
 	STAGE_TAG = 0.22,
-	TITLE = 0.04,
 	TABS = 0.07,
+	TABS_STAGGER = 0.05,
+	-- A tab picked: the slab glides under it on a spring that carries a little past (a movement), its glyph grows in
+	-- and its word turns white.
+	PICK_PERIOD = 0.3,
+	PICK_DAMPING = 0.72,
 	LIST = 0.06,
 	INFO = 0.1,
 	EXIT = 0.12,
@@ -234,16 +230,13 @@ local Timing = table.freeze({
 	FROM_LEFT = 520,
 	FROM_RIGHT = 520,
 	FROM_TOP = 150,
-	FROM_BOTTOM = 170,
-	TITLE_FROM = 360,
 	NAME_FROM = 18,
 	DETAIL_FROM = 26,
 	-- Every gesture of an open, a shut or a pick is over by now.
 	SETTLE = 1.6,
 })
 
--- What a card and a picture do under the hand: the brackets and the ring open this many px, the picture grows this
--- share with the rise, and a pick swings it (deg) and pops it.
+-- What a card and a picture do under the hand: the picture grows this share with the rise, and a pick swings it (deg) and pops it.
 local Gesture = table.freeze({
 	-- A card's glow at rest (the picked ability's brighter, the ?'s description as an ability's), and how much the
 	-- hand lights it.
@@ -256,15 +249,10 @@ local Gesture = table.freeze({
 	BRACKETS_LIT = 0.35,
 	-- EQUIPPED stamps down from this much bigger.
 	STAMP = 0.6,
-	BRACKETS = 7,
-	BRACKETS_OPEN = 4,
-	RING_OPEN = 3,
 	PICTURE_RISE = 0.1,
 	PICK_SWING = 18,
 	PICK_POP = 0.18,
 	PICK_SECONDS = 0.5,
-	RING_PERIOD = 0.32,
-	RING_DAMPING = 0.78,
 })
 
 local Classes = {}
@@ -292,6 +280,23 @@ local function shade(color: Color3, share: number): Color3
 	return Color3.new(color.R * share, color.G * share, color.B * share)
 end
 
+-- Whether the CLASSES page is on show: the screen up, on its tab.
+local function isPageShown(state: Types.TLobbyState): boolean
+	return state.IsClassesOpen() and state.ClassesPage() == "Classes"
+end
+
+-- When the CLASSES page last came or went: the screen opening or shutting, or a tab picked since.
+local function pageAt(state: Types.TLobbyState): number
+	return math.max(state.ClassesToggledAt(), state.ClassesPageAt())
+end
+
+-- Whether this page's pieces are drawn: on show, or still under EQUIPMENT while it fades in over them (`coverSeconds`).
+-- Covered, they are hidden, so nothing under EQUIPMENT's panels takes the hand.
+local function isPageDrawn(state: Types.TLobbyState, coverSeconds: number): boolean
+	if state.ClassesPage() == "Classes" then return true end
+	return state.Now() - state.ClassesPageAt() < coverSeconds
+end
+
 -- 0 away, 1 in place: a piece's way in `delay` after the screen opens, and its way out as it shuts. Derived, so it is
 -- written only while it moves.
 local function presence(state: Types.TLobbyState, delay: number): () -> number
@@ -302,23 +307,32 @@ local function presence(state: Types.TLobbyState, delay: number): () -> number
 	end)
 end
 
--- 0 to 1: a piece inside a panel coming in, `delay` after the screen opens, over `seconds`. 1 while the screen
--- shuts: it leaves with its panel.
-local function arrival(state: Types.TLobbyState, delay: number, seconds: number): () -> number
+-- The same for a piece of the CLASSES page that is not under a panel (the stage): it comes and goes with the page.
+local function pagePresence(state: Types.TLobbyState, delay: number): () -> number
 	return derive(function(): number
-		if not state.IsClassesOpen() then return 1 end
-		return Motion.Decelerate(Progress(state.Now(), state.ClassesToggledAt(), seconds, delay))
+		local now, at = state.Now(), pageAt(state)
+		if isPageShown(state) then return Motion.Decelerate(Progress(now, at, Timing.IN, delay)) end
+		return 1 - Motion.Accelerate(Progress(now, at, Timing.OUT))
 	end)
 end
 
--- 0 to 1: a detail of the picked ability coming in, `delay` into the details, both when the screen opens and when
--- another ability is picked, and from the moment `again` stamps if it is given. 1 while the screen shuts: the details
+-- 0 to 1: a piece inside a panel coming in, `delay` after its page comes up, over `seconds`. 1 while it goes: it
+-- leaves with its panel, or stays under EQUIPMENT.
+local function arrival(state: Types.TLobbyState, delay: number, seconds: number): () -> number
+	return derive(function(): number
+		if not isPageShown(state) then return 1 end
+		return Motion.Decelerate(Progress(state.Now(), pageAt(state), seconds, delay))
+	end)
+end
+
+-- 0 to 1: a detail of the picked ability coming in, `delay` into the details, both when the page comes up and when
+-- another ability is picked, and from the moment `again` stamps if it is given. 1 while the page goes: the details
 -- leave with their panel.
 local function dealt(state: Types.TLobbyState, delay: number, seconds: number, again: (() -> number)?): () -> number
 	return derive(function(): number
-		if not state.IsClassesOpen() then return 1 end
+		if not isPageShown(state) then return 1 end
 		local now = state.Now()
-		local opened = Progress(now, state.ClassesToggledAt(), seconds, Timing.DETAILS + delay)
+		local opened = Progress(now, pageAt(state), seconds, Timing.DETAILS + delay)
 		local picked = Progress(now, state.AbilityPickedAt(), seconds, delay)
 		-- A stamp still to come (a level whose Gems are flying) leaves the details as they stand until it arrives.
 		local stamp = if again then again() else -math.huge
@@ -327,11 +341,14 @@ local function dealt(state: Types.TLobbyState, delay: number, seconds: number, a
 	end)
 end
 
--- The light crossing a piece as it lands: 0 to 1, and 1 at rest.
-local function landing(state: Types.TLobbyState, delay: number): () -> number
+-- The light crossing a piece as it lands: 0 to 1, and 1 at rest. A piece of the screen's lands as it opens, one inside
+-- the CLASSES page (`isPage`) each time the page comes up.
+local function landing(state: Types.TLobbyState, delay: number, isPage: boolean?): () -> number
 	return derive(function(): number
-		if not state.IsClassesOpen() then return 1 end
-		return Progress(state.Now(), state.ClassesToggledAt(), Timing.SHEEN, delay + Timing.IN - Timing.SHEEN_LEAD)
+		local isUp = if isPage then isPageShown(state) else state.IsClassesOpen()
+		if not isUp then return 1 end
+		local at = if isPage then pageAt(state) else state.ClassesToggledAt()
+		return Progress(state.Now(), at, Timing.SHEEN, delay + Timing.IN - Timing.SHEEN_LEAD)
 	end)
 end
 
@@ -348,37 +365,18 @@ local function rule(position: UDim2, width: number): Frame
 	})
 end
 
--- The white ring round the picked card, `outset` px out (a source).
-local function selectionRing(outset: () -> number): Frame
-	return create("Frame")({
-		Name = "Ring",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = function()
-			local px = math.round(outset())
-			return UDim2.new(1, 2 * px, 1, 2 * px)
-		end,
-		BackgroundTransparency = 1,
-		ZIndex = 0,
-		create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
-		create("UIStroke")({
-			Color = Palette.White,
-			Thickness = 2,
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		}),
-	})
-end
-
 -- A dark side panel with its header: the glyph, the title, the count on the right and the rule under them.
 local function panel(name: string, phase: Vector2, glyph: Instance, title: string, info: string, props: { [any]: any })
 	return Components.Panel({
 		Tall = true,
-		Brackets = Layout.PANEL_BRACKETS,
+		Brackets = true,
 		BracketLength = Layout.PANEL_BRACKET_LENGTH,
 		TexturePhase = phase,
 	}, {
 		Name = name,
-		Size = UDim2.fromOffset(Layout.PANEL_SIZE.X, Layout.PANEL_SIZE.Y),
+		Size = function()
+			return UDim2.fromOffset(Layout.PANEL_SIZE.X, Layout.PANEL_SIZE.Y + lift())
+		end,
 		glyph,
 		label({
 			Name = "Title",
@@ -403,13 +401,13 @@ local function panel(name: string, phase: Vector2, glyph: Instance, title: strin
 	})
 end
 
--- A star of his rating row: gold up to the level, dark after it.
+-- A star of his rating row: gold up to the level, darkened after it.
 local function star(isLit: () -> boolean, props: { [any]: any }): ImageLabel
-	return Components.Icon("Star", {
+	return Components.Picture(EIcons.Star, {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = Components.GlyphBox(Layout.STAR_GLYPH),
+		Size = Components.PictureBox(Layout.STAR_GLYPH),
 		ImageColor3 = function()
-			return if isLit() then Palette.Gold else Colors.STAR_OFF
+			return if isLit() then Palette.White else Colors.STAR_OFF
 		end,
 		ZIndex = 4,
 		props,
@@ -418,136 +416,188 @@ end
 
 -- ============================== The top ==============================
 
-local function title(state: Types.TLobbyState): Frame
-	local shown = presence(state, Timing.TITLE)
+-- What each page's tab says, and the glyph it wears.
+local PAGES = table.freeze({
+	Classes = table.freeze({ Glyph = EIcons.Helmet, Title = "CLASSES" }),
+	Equipment = table.freeze({ Glyph = EIcons.UpgradeArmor, Title = "EQUIPMENT" }),
+})
+local TAB_PAGES = table.freeze({ "Classes", "Equipment" } :: { Types.TClassesPage })
 
-	return create("Frame")({
-		Name = "Title",
-		Position = function()
-			return UDim2.fromOffset(-math.round(Timing.TITLE_FROM * (1 - shown())), 0)
-		end,
-		Size = UDim2.fromOffset(400, 140),
+-- One tab: his dark plate whose brackets close round it while its page is on show, and its word over the slab, white
+-- with the page's glyph grown in beside it while picked, lavender alone while not. Returns its pieces and its hand's
+-- scale, for the slab lying on it.
+local function tab(state: Types.TLobbyState, actions: Types.TLobbyActions, index: number): ({ Instance }, () -> number)
+	local page = TAB_PAGES[index]
+	local drop = presence(state, Timing.TABS + Timing.TABS_STAGGER * (index - 1))
+	local landed = landing(state, Timing.TABS + Timing.TABS_STAGGER * (index - 1))
+	local isPicked = derive(function(): boolean
+		return state.ClassesPage() == page
+	end)
+	local hand = Hand.React("Take", function(): boolean
+		return not isPicked()
+	end)
+	-- 1 on the page on show, gliding to 0 as the other is picked: the glyph grows in and the word whitens with it.
+	local picked = Hand.Spring(function(): number
+		return if isPicked() then 1 else 0
+	end, Timing.PICK_PERIOD)
+	local lit = function(): number
+		return math.clamp(picked(), 0, 1)
+	end
+	local ink = function(): Color3
+		return Palette.Lavender:Lerp(Palette.White, lit())
+	end
+	local position = derive(function(): UDim2
+		return UDim2.new(
+			0.5,
+			Layout.TAB_LEFTS[index] + Layout.TAB_SIZE.X / 2,
+			0,
+			Layout.TAB_TOP + Layout.TAB_SIZE.Y / 2 - math.round(Timing.FROM_TOP * (1 - drop()))
+		)
+	end)
+
+	local word = create("Frame")({
+		Name = `{page}TabWord`,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = position,
+		Size = UDim2.fromOffset(Layout.TAB_SIZE.X, Layout.TAB_SIZE.Y),
 		BackgroundTransparency = 1,
-		Components.Icon("Helmet", {
-			Name = "Helmet",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.TITLE_HELMET.X, Layout.TITLE_HELMET.Y),
-			Size = Components.GlyphBox(Layout.TITLE_HELMET_GLYPH),
-			ImageColor3 = Palette.Pink,
+		ZIndex = 5,
+		create("UIScale")({ Scale = hand.Scale }),
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		-- The glyph's box opens as the tab is picked, so the word slides over to make room, as his two tabs set it.
+		create("Frame")({
+			Name = "GlyphBox",
+			LayoutOrder = 1,
+			Size = function()
+				return UDim2.fromOffset(math.round((Layout.TAB_GLYPH + Layout.TAB_GLYPH_GAP) * lit()), Layout.TAB_GLYPH)
+			end,
+			BackgroundTransparency = 1,
+			Components.Picture(PAGES[page].Glyph, {
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.fromScale(0, 0.5),
+				Size = Components.PictureBox(Layout.TAB_GLYPH),
+				ImageTransparency = function()
+					return 1 - lit()
+				end,
+				create("UIScale")({
+					Scale = function()
+						return lit() * (1 + 0.12 * hand.Rise())
+					end,
+				}),
+			}),
 		}),
 		label({
-			Name = "Label",
-			Position = UDim2.fromOffset(Layout.TITLE.X, Layout.TITLE.Y),
-			Size = UDim2.fromOffset(300, Layout.TITLE_TEXT),
-			TextSize = Layout.TITLE_TEXT,
-			Text = "CLASSES",
-		}),
-		Components.Icon("Star", {
-			Name = "Star",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.SUBTITLE_STAR.X, Layout.SUBTITLE_STAR.Y),
-			Size = Components.GlyphBox(Layout.SUBTITLE_STAR_GLYPH),
-			ImageColor3 = Palette.Gold,
-		}),
-		label({
-			Name = "Subtitle",
-			Position = UDim2.fromOffset(Layout.SUBTITLE.X, Layout.SUBTITLE.Y),
-			Size = UDim2.fromOffset(300, Layout.SUBTITLE_TEXT),
-			FontFace = Font.DisplayBold,
-			TextSize = Layout.SUBTITLE_TEXT,
-			TextColor3 = Palette.Gold,
-			Text = "PICK YOUR PLAYSTYLE",
+			LayoutOrder = 2,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, Layout.TAB_TEXT),
+			TextSize = Layout.TAB_TEXT,
+			TextColor3 = ink,
+			Text = PAGES[page].Title,
 		}),
 	})
+
+	local button = Components.Button({
+		Name = `{page}Tab`,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = position,
+		Size = UDim2.fromOffset(Layout.TAB_SIZE.X, Layout.TAB_SIZE.Y),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Activated = function()
+			if isPicked() then return end
+			hand.Commit()
+			actions.PickClassesPage(page)
+		end,
+		hand.Events,
+		create("UIScale")({ Scale = hand.Scale }),
+		Components.Panel({
+			Glow = function()
+				return Color3.new():Lerp(Palette.Pink, hand.Light())
+			end,
+			GlowTransparency = function()
+				return 0.6 - 0.3 * hand.Light()
+			end,
+		}, {
+			Name = "Plate",
+			Size = UDim2.fromScale(1, 1),
+			Hand.WashLayer(hand, 3, 2),
+			Components.Sheen(Hand.Sheen(hand, landed), 3),
+			create("Frame")({
+				Name = "BracketsHolder",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Components.Brackets(hand.Rise, function()
+					return Gesture.BRACKETS_REST - Gesture.BRACKETS_LIT * hand.Light()
+				end, Layout.TAB_BRACKET_LENGTH, isPicked),
+			}),
+		}),
+	}) :: TextButton
+
+	return { button, word }, hand.Scale
 end
 
--- CLASSES, lit since it is the page shown, and EQUIPMENT, which has no page yet: both answer the hand and do nothing.
-local function tabs(state: Types.TLobbyState): { Instance }
-	local shown = presence(state, Timing.TABS)
-	local landed = landing(state, Timing.TABS)
-	local drop = function(): UDim2
-		return UDim2.fromOffset(0, -math.round(Timing.FROM_TOP * (1 - shown())))
+-- The two tabs and his pink slab under the one on show, gliding from one to the other. The slab grows and presses with
+-- the tab it lies on, and has no brackets of its own: the plate's, under it, answer the hand (UI.md).
+local function tabs(state: Types.TLobbyState, actions: Types.TLobbyActions): { Instance }
+	local drop = presence(state, Timing.TABS)
+	local pieces, scales = {}, {}
+	for index in TAB_PAGES do
+		local own, scale = tab(state, actions, index)
+		table.move(own, 1, #own, #pieces + 1, pieces)
+		scales[index] = scale
 	end
-	local here = Hand.React("Operate", function()
-		return false
-	end)
-	local other = Hand.React("Operate", function()
-		return false
-	end)
+	local pickedIndex = function(): number
+		return if state.ClassesPage() == "Equipment" then 2 else 1
+	end
+	local x = Hand.Spring(function(): number
+		return Layout.TAB_LEFTS[pickedIndex()]
+	end, Timing.PICK_PERIOD, Timing.PICK_DAMPING)
 
-	return {
-		Components.Button({
-			Name = "ClassesTab",
+	table.insert(
+		pieces,
+		Components.Slab({ Kind = "Pink", Marks = true }, {
+			Name = "Glider",
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
-				return UDim2.new(0.5, Layout.TAB_CLASSES.X, 0, Layout.TAB_CLASSES.Y) + drop()
+				return UDim2.new(
+					0.5,
+					math.round(x()) + Layout.TAB_SIZE.X / 2,
+					0,
+					Layout.TAB_TOP + Layout.TAB_SIZE.Y / 2 - math.round(Timing.FROM_TOP * (1 - drop()))
+				)
 			end,
-			Size = UDim2.fromOffset(Layout.TAB_CLASSES_SIZE.X, Layout.TAB_CLASSES_SIZE.Y),
-			BackgroundTransparency = 1,
-			Activated = here.Commit,
-			here.Events,
-			Components.Slab({ Kind = "Pink", Marks = true, Brackets = Layout.TAB_BRACKETS }, {
-				Name = "Slab",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromScale(1, 1),
-				create("UIScale")({ Scale = here.Scale }),
-				Hand.WashLayer(here, 3, 3),
-				Components.Sheen(landed, 3),
-				Components.Icon("Helmet", {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromOffset(Layout.TAB_HELMET.X, Layout.TAB_HELMET.Y),
-					Size = Components.GlyphBox(Layout.TAB_HELMET_GLYPH),
-					ImageColor3 = Palette.White,
-					ZIndex = 4,
-				}),
-				label({
-					Position = UDim2.fromOffset(Layout.TAB_CLASSES_TEXT.X, Layout.TAB_CLASSES_TEXT.Y),
-					Size = UDim2.fromOffset(150, Layout.TAB_TEXT),
-					TextSize = Layout.TAB_TEXT,
-					Text = "CLASSES",
-				}),
+			Size = UDim2.fromOffset(Layout.TAB_SIZE.X + 2, Layout.TAB_SIZE.Y + 2),
+			ZIndex = 4,
+			create("UIScale")({
+				Scale = function()
+					return scales[pickedIndex()]()
+				end,
 			}),
-		}),
-		Components.Button({
-			Name = "EquipmentTab",
-			Position = function()
-				return UDim2.new(0.5, Layout.TAB_EQUIPMENT.X, 0, Layout.TAB_EQUIPMENT.Y) + drop()
-			end,
-			Size = UDim2.fromOffset(Layout.TAB_EQUIPMENT_SIZE.X, Layout.TAB_EQUIPMENT_SIZE.Y),
-			BackgroundTransparency = 1,
-			Activated = other.Commit,
-			other.Events,
-			Components.Panel({ Brackets = Layout.TAB_BRACKETS }, {
-				Name = "Panel",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromScale(1, 1),
-				create("UIScale")({ Scale = other.Scale }),
-				Hand.WashLayer(other, 3, 3),
-				label({
-					Position = UDim2.fromOffset(Layout.TAB_EQUIPMENT_TEXT.X, Layout.TAB_EQUIPMENT_TEXT.Y),
-					Size = UDim2.fromOffset(200, Layout.TAB_TEXT),
-					TextSize = Layout.TAB_TEXT,
-					TextColor3 = Palette.Lavender,
-					Text = "EQUIPMENT",
-				}),
-			}),
-		}),
-	}
+		})
+	)
+
+	return pieces
 end
 
 -- ============================== ALL CLASSES ==============================
 
 -- A class's card in the list: his tinted card in the rarity's colour, the class's glyph in its box, the rarity, the
--- name, and EQUIPPED on the one worn. Every class here is picked (there is one), so it wears the ring.
+-- name, and EQUIPPED on the one worn.
 local function classCard(state: Types.TLobbyState, index: number, class: TData.TClass, celebrate: () -> ()): TextButton
 	local delay = Timing.CLASS_CARD + Timing.CLASS_STEP * (index - 1)
-	local hand = Hand.React("Take")
+	-- Operate: a Take card this wide grew 12 px a side under the hand and its ring reached the panel's edge.
+	local hand = Hand.React("Operate")
 	local dealIn = arrival(state, delay, Timing.IN)
-	local landed = landing(state, delay)
+	local landed = landing(state, delay, true)
 	local tag = arrival(state, delay + Timing.TAG_DELAY, Timing.TAG)
 	local isEquipped = class.Id == EQUIPPED_CLASS
-	local rarity = Palette.Grey
+	local rarityLook = Stage.RARITIES[class.Rarity]
+	local rarity = rarityLook.Accent
 	local size = Layout.CLASS_CARD_SIZE
 
 	return Components.Button({
@@ -570,8 +620,9 @@ local function classCard(state: Types.TLobbyState, index: number, class: TData.T
 				return dealIn() * hand.Scale()
 			end,
 		}),
-		selectionRing(function()
-			return Layout.RING_OUTSET + Gesture.RING_OPEN * hand.Rise()
+		-- Picked, as every class here is: its brackets stand closed round it.
+		Components.Brackets(hand.Rise, nil, nil, function()
+			return true
 		end),
 		Components.Card({
 			Accent = shade(rarity, Colors.CARD_EDGE),
@@ -602,12 +653,11 @@ local function classCard(state: Types.TLobbyState, index: number, class: TData.T
 					BackgroundColor3 = Colors.GLYPH_BOX_FACE,
 					BorderSizePixel = 0,
 					create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
-					Components.Icon("Profile", {
+					Components.Picture(class.Icon, {
 						Name = "Glyph",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						Position = UDim2.fromScale(0.5, 0.5),
-						Size = Components.GlyphBox(Layout.CLASS_GLYPH),
-						ImageColor3 = rarity,
+						Size = Components.PictureBox(Layout.CLASS_GLYPH),
 						create("UIScale")({
 							Scale = function()
 								return 1 + Gesture.PICTURE_RISE * hand.Rise()
@@ -622,7 +672,7 @@ local function classCard(state: Types.TLobbyState, index: number, class: TData.T
 				Size = UDim2.fromOffset(200, Layout.RARITY_TEXT),
 				TextSize = Layout.RARITY_TEXT,
 				TextColor3 = rarity,
-				Text = "COMMON",
+				Text = rarityLook.Text,
 			}),
 			label({
 				Name = "ClassName",
@@ -677,11 +727,10 @@ local function classList(state: Types.TLobbyState, celebrate: () -> ()): Frame
 	return panel(
 		"ClassList",
 		Layout.LIST_TEXTURE,
-		Components.Icon("Helmet", {
+		Components.Picture(EIcons.Helmet, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.HEADER_GLYPH.X, Layout.HEADER_GLYPH.Y),
-			Size = Components.GlyphBox(Layout.HEADER_HELMET),
-			ImageColor3 = Palette.Pink,
+			Size = Components.PictureBox(Layout.HEADER_HELMET),
 			ZIndex = 4,
 		}),
 		"ALL CLASSES",
@@ -689,7 +738,10 @@ local function classList(state: Types.TLobbyState, celebrate: () -> ()): Frame
 		`{#all} / {#all} OWNED`,
 		{
 			Position = function()
-				return UDim2.fromOffset(Layout.LIST.X - math.round(Timing.FROM_LEFT * (1 - shown())), Layout.LIST.Y)
+				return UDim2.fromOffset(
+					Layout.LIST.X - math.round(Timing.FROM_LEFT * (1 - shown())),
+					Layout.LIST.Y - lift()
+				)
 			end,
 			Components.Sheen(landed, 3),
 			cards,
@@ -712,7 +764,7 @@ local function abilityCard(
 	local hand = Hand.React("Take")
 	local accent = ACCENTS[ability.Kind] or Palette.Steel
 	local dealIn = arrival(state, delay, Timing.IN)
-	local landed = landing(state, delay)
+	local landed = landing(state, delay, true)
 	local isPicked = derive(function(): boolean
 		return state.ShownAbility() == index
 	end)
@@ -748,13 +800,12 @@ local function abilityCard(
 					else Gesture.ABILITY_GLOW - Gesture.GLOW_LIT * hand.Light()
 			end,
 			Tint = Colors.ABILITY_TINT,
-			-- His brackets stand round the cards not picked; the picked one wears the ring instead.
-			Brackets = function()
-				return Gesture.BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
+			-- His brackets stand round each card and close into one outline round the picked one.
+			Brackets = hand.Rise,
 			BracketTransparency = function()
-				return if isPicked() then 1 else Gesture.BRACKETS_REST - Gesture.BRACKETS_LIT * hand.Light()
+				return Gesture.BRACKETS_REST - Gesture.BRACKETS_LIT * hand.Light()
 			end,
+			BracketsClosed = isPicked,
 		}, {
 			Name = "Card",
 			Size = UDim2.fromScale(1, 1),
@@ -1076,7 +1127,7 @@ local function details(
 			Name = `Star{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.STARS.X + Layout.STAR_STEP * (index - 1), Layout.STARS.Y),
-			Size = Components.GlyphBox(Layout.STAR_GLYPH),
+			Size = Components.PictureBox(Layout.STAR_GLYPH),
 			BackgroundTransparency = 1,
 			ZIndex = 4,
 			create("UIScale")({
@@ -1209,7 +1260,7 @@ local function infoSlab(state: Types.TLobbyState, spec: TInfoSlab): TextButton
 	local delay = Timing.DETAILS + Timing.SLABS[spec.Index]
 	local hand = Hand.React("Operate", spec.IsLive)
 	local shown = arrival(state, delay, Timing.IN)
-	local landed = landing(state, delay)
+	local landed = landing(state, delay, true)
 	local size = Layout.SLAB_SIZE
 	local onPress = spec.OnPress
 
@@ -1235,7 +1286,7 @@ local function infoSlab(state: Types.TLobbyState, spec: TInfoSlab): TextButton
 				return shown() * hand.Scale()
 			end,
 		}),
-		Components.Slab({ Kind = spec.Kind, Marks = true, Brackets = Layout.SLAB_BRACKETS }, {
+		Components.Slab({ Kind = spec.Kind, Marks = true, Brackets = true }, {
 			Name = "Slab",
 			Size = UDim2.fromScale(1, 1),
 			Hand.WashLayer(hand, 3, 3),
@@ -1283,11 +1334,10 @@ local function costLine(state: Types.TLobbyState, cost: () -> number?): Frame
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			Padding = UDim.new(0, Layout.COST_GAP),
 		}),
-		Components.Icon("Gem", {
+		Components.Picture(EIcons.Gem, {
 			Name = "Gem",
 			LayoutOrder = 1,
-			Size = Components.GlyphBox(Layout.COST_GLYPH),
-			ImageColor3 = color,
+			Size = Components.PictureBox(Layout.COST_GLYPH),
 			ImageTransparency = fade,
 			ZIndex = 4,
 		}),
@@ -1345,12 +1395,6 @@ local function infoPanel(state: Types.TLobbyState, actions: Types.TLobbyActions,
 		cards[index] = abilityCard(state, actions, index, ability, ability == class.Ultimate)
 	end
 
-	-- The white ring glides to the picked card rather than jumping.
-	local ringLeft = spring(function()
-		return Layout.ABILITY_LEFTS[state.ShownAbility()] or Layout.ABILITY_LEFTS[1]
-	end, Gesture.RING_PERIOD, Gesture.RING_DAMPING)
-	local ringShown = arrival(state, Timing.ABILITY_CARDS[1], Timing.IN)
-
 	local shownLevel = derive(function(): number
 		local levels = state.ClassLevels()[class.Id]
 		return if levels then levels[state.ShownAbility()] or 1 else 1
@@ -1385,11 +1429,10 @@ local function infoPanel(state: Types.TLobbyState, actions: Types.TLobbyActions,
 	return panel(
 		"ClassInfo",
 		Layout.INFO_TEXTURE,
-		Components.Icon("Star", {
+		Components.Picture(EIcons.Star, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.HEADER_GLYPH.X, Layout.HEADER_GLYPH.Y),
-			Size = Components.GlyphBox(Layout.HEADER_STAR),
-			ImageColor3 = Palette.Pink,
+			Size = Components.PictureBox(Layout.HEADER_STAR),
 			ZIndex = 4,
 		}),
 		"ABILITIES",
@@ -1401,62 +1444,54 @@ local function infoPanel(state: Types.TLobbyState, actions: Types.TLobbyActions,
 					1,
 					-Layout.INFO_RIGHT + math.round(Timing.FROM_RIGHT * (1 - shown())),
 					0,
-					Layout.LIST.Y
+					Layout.LIST.Y - lift()
 				)
 			end,
 			Components.Sheen(landed, 3),
 			cards,
-			create("Frame")({
-				Name = "Picked",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = function()
-					return UDim2.fromOffset(
-						math.round(ringLeft()) + Layout.ABILITY_SIZE.X / 2,
-						Layout.ABILITY_TOP + Layout.ABILITY_SIZE.Y / 2
-					)
-				end,
-				Size = UDim2.fromOffset(Layout.ABILITY_SIZE.X, Layout.ABILITY_SIZE.Y),
-				BackgroundTransparency = 1,
-				ZIndex = 3,
-				create("UIScale")({ Scale = ringShown }),
-				selectionRing(function()
-					return Layout.RING_OUTSET
-				end),
-			}),
 			details(state, abilities, shownLevel, marks),
-			costLine(state, cost),
 			flight,
-			infoSlab(state, {
-				Index = 1,
-				At = Layout.UPGRADE,
-				Kind = upgradeKind,
-				Content = { upgradeWord(word) },
-				IsLive = canPay,
-				OnPress = function()
-					actions.UpgradeAbility(class.Id, state.ShownAbility())
+			-- His rect, so the price and the slabs keep their place as the panel grows over them.
+			create("Frame")({
+				Name = "Bottom",
+				Position = function()
+					return UDim2.fromOffset(0, lift())
 				end,
-			}),
-			infoSlab(state, {
-				Index = 2,
-				At = Layout.EQUIP,
-				Kind = "Go",
-				Content = {
-					Components.Icon("Check", {
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						Position = UDim2.fromOffset(Layout.CHECK.X, Layout.CHECK.Y),
-						Size = Components.GlyphBox(Layout.CHECK_GLYPH),
-						ImageColor3 = Palette.White,
-						ZIndex = 4,
-					}),
-					Components.Tracked("EQUIPPED", Layout.EQUIP_TEXT, Layout.EQUIP_TRACKING, Font.Display, {
-						AnchorPoint = Vector2.new(0, 0.5),
-						Position = UDim2.new(0, Layout.EQUIP_TEXT_LEFT, 0.5, 0),
-					}),
-				},
-				-- The class is equipped already (there is one).
-				IsLive = function()
-					return false
-				end,
+				Size = UDim2.fromOffset(Layout.PANEL_SIZE.X, Layout.PANEL_SIZE.Y),
+				BackgroundTransparency = 1,
+				ZIndex = 4,
+				costLine(state, cost),
+				infoSlab(state, {
+					Index = 1,
+					At = Layout.UPGRADE,
+					Kind = upgradeKind,
+					Content = { upgradeWord(word) },
+					IsLive = canPay,
+					OnPress = function()
+						actions.UpgradeAbility(class.Id, state.ShownAbility())
+					end,
+				}),
+				infoSlab(state, {
+					Index = 2,
+					At = Layout.EQUIP,
+					Kind = "Go",
+					Content = {
+						Components.Picture(EIcons.Check, {
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							Position = UDim2.fromOffset(Layout.CHECK.X, Layout.CHECK.Y),
+							Size = Components.PictureBox(Layout.CHECK_GLYPH),
+							ZIndex = 4,
+						}),
+						Components.Tracked("EQUIPPED", Layout.EQUIP_TEXT, Layout.EQUIP_TRACKING, Font.Display, {
+							AnchorPoint = Vector2.new(0, 0.5),
+							Position = UDim2.new(0, Layout.EQUIP_TEXT_LEFT, 0.5, 0),
+						}),
+					},
+					-- The class is equipped already (there is one).
+					IsLive = function()
+						return false
+					end,
+				}),
 			}),
 		}
 	)
@@ -1466,49 +1501,9 @@ end
 
 local function exitButton(state: Types.TLobbyState, actions: Types.TLobbyActions): TextButton
 	local shown = presence(state, Timing.EXIT)
-	local landed = landing(state, Timing.EXIT)
-	local hand = Hand.React("Operate")
-	local size = Layout.EXIT_SIZE
-
-	return Components.Button({
-		Name = "Exit",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = function()
-			return UDim2.new(
-				0.5,
-				Layout.EXIT.X + size.X / 2,
-				0,
-				Layout.EXIT.Y + size.Y / 2 + math.round(Timing.FROM_BOTTOM * (1 - shown()))
-			)
-		end,
-		Size = UDim2.fromOffset(size.X, size.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 5,
-		Activated = function()
-			hand.Commit()
-			actions.CloseClasses()
-		end,
-		hand.Events,
-		Components.Slab({
-			Kind = "Pink",
-			Marks = true,
-			Brackets = function()
-				return Layout.EXIT_BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
-		}, {
-			Name = "Slab",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(1, 1),
-			create("UIScale")({ Scale = hand.Scale }),
-			Hand.WashLayer(hand, 3, 3),
-			Components.Sheen(Hand.Sheen(hand, landed), 3),
-			Components.Tracked("EXIT", Layout.EXIT_TEXT, Layout.EXIT_TRACKING, Font.Display, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-			}),
-		}),
-	})
+	return Components.Exit(function(): number
+		return 1 - shown()
+	end, actions.CloseClasses, { ZIndex = 5 })
 end
 
 -- The world behind the screen, darkened as his lobby screens darken it. The dim takes every click, so nothing behind
@@ -1533,19 +1528,29 @@ local function backdrop(state: Types.TLobbyState): Frame
 	})
 end
 
--- The screen, built once; it is drawn only while it is up or leaving.
-function Classes.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): ScreenGui
+-- The EQUIPMENT page as the screen holds it: its pieces, and how long it takes to fade in over this page.
+export type TOtherPage = {
+	Pieces: { Instance },
+	FadeSeconds: number,
+}
+
+-- The screen, built once; it is drawn only while it is up or leaving. `equipment` is the EQUIPMENT tab's page, nil
+-- where there is none (a story of this page alone).
+function Classes.Build(state: Types.TLobbyState, actions: Types.TLobbyActions, equipment: TOtherPage?): ScreenGui
+	local coverSeconds = if equipment then equipment.FadeSeconds else 0
 	local class = DataCore.Classes.ById[EQUIPPED_CLASS] or DataCore.Classes.All[1]
 	local isDrawn = derive(function(): boolean
 		if state.IsClassesOpen() then return true end
 		return Progress(state.Now(), state.ClassesToggledAt(), Timing.OUT) < 1
 	end)
 	local stageFrame, celebrate = Stage.Build(state, class, {
-		Rings = presence(state, Timing.STAGE),
-		Name = presence(state, Timing.STAGE_NAME),
-		Tag = presence(state, Timing.STAGE_TAG),
-		Body = presence(state, Timing.AVATAR),
-	})
+		Rings = pagePresence(state, Timing.STAGE),
+		Name = pagePresence(state, Timing.STAGE_NAME),
+		Tag = pagePresence(state, Timing.STAGE_TAG),
+		Body = pagePresence(state, Timing.AVATAR),
+	}, function(): boolean
+		return isPageShown(state)
+	end)
 
 	return create("ScreenGui")({
 		Name = "Classes",
@@ -1557,20 +1562,36 @@ function Classes.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): 
 		DisplayOrder = 5,
 		Enabled = isDrawn,
 		backdrop(state),
+		-- His 1920 x 1080 fitted to the window and centred, as the weapons page is, so the two pages' panels and EXIT
+		-- stand in one place.
 		create("Frame")({
 			Name = "Root",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(1920, 1080),
 			BackgroundTransparency = 1,
-			Size = function()
-				local scale = state.Scale()
-				return UDim2.fromScale(1 / scale, 1 / scale)
-			end,
 			ZIndex = 2,
-			create("UIScale")({ Scale = state.Scale }),
-			stageFrame,
-			title(state),
-			tabs(state),
-			classList(state, celebrate),
-			infoPanel(state, actions, class),
+			create("UIScale")({ Scale = state.PageScale }),
+			create("Frame")({
+				Name = "ClassesPage",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Visible = function()
+					return isPageDrawn(state, coverSeconds)
+				end,
+				ZIndex = 2,
+				stageFrame,
+				classList(state, celebrate),
+				infoPanel(state, actions, class),
+			}),
+			create("Frame")({
+				Name = "EquipmentPage",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ZIndex = 3,
+				if equipment then equipment.Pieces else nil,
+			}),
+			tabs(state, actions),
 			exitButton(state, actions),
 		}),
 	})

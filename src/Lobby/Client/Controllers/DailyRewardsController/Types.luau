@@ -11,6 +11,8 @@ export type TDailyState = {
 	Now: Source<number>,
 	-- When the light last crossed today's card to call for it, every few seconds while it waits on the screen.
 	CallAt: Source<number>,
+	-- Whether the page is on show in the daily screen, and when that last changed (a moment to come, for a page let in
+	-- once the other has cleared).
 	IsOpen: Source<boolean>,
 	ToggledAt: Source<number>,
 	-- From DailyRewards.State: the day of the cycle he is on, whether it is still to be claimed, the gun days that pay
@@ -41,7 +43,6 @@ export type TDailyState = {
 }
 
 export type TDailyActions = {
-	Close: () -> (),
 	Claim: () -> (),
 	PickWeek: (week: number) -> (),
 	-- A press on a day or a week that cannot be had yet: `which` is the day, or -week for a tab.

@@ -62,6 +62,7 @@ type TKit = { Bricks: { BasePart }, Blast: TLayers, Cap: TLayers, Front: TLayers
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("NukePieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local kit: TKit? = nil
 local hasWarned = false
 -- The blast rolling: the point on the floor it was set off at, the os.clock it started, its speed (studs a second),

@@ -99,6 +99,16 @@ function QuestsController.IsOpen(): boolean
 	return state.IsOpen()
 end
 
+-- How many quests on both boards are finished and not claimed: the QUESTS card wears the count. Reads a vide source.
+function QuestsController.ReadyCount(): number
+	local count = 0
+	for _, view in state.Boards() do
+		count += Parts.ReadyCount(view)
+	end
+
+	return count
+end
+
 -- The Gems a claim paid that are still flying to the HUD's pill: the pill shows that many fewer. Reads a vide source.
 function QuestsController.HeldGems(): number
 	return heldGems()
@@ -175,8 +185,6 @@ local actions: Types.TQuestsActions = {
 			state.SecondsLeft(secondsLeftOf(board))
 		end)
 		updateShownReady()
-		stir(Screen.DEAL_SECONDS)
-		SoundsCore.PlayUINamed("UI.UpgradePick", "Deal")
 	end,
 	-- Checked here only to answer at once: the server checks it again.
 	Claim = function(slot: number)

@@ -139,6 +139,7 @@ local Tune = table.freeze({
 local SOUNDS = "UI.UpgradePick"
 local PICK_SOUNDS = table.freeze({
 	[ERarities.Common] = "PickCommon",
+	[ERarities.Uncommon] = "PickUncommon",
 	[ERarities.Rare] = "PickRare",
 	[ERarities.Epic] = "PickEpic",
 	[ERarities.Legendary] = "PickLegendary",
@@ -167,6 +168,7 @@ for index = 1, UpgradesCore.HAND_SIZE do
 		Level = source(1),
 		Rarity = source(1),
 		IsFaceUp = source(false),
+		IsRevealed = source(false),
 		Hover = source(0),
 		GlareAt = source(0),
 		Shade = source(0),
@@ -564,7 +566,7 @@ local function showPicked(index: number, now: number)
 		screen.PickedColor(Card.RarityColor(cards[bodyIndex].Rarity()))
 		screen.PickedAt(now)
 		pickClockUntil = now + Screen.Seconds.PICK
-		SoundsCore.PlayUINamed(SOUNDS, PICK_SOUNDS[cards[bodyIndex].Rarity()] or PICK_SOUNDS[ERarities.Common])
+		SoundsCore.PlayUINamed(SOUNDS, PICK_SOUNDS[cards[bodyIndex].Rarity()])
 		TweensController.PunchFov(Tune.FOV_PUNCH, Tune.FOV_RETURN)
 	end
 end
@@ -636,6 +638,8 @@ local function step(dt: number)
 			if reveal then SoundsCore.PlayUINamed(SOUNDS, reveal) end
 		end
 		sources.IsFaceUp(body.IsFaceUp)
+		-- Held through the pick's spin and the way out, which turn the card over too.
+		if phase == "Opening" or phase == "Open" then sources.IsRevealed(body.IsFaceUp) end
 	end
 
 	if current then

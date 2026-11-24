@@ -15,17 +15,26 @@ local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
+local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local EGunsIds = require(ReplicatedStorage.Types.Enums.Data.EGunsIds)
 local GemPayout = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GemPayout)
 local Screen = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.DailyRewardsController.Screen)
+local Shell = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.DailyController.Shell)
 
 local source = vide.source
 local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
+	[Icons.SHOWCASE] = ROOT .. "Showcase.png",
+	[Icons.SHOWCASE_FLOOR] = ROOT .. "ShowcaseFloor.png",
 }
 local MOMENT_AT = 0.2
 local ANSWER = 0.1
@@ -53,9 +62,13 @@ return {
 	vide = vide,
 	controls = {
 		Moment = { "Rest", "Enter", "Claim", "Week", "Prize", "Owned", "Refused", "Locked" },
+		-- The art behind day 7's prize (Showcase.LOOKS); Game is the look the game draws.
+		Look = { "Game", table.unpack(Showcase.LOOKS) },
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
+		local look = props.controls.Look()
+		Showcase.Looks.Prize = if look == "Game" then Showcase.GAME_LOOKS.Prize else look
 		local at = os.clock() + MOMENT_AT
 		local isPrize = moment == "Prize" or moment == "Owned"
 		local day = if isPrize then 7 else 2
@@ -93,12 +106,37 @@ return {
 		local payout = GemPayout.Build(state.Scale, function()
 			return PILL
 		end)
+		-- On the daily screen's panel, as DailyController shows it.
+		local shell = {
+			Scale = source(1),
+			Now = state.Now,
+			IsOpen = source(true),
+			ToggledAt = state.ToggledAt,
+			Tab = source(1),
+			TabAt = source(-math.huge),
+			CallAt = source(-math.huge),
+			Refused = source(0),
+			RefusedAt = source(-math.huge),
+		}
+		local morph = Shell.Morph(shell)
+		local top = Shell.Top(morph)
 		local children, glyphs = Screen.Build(state, {
-			Close = noop,
 			Claim = noop,
 			PickWeek = noop,
 			Refuse = noop,
-		})
+		}, Shell.Lift(top, 1, state.IsOpen))
+		local back, middle, front = Shell.Build(shell, { Close = noop, PickTab = noop }, {
+			Day = state.Day,
+			IsWaiting = function(tab: number): boolean
+				return tab == 2
+			end,
+			IsSpinning = function(): boolean
+				return false
+			end,
+			Shake = function(): number
+				return 0
+			end,
+		}, morph, top, children)
 
 		local isClaim = moment == "Claim" or isPrize
 		local gems = if moment == "Prize" then 0 elseif moment == "Owned" then 750 else 75
@@ -150,9 +188,29 @@ return {
 			Name = "Root",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromOffset(1920, 1080),
-			children,
-			layer,
-			payout.Layer,
+			create("Frame")({ Name = "Back", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, back }),
+			create("Frame")({
+				Name = "Pages",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ZIndex = 2,
+				middle,
+			}),
+			create("Frame")({
+				Name = "Front",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ZIndex = 3,
+				front,
+			}),
+			create("Frame")({
+				Name = "Flights",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ZIndex = 4,
+				layer,
+				payout.Layer,
+			}),
 		})
 		swapImages(root)
 		return root

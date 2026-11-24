@@ -191,6 +191,9 @@ local started, landed, fell = {}, { chars = 0, barricade = 0 }, 0
 -- on top of one of its class, which enemiesUpdate must never do.
 local TelegraphCoreSim = H.require("ReplicatedStorage/Shared/Core/TelegraphCore")
 local warnings, warningEnds, simClock, stacked = {}, {}, 0, 0
+-- The body each warning blows up, false for any other kind. The game's blast removes it; here it stays to keep the
+-- crowd at the cap but never fuses again, or it would stand still on a warning for the whole run.
+local warningBlasts = {}
 local tick
 tick = {
 	Dt = 0.1,
@@ -219,6 +222,7 @@ tick = {
 		end
 		table.insert(warnings, warning)
 		table.insert(warningEnds, simClock + attack.Delay)
+		table.insert(warningBlasts, if attack.Kind == "Explode" then enemy else false)
 	end,
 	OnSwingLanded = function(_, target)
 		if target < 0 then
@@ -236,8 +240,11 @@ local function expireWarnings()
 	simClock += tick.Dt
 	for i = #warnings, 1, -1 do
 		if simClock < warningEnds[i] then continue end
+		local blasted = warningBlasts[i]
+		if blasted then EnemyWorld:set(blasted, Components.AttackWindup, -math.huge) end
 		table.remove(warnings, i)
 		table.remove(warningEnds, i)
+		table.remove(warningBlasts, i)
 	end
 end
 local aggro = {}

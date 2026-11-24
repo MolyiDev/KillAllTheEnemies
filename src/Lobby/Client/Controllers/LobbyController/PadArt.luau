@@ -22,6 +22,9 @@ local GLOW_GAP = 0.05
 local GLOW_FOOT_TRANSPARENCY = 0.35
 local GLOW_PIXELS_PER_STUD = 16
 local TINT_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- A body put on the pad lights it white, fading back to its colour over this.
+local FLASH_INFO = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local FLASH_COLOR = Color3.new(1, 1, 1)
 
 export type TPadArt = {
 	Rims: { BasePart },
@@ -144,6 +147,21 @@ function PadArt.Tint(art: TPadArt, color: Color3)
 		else
 			TweenService:Create(glow, TINT_INFO, { BackgroundColor3 = color }):Play()
 		end
+	end
+end
+
+-- Lights the rim and the glow white and lets them fade back to their colour.
+function PadArt.Flash(art: TPadArt)
+	local color = art.Color
+	if not color then return end
+	for _, rim in art.Rims do
+		rim.Color = FLASH_COLOR
+		TweenService:Create(rim, FLASH_INFO, { Color = color }):Play()
+	end
+
+	for _, glow in art.Glows do
+		glow.BackgroundColor3 = FLASH_COLOR
+		TweenService:Create(glow, FLASH_INFO, { BackgroundColor3 = color }):Play()
 	end
 end
 

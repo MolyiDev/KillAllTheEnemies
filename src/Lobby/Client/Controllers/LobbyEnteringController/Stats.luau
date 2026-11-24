@@ -15,6 +15,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Scrim = require(script.Parent.Scrim)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local Palette = Theme.Palette
@@ -27,7 +28,8 @@ local Layout = table.freeze({
 	LEFT = 439,
 	WIDTH = 399,
 	HEADER_Y = 216,
-	BARS = Vector2.new(1, 9),
+	CHART = Vector2.new(10, 18),
+	CHART_SIZE = 24,
 	TITLE = Vector2.new(32, 3),
 	TITLE_TEXT = 29,
 	RULE_Y = 38,
@@ -80,7 +82,7 @@ local Timing = table.freeze({
 	ASK_SHEEN = 0.8,
 })
 
--- His cards' accents (the orange is his "SQUAD KILLS"), and how faint the big glyph is.
+-- His cards' accents (the orange is his "SQUAD KILLS"), and how faint the big picture is.
 local Colors = table.freeze({
 	KILLS = Color3.fromRGB(255, 128, 38),
 	WAVE = Color3.fromRGB(89, 191, 255),
@@ -88,13 +90,13 @@ local Colors = table.freeze({
 	GLYPH_TRANSPARENCY = 0.45,
 })
 
--- One card: its accent, word, glyph, the number it counts to and how that is written, its line under it, and
+-- One card: its accent, word, picture, the number it counts to and how that is written, its line under it, and
 -- whether a new best is stamped on.
 type TCard = {
 	Name: string,
 	Accent: Color3,
 	Word: string,
-	Glyph: string,
+	Picture: string,
 	Value: (state: Types.TState) -> number,
 	Format: (value: number) -> string,
 	Sub: (state: Types.TState) -> string,
@@ -115,7 +117,7 @@ local CARDS: { TCard } = {
 		Name = "Gems",
 		Accent = Palette.Pink,
 		Word = "GEMS EARNED",
-		Glyph = "Gem",
+		Picture = EIcons.Gem,
 		Value = function(state)
 			local record = state.Record()
 			return if record then record.Gems else 0
@@ -132,7 +134,7 @@ local CARDS: { TCard } = {
 		Name = "Kills",
 		Accent = Colors.KILLS,
 		Word = "SQUAD KILLS",
-		Glyph = "Skull",
+		Picture = EIcons.Skull,
 		Value = function(state)
 			local record = state.Record()
 			return if record then record.SquadKills else 0
@@ -148,7 +150,7 @@ local CARDS: { TCard } = {
 		Name = "Wave",
 		Accent = Colors.WAVE,
 		Word = "WAVE REACHED",
-		Glyph = "Boss",
+		Picture = EIcons.ZombieKing,
 		Value = function(state)
 			local record = state.Record()
 			return if record then record.Wave else 0
@@ -167,7 +169,7 @@ local CARDS: { TCard } = {
 		Name = "Time",
 		Accent = Palette.Gold,
 		Word = "TIME SURVIVED",
-		Glyph = "Stopwatch",
+		Picture = EIcons.Stopwatch,
 		Value = function(state)
 			local record = state.Record()
 			return if record then record.Seconds else 0
@@ -231,27 +233,15 @@ local function dealt(
 end
 
 local function header(): Frame
-	local bars = {}
-	for index, height in { 9, 15, 12 } do
-		bars[index] = create("Frame")({
-			AnchorPoint = Vector2.new(0, 1),
-			Position = UDim2.fromOffset((index - 1) * 7, 18),
-			Size = UDim2.fromOffset(4, height),
-			BackgroundColor3 = Palette.Pink,
-			BorderSizePixel = 0,
-		})
-	end
-
 	return create("Frame")({
 		Name = "Header",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		create("Frame")({
-			Name = "Bars",
-			Position = UDim2.fromOffset(Layout.BARS.X, Layout.BARS.Y),
-			Size = UDim2.fromOffset(18, 18),
-			BackgroundTransparency = 1,
-			bars,
+		Components.Picture(EIcons.Chart, {
+			Name = "Chart",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(Layout.CHART.X, Layout.CHART.Y),
+			Size = Components.PictureBox(Layout.CHART_SIZE),
 		}),
 		label({
 			Position = UDim2.fromOffset(Layout.TITLE.X, Layout.TITLE.Y),
@@ -332,7 +322,7 @@ local function card(state: Types.TState, clock: Types.TClock, spec: TCard, delay
 		Tint = 0.5,
 		Edge = 2,
 		Marks = true,
-		Brackets = 5,
+		Brackets = true,
 		GlowTransparency = function()
 			local lit = punch()
 			return Lerp(0.7, 0.35, lit * lit)
@@ -373,11 +363,10 @@ local function card(state: Types.TState, clock: Types.TClock, spec: TCard, delay
 				return spec.Sub(state)
 			end,
 		}),
-		Components.Icon(spec.Glyph, {
+		Components.Picture(spec.Picture, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.GLYPH.X, Layout.GLYPH.Y),
-			Size = Components.GlyphBox(Layout.GLYPH_SIZE),
-			ImageColor3 = spec.Accent,
+			Size = Components.PictureBox(Layout.GLYPH_SIZE),
 			ImageTransparency = Colors.GLYPH_TRANSPARENCY,
 			ZIndex = 3,
 			create("UIScale")({
@@ -429,9 +418,7 @@ local function lobbyButton(state: Types.TState, clock: Types.TClock, actions: Ty
 		Components.Slab({
 			Kind = "Go",
 			Marks = true,
-			Brackets = function()
-				return 5 + 3 * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return Lerp(0.5, 0.3, hand.Light())
 			end,
@@ -457,10 +444,9 @@ local function lobbyButton(state: Types.TState, clock: Types.TClock, actions: Ty
 					TextSize = Layout.LOBBY_TEXT,
 					Text = "LOBBY",
 				}),
-				Components.Icon("Arrow", {
+				Components.Picture(EIcons.Arrow, {
 					LayoutOrder = 2,
-					Size = Components.GlyphBox(Layout.ARROW),
-					ImageColor3 = Palette.White,
+					Size = Components.PictureBox(Layout.ARROW),
 				}),
 			}),
 			Hand.WashLayer(hand, 3, 4),

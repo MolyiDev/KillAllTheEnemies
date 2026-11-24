@@ -1,6 +1,6 @@
 -- The local camera on top of the PlayerModule: the mouse lock (Left Shift, and always in first person), the dot drawn
--- in place of the mouse pointer, and cosmetic layers (shake, recoil, first-person motion) laid on whatever it framed
--- this frame.
+-- in place of the mouse pointer, cosmetic layers (shake, recoil, first-person motion) laid on whatever it framed
+-- this frame, and held shots (HoldShot) that take the view off it for a while and give it back.
 --
 -- COSMETIC LAYERS ONLY TRANSLATE AND ROLL: the PlayerModule seeds each frame's aim from the camera's LookVector, so a
 -- pitch or yaw laid on here would come back as real aim and walk the view away. AimCFrame is the camera before them,
@@ -58,6 +58,25 @@ local Tune = table.freeze({
 	DOT_PIXELS = 6,
 	MIN_DOT_PIXELS = 4,
 	DESIGN_SIZE = Vector2.new(1920, 1080),
+})
+
+-- A held shot: how fast the eye and the point it looks at chase the shot (critically damped, rad/s; the look is
+-- quicker, so the view swings onto the subject and then glides in), the field of view with the eye, the lean into a
+-- sideways swing (radians per stud a second, its most, how fast it follows), the shot's slow drift while it holds
+-- (studs side to side, rad/s, and its rise as a share of both, off a clean ratio so the loop never visibly repeats),
+-- and how long the way back to the player takes.
+local ShotMotion = table.freeze({
+	EYE_FREQUENCY = 4.2,
+	LOOK_FREQUENCY = 6.5,
+	FOV_FREQUENCY = 4.2,
+	BANK_PER_SPEED = rad(0.12),
+	BANK_MAX = rad(4),
+	BANK_RESPONSE = 6,
+	SWAY = 0.18,
+	SWAY_RATE = 0.45,
+	SWAY_RISE = 0.5,
+	SWAY_RISE_RATE = 0.71,
+	RETURN_SECONDS = 0.85,
 })
 
 -- First-person motion: a stride bob, a lean into strafing, breathing when still, and a landing dip on a spring.
@@ -139,6 +158,32 @@ local airborneFallSpeed = 0
 local pendingLookAt: Vector3? = nil
 local stateConnection: RBXScriptConnection? = nil
 
+-- The held shot. While Active the camera is Scriptable and built here alone: turning it while the PlayerModule still
+-- drives it would be two writers pulling every frame, which shakes. Goal is the shot asked for (nil once given back);
+-- Eye, Look and Fov chase it. What the PlayerModule had when it was taken (where it frames from off the root, how far
+-- back, along what look, at what field of view) is kept to build its own camera again on the way back.
+local held = {
+	Goal = nil :: { Eye: Vector3, Look: Vector3, Fov: number, Right: Vector3 }?,
+	IsActive = false,
+	ReleasedAt = nil :: number?,
+	Eye = Vector3.zero,
+	EyeVelocity = Vector3.zero,
+	Look = Vector3.zero,
+	LookVelocity = Vector3.zero,
+	Fov = 70,
+	FovVelocity = 0,
+	Roll = 0,
+	SwayClock = 0,
+	-- What was drawn last frame, before the layers: where a shot taken back mid-return starts from.
+	ShownEye = Vector3.zero,
+	ShownLook = Vector3.zero,
+	ShownFov = 70,
+	SubjectOffset = Vector3.zero,
+	Zoom = 0,
+	ReturnLook = -Vector3.zAxis,
+	ReturnFov = 70,
+}
+
 -- One shake impulse that fades over `duration`. `roughness` runs backward to its name: SMALLER is faster.
 function CameraController.Shake(magnitude: number, roughness: number, duration: number, positionInfluence: Vector3?)
 	if CameraController.ShakeMultiplier <= 0 then return end
@@ -205,6 +250,42 @@ end
 -- Turns the view to face `target` on the next frame; the PlayerModule carries on from there.
 function CameraController.LookAt(target: Vector3)
 	pendingLookAt = target
+end
+
+-- Takes the view onto a shot from `eye` looking at `look`: from the next frame the camera glides there from wherever
+-- it is and stays, drifting a little, until ReleaseShot. Called again, it glides on to the new shot.
+function CameraController.HoldShot(eye: Vector3, look: Vector3, fov: number)
+	local right = (look - eye):Cross(Vector3.yAxis)
+	held.Goal = {
+		Eye = eye,
+		Look = look,
+		Fov = fov,
+		Right = if right.Magnitude > 1e-3 then right.Unit else Vector3.xAxis,
+	}
+	if not held.ReleasedAt then return end
+
+	-- Taken back on the way to the player: the springs go on from what is on screen.
+	held.ReleasedAt = nil
+	held.Eye, held.Look, held.Fov = held.ShownEye, held.ShownLook, held.ShownFov
+	held.EyeVelocity, held.LookVelocity, held.FovVelocity = Vector3.zero, Vector3.zero, 0
+end
+
+-- Gives the view back: the camera glides to where the PlayerModule would have it now and hands it over there.
+function CameraController.ReleaseShot()
+	if not held.Goal then return end
+	if not held.IsActive then
+		held.Goal = nil
+		return
+	end
+	if not held.ReleasedAt then held.ReleasedAt = accumulatedTime end
+end
+
+-- Pushes a held shot's eye along its view at `speed` studs a second; its spring brings it back.
+function CameraController.NudgeShot(speed: number)
+	if not held.IsActive or held.ReleasedAt then return end
+	local along = held.Look - held.Eye
+	if along.Magnitude < 1e-3 then return end
+	held.EyeVelocity += along.Unit * speed
 end
 
 local function computeShakeOffset(): CFrame
@@ -308,7 +389,10 @@ end
 -- rotation, and would otherwise hand back a stale one. While locked the body is turned by faceAim, not by it.
 local function applyLock()
 	local isFirstPerson = firstPersonBlend > 0.5
-	local shouldLockMouse = (CameraController.IsLocked or isFirstPerson) and not CameraController.IsMouseFreed
+	-- A held shot frames something to look at, usually with a screen over it: the pointer is free.
+	local shouldLockMouse = (CameraController.IsLocked or isFirstPerson)
+		and not CameraController.IsMouseFreed
+		and not held.IsActive
 	if shouldLockMouse then
 		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
@@ -372,6 +456,125 @@ local function isFirstPersonZoom(): boolean
 	return ZoomController.GetTargetZoom() <= Tune.FIRST_PERSON_ZOOM
 end
 
+-- One step of a critically damped spring toward `goal`, in closed form: exact at any dt, so a long frame neither
+-- overshoots nor flings, and a goal that moves mid-flight is chased on with no break in speed.
+local function chase(
+	value: Vector3,
+	velocity: Vector3,
+	goal: Vector3,
+	frequency: number,
+	dt: number
+): (Vector3, Vector3)
+	local offset = value - goal
+	local decay = math.exp(-frequency * dt)
+	local lead = (velocity + offset * frequency) * dt
+	return goal + (offset + lead) * decay, (velocity - lead * frequency) * decay
+end
+
+local function chaseNumber(
+	value: number,
+	velocity: number,
+	goal: number,
+	frequency: number,
+	dt: number
+): (number, number)
+	local offset = value - goal
+	local decay = math.exp(-frequency * dt)
+	local lead = (velocity + offset * frequency) * dt
+	return goal + (offset + lead) * decay, (velocity - lead * frequency) * decay
+end
+
+local function smootherStep(t: number): number
+	t = clamp(t, 0, 1)
+	return t * t * t * (t * (t * 6 - 15) + 10)
+end
+
+-- Takes the camera off the PlayerModule, starting from the frame it made this frame (so taking it is never a jump),
+-- and keeps what it needs to make that camera again.
+local function takeShot(camera: Camera, framed: CFrame)
+	local subject = camera.Focus.Position
+	local root = selfRoot
+	held.SubjectOffset = if root then subject - root.Position else Vector3.zero
+	held.Zoom = (subject - framed.Position).Magnitude
+	held.ReturnLook = framed.LookVector
+	held.ReturnFov = camera.FieldOfView
+	held.Eye = framed.Position
+	held.Look = framed.Position + framed.LookVector * math.max(held.Zoom, 1)
+	held.Fov = camera.FieldOfView
+	held.EyeVelocity, held.LookVelocity, held.FovVelocity = Vector3.zero, Vector3.zero, 0
+	held.ShownEye, held.ShownFov = held.Eye, held.Fov
+	held.Roll = 0
+	held.SwayClock = 0
+	held.IsActive = true
+	camera.CameraType = Enum.CameraType.Scriptable
+end
+
+-- Back to the PlayerModule, on the camera it would make itself: the eye the zoom behind the subject along the look it
+-- had, Focus on the subject. It rebuilds its aim from that look, so it carries on from exactly this frame.
+local function handBack(camera: Camera, eye: Vector3, subject: Vector3): CFrame
+	held.Goal = nil
+	held.IsActive = false
+	held.ReleasedAt = nil
+	held.Roll = 0
+	local cframe = if (subject - eye).Magnitude > 1e-3 then CFrame.lookAt(eye, subject) else camera.CFrame
+	camera.CFrame = cframe
+	camera.Focus = CFrame.new(subject)
+	camera.FieldOfView = held.ReturnFov
+	camera.CameraType = Enum.CameraType.Custom
+	return cframe
+end
+
+-- One frame of a held shot: the whole camera, since on Scriptable nothing else makes one. Returns it level; the lean
+-- comes back separately, to go on the rendered camera only.
+local function stepShot(dt: number, camera: Camera, framed: CFrame): (CFrame, number)
+	local goal = held.Goal :: { Eye: Vector3, Look: Vector3, Fov: number, Right: Vector3 }
+	if not held.IsActive then takeShot(camera, framed) end
+
+	-- Its drift rides the goal, not the camera, so the springs smooth it in as the shot is taken.
+	held.SwayClock += dt
+	local phase = held.SwayClock * ShotMotion.SWAY_RATE
+	local across = math.sin(phase) * ShotMotion.SWAY
+	local rise = math.sin(phase * ShotMotion.SWAY_RISE_RATE) * ShotMotion.SWAY * ShotMotion.SWAY_RISE
+	local sway = goal.Right * across + Vector3.yAxis * rise
+	held.Eye, held.EyeVelocity = chase(held.Eye, held.EyeVelocity, goal.Eye + sway, ShotMotion.EYE_FREQUENCY, dt)
+	held.Look, held.LookVelocity = chase(held.Look, held.LookVelocity, goal.Look, ShotMotion.LOOK_FREQUENCY, dt)
+	held.Fov, held.FovVelocity = chaseNumber(held.Fov, held.FovVelocity, goal.Fov, ShotMotion.FOV_FREQUENCY, dt)
+
+	-- On the way back, a blend from the shot to the PlayerModule's camera made live off the root, so a player who
+	-- walks off meanwhile is followed, and the blend ends exactly on it.
+	local eye, look, fov = held.Eye, held.Look, held.Fov
+	local back = 0
+	local releasedAt = held.ReleasedAt
+	if releasedAt then
+		local root = selfRoot
+		if not root then return handBack(camera, eye, look), 0 end
+		local subject = root.Position + held.SubjectOffset
+		local returnEye = subject - held.ReturnLook * held.Zoom
+		back = smootherStep((accumulatedTime - releasedAt) / ShotMotion.RETURN_SECONDS)
+		if back >= 1 then return handBack(camera, returnEye, subject), 0 end
+		eye = eye:Lerp(returnEye, back)
+		look = look:Lerp(subject, back)
+		fov += (held.ReturnFov - fov) * back
+	end
+
+	-- The lean follows how fast the eye crosses the view, and dies away with the return so it is level when handed back.
+	-- Straight up or down has no level frame to look along: the last frame's turn stands in.
+	local toLook = look - eye
+	local length = toLook.Magnitude
+	local cframe = if length > 1e-3 and math.abs(toLook.Y) < length * 0.999
+		then CFrame.lookAt(eye, look)
+		else CFrame.new(eye) * camera.CFrame.Rotation
+	local sideways = (eye - held.ShownEye):Dot(cframe.RightVector) / math.max(dt, 1e-3)
+	local bank = clamp(-sideways * ShotMotion.BANK_PER_SPEED, -ShotMotion.BANK_MAX, ShotMotion.BANK_MAX) * (1 - back)
+	held.Roll += (bank - held.Roll) * (1 - math.exp(-ShotMotion.BANK_RESPONSE * dt))
+
+	-- Engine writes only when the value moves: FieldOfView is still once the shot has settled.
+	if math.abs(held.ShownFov - fov) > 1e-3 then camera.FieldOfView = fov end
+	held.ShownEye, held.ShownLook, held.ShownFov = eye, look, fov
+	camera.Focus = CFrame.new(look)
+	return cframe, held.Roll
+end
+
 local function update(dt: number)
 	dt = math.min(dt, Tune.MAX_FRAME_DT)
 	accumulatedTime += dt
@@ -386,7 +589,15 @@ local function update(dt: number)
 		if (lookAt - eye).Magnitude > 1e-3 then cameraCFrame = CFrame.lookAt(eye, lookAt) end
 	end
 
-	local isFirstPerson = isFirstPersonZoom()
+	-- A held shot builds the whole camera; nothing below moves what it frames (no shoulder, no first person). On the
+	-- frame it is handed back, what it returns is the PlayerModule's own camera, which the rest treats as usual.
+	local shotRoll = 0
+	if held.Goal then
+		cameraCFrame, shotRoll = stepShot(dt, camera, framed)
+	end
+	local isShot = held.IsActive
+
+	local isFirstPerson = isFirstPersonZoom() and not isShot
 	local targetFirstPerson = if isFirstPerson then 1 else 0
 	firstPersonBlend += (targetFirstPerson - firstPersonBlend) * clamp(dt * Tune.FIRST_PERSON_BLEND_SPEED, 0, 1)
 	-- The head fade never reaches zero, so a lock left on in first person would still nudge the view to the shoulder.
@@ -400,13 +611,17 @@ local function update(dt: number)
 	local headAlpha = clamp(zoomDistance / Tune.HEAD_FADE_DISTANCE, 0, 1)
 	-- Unlocked at a normal distance there is no offset at all, and no CFrame is built for it.
 	local aimCFrame = cameraCFrame
-	if lockBlend > 1e-3 or headAlpha < 1 then
+	if not isShot and (lockBlend > 1e-3 or headAlpha < 1) then
 		aimCFrame *= CFrame.new(Tune.FIRST_PERSON_OFFSET:Lerp(Tune.SHOULDER_OFFSET * lockBlend, headAlpha))
 	end
 	CameraController.AimCFrame = aimCFrame
 	faceAim(aimCFrame.LookVector)
 
 	local render = aimCFrame
+	if shotRoll ~= 0 then
+		render *= CFrame.Angles(0, 0, shotRoll)
+	end
+
 	if firstPersonBlend > 0.001 then
 		render *= computeFirstPersonOffset(dt, firstPersonBlend, aimCFrame)
 	end

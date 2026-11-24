@@ -101,6 +101,7 @@ type TColors = { [string]: ColorSequence }
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("StepPieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local kit: TKit? = nil
 local hasWarned = false
 local floorColors: { [number]: TColors } = {}

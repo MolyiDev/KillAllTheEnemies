@@ -15,6 +15,7 @@ local HealthUpgrade = require(script.Parent.HealthUpgrade)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local WeaponUpgrade = require(script.Parent.WeaponUpgrade)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -27,7 +28,8 @@ local TITLE_TOP = 302
 local TITLE_TEXT = 20
 local TOP = 336
 local CARD = 150
-local STEP = 166
+-- 169, as the shop's cards.
+local STEP = 169
 local KEY = Vector2.new(112, 8)
 local KEY_SIZE = 30
 local PRICE = Vector2.new(12, 81)
@@ -35,13 +37,14 @@ local PRICE_TEXT = 28
 local NAME = Vector2.new(12, 120)
 local NAME_TEXT = 19
 local BAND = 35
--- The packs: his gold slabs, the coins glyph and the value on them, the green price tag over the top-right corner.
+-- The packs: his gold slabs, the gold pack picture and the value on them, the green price tag over the top-right corner.
 local PACK_LEFT = 39
 local PACK_TOP = 689
 local PACK = Vector2.new(242, 78)
-local PACK_STEP = 92
+-- 98, not his 92: the second pack's price tag stands 9 px over its top, and at his it met the first pack's brackets.
+local PACK_STEP = 98
 local PACK_COINS = Vector2.new(35, 34)
-local PACK_COINS_SIZE = 32
+local PACK_COINS_SIZE = 40
 local PACK_VALUE = 61
 local PACK_TEXT = 32
 local TAG_TOP = -9
@@ -55,7 +58,7 @@ local TAG_COLOR = Color3.fromRGB(15, 158, 99)
 -- rises DEAL_RISE into place and its price and name half that; what was bought fades up LEAVE_RISE as it goes.
 local PICTURE_CENTER = Vector2.new(75, 54)
 local PICTURE_SIZE = 112
-local PICTURE_TILT = -18
+local PICTURE_TILT = GunPicture.CARD_TILT
 -- The HEALTH card's first-aid kit, where his glyph sits: its box, and the swing a light across the card gives it.
 local KIT_CENTER = Vector2.new(72, 50)
 local KIT_SIZE = 86
@@ -67,10 +70,8 @@ local LEAVE_RISE = 12
 -- side (Motion.Shake).
 local WOBBLE_DEG = 5
 local JOLT = 7
--- Under the hand: how much the picture grows with the card's rise, and how far the brackets open.
+-- Under the hand: how much the picture grows with the card's rise.
 local PICTURE_RISE = 0.08
-local BRACKETS = 8
-local BRACKETS_OPEN = 4
 
 local PACKS = table.freeze({
 	{ Value = "+$99,999", Amount = 99999, Price = "R$ 367", TagWidth = 72, ProductId = EProducts.GoldPackLarge },
@@ -80,8 +81,7 @@ local PACKS = table.freeze({
 local BOUGHT_SECONDS = 0.5
 local BOUGHT_POP = 0.12
 local BOUGHT_FLASH = 0.8
--- Under the hand: the brackets' rest, and how much the coins grow with the slab's rise.
-local PACK_BRACKETS = 5
+-- Under the hand: how much the coins grow with the slab's rise.
 local PACK_COINS_RISE = 0.18
 
 local Upgrades = {}
@@ -245,9 +245,7 @@ local function upgradeCard(spec: TCardSpec): TextButton
 			GlowTransparency = function()
 				return 0.7 - math.max(0.55 * punch(), 0.3 * readyPop(), 0.4 * hand.Light())
 			end,
-			Brackets = function()
-				return BRACKETS + BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketTransparency = function()
 				return 0.65 - 0.35 * hand.Light()
 			end,
@@ -448,9 +446,7 @@ local function pack(state: Types.THudState, index: number, actions: Types.TActio
 		Components.Slab({
 			Kind = "Gold",
 			Marks = true,
-			Brackets = function()
-				return PACK_BRACKETS + BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return 0.6 - 0.35 * hand.Light()
 			end,
@@ -475,10 +471,10 @@ local function pack(state: Types.THudState, index: number, actions: Types.TActio
 				ZIndex = 5,
 				Components.Sheen(Hand.Sheen(hand, bought), 5),
 			}),
-			Components.Icon("Pack", {
+			Components.Picture(EIcons.GoldSack, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromOffset(PACK_COINS.X, PACK_COINS.Y),
-				Size = Components.GlyphBox(PACK_COINS_SIZE),
+				Size = Components.PictureBox(PACK_COINS_SIZE),
 				ZIndex = 3,
 				create("UIScale")({
 					Scale = function()

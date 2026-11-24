@@ -1197,6 +1197,7 @@ UI/UpgradePick/Hover/Hover_4|rbxassetid://116222968091777|0.39|1|UI|PlayOnRemove
 UI/UpgradePick/RevealEpic|rbxassetid://77706849204334|0.731|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/RevealLegendary|rbxassetid://88403523293732|0.908|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/RevealMythic|rbxassetid://105093562873231|0.873|1|UI|PlayOnRemove,RollOff=Inverse
+UI/Index/Unlock|rbxassetid://87730016016468|1.077|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/Reroll|rbxassetid://77392522595274|1.011|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/Denied|rbxassetid://73132531303246|0.539|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/Tick/Tick_1|rbxassetid://79057830760426|0.634|1|UI|PlayOnRemove,RollOff=Inverse
@@ -1204,6 +1205,7 @@ UI/UpgradePick/Tick/Tick_2|rbxassetid://78138395955524|0.755|1|UI|PlayOnRemove,R
 UI/CountdownTick/CountdownTick_1|rbxassetid://79057830760426|0.252|1|UI|PlayOnRemove,RollOff=Inverse
 UI/CountdownTick/CountdownTick_2|rbxassetid://78138395955524|0.301|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/PickCommon|rbxassetid://101287447403818|1.264|1|UI|PlayOnRemove,RollOff=Inverse
+UI/UpgradePick/PickUncommon|rbxassetid://98583964600279|1.46|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/PickRare|rbxassetid://104283656438538|1.397|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/PickEpic|rbxassetid://134622614073401|1.4|1|UI|PlayOnRemove,RollOff=Inverse
 UI/UpgradePick/PickLegendary|rbxassetid://120920393022213|1.494|1|UI|PlayOnRemove,RollOff=Inverse
@@ -1243,3 +1245,14 @@ Casings/Bounce/Casing_Bounce_3|rbxassetid://114876340287830|0.264|1|Effects|Roll
 Casings/Bounce/Casing_Bounce_4|rbxassetid://96373570496806|0.303|1|Effects|RollOff=Inverse,Max=120,Min=20
 Casings/Bounce/Casing_Bounce_5|rbxassetid://91512644904182|0.275|1|Effects|RollOff=Inverse,Max=120,Min=20
 Casings/Bounce/Casing_Bounce_6|rbxassetid://129070321076378|0.195|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_1|rbxassetid://72610056126985|0.519|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_2|rbxassetid://139219331846328|0.556|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_3|rbxassetid://75765794321891|0.587|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_4|rbxassetid://80232718418758|0.853|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_5|rbxassetid://109930937774392|0.484|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_6|rbxassetid://91786701886222|0.379|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_7|rbxassetid://133812400843710|0.426|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_8|rbxassetid://111763484997137|0.416|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_9|rbxassetid://107321411732175|0.578|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_10|rbxassetid://136210935909340|0.489|1|Effects|RollOff=Inverse,Max=120,Min=20
+Debris/Land/Debris_Land_11|rbxassetid://93953748877418|0.373|1|Effects|RollOff=Inverse,Max=120,Min=20

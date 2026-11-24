@@ -19,6 +19,7 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local BarJuice = require(script.Parent.BarJuice)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -772,7 +773,7 @@ function BossBar.Build(state: Types.THudState): Frame
 		Visible = function()
 			return shown() > 0.001 and name() ~= ""
 		end,
-		Components.Panel({ Brackets = 6 }, {
+		Components.Panel({ Brackets = true }, {
 			Name = "Boss",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
@@ -799,15 +800,12 @@ function BossBar.Build(state: Types.THudState): Frame
 					return UDim2.fromOffset(side, side)
 				end,
 				ZIndex = 2,
-				Components.Brackets(7, nil, 21),
-				Components.Icon("Boss", {
+				Components.Brackets(nil, nil, 21),
+				Components.Picture(EIcons.ZombieKing, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
 					Size = function()
-						return Components.GlyphBox(math.round(Lerp(Layout.CROWN, Layout.BOSS_CROWN, mix())))
-					end,
-					ImageColor3 = function()
-						return Palette.Pink:Lerp(Palette.White, struck())
+						return Components.PictureBox(math.round(Lerp(Layout.CROWN, Layout.BOSS_CROWN, mix())))
 					end,
 					ZIndex = 2,
 				}),

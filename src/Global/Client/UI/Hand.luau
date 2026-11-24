@@ -10,6 +10,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local vide = require(ReplicatedStorage.Packages.vide)
 
+local action = vide.action
 local create = vide.create
 local source = vide.source
 local spring = vide.spring
@@ -17,9 +18,11 @@ local derive = vide.derive
 
 -- Each kind's reach, as shares of its size: the rise under the pointer, how far in a press takes it from there, the pop
 -- as the press goes through, and the white washed over its face under the pointer and under the press.
+-- The pop is kept small: on top of the rise it is what a press peaks at (Take 1.085, Operate 1.05), and a big card
+-- that grew more pushed its brackets into the next one's.
 local KINDS = table.freeze({
-	Take = table.freeze({ Lift = 0.06, Press = 0.11, Pop = 0.05, WashHover = 0.07, WashPress = 0.2 }),
-	Operate = table.freeze({ Lift = 0.035, Press = 0.07, Pop = 0.03, WashHover = 0.09, WashPress = 0.22 }),
+	Take = table.freeze({ Lift = 0.06, Press = 0.11, Pop = 0.03, WashHover = 0.07, WashPress = 0.2 }),
+	Operate = table.freeze({ Lift = 0.035, Press = 0.07, Pop = 0.02, WashHover = 0.09, WashPress = 0.22 }),
 })
 -- What a button that cannot be used keeps of the rise and of the light it washes over its face.
 local DEAD_RISE = 0.4
@@ -51,7 +54,7 @@ export type TKind = "Take" | "Operate"
 
 export type TReaction = {
 	-- To put among the button's properties.
-	Events: { [string]: (...any) -> () },
+	Events: { [any]: any },
 	IsHovered: () -> boolean,
 	IsPressed: () -> boolean,
 	-- For the UIScale on what moves.
@@ -103,19 +106,59 @@ function Hand.Kick(period: number, damping: number): (() -> number, (number) -> 
 	end
 end
 
+-- Whether the pointer can reach `instance`: nothing on its way up to its LayerCollector is Interactable = false.
+-- Roblox fires MouseEnter on every button under the pointer, covered or not, and an Active cover does not stop it in
+-- the lobby's SurfaceGui. So a screen turns off what lies under a menu it opens, and a hover asks this first.
+function Hand.IsReachable(instance: Instance): boolean
+	local current: Instance? = instance
+	-- One IsA a level: a GUI's ancestors are GuiObjects up to its LayerCollector, which is not one.
+	while current do
+		if current:IsA("GuiObject") then
+			if not current.Interactable then return false end
+		elseif current:IsA("LayerCollector") then
+			break
+		end
+		current = current.Parent
+	end
+
+	return true
+end
+
 -- What the hand is doing to a button: the events to put on it, and whether it is over it and down on it. `onEnter`
 -- runs as the pointer arrives.
-function Hand.Track(onEnter: (() -> ())?): ({ [string]: (...any) -> () }, () -> boolean, () -> boolean)
+function Hand.Track(onEnter: (() -> ())?): ({ [any]: any }, () -> boolean, () -> boolean)
 	local isHovered = source(false)
 	local isPressed = source(false)
+	local button: Instance? = nil
+
+	local function enter()
+		isHovered(true)
+		if onEnter then onEnter() end
+	end
+	local function leave()
+		isHovered(false)
+		isPressed(false)
+	end
 	local events = {
+		action(function(instance: Instance)
+			button = instance
+		end),
 		MouseEnter = function()
-			isHovered(true)
-			if onEnter then onEnter() end
+			if button and not Hand.IsReachable(button) then return end
+			enter()
 		end,
-		MouseLeave = function()
-			isHovered(false)
-			isPressed(false)
+		MouseLeave = leave,
+		-- Neither MouseEnter nor MouseLeave fires when what covers the button comes or goes under a still pointer, so a
+		-- move over it settles which it is.
+		MouseMoved = function()
+			if not button then return end
+			local isReachable = Hand.IsReachable(button)
+			if isReachable == isHovered() then return end
+			if isReachable then
+				enter()
+			else
+				leave()
+			end
 		end,
 		MouseButton1Down = function()
 			isPressed(true)
@@ -127,8 +170,7 @@ function Hand.Track(onEnter: (() -> ())?): ({ [string]: (...any) -> () }, () -> 
 		-- stay raised.
 		InputEnded = function(input: InputObject)
 			if input.UserInputType ~= Enum.UserInputType.Touch then return end
-			isHovered(false)
-			isPressed(false)
+			leave()
 		end,
 	}
 

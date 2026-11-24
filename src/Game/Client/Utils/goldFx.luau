@@ -63,6 +63,7 @@ type TKit = { Feet: Attachment, Heart: Attachment, Bricks: { BasePart } }
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("GoldPieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local kit: TKit? = nil
 local hasWarned = false
 local casts: { TCast } = {}

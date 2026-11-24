@@ -6,12 +6,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local equipmentPieces = require(script.Parent.Parent.Utils.equipmentPieces)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
 
 local create = vide.create
 local Palette = Theme.Palette
 local GUNS = DataCore.Guns.ById
+local PIECES = DataCore.Equipment.ById
+-- A piece of equipment is seen from its front-left a little above, as it would be worn: a body's front is -Z, so the
+-- camera swings half a turn and a little more round it.
+local EQUIPMENT_YAW_DEG = 205
+local EQUIPMENT_PITCH_DEG = 14
+-- A pair (the shoulders) is pulled this far in across the body, so it fills its picture.
+local EQUIPMENT_SPREAD = 0.5
 
 -- A long lens, so the gun reads flat like the designer's glyphs, with this much air round it.
 local FOV = 12
@@ -43,6 +51,9 @@ local GunPicture = {}
 -- keeps its own colour on a dark card. Passed as a picture's `Ambient` and `Light`.
 GunPicture.FLAT_AMBIENT = Color3.fromRGB(236, 236, 236)
 GunPicture.FLAT_LIGHT = Color3.fromRGB(150, 146, 136)
+-- How far a gun on a card is turned in its own plane, in degrees (a `Rotation`): the barrel climbs to the right.
+-- One value, so a gun stands the same on the weapon upgrade card in a match and on the lobby's weapons screen.
+GunPicture.CARD_TILT = -18
 -- The shadow's drop and fade, for another picture drawn the same way (an enemy's in the Index).
 GunPicture.SHADOW_DROP = SHADOW_DROP
 GunPicture.SHADOW_TRANSPARENCY = SHADOW_TRANSPARENCY
@@ -72,6 +83,29 @@ function GunPicture.FromModel(model: Model, yawDeg: number, pitchDeg: number): T
 	-- The camera stands off the picture's right crossed with its up.
 	local frame = CFrame.Angles(0, math.rad(yawDeg), 0) * CFrame.Angles(-math.rad(pitchDeg), 0, 0)
 	return { Model = model, Origin = model:GetBoundingBox().Position, Barrel = frame.XVector, Up = frame.YVector }
+end
+
+local fromEquipmentCache: { [number]: TPicture | false } = {}
+
+-- The picture of a piece of equipment, its accessories laid out as worn (equipmentPieces.Arrange), or nil when the
+-- place has no model for it.
+function GunPicture.FromEquipment(itemId: number): TPicture?
+	local cached = fromEquipmentCache[itemId]
+	if cached ~= nil then return cached or nil end
+
+	local item = PIECES[itemId]
+	local accessories = if item then equipmentPieces.Clone(item) else {}
+	local picture: TPicture | false = false
+	if #accessories > 0 then
+		picture = GunPicture.FromModel(
+			equipmentPieces.Arrange(accessories, EQUIPMENT_SPREAD),
+			EQUIPMENT_YAW_DEG,
+			EQUIPMENT_PITCH_DEG
+		)
+	end
+
+	fromEquipmentCache[itemId] = picture
+	return picture or nil
 end
 
 -- How far the gun's parts reach along an axis from `origin`, both ways.
@@ -132,8 +166,9 @@ end
 -- A box drawing whatever `picture` returns (nil draws nothing), redrawn when it changes. `spec.Lean` is how far the
 -- barrel climbs at rest, in degrees, fitted to the box (stand). The rest of `spec` may be sources: Rotation (a turn
 -- of the picture in its own plane on top of that, in degrees, about the box's middle) and Transparency (0 shown, 1
--- gone), Tint (multiplies the gun's colours, white by default: grey for one not yet owned) and Yaw (the camera
--- swung this many degrees round the gun's up, for a gun turning on a stand). `spec.Ambient` and `spec.Light` replace the light the picture is drawn under. They go to the two frames rather than the box: the shadow turns about its own middle, so it falls straight
+-- gone), Tint (multiplies the gun's colours, white by default: grey for one not yet owned), Yaw (the camera
+-- swung this many degrees round the gun's up, for a gun turning on a stand) and Pitch (the camera swung this many
+-- degrees over it first, round the picture's own across, so a tip is toward the viewer whatever the turn). `spec.Ambient` and `spec.Light` replace the light the picture is drawn under. They go to the two frames rather than the box: the shadow turns about its own middle, so it falls straight
 -- down whatever the turn, and it fades with the gun. `props` are the box's own; scaling the box moves the shadow out
 -- with the gun.
 function GunPicture.Build(picture: () -> TPicture?, spec: { [any]: any }, props: { [any]: any }): Frame
@@ -164,11 +199,14 @@ function GunPicture.Build(picture: () -> TPicture?, spec: { [any]: any }, props:
 	-- The camera at rest and what it looks at, for a Yaw to swing it round.
 	local rest, pivot = CFrame.identity, Vector3.zero
 	local up = Vector3.yAxis
-	local yaw = spec.Yaw
+	local yaw, pitch = spec.Yaw, spec.Pitch
 	local function aim()
 		local cframe = rest
-		if yaw then
-			local turn = CFrame.fromAxisAngle(up, math.rad(yaw()))
+		if yaw or pitch then
+			local turn = if yaw then CFrame.fromAxisAngle(up, math.rad(yaw())) else CFrame.identity
+			if pitch then
+				turn *= CFrame.fromAxisAngle(rest.XVector, math.rad(pitch()))
+			end
 			cframe = CFrame.new(pivot) * turn * (CFrame.new(-pivot) * rest)
 		end
 		for _, viewport in frames do
@@ -202,10 +240,11 @@ function GunPicture.Build(picture: () -> TPicture?, spec: { [any]: any }, props:
 	vide.cleanup(clear)
 	-- The camera follows the turn on its own, without copying the gun again.
 	local function follow()
-		yaw()
+		if yaw then yaw() end
+		if pitch then pitch() end
 		vide.untrack(aim)
 	end
-	if yaw then vide.effect(follow) end
+	if yaw or pitch then vide.effect(follow) end
 
 	return create("Frame")({
 		BackgroundTransparency = 1,

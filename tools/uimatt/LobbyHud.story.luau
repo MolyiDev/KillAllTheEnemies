@@ -6,10 +6,13 @@
 -- Moment: Rest (everything landed, his numbers: LV 9 at 62%, 48,250), Enter (the lobby opening 0.2 s in: the pieces
 -- slide in, then the bar and the Gems roll up), LevelUp (the bar rolling from 90% over into the next level), Gems (a
 -- gain rolling in and landing), Fed (Gems flown in landing a slice at a time, then the last), Spend (Gems paid out, the
--- count rolling down), Dock (the classes or weapons page opening: the Gems counter glides into his coin slot), for
--- `rur-native sequence`.
+-- count rolling down), Dock (the classes or weapons page opening: the Gems counter glides into his coin slot), PlayCall
+-- (the light crossing PLAY), Play (PLAY pressed: the launch), PlayRefused (no pad free: PLAY shakes), Waiting (every
+-- button's Notice up: 2 quests, 6 discoveries, a gun and an ability to pay for; the call every 1.2 s from 0.3 s),
+-- NoticesArrive (all four popping in at 0.2 s), CountUp (the index's count 5 to 6 at 0.2 s), NoticesClear (all four
+-- going at 0.2 s), for `rur-native sequence`.
 -- The HUD's root starts under Roblox's top bar strip, as in the game: the strip is drawn (Studio's 58 px, the taller one,
--- and the unibar's 208 x 58 corner, UI.md "The top-left corner is the PLATFORM'S"), since the Gems counter stands in it.
+-- and the unibar's 208 x 58 corner, UI.md "The top-left corner is the PLATFORM'S"), since the top row stands in it.
 -- rur reads the project file as plain JSON, so strip its comments into a copy first. The group-owned images 403
 -- offline, so they are swapped for the local PNGs they were made from.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,6 +27,11 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
 }
@@ -57,13 +65,36 @@ local function noop() end
 return {
 	vide = vide,
 	controls = {
-		Moment = { "Rest", "Enter", "LevelUp", "Gems", "Fed", "Spend", "Dock" },
+		Moment = {
+			"Rest",
+			"Enter",
+			"LevelUp",
+			"Gems",
+			"Fed",
+			"Spend",
+			"Dock",
+			"PlayCall",
+			"Play",
+			"PlayRefused",
+			"Waiting",
+			"NoticesArrive",
+			"CountUp",
+			"NoticesClear",
+		},
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
 		local at = os.clock() + MOMENT_AT
 		local shown = LEVEL + XP / 100
 		local isMoving = moment ~= "Rest"
+		-- Each Notice moment's counts before and after its moment: quests, discoveries, weapons, classes.
+		local notices = ({
+			Waiting = { { 2, 6, 1, 1 }, { 2, 6, 1, 1 } },
+			NoticesArrive = { { 0, 0, 0, 0 }, { 2, 6, 1, 1 } },
+			CountUp = { { 2, 5, 1, 1 }, { 2, 6, 1, 1 } },
+			NoticesClear = { { 2, 6, 1, 1 }, { 0, 0, 0, 0 } },
+		})[moment] or { { 0, 0, 0, 0 }, { 0, 0, 0, 0 } }
+		local before, after = notices[1], notices[2]
 
 		local state = {
 			Now = source(os.clock()),
@@ -88,22 +119,46 @@ return {
 			GemGlintAt = source(-math.huge),
 			IsGemsDocked = source(false),
 			IsDailyReady = source(false),
-			IsIndexNew = source(false),
+			IsDailyWaiting = source(false),
+			QuestsReady = source(before[1]),
+			IndexCount = source(before[2]),
+			CanUpgradeWeapons = source(before[3] > 0),
+			CanUpgradeClasses = source(before[4] > 0),
+			CanBrew = source(before[1] > 0),
 			CallAt = source(-math.huge),
+			PlayAt = source(if moment == "Play" then at else -math.huge),
+			PlayRefusedAt = source(if moment == "PlayRefused" then at else -math.huge),
+			PlayCallAt = source(if moment == "PlayCall" then at else -math.huge),
 			HeldKey = source(nil),
 			IsCovered = source(false),
 			CoveredAt = source(-math.huge),
+			IsPlateCovered = source(false),
+			PlateCoveredAt = source(-math.huge),
 			IsBare = source(false),
 			BareAt = source(-math.huge),
 			TopInset = source(TOP_BAR),
+			TopbarRoom = source(0),
 			Scale = source(1),
+			PageScale = source(1),
 		}
 
 		local landed = 0
+		local nextCall = if moment == "Waiting" then at + 0.1 else math.huge
 		if isMoving then
 			RunService.Heartbeat:Connect(function()
 				local now = os.clock()
 				state.Now(now)
+				if now >= at and state.IndexCount() ~= after[2] then
+					state.QuestsReady(after[1])
+					state.IndexCount(after[2])
+					state.CanUpgradeWeapons(after[3] > 0)
+					state.CanUpgradeClasses(after[4] > 0)
+					state.CanBrew(after[1] > 0)
+				end
+				if now >= nextCall then
+					nextCall = now + 1.2
+					state.CallAt(now)
+				end
 				if moment == "Dock" and now >= at and not state.IsGemsDocked() then state.IsGemsDocked(true) end
 				if moment ~= "Fed" then return end
 				-- As init's holdGems: each landing snaps the count to what has landed.
@@ -141,10 +196,14 @@ return {
 				BackgroundTransparency = 1,
 				Position = UDim2.fromOffset(0, TOP_BAR),
 				Size = UDim2.new(1, 0, 1, -TOP_BAR),
-				Hud.Build(state, { InviteFriends = noop, MarkGemsGlyph = noop }),
+				Hud.Build(state, { InviteFriends = noop, MarkGemsGlyph = noop, Play = noop }),
 			}),
-			Hud.BuildGems(state, { InviteFriends = noop, MarkGemsGlyph = noop }),
+			Hud.BuildTop(state, { InviteFriends = noop, MarkGemsGlyph = noop, MarkXpBar = noop }),
 		})
+		state.TopbarRoom(root.AbsoluteSize.X / 2 - UNIBAR)
+		root:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			state.TopbarRoom(root.AbsoluteSize.X / 2 - UNIBAR)
+		end)
 		swapImages(root)
 		return root
 	end,

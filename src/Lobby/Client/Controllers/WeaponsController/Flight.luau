@@ -7,12 +7,12 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
-local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local Info = require(script.Parent.Info)
 local Stage = require(script.Parent.Stage)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -37,12 +37,6 @@ local Tune = table.freeze({
 	FADE_IN = 0.12,
 	FADE_OUT = 0.15,
 })
-
--- The gem on the HUD's Gems counter, docked at the right of his currency while this page is up, in his 1920 x 1080
--- (LobbyController's Hud: the counter's + ending 920 right of the middle, the counter 308 wide, the glyph 55 into
--- it; its middle 52 + 33 down).
-local FROM = Vector2.new(960 + 920 - 308 + 55, 85)
-local GEM_BLUE = Theme.Color.Gem
 
 local Flight = {}
 
@@ -102,20 +96,19 @@ function Flight.Build(state: Types.TWeaponsState): { Instance }
 			return Progress(state.Now(), state.PaidAt(), Tune.FLIGHT, Tune.STAGGER * (index - 1))
 		end)
 
-		pieces[index] = Components.Icon("Gem", {
+		pieces[index] = Components.Picture(EIcons.Gem, {
 			Name = `Gem{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
 				local progress = t()
-				local to = target()
-				local trip = to - FROM
+				local from, to = state.GemsFrom(), target()
+				local trip = to - from
 				local side = Vector2.new(-trip.Y, trip.X) * bend
 				local along = Tune.LINEAR * progress + (1 - Tune.LINEAR) * progress * progress
-				local at = bezier(FROM, FROM + throw, to + side - trip * 0.15, to, along)
+				local at = bezier(from, from + throw, to + side - trip * 0.15, to, along)
 				return UDim2.fromOffset(at.X, at.Y)
 			end,
-			Size = Components.GlyphBox(Tune.GEM),
-			ImageColor3 = GEM_BLUE,
+			Size = Components.PictureBox(Tune.GEM),
 			ImageTransparency = function()
 				local progress = t()
 				local appear = math.clamp(progress / Tune.FADE_IN, 0, 1)

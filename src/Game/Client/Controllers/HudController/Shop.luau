@@ -22,7 +22,8 @@ local Font = Theme.Font
 local RIGHT = 190
 local TOP = 336
 local CARD = 150
-local STEP = 166
+-- 169, not his 166: under a press a card's brackets reach 13 px out, and at his they crossed the next card's.
+local STEP = 169
 local TITLE_RIGHT = 32
 local TITLE_TOP = 302
 local TITLE_TEXT = 19
@@ -37,12 +38,9 @@ local GLYPH = Vector2.new(75, 58)
 -- An ability's model on its card: the box it is fitted to (its centre is the glyph's).
 local PICTURE = 100
 -- What the model does on its card: grown with the card's rise under the pointer, punched and swung as the ability is
--- used and as it comes ready (shares of its size, deg), and on the ULT card breathing while it waits to be fired. The
--- brackets stand off the card BRACKETS px and open BRACKETS_OPEN more under the hand.
+-- used and as it comes ready (shares of its size, deg), and on the ULT card breathing while it waits to be fired.
 local Gesture = table.freeze({
 	HOVER = 0.08,
-	BRACKETS = 8,
-	BRACKETS_OPEN = 4,
 	USED_POP = 0.26,
 	USED_SPIN = -16,
 	READY_POP = 0.3,
@@ -50,7 +48,8 @@ local Gesture = table.freeze({
 	BREATH = 0.06,
 	BREATH_SPIN = 4,
 })
-local CHARGE_RIGHT = 234
+-- 10 px further out than his 234: at his, the ULT card under the hand grew into the gold tag.
+local CHARGE_RIGHT = 244
 local CHARGE_BAR = Vector2.new(6, 32)
 local CHARGE_BAR_SIZE = Vector2.new(26, 118)
 local CHARGE_TAG = Vector2.new(38, 26)
@@ -125,9 +124,7 @@ local function abilityCard(state: Types.THudState, actions: Types.TActions, inde
 				return if canUse() then ability.Accent else Palette.Steel
 			end,
 			Band = BAND,
-			Brackets = function()
-				return Gesture.BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketTransparency = function()
 				return 0.65 - 0.35 * hand.Light()
 			end,
@@ -285,9 +282,7 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 				return if isLit() then Palette.Gold else Palette.Steel
 			end,
 			Band = BAND,
-			Brackets = function()
-				return Gesture.BRACKETS + Gesture.BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketTransparency = function()
 				return 0.65 - 0.35 * hand.Light()
 			end,

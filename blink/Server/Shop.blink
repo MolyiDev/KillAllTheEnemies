@@ -1,0 +1,35 @@
+-- To one player: what the shop shows them, as their profile loads and when it changes. (the offers they hold for good,
+-- by index in ShopCore.OFFERS; whether paid random items are restricted for them; seconds until the featured gun
+-- changes; whether they own the featured gun)
+event State {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8[], boolean, u32, boolean)
+}
+
+-- To one player, once an offer is theirs: bought by them, or given (the giver's display name, "" when bought), and the
+-- Gems it paid in place of what they held already (a gun owned, a pass held). (offer, giver, gems)
+event Granted {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, string, u32)
+}
+
+-- To the giver: how a gift went. (offer, the receiver's display name, 0 sent, 1 refused before the prompt: they left or
+-- already hold it)
+event GiftResult {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, string, u8)
+}
+
+-- To everybody: the user ids holding VIP in this server, as anyone's changes (the chat and head tags wear it).
+event Vips {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: f64[]
+}

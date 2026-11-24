@@ -10,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 local vide = require(ReplicatedStorage.Packages.vide)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local KeyImages = require(ReplicatedStorage.GlobalShared.Utils.KeyImages)
+local Hand = require(script.Parent.Hand)
 local Icons = require(script.Parent.Icons)
 local Theme = require(script.Parent.Theme)
 
@@ -58,6 +59,12 @@ local Look = table.freeze({
 	BRACKET_RADIUS = 3,
 	BRACKET_LENGTH = 20,
 	BRACKET_TRANSPARENCY = 0.6,
+	BRACKET_SLACK = 2,
+	-- How far every set stands off what it frames, and how much more under the hand: one distance on every screen.
+	BRACKET_OUTSET = 4,
+	BRACKET_OPEN = 2,
+	-- Brackets closed round what is picked: one whole outline, as bright as the weapons screen's ring was.
+	BRACKET_CLOSED_TRANSPARENCY = 0.05,
 	-- The lobby's flat slabs (UIMatt.md, Lobby HUD): the face's share left under the top edge, how far down the face
 	-- that shade holds and where it is gone, the marks' share of the face and their leg, the brackets' leg.
 	FLAT_SHADE = 0.45,
@@ -76,6 +83,19 @@ local Look = table.freeze({
 	PILL_MARK_LEG = 12,
 	PILL_BRACKET_LENGTH = 12,
 	PILL_GLOW_TRANSPARENCY = 0.62,
+})
+-- Brackets closing round what is picked (Components.Brackets' `isClosed`): the legs run along the edges and meet in
+-- the middle of each side on a spring that carries past the meeting, and the carry is the seal: the outline swells,
+-- thickens and flashes at the four joins, then settles. At these numbers the legs meet 0.2 s in and the carry peaks
+-- 12% past at 0.28 s (lune).
+local Merge = table.freeze({
+	PERIOD = 0.48,
+	DAMPING = 0.55,
+	OVERSHOOT = 0.12,
+	SWELL = 4,
+	THICKEN = 1.5,
+	WELD_LENGTH = 38,
+	WELD_THICKNESS = 3,
 })
 -- His pink edge, top to bottom (a slab's is brighter at the top and deeper at the bottom). Gradients here are lists of
 -- { position, colour } for gradientOf.
@@ -219,6 +239,7 @@ end
 Components.ButtonSounds = action(function(instance: Instance)
 	local button = instance :: GuiButton
 	button.MouseEnter:Connect(function()
+		if not Hand.IsReachable(button) then return end
 		SoundsCore.PlayHover()
 	end)
 	button.Activated:Connect(function()
@@ -362,10 +383,45 @@ function Components.Gradient(keys: any): { any }
 	}
 end
 
+-- `content` laid in a frame of `props`, drawn straight while it stands still and through a CanvasGroup only while
+-- `shown` is under 1: a group re-renders its whole texture on any change inside it, so at rest every hover and punch
+-- would redraw the panel. Returns both frames, for the caller to place.
+function Components.FadeGroup(name: string, shown: () -> number, props: TProps, content: { any }): { Instance }
+	local isFading = vide.derive(function(): boolean
+		return shown() < 1
+	end)
+	local still = create("Frame")({
+		Name = `{name}Still`,
+		BackgroundTransparency = 1,
+		props,
+	})
+	local fading = create("CanvasGroup")({
+		Name = `{name}Fading`,
+		BackgroundTransparency = 1,
+		Visible = isFading,
+		GroupTransparency = function()
+			return 1 - shown()
+		end,
+		props,
+	})
+	create("Frame")({
+		Name = name,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = function()
+			return if isFading() then fading else still
+		end,
+		content,
+	})
+
+	return { still, fading }
+end
+
 -- A band of white light swept once across its parent as `travel` runs 0 to 1: a surface catching the light as it comes
 -- alive. Its strength rides an envelope over the sweep, nothing at either end, so it never sits at a flat alpha and pops
--- off when the sweep settles (UI.md, "A SWEPT band's travel").
-function Components.Sheen(travel: () -> number, zIndex: number): Frame
+-- off when the sweep settles (UI.md, "A SWEPT band's travel"). A UIGradient turns in its frame's 0-1 space, so on a
+-- wide face its 20 degrees lie almost flat: `aspect` (width / height) turns it back to lean 20 degrees on the screen.
+function Components.Sheen(travel: () -> number, zIndex: number, aspect: number?): Frame
 	-- Out of the renderer while it is not crossing (it is invisible at both ends anyway): a layer at full transparency
 	-- is still drawn (UI.md 5g). Derived, so it is written only as it starts and ends.
 	local isCrossing = vide.derive(function(): boolean
@@ -385,7 +441,7 @@ function Components.Sheen(travel: () -> number, zIndex: number): Frame
 		end,
 		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
 		create("UIGradient")({
-			Rotation = 20,
+			Rotation = if aspect then math.deg(math.atan(math.tan(math.rad(20)) / aspect)) else 20,
 			Transparency = NumberSequence.new({
 				NumberSequenceKeypoint.new(0, 1),
 				NumberSequenceKeypoint.new(0.42, 1),
@@ -401,7 +457,8 @@ function Components.Sheen(travel: () -> number, zIndex: number): Frame
 	})
 end
 
--- An icon from the atlas (Icons), white, tinted by `ImageColor3` in `props`.
+-- A flat glyph from the atlas (Icons.Cells), white, tinted by `ImageColor3` in `props`. Only Robux is drawn this way,
+-- as Roblox draws it; every other icon is a Picture.
 function Components.Icon(name: string, props: TProps): ImageLabel
 	return create("ImageLabel")({
 		BackgroundTransparency = 1,
@@ -413,70 +470,268 @@ function Components.Icon(name: string, props: TProps): ImageLabel
 	})
 end
 
--- Where `name`'s cell is in the atlas, for an Icon whose glyph changes (its ImageRectOffset).
-function Components.IconCell(name: string): Vector2
-	return Icons.Cells[name]
-end
-
 -- The square an Icon is drawn in so that its glyph's longer side comes out `longest` px (icons.py pads each cell).
 function Components.GlyphBox(longest: number): UDim2
 	local side = math.round(longest / Icons.GLYPH_SHARE)
 	return UDim2.fromOffset(side, side)
 end
 
--- The four corner brackets standing off a panel: a frame `outset` px bigger than its parent on every side, with an L
--- at each corner whose bend is rounded, as his are. Each L is the corner of a rounded outline twice its leg, seen
--- through a window one leg square. `outset` and `transparency` may be sources; `length` is each leg's, in px.
-function Components.Brackets(outset: any, transparency: any?, length: number?): Frame
+-- A rendered icon (an EIcons name), drawn in its own colours. ImageColor3 multiplies them, so it is only for the white
+-- marks (Check, Arrow, Replay, Skip), which take a colour as a flat glyph did, and for darkening a picture that is off.
+-- `name` may be a source, for a spot whose picture changes; the pictures span several atlases, so the Image follows it.
+function Components.Picture(name: string | () -> string, props: TProps): ImageLabel
+	if type(name) == "string" then
+		local picture = Icons.Pictures[name]
+		return create("ImageLabel")({
+			BackgroundTransparency = 1,
+			Image = picture.Image,
+			ImageRectOffset = picture.Offset,
+			ImageRectSize = Icons.PICTURE_CELL_SIZE,
+			ScaleType = Enum.ScaleType.Fit,
+			props,
+		})
+	end
+
+	local picture = vide.derive(function()
+		return Icons.Pictures[name()]
+	end)
+
+	return create("ImageLabel")({
+		BackgroundTransparency = 1,
+		Image = function()
+			return picture().Image
+		end,
+		ImageRectOffset = function()
+			return picture().Offset
+		end,
+		ImageRectSize = Icons.PICTURE_CELL_SIZE,
+		ScaleType = Enum.ScaleType.Fit,
+		props,
+	})
+end
+
+-- The square a Picture is drawn in so that its longer side comes out `longest` px.
+function Components.PictureBox(longest: number): UDim2
+	local side = math.round(longest / Icons.PICTURE_SHARE)
+	return UDim2.fromOffset(side, side)
+end
+
+-- How far brackets have closed round what is picked: `share` 0 (corners) to 1 (the legs met), `seal` the carry past
+-- the meeting as 0 to 1 and back, and `isSealed` from the meeting until it is let go. Sealed it holds at 1, so the
+-- spring ringing round 1 never parts the legs again.
+local function merge(isClosed: () -> boolean): (() -> number, () -> number, () -> boolean)
+	local closed = Hand.Spring(function(): number
+		return if isClosed() then 1 else 0
+	end, Merge.PERIOD, Merge.DAMPING)
+	local isSealed = vide.source(false)
+	vide.effect(function()
+		local value = closed()
+		local goal = isClosed()
+		vide.untrack(function()
+			local sealed = goal and (isSealed() or value >= 0.999)
+			if sealed ~= isSealed() then isSealed(sealed) end
+		end)
+	end)
+
+	local share = vide.derive(function(): number
+		if isSealed() then return 1 end
+		return math.clamp(closed(), 0, 1)
+	end)
+	local seal = vide.derive(function(): number
+		if not isSealed() then return 0 end
+		return math.clamp((closed() - 1) / Merge.OVERSHOOT, 0, 1)
+	end)
+
+	return share, seal, isSealed
+end
+
+-- A bright run of light on the middle of one side, where two legs meet as the brackets seal: `side` 0 top, 1 bottom, 2
+-- left, 3 right. Tapered at both ends, so it reads as light and not as a bar.
+local function weld(side: number, seal: () -> number, thickness: number): Frame
+	local isAcross = side < 2
+	local far = side % 2
+	local inward = if far == 1 then -thickness / 2 else thickness / 2
+	local length = vide.derive(function(): number
+		return math.round(Merge.WELD_LENGTH * (0.4 + 0.6 * seal()))
+	end)
+
+	return create("Frame")({
+		Name = "Weld",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = if isAcross
+			then UDim2.new(0.5, 0, far, math.round(inward))
+			else UDim2.new(far, math.round(inward), 0.5, 0),
+		Size = function()
+			return if isAcross
+				then UDim2.fromOffset(length(), Merge.WELD_THICKNESS)
+				else UDim2.fromOffset(Merge.WELD_THICKNESS, length())
+		end,
+		BackgroundColor3 = Palette.White,
+		BackgroundTransparency = function()
+			return 1 - seal()
+		end,
+		BorderSizePixel = 0,
+		create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
+		-- Rotated, a gradient's ramp spans the frame's height (UI.md), which is a standing weld's length.
+		create("UIGradient")({
+			Rotation = if isAcross then 0 else 90,
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.5, 0),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}),
+	})
+end
+
+-- The four corner brackets standing off a panel: a frame BRACKET_OUTSET px bigger than its parent on every side, with an
+-- L at each corner whose bend is rounded, as his are. Each L is the corner of a rounded outline twice its leg, seen
+-- through a window one leg square. `rise` (a source, 0 to 1: the hand's rise, nil for none) opens them BRACKET_OPEN
+-- more. Every set in both places stands the same distance off what it frames, so no caller picks one. `transparency`
+-- may be a source; `length` is each leg's, in px.
+--
+-- `isClosed` (a source) closes them round what is picked: each window grows to a quarter of the frame, so the four
+-- legs run along the edges and meet in the middle of each side as one whole outline, which then seals (`merge`).
+-- Let go, the outline parts at the same four places and the legs run back to the corners.
+function Components.Brackets(
+	rise: (() -> number)?,
+	transparency: any?,
+	length: number?,
+	isClosed: (() -> boolean)?
+): Frame
 	local alpha = transparency or Look.BRACKET_TRANSPARENCY
 	local leg = length or Look.BRACKET_LENGTH
 	local thickness = Look.BRACKET_THICKNESS
+	local slack = Look.BRACKET_SLACK
+	local share, seal, isSealed
+	if isClosed then
+		share, seal, isSealed = merge(isClosed)
+	end
+	-- What the four corners share while they close, worked out once rather than once a corner: the window (half the
+	-- frame and the slack at the end, so the four tile it and meet in the middle), the outline seen through it (twice
+	-- the window less its slack, so its far corners stay out of the window however far it has grown, and once the
+	-- window is a quarter of the frame the four outlines are one outline the frame's size), and the stroke, brightening
+	-- toward the picked look.
+	local window, outline, strokeAlpha
+	if share then
+		window = vide.derive(function(): UDim2
+			local t = share()
+			local px = leg * (1 - t) + slack
+			return UDim2.new(0.5 * t, px, 0.5 * t, px)
+		end)
+		outline = vide.derive(function(): UDim2
+			local px = -2 * slack - 2 * thickness * share()
+			return UDim2.new(2, px, 2, px)
+		end)
+		strokeAlpha = vide.derive(function(): number
+			local t = share()
+			return read(alpha) * (1 - t) + Look.BRACKET_CLOSED_TRANSPARENCY * t
+		end)
+	end
+	-- Whole px off the frame, derived so a hover's spring writes the size only as it crosses a pixel.
+	local outset = if rise or seal
+		then vide.derive(function(): number
+			local open = if rise then Look.BRACKET_OPEN * rise() else 0
+			return math.round(Look.BRACKET_OUTSET + open + (if seal then Merge.SWELL * seal() else 0))
+		end)
+		else nil
+
 	local corners = table.create(4)
 	for corner = 0, 3 do
 		local right = corner % 2
 		local bottom = corner // 2
 		local anchor = Vector2.new(right, bottom)
-		-- The outline sits a stroke in from the window's corner, so the stroke drawn outside it lands on that corner.
-		local inset = UDim2.fromOffset(
-			if right == 1 then -thickness else thickness,
-			if bottom == 1 then -thickness else thickness
-		)
+		local outward = Vector2.new(if right == 1 then 1 else -1, if bottom == 1 then 1 else -1)
+		-- The outline sits a stroke in from the bracket's corner, so the stroke drawn outside it lands on that corner.
+		-- The window reaches BRACKET_SLACK past it: a stroke ending on the window's edge is shaved off whenever a
+		-- screen scaled under 1080 puts that edge on a fraction of a pixel (the top legs went at 720).
+		local inset = UDim2.fromOffset(-outward.X * (thickness + slack), -outward.Y * (thickness + slack))
 		corners[corner + 1] = create("Frame")({
 			AnchorPoint = anchor,
-			Position = UDim2.fromScale(right, bottom),
-			Size = UDim2.fromOffset(leg, leg),
+			Position = UDim2.new(right, outward.X * slack, bottom, outward.Y * slack),
+			Size = window or UDim2.fromOffset(leg + slack, leg + slack),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
+			Visible = if isSealed
+				then function()
+					return not isSealed()
+				end
+				else nil,
 			create("Frame")({
 				AnchorPoint = anchor,
 				Position = UDim2.fromScale(right, bottom) + inset,
-				Size = UDim2.fromOffset(2 * leg, 2 * leg),
+				Size = outline or UDim2.fromOffset(2 * leg, 2 * leg),
 				BackgroundTransparency = 1,
 				create("UICorner")({ CornerRadius = UDim.new(0, Look.BRACKET_RADIUS) }),
 				create("UIStroke")({
 					Color = Palette.White,
 					Thickness = thickness,
-					Transparency = alpha,
+					Transparency = strokeAlpha or alpha,
 					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 				}),
 			}),
 		})
 	end
 
+	-- Sealed, one outline instead of four quarters, so no join is ever drawn; it thickens as it seals, and the joins
+	-- flash where the legs met.
+	local whole = nil
+	if seal and isSealed then
+		local isWelding = vide.derive(function(): boolean
+			return seal() > 0.01
+		end)
+		whole = {
+			create("Frame")({
+				Name = "Whole",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.new(1, -2 * thickness, 1, -2 * thickness),
+				BackgroundTransparency = 1,
+				Visible = isSealed,
+				create("UICorner")({ CornerRadius = UDim.new(0, Look.BRACKET_RADIUS) }),
+				create("UIStroke")({
+					Color = Palette.White,
+					Thickness = function()
+						return thickness + Merge.THICKEN * seal()
+					end,
+					Transparency = Look.BRACKET_CLOSED_TRANSPARENCY,
+					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				}),
+			}),
+			create("Frame")({
+				Name = "Welds",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Visible = isWelding,
+				weld(0, seal, thickness),
+				weld(1, seal, thickness),
+				weld(2, seal, thickness),
+				weld(3, seal, thickness),
+			}),
+		}
+	end
+
 	return create("Frame")({
 		Name = "Brackets",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = if type(outset) == "function"
+		Size = if outset
 			then function()
-				local px = math.round(outset())
+				local px = outset()
 				return UDim2.new(1, px * 2, 1, px * 2)
 			end
-			else UDim2.new(1, outset * 2, 1, outset * 2),
+			else UDim2.new(1, Look.BRACKET_OUTSET * 2, 1, Look.BRACKET_OUTSET * 2),
 		BackgroundTransparency = 1,
 		ZIndex = 0,
 		corners,
+		whole,
 	})
+end
+
+-- A spec's Brackets as Components.Brackets takes them: true for still brackets, or a source of the hand's rise that
+-- opens them.
+local function riseOf(brackets: any): (() -> number)?
+	return if type(brackets) == "function" then brackets else nil
 end
 
 -- Two rounded Ls in the bottom corners of a face (`isTop` adds the top two), `inset` px in: the marks his slabs and
@@ -575,9 +830,11 @@ local function face(edge: number, corner: number, keys: any, props: TProps): Fra
 end
 
 -- His dark panel (the WAVE plate, the boss strip, AUTO-SKIP, the money plate, Squad, Settings). `spec` fields may be
--- sources: Stroke (the edge's colour), Glow (a colour, nil for his dark shadow), GlowTransparency, Brackets (outset
--- px, nil for none), BracketLength, TexturePhase (a Vector2 for a panel wider than half the texture), Wide (true for
--- one longer than the texture), Tall (true for one hundreds of px high). `props` is the outer Frame's, sized to his drawn rect; children are placed against it.
+-- sources: Stroke (the edge's colour), Glow (a colour, nil for his dark shadow), GlowTransparency, Brackets (true, or
+-- the hand's rise to open them by; nil for none), BracketLength, BracketsClosed (true while it is picked: the brackets close into one outline),
+-- TexturePhase (a Vector2 for a panel wider than half the texture), Wide (true for one longer than the texture), Tall
+-- (true for one hundreds of px high). `props` is the outer Frame's, sized to his drawn rect; children are placed
+-- against it.
 function Components.Panel(spec: TProps, props: TProps): Frame
 	local edge = Look.PANEL_EDGE
 	return create("Frame")({
@@ -600,7 +857,9 @@ function Components.Panel(spec: TProps, props: TProps): Frame
 				BorderSizePixel = 0,
 			}),
 		}),
-		if spec.Brackets then Components.Brackets(spec.Brackets, nil, spec.BracketLength) else nil,
+		if spec.Brackets
+			then Components.Brackets(riseOf(spec.Brackets), nil, spec.BracketLength, spec.BracketsClosed)
+			else nil,
 		props,
 	})
 end
@@ -608,9 +867,9 @@ end
 -- His accent card (HEAL ALL, the upgrade and ability cards, the hotbar slots). `spec` fields may be sources: Accent,
 -- Tint (how far the bottom warms toward the accent, 0 to 1), Band (px of dark name band at the bottom, nil for none),
 -- Marks (the faint corner marks low in the face), Glow / GlowTransparency (the accent's glow by default), Brackets,
--- BracketLength, BracketTransparency, Edge (px, where his is not the cards' 3), Wide (true for a face longer than the
--- streak texture), Tall (true for one hundreds of px high), Face (the dark of the face, where his is not the
--- cards' own). `props` is the outer Frame's, sized to his drawn rect.
+-- BracketLength, BracketTransparency, BracketsClosed, Edge (px, where his is not the cards' 3), Wide (true for a face
+-- longer than the streak texture), Tall (true for one hundreds of px high), Face (the dark of the face, where his is
+-- not the cards' own). `props` is the outer Frame's, sized to his drawn rect.
 function Components.Card(spec: TProps, props: TProps): Frame
 	local edge = spec.Edge or Look.CARD_EDGE
 	local band = spec.Band
@@ -663,7 +922,12 @@ function Components.Card(spec: TProps, props: TProps): Frame
 				else nil,
 		}),
 		if spec.Brackets
-			then Components.Brackets(spec.Brackets, spec.BracketTransparency or 0.65, spec.BracketLength or 23)
+			then Components.Brackets(
+				riseOf(spec.Brackets),
+				spec.BracketTransparency or 0.65,
+				spec.BracketLength or 23,
+				spec.BracketsClosed
+			)
 			else nil,
 		props,
 	})
@@ -671,7 +935,7 @@ end
 
 -- His glossy slab (SKIP WAVE, the countdown, the money packs, the squad screen's header): a dark rim, a hot pink edge
 -- and a green, gold or pink face. `spec` fields may be sources: Kind ("Go", "Gold", "Pink", "Violet", "Steel", "Red" or "Off"), Marks (the corner
--- marks inside), GlowTransparency, Brackets. `props` is the outer Frame's, sized to his drawn rect.
+-- marks inside), GlowTransparency, Brackets, BracketsClosed. `props` is the outer Frame's, sized to his drawn rect.
 function Components.Slab(spec: TProps, props: TProps): Frame
 	local kind = function(): string
 		return read(spec.Kind) or "Go"
@@ -711,7 +975,7 @@ function Components.Slab(spec: TProps, props: TProps): Frame
 					else nil,
 			}),
 		}),
-		if spec.Brackets then Components.Brackets(spec.Brackets, 0.45, 21) else nil,
+		if spec.Brackets then Components.Brackets(riseOf(spec.Brackets), 0.45, 21, spec.BracketsClosed) else nil,
 		props,
 	})
 end
@@ -721,10 +985,10 @@ local function shade(color: Color3, share: number): Color3
 	return Color3.new(color.R * share, color.G * share, color.B * share)
 end
 
--- His lobby slab (WEAPONS, MENU, CLASSES): the glossy slab's dark rim and hot pink edge round a FLAT face of `spec.Face`,
+-- His lobby slab (WEAPONS, PLAY, CLASSES): the glossy slab's dark rim and hot pink edge round a FLAT face of `spec.Face`,
 -- shaded for a few px under the top edge, dark corner marks in all four corners, and a glow in the face's own colour.
--- `spec` fields may be sources: GlowTransparency, Brackets (outset px), BracketTransparency. `props` is the outer
--- Frame's, sized to his drawn rect.
+-- `spec` fields may be sources: GlowTransparency, Brackets (true, or the hand's rise), BracketTransparency,
+-- BracketsClosed. `props` is the outer Frame's, sized to his drawn rect.
 function Components.FlatSlab(spec: TProps, props: TProps): Frame
 	local color: Color3 = spec.Face
 	local under = shade(color, Look.FLAT_SHADE)
@@ -758,7 +1022,12 @@ function Components.FlatSlab(spec: TProps, props: TProps): Frame
 			}),
 		}),
 		if spec.Brackets
-			then Components.Brackets(spec.Brackets, spec.BracketTransparency, Look.FLAT_BRACKET_LENGTH)
+			then Components.Brackets(
+				riseOf(spec.Brackets),
+				spec.BracketTransparency,
+				Look.FLAT_BRACKET_LENGTH,
+				spec.BracketsClosed
+			)
 			else nil,
 		props,
 	})
@@ -766,8 +1035,8 @@ end
 
 -- His currency pill (the lobby's coins and energy): a dark rim, a bright lip along the top of `spec.Lip` and darker
 -- sides and bottom round a face of `spec.Face` shaded under the top, faint corner marks, and his gold glow under it.
--- `spec` fields: Brackets (outset px), GlowTransparency (may be a source). `props` is the outer Frame's, sized to his
--- drawn rect.
+-- `spec` fields: Brackets (true, or the hand's rise), BracketsClosed, GlowTransparency (may be a source). `props` is the outer
+-- Frame's, sized to his drawn rect.
 function Components.Pill(spec: TProps, props: TProps): Frame
 	local color: Color3 = spec.Face
 	local under = shade(color, Look.PILL_SHADE)
@@ -806,7 +1075,9 @@ function Components.Pill(spec: TProps, props: TProps): Frame
 				marks(shade(color, Look.PILL_MARK), 0.55, 2, Look.PILL_MARK_LEG, true),
 			}),
 		}),
-		if spec.Brackets then Components.Brackets(spec.Brackets, nil, Look.PILL_BRACKET_LENGTH) else nil,
+		if spec.Brackets
+			then Components.Brackets(riseOf(spec.Brackets), nil, Look.PILL_BRACKET_LENGTH, spec.BracketsClosed)
+			else nil,
 		props,
 	})
 end
@@ -917,6 +1188,61 @@ function Components.Tracked(text: string, size: number, tracking: number, font: 
 		letters,
 		rest,
 	})
+end
+
+-- His pink EXIT on his 1920 x 1080: its middle, size and word, and how far under its place it starts.
+local EXIT = table.freeze({
+	MIDDLE = Vector2.new(960, 1005),
+	SIZE = Vector2.new(302, 72),
+	TEXT = 32,
+	RISE = 24,
+})
+
+-- The one way out of every lobby screen, in one place on all of them (UI.md, "One way out, in one place"), for a
+-- parent laid out on his 1920 x 1080. `gone` is how far it still has to come, 1 to 0: it rises in from under its place
+-- as it grows, and shrinks away. It grows rather than fading under a group: it moves under the hand, and a group
+-- redraws its whole canvas for every frame of that.
+function Components.Exit(gone: () -> number, onPress: () -> (), props: TProps?): TextButton
+	local hand = Hand.React("Operate")
+
+	return Components.Button({
+		Name = "Exit",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = function()
+			return UDim2.fromOffset(EXIT.MIDDLE.X, EXIT.MIDDLE.Y + math.round(EXIT.RISE * gone()))
+		end,
+		Size = UDim2.fromOffset(EXIT.SIZE.X, EXIT.SIZE.Y),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Activated = function()
+			hand.Commit()
+			onPress()
+		end,
+		hand.Events,
+		create("UIScale")({
+			Scale = function()
+				return (1 - gone()) * hand.Scale()
+			end,
+		}),
+		Components.Slab({
+			Kind = "Pink",
+			Marks = true,
+			Brackets = hand.Rise,
+			GlowTransparency = function()
+				return 0.6 - 0.3 * hand.Light()
+			end,
+		}, {
+			Name = "Slab",
+			Size = UDim2.fromScale(1, 1),
+			Hand.WashLayer(hand, 3, 3),
+			Components.Sheen(hand.Glint, 3, EXIT.SIZE.X / EXIT.SIZE.Y),
+			Components.Tracked("EXIT", EXIT.TEXT, 2, Font.Display, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+			}),
+		}),
+		props or NO_PROPS,
+	}) :: TextButton
 end
 
 -- 12345 -> "12,345".

@@ -102,6 +102,7 @@ type TKit = {
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("TelegraphPieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 local kit: TKit? = nil
 local hasWarned = false
 local lights: { TLight } = {}

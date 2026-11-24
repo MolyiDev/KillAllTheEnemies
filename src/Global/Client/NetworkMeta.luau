@@ -182,6 +182,18 @@ Queue.Reliable[18] = table.create(256)
 Queue.Reliable[19] = table.create(256)
 Queue.Reliable[20] = table.create(256)
 Queue.Reliable[21] = table.create(256)
+Queue.Reliable[22] = table.create(256)
+Queue.Reliable[23] = table.create(256)
+Queue.Reliable[24] = table.create(256)
+Queue.Reliable[25] = table.create(256)
+Queue.Reliable[26] = table.create(256)
+Queue.Reliable[27] = table.create(256)
+Queue.Reliable[28] = table.create(256)
+Queue.Reliable[29] = table.create(256)
+Queue.Reliable[30] = table.create(256)
+Queue.Reliable[31] = table.create(256)
+Queue.Reliable[32] = table.create(256)
+Queue.Reliable[33] = table.create(256)
 export type Server_Profile_Player_Type = Player
 export type Server_Loadout_Player_Type = Player
 export type Server_Results_Member = { UserId: number, Name: string, ClassId: number, Kills: number }
@@ -190,8 +202,12 @@ export type Server_Quests_QuestBoard = { Ids: { number }, Progress: { number }, 
 export type Server_Index_DataId_Type = number
 export type Server_Classes_DataId_Type = number
 export type Server_Classes_ClassLevels = { Class: number, Levels: { number } }
+export type Server_Equipment_Player_Type = Player
+export type Server_Mutation_DataId_Type = number
+export type Server_Mutation_Lab = { Discovered: { number }, EnergyIds: { number }, EnergyCounts: { number }, PotionIds: { number }, PotionRecipes: { number }, PotionRarities: { number }, PotionMatches: { number }, Equipped: { number }, SlotKinds: { number }, SlotsOpen: { boolean }, BrewsLeft: number, BrewsPerDay: number, SecondsLeft: number, Luck: number, FoundIds: { number }, FoundCounts: { number }, FoundNew: { boolean } }
 export type Client_Index_DataId_Type = number
 export type Client_Classes_DataId_Type = number
+export type Client_Mutation_DataId_Type = number
 function SerdesFunctions.Server_Configs_ReadEVENT_ConfigsLoaded(): ({ string }, { string })
 	-- Read BLOCK: 4 bytes
 	local BLOCK_START = Read(4)
@@ -264,18 +280,19 @@ function SerdesFunctions.Server_Profile_ReadEVENT_Public(): (Player, number, num
 	return Value1, Value2, Value3, Value4, Value5
 end
 
-function SerdesFunctions.Server_Lobby_ReadEVENT_PadState(): (number, number, number, number, number, boolean, number, number)
-	-- Read BLOCK: 18 bytes
-	local BLOCK_START = Read(18)
+function SerdesFunctions.Server_Lobby_ReadEVENT_PadState(): (number, number, number, number, number, number, boolean, number, number)
+	-- Read BLOCK: 19 bytes
+	local BLOCK_START = Read(19)
 	local Value1 = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	local Value2 = buffer.readu8(RecieveBuffer, BLOCK_START + 1)
 	local Value3 = buffer.readu8(RecieveBuffer, BLOCK_START + 2)
 	local Value4 = buffer.readu8(RecieveBuffer, BLOCK_START + 3)
 	local Value5 = buffer.readu8(RecieveBuffer, BLOCK_START + 4)
-	local Value6 = (buffer.readu8(RecieveBuffer, BLOCK_START + 5) == 1)
-	local Value7 = buffer.readf64(RecieveBuffer, BLOCK_START + 6)
-	local Value8 = buffer.readf32(RecieveBuffer, BLOCK_START + 14)
-	return Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8
+	local Value6 = buffer.readu8(RecieveBuffer, BLOCK_START + 5)
+	local Value7 = (buffer.readu8(RecieveBuffer, BLOCK_START + 6) == 1)
+	local Value8 = buffer.readf64(RecieveBuffer, BLOCK_START + 7)
+	local Value9 = buffer.readf32(RecieveBuffer, BLOCK_START + 15)
+	return Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8, Value9
 end
 
 function SerdesFunctions.Server_Lobby_ReadEVENT_PadJoined(): (number)
@@ -425,13 +442,14 @@ function SerdesFunctions.Server_DailyRewards_ReadEVENT_Claimed(): (number, numbe
 	return Value1, Value2, Value3
 end
 
-function SerdesFunctions.Server_Spins_ReadEVENT_State(): (number, number, number)
-	-- Read BLOCK: 7 bytes
-	local BLOCK_START = Read(7)
+function SerdesFunctions.Server_Spins_ReadEVENT_State(): (number, number, number, number)
+	-- Read BLOCK: 8 bytes
+	local BLOCK_START = Read(8)
 	local Value1 = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	local Value2 = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
 	local Value3 = buffer.readu32(RecieveBuffer, BLOCK_START + 3)
-	return Value1, Value2, Value3
+	local Value4 = buffer.readu8(RecieveBuffer, BLOCK_START + 7)
+	return Value1, Value2, Value3, Value4
 end
 
 function SerdesFunctions.Server_Spins_ReadEVENT_Landed(): (number)
@@ -713,31 +731,478 @@ function SerdesFunctions.Server_Classes_ReadEVENT_Sync(): ({ { Class: number, Le
 	return Value
 end
 
+function SerdesFunctions.Server_Equipment_ReadEVENT_Sync(): ({ number }, { number }, { number })
+	-- Read BLOCK: 6 bytes
+	local BLOCK_START = Read(6)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value1 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value1, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value2 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value2, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value3 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value3, Item_1)
+	end
+	-- END ARRAY
+	return Value1, Value2, Value3
+end
+
+function SerdesFunctions.Server_Equipment_ReadEVENT_Worn(): (Player, { number })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	RecieveInstanceCursor += 1
+	local Value1 = RecieveInstances[RecieveInstanceCursor]
+	if typeof(Value1) ~= "Instance" then error(`Expected an Instance, got {typeof(Value1)} instead.`) end
+	if not Value1:IsA("Player") then error(`Expected an Instance of type "Player", got "{Value1.ClassName}" instead.`) end
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value2 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value2, Item_1)
+	end
+	-- END ARRAY
+	return Value1, Value2
+end
+
+function SerdesFunctions.Server_Equipment_ReadEVENT_Dropped(): (number)
+	-- Read BLOCK: 1 bytes
+	local BLOCK_START = Read(1)
+	local Value = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	return Value
+end
+
+function SerdesFunctions.Server_Shop_ReadEVENT_State(): ({ number }, boolean, number, boolean)
+	-- Read BLOCK: 8 bytes
+	local BLOCK_START = Read(8)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value1 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value1, Item_1)
+	end
+	-- END ARRAY
+	local Value2 = (buffer.readu8(RecieveBuffer, BLOCK_START + 2) == 1)
+	local Value3 = buffer.readu32(RecieveBuffer, BLOCK_START + 3)
+	local Value4 = (buffer.readu8(RecieveBuffer, BLOCK_START + 7) == 1)
+	return Value1, Value2, Value3, Value4
+end
+
+function SerdesFunctions.Server_Shop_ReadEVENT_Granted(): (number, string, number)
+	-- Read BLOCK: 7 bytes
+	local BLOCK_START = Read(7)
+	local Value1 = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
+	local Value2 = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	local Value3 = buffer.readu32(RecieveBuffer, BLOCK_START + 3)
+	return Value1, Value2, Value3
+end
+
+function SerdesFunctions.Server_Shop_ReadEVENT_GiftResult(): (number, string, number)
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value1 = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
+	local Value2 = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	local Value3 = buffer.readu8(RecieveBuffer, BLOCK_START + 3)
+	return Value1, Value2, Value3
+end
+
+function SerdesFunctions.Server_Shop_ReadEVENT_Vips(): ({ number })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value = table.create(Length)
+		-- Read BLOCK: 8 bytes
+	local ARRAY_START_1 = Read(8 * Length)
+	for Index = 1, Length do
+		-- Read 8
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 8
+		local Item_1 = buffer.readf64(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value, Item_1)
+	end
+	-- END ARRAY
+	return Value
+end
+
+function SerdesFunctions.Server_Mutation_ReadEVENT_Sync(): ({ Discovered: { number }, EnergyIds: { number }, EnergyCounts: { number }, PotionIds: { number }, PotionRecipes: { number }, PotionRarities: { number }, PotionMatches: { number }, Equipped: { number }, SlotKinds: { number }, SlotsOpen: { boolean }, BrewsLeft: number, BrewsPerDay: number, SecondsLeft: number, Luck: number, FoundIds: { number }, FoundCounts: { number }, FoundNew: { boolean } })
+	-- Read BLOCK: 34 bytes
+	local BLOCK_START = Read(34)
+	local Value = {} :: any
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Discovered = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.Discovered, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.EnergyIds = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.EnergyIds, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.EnergyCounts = table.create(Length)
+		-- Read BLOCK: 4 bytes
+	local ARRAY_START_1 = Read(4 * Length)
+	for Index = 1, Length do
+		-- Read 4
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 4
+		local Item_1 = buffer.readu32(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.EnergyCounts, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 6)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.PotionIds = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.PotionIds, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 8)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.PotionRecipes = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.PotionRecipes, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 10)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.PotionRarities = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.PotionRarities, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 12)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.PotionMatches = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.PotionMatches, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 14)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Equipped = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.Equipped, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 16)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.SlotKinds = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.SlotKinds, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 18)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.SlotsOpen = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = (buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0) == 1)
+		table.insert(Value.SlotsOpen, Item_1)
+	end
+	-- END ARRAY
+	Value.BrewsLeft = buffer.readu16(RecieveBuffer, BLOCK_START + 20)
+	Value.BrewsPerDay = buffer.readu8(RecieveBuffer, BLOCK_START + 22)
+	Value.SecondsLeft = buffer.readu32(RecieveBuffer, BLOCK_START + 23)
+	Value.Luck = buffer.readu8(RecieveBuffer, BLOCK_START + 27)
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 28)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.FoundIds = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.FoundIds, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 30)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.FoundCounts = table.create(Length)
+		-- Read BLOCK: 4 bytes
+	local ARRAY_START_1 = Read(4 * Length)
+	for Index = 1, Length do
+		-- Read 4
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 4
+		local Item_1 = buffer.readu32(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value.FoundCounts, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 32)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.FoundNew = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = (buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0) == 1)
+		table.insert(Value.FoundNew, Item_1)
+	end
+	-- END ARRAY
+	return Value
+end
+
+function SerdesFunctions.Server_Mutation_ReadEVENT_Brewed(): ({ number })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value, Item_1)
+	end
+	-- END ARRAY
+	return Value
+end
+
+function SerdesFunctions.Server_Mutation_ReadEVENT_Dissolved(): ({ number })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value = table.create(Length)
+		-- Read BLOCK: 2 bytes
+	local ARRAY_START_1 = Read(2 * Length)
+	for Index = 1, Length do
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		local Item_1 = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value, Item_1)
+	end
+	-- END ARRAY
+	return Value
+end
+
+function SerdesFunctions.Server_Mutation_ReadEVENT_EnergyDropped(): (number)
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Value = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	return Value
+end
+
+function SerdesFunctions.Server_Mutation_ReadEVENT_Drunk(): ({ number }, { number })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value1 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value1, Item_1)
+	end
+	-- END ARRAY
+	-- START ARRAY
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value2 = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value2, Item_1)
+	end
+	-- END ARRAY
+	return Value1, Value2
+end
+
 function SerdesFunctions.Client_Lobby_WriteEVENT_LeavePad(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
+end
+
+function SerdesFunctions.Client_Lobby_WriteEVENT_StepOnPad(Value1: number): ()
+	-- Allocate BLOCK: 2 bytes
+	local BLOCK_START = Allocate(2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 end
 
 function SerdesFunctions.Client_Lobby_WriteEVENT_Play(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
 end
 
-function SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1: number, Value2: number, Value3: boolean): ()
-	-- Allocate BLOCK: 4 bytes
-	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
+function SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1: number, Value2: number, Value3: number, Value4: boolean): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 37)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value3 and 1 or 0)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 4, Value4 and 1 or 0)
 end
 
 function SerdesFunctions.Client_Settings_WriteEVENT_SetVolume(Value1: number, Value2: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 38)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2)
 end
@@ -745,7 +1210,7 @@ end
 function SerdesFunctions.Client_Settings_WriteEVENT_SetToggle(Value1: number, Value2: boolean): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2 and 1 or 0)
 end
@@ -753,59 +1218,59 @@ end
 function SerdesFunctions.Client_Settings_WriteEVENT_ResetAll(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 40)
 end
 
 function SerdesFunctions.Client_Loadout_WriteEVENT_Buy(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 41)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_Loadout_WriteEVENT_Equip(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 42)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_Loadout_WriteEVENT_Upgrade(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 30)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 43)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_Loadout_WriteEVENT_Show(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 31)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 44)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_DailyRewards_WriteEVENT_Claim(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 45)
 end
 
 function SerdesFunctions.Client_Spins_WriteEVENT_Spin(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 46)
 end
 
 function SerdesFunctions.Client_Results_WriteEVENT_Dismiss(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 47)
 end
 
 function SerdesFunctions.Client_Quests_WriteEVENT_Claim(Value1: number, Value2: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 48)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2)
 end
@@ -813,14 +1278,14 @@ end
 function SerdesFunctions.Client_Quests_WriteEVENT_ClaimAll(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 49)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_Codes_WriteEVENT_Redeem(Value: string): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 37)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 50)
 	local Length = #Value
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -830,7 +1295,7 @@ end
 function SerdesFunctions.Client_Index_WriteEVENT_Seen(Value: { number }): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 38)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 51)
 	-- START ARRAY
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, #Value)
 		-- Allocate BLOCK: 2 bytes
@@ -848,9 +1313,104 @@ end
 function SerdesFunctions.Client_Classes_WriteEVENT_Upgrade(Value1: number, Value2: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 52)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value2)
+end
+
+function SerdesFunctions.Client_Equipment_WriteEVENT_Equip(Value: number): ()
+	-- Allocate BLOCK: 2 bytes
+	local BLOCK_START = Allocate(2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 53)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
+end
+
+function SerdesFunctions.Client_Equipment_WriteEVENT_Unequip(Value: number): ()
+	-- Allocate BLOCK: 2 bytes
+	local BLOCK_START = Allocate(2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 54)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
+end
+
+function SerdesFunctions.Client_Equipment_WriteEVENT_Show(Value1: number, Value2: boolean): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 55)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value2 and 1 or 0)
+end
+
+function SerdesFunctions.Client_Shop_WriteEVENT_Gift(Value1: number, Value2: number): ()
+	-- Allocate BLOCK: 10 bytes
+	local BLOCK_START = Allocate(10)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 56)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value1)
+	buffer.writef64(SendBuffer, BLOCK_START + 2, Value2)
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_Brew(Value1: number, Value2: number, Value3: number): ()
+	-- Allocate BLOCK: 6 bytes
+	local BLOCK_START = Allocate(6)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 57)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value1)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 5, Value3)
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_Equip(Value: number): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 58)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_Unequip(Value: number): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 59)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_Dissolve(Value: { number }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 60)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, #Value)
+		-- Allocate BLOCK: 2 bytes
+	local ARRAY_START_1 = Allocate(2 * #Value)
+	for Index = 1, #Value do
+		local Item_1 = Value[Index]
+		-- Allocate 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Item_1)
+	end
+	-- END ARRAY
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_BuySlot(Value: nil): ()
+	-- Allocate BLOCK: 1 bytes
+	local BLOCK_START = Allocate(1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 61)
+end
+
+function SerdesFunctions.Client_Mutation_WriteEVENT_Seen(Value: { number }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 62)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, #Value)
+		-- Allocate BLOCK: 1 bytes
+	local ARRAY_START_1 = Allocate(1 * #Value)
+	for Index = 1, #Value do
+		local Item_1 = Value[Index]
+		-- Allocate 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		buffer.writeu8(SendBuffer, OPERATION_OFFSET_0, Item_1)
+	end
+	-- END ARRAY
 end
 
 if not RunService:IsRunning() then
@@ -957,10 +1517,59 @@ if not RunService:IsRunning() then
 				On = NOOP
 			},
 		},
+		Equipment = {
+			Player = {
+			},
+			Sync = {
+				On = NOOP
+			},
+			Worn = {
+				On = NOOP
+			},
+			Dropped = {
+				On = NOOP
+			},
+		},
+		Shop = {
+			State = {
+				On = NOOP
+			},
+			Granted = {
+				On = NOOP
+			},
+			GiftResult = {
+				On = NOOP
+			},
+			Vips = {
+				On = NOOP
+			},
+		},
+		Mutation = {
+			DataId = {
+			},
+			Sync = {
+				On = NOOP
+			},
+			Brewed = {
+				On = NOOP
+			},
+			Dissolved = {
+				On = NOOP
+			},
+			EnergyDropped = {
+				On = NOOP
+			},
+			Drunk = {
+				On = NOOP
+			},
+		},
 	},
 	Client = {
 		Lobby = {
 			LeavePad = {
+				Fire = NOOP
+			},
+			StepOnPad = {
 				Fire = NOOP
 			},
 			Play = {
@@ -1034,6 +1643,44 @@ if not RunService:IsRunning() then
 			DataId = {
 			},
 			Upgrade = {
+				Fire = NOOP
+			},
+		},
+		Equipment = {
+			Equip = {
+				Fire = NOOP
+			},
+			Unequip = {
+				Fire = NOOP
+			},
+			Show = {
+				Fire = NOOP
+			},
+		},
+		Shop = {
+			Gift = {
+				Fire = NOOP
+			},
+		},
+		Mutation = {
+			DataId = {
+			},
+			Brew = {
+				Fire = NOOP
+			},
+			Equip = {
+				Fire = NOOP
+			},
+			Unequip = {
+				Fire = NOOP
+			},
+			Dissolve = {
+				Fire = NOOP
+			},
+			BuySlot = {
+				Fire = NOOP
+			},
+			Seen = {
 				Fire = NOOP
 			},
 		},
@@ -1121,14 +1768,14 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[3], {Value1, Value2, Value3, Value4, Value5} :: {any})
 			end
 		elseif Index == 4 then
-			local Value1: number, Value2: number, Value3: number, Value4: number, Value5: number, Value6: boolean, Value7: number, Value8: number = SerdesFunctions.Server_Lobby_ReadEVENT_PadState()
+			local Value1: number, Value2: number, Value3: number, Value4: number, Value5: number, Value6: number, Value7: boolean, Value8: number, Value9: number = SerdesFunctions.Server_Lobby_ReadEVENT_PadState()
 			if Events.Reliable[4] ~= nil then
-				task.spawn(Events.Reliable[4], Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8)
+				task.spawn(Events.Reliable[4], Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8, Value9)
 			else
 				if #Queue.Reliable[4] > 256 then
 					warn("[Blink]: Event queue of \"PadState\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[4], {Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8} :: {any})
+				table.insert(Queue.Reliable[4], {Value1, Value2, Value3, Value4, Value5, Value6, Value7, Value8, Value9} :: {any})
 			end
 		elseif Index == 5 then
 			local Value1: number = SerdesFunctions.Server_Lobby_ReadEVENT_PadJoined()
@@ -1221,14 +1868,14 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[13], {Value1, Value2, Value3} :: {any})
 			end
 		elseif Index == 14 then
-			local Value1: number, Value2: number, Value3: number = SerdesFunctions.Server_Spins_ReadEVENT_State()
+			local Value1: number, Value2: number, Value3: number, Value4: number = SerdesFunctions.Server_Spins_ReadEVENT_State()
 			if Events.Reliable[14] ~= nil then
-				task.spawn(Events.Reliable[14], Value1, Value2, Value3)
+				task.spawn(Events.Reliable[14], Value1, Value2, Value3, Value4)
 			else
 				if #Queue.Reliable[14] > 256 then
 					warn("[Blink]: Event queue of \"State\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[14], {Value1, Value2, Value3} :: {any})
+				table.insert(Queue.Reliable[14], {Value1, Value2, Value3, Value4} :: {any})
 			end
 		elseif Index == 15 then
 			local Value: number = SerdesFunctions.Server_Spins_ReadEVENT_Landed()
@@ -1299,6 +1946,126 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 					warn("[Blink]: Event queue of \"Sync\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[21], {Value} :: {any})
+			end
+		elseif Index == 22 then
+			local Value1: { number }, Value2: { number }, Value3: { number } = SerdesFunctions.Server_Equipment_ReadEVENT_Sync()
+			if Events.Reliable[22] ~= nil then
+				task.spawn(Events.Reliable[22], Value1, Value2, Value3)
+			else
+				if #Queue.Reliable[22] > 256 then
+					warn("[Blink]: Event queue of \"Sync\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[22], {Value1, Value2, Value3} :: {any})
+			end
+		elseif Index == 23 then
+			local Value1: Player, Value2: { number } = SerdesFunctions.Server_Equipment_ReadEVENT_Worn()
+			if Events.Reliable[23] ~= nil then
+				task.spawn(Events.Reliable[23], Value1, Value2)
+			else
+				if #Queue.Reliable[23] > 256 then
+					warn("[Blink]: Event queue of \"Worn\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[23], {Value1, Value2} :: {any})
+			end
+		elseif Index == 24 then
+			local Value: number = SerdesFunctions.Server_Equipment_ReadEVENT_Dropped()
+			if Events.Reliable[24] ~= nil then
+				task.spawn(Events.Reliable[24], Value)
+			else
+				if #Queue.Reliable[24] > 256 then
+					warn("[Blink]: Event queue of \"Dropped\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[24], {Value} :: {any})
+			end
+		elseif Index == 25 then
+			local Value1: { number }, Value2: boolean, Value3: number, Value4: boolean = SerdesFunctions.Server_Shop_ReadEVENT_State()
+			if Events.Reliable[25] ~= nil then
+				task.spawn(Events.Reliable[25], Value1, Value2, Value3, Value4)
+			else
+				if #Queue.Reliable[25] > 256 then
+					warn("[Blink]: Event queue of \"State\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[25], {Value1, Value2, Value3, Value4} :: {any})
+			end
+		elseif Index == 26 then
+			local Value1: number, Value2: string, Value3: number = SerdesFunctions.Server_Shop_ReadEVENT_Granted()
+			if Events.Reliable[26] ~= nil then
+				task.spawn(Events.Reliable[26], Value1, Value2, Value3)
+			else
+				if #Queue.Reliable[26] > 256 then
+					warn("[Blink]: Event queue of \"Granted\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[26], {Value1, Value2, Value3} :: {any})
+			end
+		elseif Index == 27 then
+			local Value1: number, Value2: string, Value3: number = SerdesFunctions.Server_Shop_ReadEVENT_GiftResult()
+			if Events.Reliable[27] ~= nil then
+				task.spawn(Events.Reliable[27], Value1, Value2, Value3)
+			else
+				if #Queue.Reliable[27] > 256 then
+					warn("[Blink]: Event queue of \"GiftResult\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[27], {Value1, Value2, Value3} :: {any})
+			end
+		elseif Index == 28 then
+			local Value: { number } = SerdesFunctions.Server_Shop_ReadEVENT_Vips()
+			if Events.Reliable[28] ~= nil then
+				task.spawn(Events.Reliable[28], Value)
+			else
+				if #Queue.Reliable[28] > 256 then
+					warn("[Blink]: Event queue of \"Vips\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[28], {Value} :: {any})
+			end
+		elseif Index == 29 then
+			local Value: { Discovered: { number }, EnergyIds: { number }, EnergyCounts: { number }, PotionIds: { number }, PotionRecipes: { number }, PotionRarities: { number }, PotionMatches: { number }, Equipped: { number }, SlotKinds: { number }, SlotsOpen: { boolean }, BrewsLeft: number, BrewsPerDay: number, SecondsLeft: number, Luck: number, FoundIds: { number }, FoundCounts: { number }, FoundNew: { boolean } } = SerdesFunctions.Server_Mutation_ReadEVENT_Sync()
+			if Events.Reliable[29] ~= nil then
+				task.spawn(Events.Reliable[29], Value)
+			else
+				if #Queue.Reliable[29] > 256 then
+					warn("[Blink]: Event queue of \"Sync\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[29], {Value} :: {any})
+			end
+		elseif Index == 30 then
+			local Value: { number } = SerdesFunctions.Server_Mutation_ReadEVENT_Brewed()
+			if Events.Reliable[30] ~= nil then
+				task.spawn(Events.Reliable[30], Value)
+			else
+				if #Queue.Reliable[30] > 256 then
+					warn("[Blink]: Event queue of \"Brewed\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[30], {Value} :: {any})
+			end
+		elseif Index == 31 then
+			local Value: { number } = SerdesFunctions.Server_Mutation_ReadEVENT_Dissolved()
+			if Events.Reliable[31] ~= nil then
+				task.spawn(Events.Reliable[31], Value)
+			else
+				if #Queue.Reliable[31] > 256 then
+					warn("[Blink]: Event queue of \"Dissolved\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[31], {Value} :: {any})
+			end
+		elseif Index == 32 then
+			local Value: number = SerdesFunctions.Server_Mutation_ReadEVENT_EnergyDropped()
+			if Events.Reliable[32] ~= nil then
+				task.spawn(Events.Reliable[32], Value)
+			else
+				if #Queue.Reliable[32] > 256 then
+					warn("[Blink]: Event queue of \"EnergyDropped\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[32], {Value} :: {any})
+			end
+		elseif Index == 33 then
+			local Value1: { number }, Value2: { number } = SerdesFunctions.Server_Mutation_ReadEVENT_Drunk()
+			if Events.Reliable[33] ~= nil then
+				task.spawn(Events.Reliable[33], Value1, Value2)
+			else
+				if #Queue.Reliable[33] > 256 then
+					warn("[Blink]: Event queue of \"Drunk\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[33], {Value1, Value2} :: {any})
 			end
 		end
 	end
@@ -1390,7 +2157,7 @@ local Returns = table.freeze({
 		},
 		Lobby = {
 			PadState = {
-				On = function(Listener: (Value1: number, Value2: number, Value3: number, Value4: number, Value5: number, Value6: boolean, Value7: number, Value8: number) -> ()): () -> ()
+				On = function(Listener: (Value1: number, Value2: number, Value3: number, Value4: number, Value5: number, Value6: number, Value7: boolean, Value8: number, Value9: number) -> ()): () -> ()
 					Events.Reliable[4] = Listener
 					for Index, Arguments in Queue.Reliable[4] do
 						task.spawn(Listener, table.unpack(Arguments))
@@ -1542,7 +2309,7 @@ local Returns = table.freeze({
 		},
 		Spins = {
 			State = {
-				On = function(Listener: (Value1: number, Value2: number, Value3: number) -> ()): () -> ()
+				On = function(Listener: (Value1: number, Value2: number, Value3: number, Value4: number) -> ()): () -> ()
 					Events.Reliable[14] = Listener
 					for Index, Arguments in Queue.Reliable[14] do
 						task.spawn(Listener, table.unpack(Arguments))
@@ -1668,6 +2435,184 @@ local Returns = table.freeze({
 				end
 			},
 		},
+		Equipment = {
+			Player = {
+			},
+			Sync = {
+				On = function(Listener: (Value1: { number }, Value2: { number }, Value3: { number }) -> ()): () -> ()
+					Events.Reliable[22] = Listener
+					for Index, Arguments in Queue.Reliable[22] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[22] = {}
+					return function (): ()
+						if Events.Reliable[22] == Listener then
+							Events.Reliable[22] = nil
+						end
+					end
+				end
+			},
+			Worn = {
+				On = function(Listener: (Value1: Player, Value2: { number }) -> ()): () -> ()
+					Events.Reliable[23] = Listener
+					for Index, Arguments in Queue.Reliable[23] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[23] = {}
+					return function (): ()
+						if Events.Reliable[23] == Listener then
+							Events.Reliable[23] = nil
+						end
+					end
+				end
+			},
+			Dropped = {
+				On = function(Listener: (Value: number) -> ()): () -> ()
+					Events.Reliable[24] = Listener
+					for Index, Arguments in Queue.Reliable[24] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[24] = {}
+					return function (): ()
+						if Events.Reliable[24] == Listener then
+							Events.Reliable[24] = nil
+						end
+					end
+				end
+			},
+		},
+		Shop = {
+			State = {
+				On = function(Listener: (Value1: { number }, Value2: boolean, Value3: number, Value4: boolean) -> ()): () -> ()
+					Events.Reliable[25] = Listener
+					for Index, Arguments in Queue.Reliable[25] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[25] = {}
+					return function (): ()
+						if Events.Reliable[25] == Listener then
+							Events.Reliable[25] = nil
+						end
+					end
+				end
+			},
+			Granted = {
+				On = function(Listener: (Value1: number, Value2: string, Value3: number) -> ()): () -> ()
+					Events.Reliable[26] = Listener
+					for Index, Arguments in Queue.Reliable[26] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[26] = {}
+					return function (): ()
+						if Events.Reliable[26] == Listener then
+							Events.Reliable[26] = nil
+						end
+					end
+				end
+			},
+			GiftResult = {
+				On = function(Listener: (Value1: number, Value2: string, Value3: number) -> ()): () -> ()
+					Events.Reliable[27] = Listener
+					for Index, Arguments in Queue.Reliable[27] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[27] = {}
+					return function (): ()
+						if Events.Reliable[27] == Listener then
+							Events.Reliable[27] = nil
+						end
+					end
+				end
+			},
+			Vips = {
+				On = function(Listener: (Value: { number }) -> ()): () -> ()
+					Events.Reliable[28] = Listener
+					for Index, Arguments in Queue.Reliable[28] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[28] = {}
+					return function (): ()
+						if Events.Reliable[28] == Listener then
+							Events.Reliable[28] = nil
+						end
+					end
+				end
+			},
+		},
+		Mutation = {
+			DataId = {
+			},
+			Sync = {
+				On = function(Listener: (Value: { Discovered: { number }, EnergyIds: { number }, EnergyCounts: { number }, PotionIds: { number }, PotionRecipes: { number }, PotionRarities: { number }, PotionMatches: { number }, Equipped: { number }, SlotKinds: { number }, SlotsOpen: { boolean }, BrewsLeft: number, BrewsPerDay: number, SecondsLeft: number, Luck: number, FoundIds: { number }, FoundCounts: { number }, FoundNew: { boolean } }) -> ()): () -> ()
+					Events.Reliable[29] = Listener
+					for Index, Arguments in Queue.Reliable[29] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[29] = {}
+					return function (): ()
+						if Events.Reliable[29] == Listener then
+							Events.Reliable[29] = nil
+						end
+					end
+				end
+			},
+			Brewed = {
+				On = function(Listener: (Value: { number }) -> ()): () -> ()
+					Events.Reliable[30] = Listener
+					for Index, Arguments in Queue.Reliable[30] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[30] = {}
+					return function (): ()
+						if Events.Reliable[30] == Listener then
+							Events.Reliable[30] = nil
+						end
+					end
+				end
+			},
+			Dissolved = {
+				On = function(Listener: (Value: { number }) -> ()): () -> ()
+					Events.Reliable[31] = Listener
+					for Index, Arguments in Queue.Reliable[31] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[31] = {}
+					return function (): ()
+						if Events.Reliable[31] == Listener then
+							Events.Reliable[31] = nil
+						end
+					end
+				end
+			},
+			EnergyDropped = {
+				On = function(Listener: (Value: number) -> ()): () -> ()
+					Events.Reliable[32] = Listener
+					for Index, Arguments in Queue.Reliable[32] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[32] = {}
+					return function (): ()
+						if Events.Reliable[32] == Listener then
+							Events.Reliable[32] = nil
+						end
+					end
+				end
+			},
+			Drunk = {
+				On = function(Listener: (Value1: { number }, Value2: { number }) -> ()): () -> ()
+					Events.Reliable[33] = Listener
+					for Index, Arguments in Queue.Reliable[33] do
+						task.spawn(Listener, table.unpack(Arguments))
+					end
+					Queue.Reliable[33] = {}
+					return function (): ()
+						if Events.Reliable[33] == Listener then
+							Events.Reliable[33] = nil
+						end
+					end
+				end
+			},
+		},
 	},
 	Client = {
 		Lobby = {
@@ -1676,14 +2621,19 @@ local Returns = table.freeze({
 					SerdesFunctions.Client_Lobby_WriteEVENT_LeavePad(Value)
 				end
 			},
+			StepOnPad = {
+				Fire = function(Value1: number): ()
+					SerdesFunctions.Client_Lobby_WriteEVENT_StepOnPad(Value1)
+				end
+			},
 			Play = {
 				Fire = function(Value: nil): ()
 					SerdesFunctions.Client_Lobby_WriteEVENT_Play(Value)
 				end
 			},
 			StartParty = {
-				Fire = function(Value1: number, Value2: number, Value3: boolean): ()
-					SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1, Value2, Value3)
+				Fire = function(Value1: number, Value2: number, Value3: number, Value4: boolean): ()
+					SerdesFunctions.Client_Lobby_WriteEVENT_StartParty(Value1, Value2, Value3, Value4)
 				end
 			},
 		},
@@ -1781,6 +2731,64 @@ local Returns = table.freeze({
 			Upgrade = {
 				Fire = function(Value1: number, Value2: number): ()
 					SerdesFunctions.Client_Classes_WriteEVENT_Upgrade(Value1, Value2)
+				end
+			},
+		},
+		Equipment = {
+			Equip = {
+				Fire = function(Value: number): ()
+					SerdesFunctions.Client_Equipment_WriteEVENT_Equip(Value)
+				end
+			},
+			Unequip = {
+				Fire = function(Value: number): ()
+					SerdesFunctions.Client_Equipment_WriteEVENT_Unequip(Value)
+				end
+			},
+			Show = {
+				Fire = function(Value1: number, Value2: boolean): ()
+					SerdesFunctions.Client_Equipment_WriteEVENT_Show(Value1, Value2)
+				end
+			},
+		},
+		Shop = {
+			Gift = {
+				Fire = function(Value1: number, Value2: number): ()
+					SerdesFunctions.Client_Shop_WriteEVENT_Gift(Value1, Value2)
+				end
+			},
+		},
+		Mutation = {
+			DataId = {
+			},
+			Brew = {
+				Fire = function(Value1: number, Value2: number, Value3: number): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_Brew(Value1, Value2, Value3)
+				end
+			},
+			Equip = {
+				Fire = function(Value: number): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_Equip(Value)
+				end
+			},
+			Unequip = {
+				Fire = function(Value: number): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_Unequip(Value)
+				end
+			},
+			Dissolve = {
+				Fire = function(Value: { number }): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_Dissolve(Value)
+				end
+			},
+			BuySlot = {
+				Fire = function(Value: nil): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_BuySlot(Value)
+				end
+			},
+			Seen = {
+				Fire = function(Value: { number }): ()
+					SerdesFunctions.Client_Mutation_WriteEVENT_Seen(Value)
 				end
 			},
 		},

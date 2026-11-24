@@ -37,10 +37,14 @@ export type TSpinsState = {
 	Scale: Source<number>,
 	-- os.clock(), written only while a timed gesture runs.
 	Now: Source<number>,
+	-- Whether the page is on show in the daily screen, and when that last changed (a moment to come, for a page let in
+	-- once the other has cleared).
 	IsOpen: Source<boolean>,
 	ToggledAt: Source<number>,
 	-- From Spins.State: free spins left today and bought ones left.
 	FreeLeft: Source<number>,
+	-- Free spins a day: SpinsCore.FREE_PER_DAY and the passes', as the server counts them.
+	FreePerDay: Source<number>,
 	Bought: Source<number>,
 	-- Whole seconds left until the next UTC day, written as they change while the screen is drawn.
 	SecondsLeft: Source<number>,
@@ -57,10 +61,11 @@ export type TSpinsState = {
 	BarLength: Source<number>,
 	-- A press that went nowhere (nothing left, nothing for sale).
 	RefusedAt: Source<number>,
+	-- When SPIN wobbles once to be pressed (the page brought up, or a spin over, with a spin waiting).
+	BeckonAt: Source<number>,
 }
 
 export type TSpinsActions = {
-	Close: () -> (),
 	Spin: () -> (),
 }
 

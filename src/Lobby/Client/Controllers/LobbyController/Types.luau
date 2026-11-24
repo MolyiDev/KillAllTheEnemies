@@ -14,15 +14,26 @@ export type TPadView = {
 	MaxPlayers: Source<number>,
 	-- MapsCore.LIST index.
 	Map: Source<number>,
+	-- MapsCore.DIFFICULTIES index.
+	Difficulty: Source<number>,
 	IsFriendsOnly: Source<boolean>,
 	-- Whole seconds left on the countdown, or -1 for none.
 	Seconds: Source<number>,
 }
 
+-- The classes screen's two pages, picked by its tabs.
+export type TClassesPage = "Classes" | "Equipment"
+
 export type TLobbyState = {
+	-- The HUD's: 1080 design px under Roblox's top bar.
 	Scale: Source<number>,
+	-- The screens' (classes, party, queue): his 1920 x 1080 fitted to the whole window and centred, as every other
+	-- lobby screen fits it, so their pieces and EXIT land where the weapons', shop's and quests' do.
+	PageScale: Source<number>,
 	-- Roblox's top bar, in screen px: the HUD stands under it.
 	TopInset: Source<number>,
+	-- From the right of Roblox's buttons on the top bar to the screen's middle, in HUD px: the level plate's room.
+	TopbarRoom: Source<number>,
 	Pads: { TPadView },
 	-- The pad this player is on, 0 for none.
 	CurrentPad: Source<number>,
@@ -35,6 +46,26 @@ export type TLobbyState = {
 	PickDifficulty: Source<string>,
 	PickMap: Source<number>,
 	PickFriendsOnly: Source<boolean>,
+	-- When the party screen last opened or shut.
+	ChoosingAt: Source<number>,
+	-- When the map was last picked, and which way the showcase turned to it (-1 back, 1 on).
+	MapAt: Source<number>,
+	MapStep: Source<number>,
+	-- The map shown before it, for the dots under the showcase.
+	MapFrom: Source<number>,
+	-- When the difficulty was last picked, and what it was before.
+	DifficultyAt: Source<number>,
+	DifficultyFrom: Source<string>,
+	-- When the party size was last picked, and what it was before.
+	PlayersAt: Source<number>,
+	PlayersFrom: Source<number>,
+	-- When the access was last picked.
+	AccessAt: Source<number>,
+	-- When CREATE last went through, and when a press on something locked was refused.
+	CreatedAt: Source<number>,
+	PartyRefusedAt: Source<number>,
+	-- When the light last crossed CREATE (every few seconds while the screen is up).
+	PartyCallAt: Source<number>,
 	ToastText: Source<string>,
 	IsToastShown: Source<boolean>,
 	-- os.clock(), written only while a timed gesture runs (the HUD's entrance and rolls).
@@ -55,22 +86,39 @@ export type TLobbyState = {
 	IsGemsFed: Source<boolean>,
 	-- When the light last caught the counter's stone (every few seconds while the HUD is up).
 	GemGlintAt: Source<number>,
-	-- The classes or weapons page is up: the Gems counter stands in his coin slot on it rather than at the top centre.
+	-- The classes or weapons page is up: the Gems counter stands at the right rather than at the top centre.
 	IsGemsDocked: Source<boolean>,
 	-- XP (percents of a level) the profile holds that a screen is still flying into the level bar (a spin's prize):
 	-- the plate rolls toward that much less until each slice lands.
 	XpHeld: Source<number>,
-	-- Whether today's daily reward waits and whether a type found in a run is still to be shown in the index, and when
-	-- the light last crossed the cards that call for them.
+	-- Whether today's daily reward waits (the daily screen opens by itself once a visit for it).
 	IsDailyReady: Source<boolean>,
-	IsIndexNew: Source<boolean>,
+	-- Whether anything waits on the daily screen at all (a free spin counts): the top bar's Daily button calls for it.
+	IsDailyWaiting: Source<boolean>,
+	-- What the HUD's buttons wear (Notice): how many index discoveries and finished quests wait, and whether the Gems
+	-- held buy or raise a gun or a class ability; and when the light last crossed the buttons that call for what waits
+	-- (every 2.6 s while anything does).
+	IndexCount: Source<number>,
+	QuestsReady: Source<number>,
+	CanUpgradeWeapons: Source<boolean>,
+	CanUpgradeClasses: Source<boolean>,
+	-- A brew could go in the Mutation Lab now (MutationController.CanBrew): the LAB card wears "!".
+	CanBrew: Source<boolean>,
 	CallAt: Source<number>,
+	-- When PLAY was last pressed, when the server last found no pad for it, and when the light last crossed it (every few
+	-- seconds while the HUD is up).
+	PlayAt: Source<number>,
+	PlayRefusedAt: Source<number>,
+	PlayCallAt: Source<number>,
 	-- The key held down that no text box took, for the HUD's keyed buttons.
 	HeldKey: Source<Enum.KeyCode?>,
-	-- A screen is up over the lobby (classes, weapons, the index), and when the last one opened or shut: the HUD steps
-	-- aside.
+	-- A screen is up over the lobby (classes, weapons, the index, the daily, settings and codes screens), and when the
+	-- last one opened or shut: the HUD steps aside, as those screens stand over its pieces.
 	IsCovered: Source<boolean>,
 	CoveredAt: Source<number>,
+	-- The same, less the daily screen: the level plate stays up over it, as a spin's XP flies into it.
+	IsPlateCovered: Source<boolean>,
+	PlateCoveredAt: Source<number>,
 	-- A screen that takes the whole view is up (the results of a run), and when that last changed: even the pills,
 	-- which stay up over the shops, step aside.
 	IsBare: Source<boolean>,
@@ -78,6 +126,10 @@ export type TLobbyState = {
 	-- The classes screen: whether it is up, and when it last opened or shut.
 	IsClassesOpen: Source<boolean>,
 	ClassesToggledAt: Source<number>,
+	-- The page on show (its tabs: CLASSES, or EQUIPMENT, whose page is EquipmentController's), and when the other
+	-- was last left for it (-math.huge while the screen has been on one page since it opened).
+	ClassesPage: Source<TClassesPage>,
+	ClassesPageAt: Source<number>,
 	-- The ability its info panel shows (an index into the class's abilities, the ultimate after them), and when it
 	-- was picked.
 	ShownAbility: Source<number>,
@@ -92,7 +144,7 @@ export type TLobbyState = {
 	UpgradePaidAt: Source<number>,
 	UpgradedAt: Source<number>,
 	UpgradeRefusedAt: Source<number>,
-	-- The Gems counter's glyph (Hud.BuildGems), where a level's Gems fly from.
+	-- The Gems counter's glyph (Hud.BuildTop), where a level's Gems fly from.
 	GemsGlyph: Source<GuiObject?>,
 	-- A copy of the player's avatar for its stage, and one in the doll's pose for the Decoy's card
 	-- (AbilityPicture.Doll), taken each time it opens.
@@ -106,16 +158,26 @@ export type TLobbyActions = {
 	StartParty: () -> (),
 	PickDifficulty: (difficulty: string) -> (),
 	PickMap: (index: number) -> (),
+	-- The next map (1) or the one before (-1), round the list.
+	StepMap: (step: number) -> (),
+	PickPlayers: (count: number) -> (),
+	PickFriendsOnly: (isFriendsOnly: boolean) -> (),
+	-- Keeps the clock ticking for a gesture a view starts on its own.
+	Stir: (seconds: number) -> (),
 	InviteFriends: () -> (),
 	OpenClasses: () -> (),
 	OpenWeapons: () -> (),
-	OpenDailyRewards: () -> (),
-	OpenSpins: () -> (),
 	OpenQuests: () -> (),
 	OpenIndex: () -> (),
+	OpenLab: () -> (),
+	-- The shop, on a section ("Gems" from the pill's +), or on FEATURED.
+	OpenShop: (section: string?) -> (),
 	-- The Gems pill's glyph, handed over as it is made: where Gems fly into the pill land.
 	MarkGemsGlyph: (glyph: GuiObject) -> (),
+	-- The level plate's bar, handed over as it is made: where a spin's XP lands.
+	MarkXpBar: (bar: GuiObject) -> (),
 	CloseClasses: () -> (),
+	PickClassesPage: (page: TClassesPage) -> (),
 	PickAbility: (index: number) -> (),
 	UpgradeAbility: (classId: number, slot: number) -> (),
 }

@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 11: the same rule, faster. Punishes standing still and gaps in the defenses.
@@ -27,6 +28,7 @@ local data: TData.TEnemy = {
 	IntroRound = 3,
 	SpawnWeight = 4,
 	GoldDrop = 3,
+	Energy = { Upgrade = EUpgradesIds.FireRate, Cost = 6, Chance = 0.04, Color = Color3.fromRGB(89, 191, 255) },
 }
 
 return table.freeze(data)

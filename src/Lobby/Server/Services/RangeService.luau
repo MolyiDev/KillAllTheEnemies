@@ -185,6 +185,17 @@ local function check(player: Player)
 	arm(player, characterEntity, gun)
 end
 
+-- After the weapons screen changed the player's loadout: in the range, the strip shows it at once (a TRY's gun gives
+-- way to it too), and a gun taken out of its tier is swapped in hand for the one put in.
+function RangeService.LoadoutChanged(player: Player)
+	if not offers[player] then return end
+	local held = GUNS[chosen[player]]
+	local gunIds = loadoutOf(player)
+	if held and not table.find(gunIds, held.Id) then chosen[player] = gunIds[held.Tier] end
+	offer(player, gunIds)
+	check(player)
+end
+
 -- Whether a dummy stands now; one whose time down is over is whole again.
 local function isStanding(index: number, now: number): boolean
 	local standsAt = downUntil[index]

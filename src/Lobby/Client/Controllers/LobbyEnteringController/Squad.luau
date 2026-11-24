@@ -14,6 +14,7 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local Scrim = require(script.Parent.Scrim)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local Palette = Theme.Palette
@@ -93,7 +94,7 @@ local function measureInfo(member: Types.TMember, className: string)
 
 	local name = width(string.upper(member.Name), Layout.NAME_TEXT)
 	local top = name + if member.IsMvp then Layout.MVP.X + Layout.MVP_GAP else 0
-	local skull = Components.GlyphBox(Layout.SKULL).X.Offset
+	local skull = Components.PictureBox(Layout.SKULL).X.Offset
 	local kills = skull + Layout.KILLS_GAP + width(Components.Commas(member.Kills), Layout.KILLS_TEXT)
 	member.InfoWidth(math.ceil(math.max(top, width(className, Layout.CLASS_TEXT), kills)))
 end
@@ -172,9 +173,9 @@ local function tag(state: Types.TState, clock: Types.TClock, member: Types.TMemb
 							Padding = UDim.new(0, 5),
 							SortOrder = Enum.SortOrder.LayoutOrder,
 						}),
-						Components.Icon("Star", {
+						Components.Picture(EIcons.Star, {
 							LayoutOrder = 1,
-							Size = Components.GlyphBox(13),
+							Size = Components.PictureBox(13),
 							ImageColor3 = Palette.Ink,
 						}),
 						label({
@@ -219,10 +220,9 @@ local function tag(state: Types.TState, clock: Types.TClock, member: Types.TMemb
 				Padding = UDim.new(0, Layout.KILLS_GAP),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
-			Components.Icon("Skull", {
+			Components.Picture(EIcons.Skull, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.SKULL),
-				ImageColor3 = Palette.Pink,
+				Size = Components.PictureBox(Layout.SKULL),
 			}),
 			label({
 				LayoutOrder = 2,

@@ -216,7 +216,7 @@ local function banner(state: Types.THudState): CanvasGroup
 				return Motion.Lerp(BANNER_FROM_SCALE, 1, Motion.Decelerate(appear()))
 			end,
 		}),
-		Components.Panel({ Glow = Palette.Green, GlowTransparency = 0.45, Brackets = 8 }, {
+		Components.Panel({ Glow = Palette.Green, GlowTransparency = 0.45, Brackets = true }, {
 			Name = "Plate",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),

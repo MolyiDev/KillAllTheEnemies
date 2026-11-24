@@ -11,6 +11,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -29,7 +30,7 @@ local Layout = table.freeze({
 	-- Room round the banner inside the group that fades it, for its glow and brackets (a CanvasGroup clips).
 	MARGIN = 64,
 	GLYPH = Vector2.new(50, 42),
-	GLYPH_SIZE = 50,
+	PICTURE_SIZE = 56,
 	TEXT_LEFT = 96,
 	NAME_TOP = 15,
 	NAME_SIZE = 20,
@@ -66,8 +67,13 @@ local Timing = table.freeze({
 })
 
 local KINDS = table.freeze({
-	Nuke = table.freeze({ Icon = "NukeAll", Accent = Palette.Gold, Words = "NUKED ALL ENEMIES", IsCounted = true }),
-	Heal = table.freeze({ Icon = "HealAll", Accent = Palette.Green, Words = "HEALED ALL PLAYERS", IsCounted = false }),
+	Nuke = table.freeze({ Icon = EIcons.Bomb, Accent = Palette.Gold, Words = "NUKED ALL ENEMIES", IsCounted = true }),
+	Heal = table.freeze({
+		Icon = EIcons.Potion,
+		Accent = Palette.Green,
+		Words = "HEALED ALL PLAYERS",
+		IsCounted = false,
+	}),
 })
 
 local Announce = {}
@@ -166,19 +172,17 @@ function Announce.Build(state: Types.THudState): Frame
 				Stroke = accent,
 				Glow = accent,
 				GlowTransparency = 0.45,
-				Brackets = 8,
+				Brackets = true,
 				TexturePhase = Vector2.new(120, 300),
 			}, {
 				Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
 				Size = UDim2.new(1, -Layout.MARGIN * 2, 1, -Layout.MARGIN * 2),
-				Components.Icon("NukeAll", {
+				Components.Picture(function()
+					return kind().Icon
+				end, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromOffset(Layout.GLYPH.X, Layout.GLYPH.Y),
-					Size = Components.GlyphBox(Layout.GLYPH_SIZE),
-					ImageRectOffset = function()
-						return Components.IconCell(kind().Icon)
-					end,
-					ImageColor3 = accent,
+					Size = Components.PictureBox(Layout.PICTURE_SIZE),
 					ZIndex = 2,
 					create("UIScale")({
 						Scale = function()

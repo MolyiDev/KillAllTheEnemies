@@ -16,7 +16,8 @@ local Signal = require(ReplicatedStorage.Packages.Signal)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local CharacterIdsService = require(ServerScriptService.GlobalServer.Services.CharacterIdsService)
-local loadBlockyCharacter = require(ServerScriptService.GlobalServer.Utils.loadBlockyCharacter)
+local EquipmentService = require(ServerScriptService.GlobalServer.Services.EquipmentService)
+local loadCharacter = require(ServerScriptService.GlobalServer.Utils.loadCharacter)
 local EconomyService = require(script.Parent.EconomyService)
 local NavService = require(script.Parent.NavService)
 local arenaMap = require(ServerScriptService.Server.Utils.arenaMap)
@@ -71,6 +72,11 @@ local healthLevels: { [Player]: number } = {}
 -- The players the `god` command made unhurtable, kept across deaths and runs until it is toggled off.
 local godPlayers: { [Player]: true } = {}
 
+-- A character's max health with no HEALTH level bought: the base and what the equipment it wears adds.
+local function baseMaxHealth(player: Player?): number
+	return Tune.MAX_HEALTH + (if player then EquipmentService.StatOf(player, "MaxHealth") else 0)
+end
+
 local function sendHealth(characterEntity: jecs.Entity<any>)
 	local instanceId = World:get(characterEntity, Components.InstanceId)
 	if not instanceId then return end
@@ -82,8 +88,7 @@ end
 -- Yields until the map is placed.
 function CharacterService.Spawn(player: Player)
 	arenaMap.WaitAsync()
-	if not player.Parent then return end
-	local ok, err = pcall(loadBlockyCharacter, player)
+	local ok, err = pcall(loadCharacter, player)
 	if not ok then warn(`[CharacterService] could not load {player.Name}: {err}`) end
 end
 
@@ -139,6 +144,7 @@ function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: numb
 	if not current then return end
 	if player then
 		amount *= 1 - math.min(upgradeStats.Get(player, EUpgradesIds.Armor), UpgradesCore.MAX_ARMOR)
+		amount *= 1 - EquipmentService.StatOf(player, "Armor")
 	end
 	current = math.max(current - amount, 0)
 	World:set(characterEntity, Components.CurrentHealth, current)
@@ -180,13 +186,17 @@ function CharacterService.ResetRun()
 	table.clear(healthLevels)
 
 	for characterEntity, max in World:query(Components.MaxHealth):with(Tags.Character) do
-		if max == Tune.MAX_HEALTH then continue end
-		local current = math.min(World:get(characterEntity, Components.CurrentHealth) or 0, Tune.MAX_HEALTH)
-		World:set(characterEntity, Components.MaxHealth, Tune.MAX_HEALTH)
+		local base = baseMaxHealth(getPlayerFromCharacterEntity(characterEntity))
+		if max == base then continue end
+		-- A body that spawned before its profile opened was given no equipment: its max rises now, and it is healed by
+		-- as much, as a bought HEALTH level heals.
+		local current = World:get(characterEntity, Components.CurrentHealth) or 0
+		current = math.min(current + math.max(base - max, 0), base)
+		World:set(characterEntity, Components.MaxHealth, base)
 		World:set(characterEntity, Components.CurrentHealth, current)
 		local humanoid = World:get(characterEntity, Components.Humanoid)
 		if humanoid and current > 0 then
-			humanoid.MaxHealth = Tune.MAX_HEALTH
+			humanoid.MaxHealth = base
 			humanoid.Health = current
 		end
 		sendHealth(characterEntity)
@@ -198,6 +208,29 @@ CharacterService.OnPlayerConnected = function(player: Player)
 	task.spawn(CharacterService.Spawn, player)
 end :: TPlayerEvents.OnPlayerConnected
 
+-- A profile that opens after its body spawned (a late joiner) brings its equipment's health now: the max rises and the
+-- body is healed by as much.
+CharacterService.OnDataLoaded = function(player: Player)
+	local characterEntity = getCharacterEntityFromPlayer(player)
+	if not characterEntity or not World:has(characterEntity, Tags.Alive) then return end
+	local max = World:get(characterEntity, Components.MaxHealth)
+	local current = World:get(characterEntity, Components.CurrentHealth)
+	if not max or not current then return end
+	local wanted = baseMaxHealth(player) + healthUpgrades.GAIN * (healthLevels[player] or 0)
+	if wanted <= max then return end
+
+	current += wanted - max
+	World:set(characterEntity, Components.MaxHealth, wanted)
+	World:set(characterEntity, Components.CurrentHealth, current)
+	local humanoid = World:get(characterEntity, Components.Humanoid)
+	if humanoid then
+		-- The maximum first: Health is clamped to it.
+		humanoid.MaxHealth = wanted
+		humanoid.Health = current
+	end
+	sendHealth(characterEntity)
+end :: TPlayerEvents.OnDataLoaded
+
 CharacterService.OnPlayerDisconnected = function(player: Player)
 	healthLevels[player] = nil
 	godPlayers[player] = nil
@@ -208,7 +241,7 @@ CharacterService.OnCharacterAdded = function(character, characterEntity)
 
 	local owner = Players:GetPlayerFromCharacter(character)
 	local level = if owner then healthLevels[owner] or 0 else 0
-	local maxHealth = Tune.MAX_HEALTH + healthUpgrades.GAIN * level
+	local maxHealth = baseMaxHealth(owner) + healthUpgrades.GAIN * level
 	local humanoid = World:get(characterEntity, Components.Humanoid)
 	if humanoid then
 		-- The Humanoid never heals itself: its bar is a mirror of CurrentHealth.

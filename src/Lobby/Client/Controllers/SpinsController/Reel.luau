@@ -20,6 +20,7 @@ local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
 local Parts = require(script.Parent.Parts)
 local ReelMotion = require(script.Parent.ReelMotion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -37,7 +38,7 @@ local Layout = table.freeze({
 	CENTER = Vector2.new(609, 99),
 	PITCH = 166,
 	CARD = Vector2.new(150, 164),
-	CARD_BRACKETS = 8,
+	-- 6 out, so two cards 16 apart keep their corners apart (his 8 met).
 	CARD_BRACKET_LENGTH = 22,
 	-- The cards walked round, and how far from the pointer one is still one of his seven at rest, in slots.
 	POOL = 9,
@@ -269,6 +270,12 @@ local function card(
 		local rise = Motion.Out(math.clamp((since - Land.DIM_IN - Land.DIM_HOLD) / Land.DIM_OUT, 0, 1))
 		return fall * (1 - rise)
 	end)
+	-- Its brackets, gone under the pointer, where the white ring stands round the card instead: two sets read as a double
+	-- corner (UI.md). Derived, so the four corners share one reading of the reel a frame, held at rest.
+	local bracketsFaded = derive(function(): number
+		local dx = math.abs(slot() - reading().X)
+		return 0.65 + 0.35 * math.max(0, 1 - 2 * dx)
+	end)
 	local lit = derive(function(): number
 		local since = if isWon() then landed() else nil
 		if not since then return 0 end
@@ -284,9 +291,9 @@ local function card(
 		end,
 		Tint = CARD_TINT,
 		Marks = true,
-		Brackets = Layout.CARD_BRACKETS,
+		Brackets = true,
 		BracketLength = Layout.CARD_BRACKET_LENGTH,
-		BracketTransparency = 0.65,
+		BracketTransparency = bracketsFaded,
 	}, {
 		Name = `Card{index}`,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -302,15 +309,15 @@ local function card(
 		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
 		ZIndex = 3,
 		create("UIScale")({ Scale = scale }),
-		Components.Icon("Gem", {
+		Components.Picture(function()
+			local current = prize()
+			if current.Kind == "Xp" then return EIcons.Rank end
+			return if current.IsJackpot then EIcons.GemPile else EIcons.Gem
+		end, {
 			Name = "Glyph",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.GLYPH_Y),
-			Size = Components.GlyphBox(Layout.GLYPH),
-			ImageRectOffset = function()
-				return Components.IconCell(if prize().Kind == "Xp" then "Rank" else "Gem")
-			end,
-			ImageColor3 = accent,
+			Size = Components.PictureBox(Layout.GLYPH),
 			ImageTransparency = smear,
 			ZIndex = 4,
 		}),
@@ -608,12 +615,11 @@ function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: (
 			Rotation = function()
 				return Turn.LEAN * math.clamp(math.abs(reading().Y) / ReelMotion.TOP, 0, 1) + flick()
 			end,
-			-- Its cell is square: the glyph's middle sits half its height under where it hangs.
-			Components.Icon("Pointer", {
+			-- Its cell is square: the picture's middle sits half its height under where it hangs.
+			Components.Picture(EIcons.Pointer, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.new(0.5, 0, 0.5, Layout.POINTER_SIZE.Y / 2),
-				Size = Components.GlyphBox(Layout.POINTER_SIZE.X),
-				ImageColor3 = Palette.Gold,
+				Size = Components.PictureBox(Layout.POINTER_SIZE.X),
 				ImageTransparency = function()
 					return 1 - pointerDropped()
 				end,

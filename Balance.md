@@ -20,16 +20,16 @@ The bigger the price, the bigger the rarity, and the other way round, over every
 
 | Tier | Starter (free) | Paid rarity | Gems |
 | --- | --- | --- | --- |
-| 1 | Starter Pistol | Common | 700-900 |
+| 1 | Starter Pistol | Uncommon | 700-900 |
 | 2 | Terminator Gun | Rare | 1,800-2,600 |
 | 3 | Starter Rifle | Epic | 6,000-7,000 |
-| 4 | Starter Minigun | Legendary, then Black Market | 12,000-13,000, then 25,000-28,000 |
+| 4 | Starter Minigun | Legendary, then Mythic | 12,000-13,000, then 25,000-28,000 |
 
-- A starter is `Price = 0` and `Rarity = "Starter"`, and only a starter is either. One per tier: `LoadoutCore`
+- A starter is `Price = 0` and `Rarity = "Common"`, and only a starter is either. One per tier: `LoadoutCore`
   takes the gun of price 0 as the tier's starter.
 - A new gun's price sits inside its rarity's band, and its rarity matches its tier.
-- **The rarity is also a folder.** `GunsCore.GetModel` loads the model from `Assets/models/Guns/<rarity>/`
-  (`starter weapons` for Starter), so changing a gun's rarity means moving its model file to the matching folder.
+- **The rarity is also a folder.** `GunsCore.GetModel` loads the model from `Assets/models/Guns/<rarity>/`,
+  so changing a gun's rarity means moving its model file to the matching folder.
 
 ## 3. Power follows price
 

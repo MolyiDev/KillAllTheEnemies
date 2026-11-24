@@ -1,6 +1,6 @@
--- The daily spins screen (UIMatt.md, Daily Spins): the reel, the free spins left today and SPIN, which sells an extra
--- spin for Robux once they are used (SpinsService decides each spin and what it lands on; this asks and shows). The
--- lobby's DAILY SPINS card opens it.
+-- The daily screen's SPIN page (UIMatt.md, Daily Spins): the reel, the free spins left today and SPIN, which sells an
+-- extra spin for Robux once they are used (SpinsService decides each spin and what it lands on; this asks and shows).
+-- DailyController owns the screen round it and shows the page (SetShown) and builds it into its gui (BuildPage).
 --
 -- A prize is shown in the order it is paid: the server tells the prize in the same frame as the profile it paid, so
 -- the HUD's Gems and XP are held back by what is still to land (HeldGems, HeldXp) before they are drawn, and let
@@ -19,7 +19,6 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
-local BlurController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.BlurController)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
@@ -39,23 +38,22 @@ local create = vide.create
 local Tune = table.freeze({
 	-- The screen is his 1920 x 1080, fitted inside the viewport whole.
 	DESIGN = Vector2.new(1920, 1080),
-	-- Above the lobby's HUD, under the settings screen.
-	DISPLAY_ORDER = 5,
 	-- How long the clock keeps ticking after a stamp: the longest gesture of an open is shorter.
 	MOTION_SECONDS = 1.8,
 	-- The prize sets off this long after the reel has landed.
 	PAY_DELAY = 0.35,
+	-- SPIN wobbles this long after the page starts coming in: once it has risen into place.
+	BECKON_DELAY = 0.5,
+	-- And this long after a spin's prize has landed, while another spin waits.
+	AFTER_SPIN_BECKON_DELAY = 0.15,
 	-- A spin the server never answered is given up after this long.
 	ANSWER_TIMEOUT = 6,
 	DAY_SECONDS = 86400,
-	-- The HUD's pieces the prize flies into (LobbyController's Hud.Layout, px of its 1080-tall root): the level bar (the
-	-- plate at 38, 12, its bar 233, 48 into it, 226 long and 12 tall), and the gem on the Gems counter (its pill 154
-	-- left of the middle, the glyph 55 into it; 44 down from the screen's top, not the HUD's) until the HUD hands over
+	-- The gem on the HUD's Gems counter the prize flies into (LobbyController's Hud.Layout, px of its 1080-tall root:
+	-- its pill 154 left of the middle, the glyph 55 into it, 44 down from the screen's top) until the HUD hands over
 	-- the glyph itself (SetGemsTarget).
 	PILL_X = -154 + 55,
 	PILL_Y = 44,
-	BAR = Vector2.new(38 + 233, 12 + 48 + 6),
-	BAR_LENGTH = 226,
 })
 
 local SpinsController = {}
@@ -66,6 +64,7 @@ local state: Types.TSpinsState = {
 	IsOpen = source(false),
 	ToggledAt = source(-math.huge),
 	FreeLeft = source(0),
+	FreePerDay = source(SpinsCore.FREE_PER_DAY),
 	Bought = source(0),
 	SecondsLeft = source(0),
 	CanBuy = source(false),
@@ -74,16 +73,20 @@ local state: Types.TSpinsState = {
 	Spin = source(nil :: Types.TSpin?),
 	PillAt = source(Vector2.zero),
 	BarAt = source(Vector2.zero),
-	BarLength = source(Tune.BAR_LENGTH),
+	BarLength = source(0),
 	RefusedAt = source(-math.huge),
+	BeckonAt = source(-math.huge),
 }
 
 -- What the HUD is held back by, and whether Gems are landing in its pill now (from the first piece to the last).
 local heldGems = source(0)
 local heldXp = source(0)
 local isLandingGems = source(false)
--- The glyph on the HUD's Gems pill, handed over by the HUD as it is built.
+-- The glyph on the HUD's Gems pill and the level plate's bar, handed over by the HUD as it is built.
 local gemsTarget: GuiObject? = nil
+local xpTarget: GuiObject? = nil
+-- The layer the prize flies in, his 1920 x 1080 scaled into the middle of the screen (BuildPage).
+local flightLayer: Frame? = nil
 
 -- os.clock until which Now keeps ticking.
 local motionUntil = -math.huge
@@ -96,9 +99,25 @@ local piecesLanded = 0
 local hasLandSounded = false
 local random = Random.new()
 
--- Whether the screen is up. Reads a vide source, so a view that calls it follows it.
-function SpinsController.IsOpen(): boolean
-	return state.IsOpen()
+-- Whether the reel is turning or its prize still landing: the page holds the screen until it is done. Reads a vide
+-- source.
+function SpinsController.IsSpinning(): boolean
+	return state.Mode() == "Busy"
+end
+
+-- The free spins left today. Reads a vide source.
+function SpinsController.FreeLeft(): number
+	return state.FreeLeft()
+end
+
+-- The free spins a day, the passes' included. Reads a vide source.
+function SpinsController.FreePerDay(): number
+	return state.FreePerDay()
+end
+
+-- Whether SPIN would spin now (a free or bought spin is left, the reel at rest). Reads a vide source.
+function SpinsController.CanSpin(): boolean
+	return state.Mode() == "Spin"
 end
 
 -- The Gems and the XP (percents of a level) the server has paid that have not flown into the HUD yet: the HUD shows
@@ -121,6 +140,11 @@ function SpinsController.SetGemsTarget(glyph: GuiObject)
 	gemsTarget = glyph
 end
 
+-- Where the XP flies to: the level plate's bar, its fill growing from the left.
+function SpinsController.SetXpTarget(bar: GuiObject)
+	xpTarget = bar
+end
+
 local function stir(seconds: number)
 	motionUntil = math.max(motionUntil, os.clock() + seconds)
 end
@@ -130,14 +154,32 @@ local function release(gems: number, xp: number)
 	if heldXp() ~= xp then heldXp(xp) end
 end
 
+-- Where the screen's 1920 x 1080 starts, in the space AbsolutePosition is in: the flights' own layer once it is built,
+-- so a target's AbsolutePosition less this is right whatever Roblox's inset does to either gui (UI.md, "AbsolutePosition
+-- is always measured from under the topbar"); worked out from the viewport before.
+local function screenOrigin(): Vector2
+	local layer = flightLayer
+	if layer and layer.Parent then return layer.AbsolutePosition end
+	return Workspace.CurrentCamera.ViewportSize / 2 - Tune.DESIGN * state.Scale() / 2
+end
+
 -- The pill's glyph in the screen's 1920 x 1080, where it stands now.
 local function aimAtPill()
 	local glyph = gemsTarget
 	if not glyph or not glyph.Parent then return end
-	local viewport = Workspace.CurrentCamera.ViewportSize
+	state.PillAt((glyph.AbsolutePosition + glyph.AbsoluteSize / 2 - screenOrigin()) / state.Scale())
+end
+
+-- The level bar's left end and length in the screen's 1920 x 1080, read as a prize sets off. Its place and size follow
+-- the screen's width (Hud's level plate), and the HUD is laid out again only after a resize is heard, so it is never
+-- read then.
+local function aimAtBar()
+	local bar = xpTarget
+	if not bar or not bar.Parent then return end
 	local scale = state.Scale()
-	local origin = viewport / 2 - Tune.DESIGN * scale / 2
-	state.PillAt((glyph.AbsolutePosition + glyph.AbsoluteSize / 2 - origin) / scale)
+	local size = bar.AbsoluteSize
+	state.BarAt((bar.AbsolutePosition + Vector2.new(0, size.Y / 2) - screenOrigin()) / scale)
+	state.BarLength(size.X / scale)
 end
 
 local function updateMode()
@@ -186,34 +228,40 @@ local function refuse()
 	SoundsCore.PlayUINamed("UI.UpgradePick", "Denied")
 end
 
-function SpinsController.Open()
-	if state.IsOpen() then return end
-	vide.batch(function()
-		state.IsOpen(true)
-		state.ToggledAt(os.clock())
-	end)
-	stir(Tune.MOTION_SECONDS)
-	SoundsCore.SetMuffled("Spins", true)
-	BlurController.SetBlurred("Spins", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
+-- SPIN wobbles once at `at` to be pressed, when a spin waits for it.
+local function beckon(at: number)
+	if state.Mode() ~= "Spin" then return end
+	state.BeckonAt(at)
+	motionUntil = math.max(motionUntil, at + Tune.MOTION_SECONDS)
 end
 
-function SpinsController.Close()
-	if not state.IsOpen() then return end
+-- Puts the page on show or takes it off. Shown, it comes in `delay` seconds from now (a stamp in the future: the
+-- other page clears first). Taken off, a spin still turning ends where it would have.
+function SpinsController.SetShown(isShown: boolean, delay: number?)
+	if state.IsOpen() == isShown then return end
+	local now = os.clock()
+	if isShown then
+		local at = now + (delay or 0)
+		vide.batch(function()
+			state.IsOpen(true)
+			state.ToggledAt(at)
+			beckon(at + Tune.BECKON_DELAY)
+		end)
+		motionUntil = math.max(motionUntil, at + Tune.MOTION_SECONDS)
+		return
+	end
+
 	finish()
 	vide.batch(function()
 		state.IsOpen(false)
-		state.ToggledAt(os.clock())
+		-- Taken off before it came in: it stays out, rather than showing up to fade.
+		state.ToggledAt(if now < state.ToggledAt() then -math.huge else now)
 	end)
 	stir(Tune.MOTION_SECONDS)
 	isAwaitingPurchase = false
-	SoundsCore.SetMuffled("Spins", false)
-	BlurController.SetBlurred("Spins", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local actions: Types.TSpinsActions = {
-	Close = SpinsController.Close,
 	-- Checked here first only to answer at once: the server checks it again.
 	Spin = function()
 		local mode = state.Mode()
@@ -252,6 +300,7 @@ local function land(prize: number)
 		planned.PayAt = landAt + Tune.PAY_DELAY
 		planned.Pieces = Payout.Count(data)
 		aimAtPill()
+		aimAtBar()
 		if data.Kind == "Gems" then
 			heldGems(data.Amount)
 		else
@@ -316,7 +365,45 @@ local function stepSpin(now: number)
 
 	local doneAt = landAt + Reel.LAND_SECONDS
 	if payAt then doneAt = math.max(doneAt, payAt + Payout.SECONDS) end
-	if now >= doneAt then finish() end
+	if now < doneAt then return end
+	finish()
+	beckon(now + Tune.AFTER_SPIN_BECKON_DELAY)
+end
+
+-- Whether the page is on show. Reads a vide source.
+function SpinsController.IsShown(): boolean
+	return state.IsOpen()
+end
+
+-- The page, for the shell to scale and cut (his 1920 x 1080, standing `lift` px under its own place), the layer its
+-- prize flies in (scaled whole into the middle of the screen), and the jackpot's shake in px; built once inside the
+-- daily screen's vide root.
+function SpinsController.BuildPage(lift: () -> number): (Frame, Frame, () -> number)
+	-- Drawn only while it is on show or still leaving: hidden, the page costs nothing.
+	local isDrawn = vide.derive(function(): boolean
+		return state.IsOpen() or state.Now() - state.ToggledAt() < Screen.LEAVE_SECONDS + 0.05
+	end)
+	local page, flights, shake = Screen.Build(state, actions, lift)
+	flightLayer = create("Frame")({
+		Name = "SpinsFlights",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
+		BackgroundTransparency = 1,
+		Visible = isDrawn,
+		create("UIScale")({ Scale = state.Scale }),
+		flights,
+	})
+
+	return create("Frame")({
+		Name = "Spins",
+		Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
+		BackgroundTransparency = 1,
+		Visible = isDrawn,
+		page,
+	}),
+		flightLayer :: Frame,
+		shake
 end
 
 local function updateSecondsLeft(now: number)
@@ -325,15 +412,15 @@ local function updateSecondsLeft(now: number)
 	if now >= dayEndsAt then
 		-- A new UTC day: the free spins are back (the server says so too, a second later).
 		dayEndsAt += Tune.DAY_SECONDS
-		state.FreeLeft(SpinsCore.FREE_PER_DAY)
+		state.FreeLeft(state.FreePerDay())
 		updateMode()
 	end
 	local left = math.max(math.ceil(dayEndsAt - now), 0)
 	if left ~= state.SecondsLeft() then state.SecondsLeft(left) end
 end
 
--- The screen's fit, and where the HUD's pill and bar are in its 1920 x 1080: the HUD is scaled by the height under
--- Roblox's top bar (Theme's clamp) from that area's corners, the screen by whichever side fits, from its middle.
+-- The screen's fit, and where the HUD's pill is in its 1920 x 1080: the HUD is scaled by the height under Roblox's top
+-- bar (Theme's clamp), the screen by whichever side fits, from its middle.
 local function updateScale()
 	local viewport = Workspace.CurrentCamera.ViewportSize
 	local inset = GuiService:GetGuiInset().Y
@@ -341,14 +428,11 @@ local function updateScale()
 	local hud = math.clamp((viewport.Y - inset) / Theme.DESIGN_HEIGHT, Theme.MIN_SCALE, Theme.MAX_SCALE)
 	local origin = viewport / 2 - Tune.DESIGN * scale / 2
 	local pill = Vector2.new(viewport.X / 2 + Tune.PILL_X * hud, Tune.PILL_Y * hud)
-	local bar = Vector2.new(Tune.BAR.X * hud, inset + Tune.BAR.Y * hud)
 	vide.batch(function()
 		state.Scale(scale)
 		state.PillAt((pill - origin) / scale)
-		state.BarAt((bar - origin) / scale)
-		state.BarLength(Tune.BAR_LENGTH * hud / scale)
+		aimAtPill()
 	end)
-	aimAtPill()
 end
 
 SpinsController.OnStart = function()
@@ -358,33 +442,6 @@ SpinsController.OnStart = function()
 		state.CanBuy(true)
 		updateMode()
 	end)
-
-	vide.mount(function()
-		-- Drawn only while it is up or still leaving: shut, the screen costs nothing.
-		local isDrawn = vide.derive(function(): boolean
-			return state.IsOpen() or state.Now() - state.ToggledAt() < Screen.LEAVE_SECONDS + 0.05
-		end)
-
-		return create("ScreenGui")({
-			Name = "Spins",
-			ResetOnSpawn = false,
-			IgnoreGuiInset = true,
-			ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
-			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-			DisplayOrder = Tune.DISPLAY_ORDER,
-			Enabled = isDrawn,
-			-- His 1920 x 1080, scaled whole into the middle of the screen.
-			create("Frame")({
-				Name = "Root",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(Tune.DESIGN.X, Tune.DESIGN.Y),
-				BackgroundTransparency = 1,
-				create("UIScale")({ Scale = state.Scale }),
-				Screen.Build(state, actions),
-			}),
-		})
-	end, LocalPlayer:WaitForChild("PlayerGui"))
 
 	-- Now is written only while something moves, so a screen at rest, open or shut, redraws nothing.
 	RunService.PreRender:Connect(function()
@@ -402,10 +459,11 @@ SpinsController.OnStart = function()
 	updateScale()
 end
 
-ServerNetworkSpins.State.On(function(free: number, bought: number, secondsLeft: number)
+ServerNetworkSpins.State.On(function(free: number, bought: number, secondsLeft: number, perDay: number)
 	dayEndsAt = os.clock() + secondsLeft
 	vide.batch(function()
 		state.FreeLeft(free)
+		state.FreePerDay(perDay)
 		state.Bought(bought)
 		updateMode()
 	end)

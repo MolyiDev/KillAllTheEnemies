@@ -15796,6 +15796,20 @@
         </Item>
         <Item class="Sound" referent="1356">
           <Properties>
+            <string name="Name">PickUncommon</string>
+            <bool name="PlayOnRemove">true</bool>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">10000</float>
+            <float name="EmitterSize">10</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://98583964600279</uri>
+            </Content>
+            <float name="Volume">1.46</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1357">
+          <Properties>
             <string name="Name">PickRare</string>
             <bool name="PlayOnRemove">true</bool>
             <float name="PlaybackSpeed">1</float>
@@ -15808,7 +15822,7 @@
             <float name="Volume">1.397</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1357">
+        <Item class="Sound" referent="1358">
           <Properties>
             <string name="Name">PickEpic</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15822,7 +15836,7 @@
             <float name="Volume">1.4</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1358">
+        <Item class="Sound" referent="1359">
           <Properties>
             <string name="Name">PickLegendary</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15836,7 +15850,7 @@
             <float name="Volume">1.494</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1359">
+        <Item class="Sound" referent="1360">
           <Properties>
             <string name="Name">PickMythic</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15851,11 +15865,30 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1360">
+      <Item class="Folder" referent="1361">
+        <Properties>
+          <string name="Name">Index</string>
+        </Properties>
+        <Item class="Sound" referent="1362">
+          <Properties>
+            <string name="Name">Unlock</string>
+            <bool name="PlayOnRemove">true</bool>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">10000</float>
+            <float name="EmitterSize">10</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://87730016016468</uri>
+            </Content>
+            <float name="Volume">1.077</float>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="1363">
         <Properties>
           <string name="Name">CountdownTick</string>
         </Properties>
-        <Item class="Sound" referent="1361">
+        <Item class="Sound" referent="1364">
           <Properties>
             <string name="Name">CountdownTick_1</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15869,7 +15902,7 @@
             <float name="Volume">0.252</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1362">
+        <Item class="Sound" referent="1365">
           <Properties>
             <string name="Name">CountdownTick_2</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15884,11 +15917,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1363">
+      <Item class="Folder" referent="1366">
         <Properties>
           <string name="Name">BossBar</string>
         </Properties>
-        <Item class="Sound" referent="1364">
+        <Item class="Sound" referent="1367">
           <Properties>
             <string name="Name">Arrive</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15902,11 +15935,11 @@
             <float name="Volume">1.109</float>
           </Properties>
         </Item>
-        <Item class="Folder" referent="1365">
+        <Item class="Folder" referent="1368">
           <Properties>
             <string name="Name">Break</string>
           </Properties>
-          <Item class="Sound" referent="1366">
+          <Item class="Sound" referent="1369">
             <Properties>
               <string name="Name">Break_1</string>
               <bool name="PlayOnRemove">true</bool>
@@ -15920,7 +15953,7 @@
               <float name="Volume">1.236</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1367">
+          <Item class="Sound" referent="1370">
             <Properties>
               <string name="Name">Break_2</string>
               <bool name="PlayOnRemove">true</bool>
@@ -15934,7 +15967,7 @@
               <float name="Volume">1.185</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1368">
+          <Item class="Sound" referent="1371">
             <Properties>
               <string name="Name">Break_3</string>
               <bool name="PlayOnRemove">true</bool>
@@ -15949,7 +15982,7 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Sound" referent="1369">
+        <Item class="Sound" referent="1372">
           <Properties>
             <string name="Name">Defeated</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15964,11 +15997,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1370">
+      <Item class="Folder" referent="1373">
         <Properties>
           <string name="Name">Hurt</string>
         </Properties>
-        <Item class="Sound" referent="1371">
+        <Item class="Sound" referent="1374">
           <Properties>
             <string name="Name">Hurt_1</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15982,7 +16015,7 @@
             <float name="Volume">1.728</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1372">
+        <Item class="Sound" referent="1375">
           <Properties>
             <string name="Name">Hurt_2</string>
             <bool name="PlayOnRemove">true</bool>
@@ -15996,7 +16029,7 @@
             <float name="Volume">1.442</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1373">
+        <Item class="Sound" referent="1376">
           <Properties>
             <string name="Name">Hurt_3</string>
             <bool name="PlayOnRemove">true</bool>
@@ -16011,7 +16044,7 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Sound" referent="1374">
+      <Item class="Sound" referent="1377">
         <Properties>
           <string name="Name">WaveDone</string>
           <bool name="PlayOnRemove">true</bool>
@@ -16026,15 +16059,15 @@
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="1375">
+    <Item class="Folder" referent="1378">
       <Properties>
         <string name="Name">Weapons</string>
       </Properties>
-      <Item class="Folder" referent="1376">
+      <Item class="Folder" referent="1379">
         <Properties>
           <string name="Name">DryClick</string>
         </Properties>
-        <Item class="Sound" referent="1377">
+        <Item class="Sound" referent="1380">
           <Properties>
             <string name="Name">DryClick1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16047,7 +16080,7 @@
             <float name="Volume">0.6</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1378">
+        <Item class="Sound" referent="1381">
           <Properties>
             <string name="Name">DryClick2</string>
             <float name="PlaybackSpeed">1</float>
@@ -16061,11 +16094,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1379">
+      <Item class="Folder" referent="1382">
         <Properties>
           <string name="Name">LowAmmo</string>
         </Properties>
-        <Item class="Sound" referent="1380">
+        <Item class="Sound" referent="1383">
           <Properties>
             <string name="Name">LowAmmo1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16079,15 +16112,15 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1381">
+      <Item class="Folder" referent="1384">
         <Properties>
           <string name="Name">Parry</string>
         </Properties>
-        <Item class="Folder" referent="1382">
+        <Item class="Folder" referent="1385">
           <Properties>
             <string name="Name">Block</string>
           </Properties>
-          <Item class="Sound" referent="1383">
+          <Item class="Sound" referent="1386">
             <Properties>
               <string name="Name">Parry_Block_1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16100,7 +16133,7 @@
               <float name="Volume">0.66</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1384">
+          <Item class="Sound" referent="1387">
             <Properties>
               <string name="Name">Parry_Block_10</string>
               <float name="PlaybackSpeed">1</float>
@@ -16113,7 +16146,7 @@
               <float name="Volume">0.91</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1385">
+          <Item class="Sound" referent="1388">
             <Properties>
               <string name="Name">Parry_Block_2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16126,7 +16159,7 @@
               <float name="Volume">0.93</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1386">
+          <Item class="Sound" referent="1389">
             <Properties>
               <string name="Name">Parry_Block_3</string>
               <float name="PlaybackSpeed">1</float>
@@ -16139,7 +16172,7 @@
               <float name="Volume">0.78</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1387">
+          <Item class="Sound" referent="1390">
             <Properties>
               <string name="Name">Parry_Block_4</string>
               <float name="PlaybackSpeed">1</float>
@@ -16152,7 +16185,7 @@
               <float name="Volume">0.9</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1388">
+          <Item class="Sound" referent="1391">
             <Properties>
               <string name="Name">Parry_Block_5</string>
               <float name="PlaybackSpeed">1</float>
@@ -16165,7 +16198,7 @@
               <float name="Volume">0.96</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1389">
+          <Item class="Sound" referent="1392">
             <Properties>
               <string name="Name">Parry_Block_6</string>
               <float name="PlaybackSpeed">1</float>
@@ -16178,7 +16211,7 @@
               <float name="Volume">0.51</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1390">
+          <Item class="Sound" referent="1393">
             <Properties>
               <string name="Name">Parry_Block_7</string>
               <float name="PlaybackSpeed">1</float>
@@ -16191,7 +16224,7 @@
               <float name="Volume">0.96</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1391">
+          <Item class="Sound" referent="1394">
             <Properties>
               <string name="Name">Parry_Block_8</string>
               <float name="PlaybackSpeed">1</float>
@@ -16204,7 +16237,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1392">
+          <Item class="Sound" referent="1395">
             <Properties>
               <string name="Name">Parry_Block_9</string>
               <float name="PlaybackSpeed">1</float>
@@ -16218,7 +16251,7 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Sound" referent="1393">
+        <Item class="Sound" referent="1396">
           <Properties>
             <string name="Name">Raise</string>
             <float name="PlaybackSpeed">1</float>
@@ -16232,7 +16265,7 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Sound" referent="1394">
+      <Item class="Sound" referent="1397">
         <Properties>
           <string name="Name">Pistol</string>
           <float name="PlaybackSpeed">1</float>
@@ -16245,11 +16278,11 @@
           <float name="Volume">0.6</float>
         </Properties>
       </Item>
-      <Item class="Folder" referent="1395">
+      <Item class="Folder" referent="1398">
         <Properties>
           <string name="Name">Revolver</string>
         </Properties>
-        <Item class="Sound" referent="1396">
+        <Item class="Sound" referent="1399">
           <Properties>
             <string name="Name">ChargeDraw</string>
             <float name="PlaybackSpeed">1</float>
@@ -16262,11 +16295,11 @@
             <float name="Volume">0.75</float>
           </Properties>
         </Item>
-        <Item class="Folder" referent="1397">
+        <Item class="Folder" referent="1400">
           <Properties>
             <string name="Name">ChargeDrawStress</string>
           </Properties>
-          <Item class="Sound" referent="1398">
+          <Item class="Sound" referent="1401">
             <Properties>
               <string name="Name">ChargeDrawStress1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16279,7 +16312,7 @@
               <float name="Volume">0.6</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1399">
+          <Item class="Sound" referent="1402">
             <Properties>
               <string name="Name">ChargeDrawStress2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16293,11 +16326,11 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="1400">
+        <Item class="Folder" referent="1403">
           <Properties>
             <string name="Name">ChargeRelease</string>
           </Properties>
-          <Item class="Sound" referent="1401">
+          <Item class="Sound" referent="1404">
             <Properties>
               <string name="Name">ChargeRelease1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16310,7 +16343,7 @@
               <float name="Volume">0.85</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1402">
+          <Item class="Sound" referent="1405">
             <Properties>
               <string name="Name">ChargeRelease2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16324,7 +16357,7 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Sound" referent="1403">
+        <Item class="Sound" referent="1406">
           <Properties>
             <string name="Name">DrawSpin</string>
             <float name="PlaybackSpeed">1</float>
@@ -16337,7 +16370,7 @@
             <float name="Volume">0.75</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1404">
+        <Item class="Sound" referent="1407">
           <Properties>
             <string name="Name">Echo</string>
             <float name="PlaybackSpeed">1</float>
@@ -16350,7 +16383,7 @@
             <float name="Volume">0.8</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1405">
+        <Item class="Sound" referent="1408">
           <Properties>
             <string name="Name">HammerClick</string>
             <float name="PlaybackSpeed">1</float>
@@ -16363,7 +16396,7 @@
             <float name="Volume">0.45</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1406">
+        <Item class="Sound" referent="1409">
           <Properties>
             <string name="Name">Holster</string>
             <float name="PlaybackSpeed">1</float>
@@ -16376,11 +16409,11 @@
             <float name="Volume">0.85</float>
           </Properties>
         </Item>
-        <Item class="Folder" referent="1407">
+        <Item class="Folder" referent="1410">
           <Properties>
             <string name="Name">Shoot</string>
           </Properties>
-          <Item class="Sound" referent="1408">
+          <Item class="Sound" referent="1411">
             <Properties>
               <string name="Name">Shoot1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16393,7 +16426,7 @@
               <float name="Volume">1</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1409">
+          <Item class="Sound" referent="1412">
             <Properties>
               <string name="Name">Shoot2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16408,7 +16441,7 @@
           </Item>
         </Item>
       </Item>
-      <Item class="Sound" referent="1410">
+      <Item class="Sound" referent="1413">
         <Properties>
           <string name="Name">Shotgun</string>
           <float name="PlaybackSpeed">1</float>
@@ -16421,11 +16454,11 @@
           <float name="Volume">0.6</float>
         </Properties>
       </Item>
-      <Item class="Folder" referent="1411">
+      <Item class="Folder" referent="1414">
         <Properties>
           <string name="Name">Sword</string>
         </Properties>
-        <Item class="Sound" referent="1412">
+        <Item class="Sound" referent="1415">
           <Properties>
             <string name="Name">EquipSword</string>
             <float name="PlaybackSpeed">1</float>
@@ -16438,11 +16471,11 @@
             <float name="Volume">0.7</float>
           </Properties>
         </Item>
-        <Item class="Folder" referent="1413">
+        <Item class="Folder" referent="1416">
           <Properties>
             <string name="Name">HeavyDraw</string>
           </Properties>
-          <Item class="Sound" referent="1414">
+          <Item class="Sound" referent="1417">
             <Properties>
               <string name="Name">Sword_HeavyDraw_1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16455,7 +16488,7 @@
               <float name="Volume">1.1</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1415">
+          <Item class="Sound" referent="1418">
             <Properties>
               <string name="Name">Sword_HeavyDraw_2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16469,11 +16502,11 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="1416">
+        <Item class="Folder" referent="1419">
           <Properties>
             <string name="Name">HeavyRelease</string>
           </Properties>
-          <Item class="Sound" referent="1417">
+          <Item class="Sound" referent="1420">
             <Properties>
               <string name="Name">Sword_HeavyRelease_1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16486,7 +16519,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1418">
+          <Item class="Sound" referent="1421">
             <Properties>
               <string name="Name">Sword_HeavyRelease_10</string>
               <float name="PlaybackSpeed">1</float>
@@ -16499,7 +16532,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1419">
+          <Item class="Sound" referent="1422">
             <Properties>
               <string name="Name">Sword_HeavyRelease_2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16512,7 +16545,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1420">
+          <Item class="Sound" referent="1423">
             <Properties>
               <string name="Name">Sword_HeavyRelease_3</string>
               <float name="PlaybackSpeed">1</float>
@@ -16525,7 +16558,7 @@
               <float name="Volume">0.85</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1421">
+          <Item class="Sound" referent="1424">
             <Properties>
               <string name="Name">Sword_HeavyRelease_4</string>
               <float name="PlaybackSpeed">1</float>
@@ -16538,7 +16571,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1422">
+          <Item class="Sound" referent="1425">
             <Properties>
               <string name="Name">Sword_HeavyRelease_5</string>
               <float name="PlaybackSpeed">1</float>
@@ -16551,7 +16584,7 @@
               <float name="Volume">0.65</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1423">
+          <Item class="Sound" referent="1426">
             <Properties>
               <string name="Name">Sword_HeavyRelease_6</string>
               <float name="PlaybackSpeed">1</float>
@@ -16564,7 +16597,7 @@
               <float name="Volume">0.85</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1424">
+          <Item class="Sound" referent="1427">
             <Properties>
               <string name="Name">Sword_HeavyRelease_7</string>
               <float name="PlaybackSpeed">1</float>
@@ -16577,7 +16610,7 @@
               <float name="Volume">0.6</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1425">
+          <Item class="Sound" referent="1428">
             <Properties>
               <string name="Name">Sword_HeavyRelease_8</string>
               <float name="PlaybackSpeed">1</float>
@@ -16590,7 +16623,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1426">
+          <Item class="Sound" referent="1429">
             <Properties>
               <string name="Name">Sword_HeavyRelease_9</string>
               <float name="PlaybackSpeed">1</float>
@@ -16604,11 +16637,11 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="1427">
+        <Item class="Folder" referent="1430">
           <Properties>
             <string name="Name">Pierce</string>
           </Properties>
-          <Item class="Sound" referent="1428">
+          <Item class="Sound" referent="1431">
             <Properties>
               <string name="Name">Sword_Pierce_1</string>
               <float name="PlaybackSpeed">1</float>
@@ -16621,7 +16654,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1429">
+          <Item class="Sound" referent="1432">
             <Properties>
               <string name="Name">Sword_Pierce_2</string>
               <float name="PlaybackSpeed">1</float>
@@ -16634,7 +16667,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1430">
+          <Item class="Sound" referent="1433">
             <Properties>
               <string name="Name">Sword_Pierce_3</string>
               <float name="PlaybackSpeed">1</float>
@@ -16647,7 +16680,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1431">
+          <Item class="Sound" referent="1434">
             <Properties>
               <string name="Name">Sword_Pierce_4</string>
               <float name="PlaybackSpeed">1</float>
@@ -16660,7 +16693,7 @@
               <float name="Volume">0.75</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1432">
+          <Item class="Sound" referent="1435">
             <Properties>
               <string name="Name">Sword_Pierce_5</string>
               <float name="PlaybackSpeed">1</float>
@@ -16674,11 +16707,11 @@
             </Properties>
           </Item>
         </Item>
-        <Item class="Folder" referent="1433">
+        <Item class="Folder" referent="1436">
           <Properties>
             <string name="Name">Swing</string>
           </Properties>
-          <Item class="Sound" referent="1434">
+          <Item class="Sound" referent="1437">
             <Properties>
               <string name="Name">Katana_Swing_01</string>
               <float name="PlaybackSpeed">1</float>
@@ -16691,7 +16724,7 @@
               <float name="Volume">0.67</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1435">
+          <Item class="Sound" referent="1438">
             <Properties>
               <string name="Name">Katana_Swing_02</string>
               <float name="PlaybackSpeed">1</float>
@@ -16704,7 +16737,7 @@
               <float name="Volume">1.02</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1436">
+          <Item class="Sound" referent="1439">
             <Properties>
               <string name="Name">Katana_Swing_03</string>
               <float name="PlaybackSpeed">1</float>
@@ -16717,7 +16750,7 @@
               <float name="Volume">0.44</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1437">
+          <Item class="Sound" referent="1440">
             <Properties>
               <string name="Name">Katana_Swing_04</string>
               <float name="PlaybackSpeed">1</float>
@@ -16730,7 +16763,7 @@
               <float name="Volume">0.92</float>
             </Properties>
           </Item>
-          <Item class="Sound" referent="1438">
+          <Item class="Sound" referent="1441">
             <Properties>
               <string name="Name">Katana_Swing_05</string>
               <float name="PlaybackSpeed">1</float>
@@ -16746,15 +16779,15 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="1439">
+    <Item class="Folder" referent="1442">
       <Properties>
         <string name="Name">Weather</string>
       </Properties>
-      <Item class="Folder" referent="1440">
+      <Item class="Folder" referent="1443">
         <Properties>
           <string name="Name">Rain</string>
         </Properties>
-        <Item class="Sound" referent="1441">
+        <Item class="Sound" referent="1444">
           <Properties>
             <string name="Name">Rain1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16767,7 +16800,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1442">
+        <Item class="Sound" referent="1445">
           <Properties>
             <string name="Name">Rain2</string>
             <float name="PlaybackSpeed">1</float>
@@ -16780,7 +16813,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1443">
+        <Item class="Sound" referent="1446">
           <Properties>
             <string name="Name">Rain3</string>
             <float name="PlaybackSpeed">1</float>
@@ -16793,7 +16826,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1444">
+        <Item class="Sound" referent="1447">
           <Properties>
             <string name="Name">Rain4</string>
             <float name="PlaybackSpeed">1</float>
@@ -16807,11 +16840,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1445">
+      <Item class="Folder" referent="1448">
         <Properties>
           <string name="Name">Sandstorm</string>
         </Properties>
-        <Item class="Sound" referent="1446">
+        <Item class="Sound" referent="1449">
           <Properties>
             <string name="Name">Sandstorm1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16824,7 +16857,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1447">
+        <Item class="Sound" referent="1450">
           <Properties>
             <string name="Name">Sandstorm2</string>
             <float name="PlaybackSpeed">1</float>
@@ -16837,7 +16870,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1448">
+        <Item class="Sound" referent="1451">
           <Properties>
             <string name="Name">Sandstorm3</string>
             <float name="PlaybackSpeed">1</float>
@@ -16850,7 +16883,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1449">
+        <Item class="Sound" referent="1452">
           <Properties>
             <string name="Name">Sandstorm4</string>
             <float name="PlaybackSpeed">1</float>
@@ -16863,7 +16896,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1450">
+        <Item class="Sound" referent="1453">
           <Properties>
             <string name="Name">Sandstorm5</string>
             <float name="PlaybackSpeed">1</float>
@@ -16876,7 +16909,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1451">
+        <Item class="Sound" referent="1454">
           <Properties>
             <string name="Name">Sandstorm6</string>
             <float name="PlaybackSpeed">1</float>
@@ -16890,11 +16923,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1452">
+      <Item class="Folder" referent="1455">
         <Properties>
           <string name="Name">Snow</string>
         </Properties>
-        <Item class="Sound" referent="1453">
+        <Item class="Sound" referent="1456">
           <Properties>
             <string name="Name">Snow1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16907,7 +16940,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1454">
+        <Item class="Sound" referent="1457">
           <Properties>
             <string name="Name">Snow2</string>
             <float name="PlaybackSpeed">1</float>
@@ -16920,7 +16953,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1455">
+        <Item class="Sound" referent="1458">
           <Properties>
             <string name="Name">Snow3</string>
             <float name="PlaybackSpeed">1</float>
@@ -16933,7 +16966,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1456">
+        <Item class="Sound" referent="1459">
           <Properties>
             <string name="Name">Snow4</string>
             <float name="PlaybackSpeed">1</float>
@@ -16946,7 +16979,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1457">
+        <Item class="Sound" referent="1460">
           <Properties>
             <string name="Name">Snow5</string>
             <float name="PlaybackSpeed">1</float>
@@ -16959,7 +16992,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1458">
+        <Item class="Sound" referent="1461">
           <Properties>
             <string name="Name">Snow6</string>
             <float name="PlaybackSpeed">1</float>
@@ -16973,11 +17006,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1459">
+      <Item class="Folder" referent="1462">
         <Properties>
           <string name="Name">ThunderDistant</string>
         </Properties>
-        <Item class="Sound" referent="1460">
+        <Item class="Sound" referent="1463">
           <Properties>
             <string name="Name">Distant1</string>
             <float name="PlaybackSpeed">1</float>
@@ -16990,7 +17023,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1461">
+        <Item class="Sound" referent="1464">
           <Properties>
             <string name="Name">Distant2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17003,7 +17036,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1462">
+        <Item class="Sound" referent="1465">
           <Properties>
             <string name="Name">Distant3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17017,11 +17050,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1463">
+      <Item class="Folder" referent="1466">
         <Properties>
           <string name="Name">Thunder</string>
         </Properties>
-        <Item class="Sound" referent="1464">
+        <Item class="Sound" referent="1467">
           <Properties>
             <string name="Name">Thunder1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17035,11 +17068,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1465">
+      <Item class="Folder" referent="1468">
         <Properties>
           <string name="Name">Wind</string>
         </Properties>
-        <Item class="Sound" referent="1466">
+        <Item class="Sound" referent="1469">
           <Properties>
             <string name="Name">Wind1</string>
             <bool name="Looped">true</bool>
@@ -17053,7 +17086,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1467">
+        <Item class="Sound" referent="1470">
           <Properties>
             <string name="Name">Wind2</string>
             <bool name="Looped">true</bool>
@@ -17069,15 +17102,15 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="1468">
+    <Item class="Folder" referent="1471">
       <Properties>
         <string name="Name">World</string>
       </Properties>
-      <Item class="Folder" referent="1469">
+      <Item class="Folder" referent="1472">
         <Properties>
           <string name="Name">IceStress</string>
         </Properties>
-        <Item class="Sound" referent="1470">
+        <Item class="Sound" referent="1473">
           <Properties>
             <string name="Name">IceStress1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17090,7 +17123,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1471">
+        <Item class="Sound" referent="1474">
           <Properties>
             <string name="Name">IceStress2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17103,7 +17136,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1472">
+        <Item class="Sound" referent="1475">
           <Properties>
             <string name="Name">IceStress3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17118,15 +17151,15 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="1473">
+    <Item class="Folder" referent="1476">
       <Properties>
         <string name="Name">Xp</string>
       </Properties>
-      <Item class="Folder" referent="1474">
+      <Item class="Folder" referent="1477">
         <Properties>
           <string name="Name">Burst</string>
         </Properties>
-        <Item class="Sound" referent="1475">
+        <Item class="Sound" referent="1478">
           <Properties>
             <string name="Name">Xp_Burst_01</string>
             <float name="PlaybackSpeed">1</float>
@@ -17139,7 +17172,7 @@
             <float name="Volume">0.237</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1476">
+        <Item class="Sound" referent="1479">
           <Properties>
             <string name="Name">Xp_Burst_02</string>
             <float name="PlaybackSpeed">1</float>
@@ -17152,7 +17185,7 @@
             <float name="Volume">0.237</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1477">
+        <Item class="Sound" referent="1480">
           <Properties>
             <string name="Name">Xp_Burst_03</string>
             <float name="PlaybackSpeed">1</float>
@@ -17165,7 +17198,7 @@
             <float name="Volume">0.237</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1478">
+        <Item class="Sound" referent="1481">
           <Properties>
             <string name="Name">Xp_Burst_04</string>
             <float name="PlaybackSpeed">1</float>
@@ -17178,7 +17211,7 @@
             <float name="Volume">0.237</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1479">
+        <Item class="Sound" referent="1482">
           <Properties>
             <string name="Name">Xp_Burst_05</string>
             <float name="PlaybackSpeed">1</float>
@@ -17191,7 +17224,7 @@
             <float name="Volume">0.237</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1480">
+        <Item class="Sound" referent="1483">
           <Properties>
             <string name="Name">Xp_Burst_06</string>
             <float name="PlaybackSpeed">1</float>
@@ -17205,11 +17238,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1481">
+      <Item class="Folder" referent="1484">
         <Properties>
           <string name="Name">Collect</string>
         </Properties>
-        <Item class="Sound" referent="1482">
+        <Item class="Sound" referent="1485">
           <Properties>
             <string name="Name">Xp_Collect_01</string>
             <float name="PlaybackSpeed">1</float>
@@ -17222,7 +17255,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1483">
+        <Item class="Sound" referent="1486">
           <Properties>
             <string name="Name">Xp_Collect_02</string>
             <float name="PlaybackSpeed">1</float>
@@ -17235,7 +17268,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1484">
+        <Item class="Sound" referent="1487">
           <Properties>
             <string name="Name">Xp_Collect_03</string>
             <float name="PlaybackSpeed">1</float>
@@ -17248,7 +17281,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1485">
+        <Item class="Sound" referent="1488">
           <Properties>
             <string name="Name">Xp_Collect_04</string>
             <float name="PlaybackSpeed">1</float>
@@ -17261,7 +17294,7 @@
             <float name="Volume">1</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1486">
+        <Item class="Sound" referent="1489">
           <Properties>
             <string name="Name">Xp_Collect_05</string>
             <float name="PlaybackSpeed">1</float>
@@ -17276,11 +17309,11 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="1487">
+    <Item class="Folder" referent="1490">
       <Properties>
         <string name="Name">Upgrades</string>
       </Properties>
-      <Item class="Sound" referent="1488">
+      <Item class="Sound" referent="1491">
         <Properties>
           <string name="Name">LevelUp</string>
           <float name="PlaybackSpeed">1</float>
@@ -17294,15 +17327,15 @@
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="1489">
+    <Item class="Folder" referent="1492">
       <Properties>
         <string name="Name">Impacts</string>
       </Properties>
-      <Item class="Folder" referent="1490">
+      <Item class="Folder" referent="1493">
         <Properties>
           <string name="Name">Brick</string>
         </Properties>
-        <Item class="Sound" referent="1491">
+        <Item class="Sound" referent="1494">
           <Properties>
             <string name="Name">Impact_Brick_1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17315,7 +17348,7 @@
             <float name="Volume">0.52</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1492">
+        <Item class="Sound" referent="1495">
           <Properties>
             <string name="Name">Impact_Brick_2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17328,7 +17361,7 @@
             <float name="Volume">0.773</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1493">
+        <Item class="Sound" referent="1496">
           <Properties>
             <string name="Name">Impact_Brick_3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17341,7 +17374,7 @@
             <float name="Volume">0.536</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1494">
+        <Item class="Sound" referent="1497">
           <Properties>
             <string name="Name">Impact_Brick_4</string>
             <float name="PlaybackSpeed">1</float>
@@ -17354,7 +17387,7 @@
             <float name="Volume">0.504</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1495">
+        <Item class="Sound" referent="1498">
           <Properties>
             <string name="Name">Impact_Brick_5</string>
             <float name="PlaybackSpeed">1</float>
@@ -17367,7 +17400,7 @@
             <float name="Volume">0.449</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1496">
+        <Item class="Sound" referent="1499">
           <Properties>
             <string name="Name">Impact_Brick_6</string>
             <float name="PlaybackSpeed">1</float>
@@ -17381,11 +17414,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1497">
+      <Item class="Folder" referent="1500">
         <Properties>
           <string name="Name">Glass</string>
         </Properties>
-        <Item class="Sound" referent="1498">
+        <Item class="Sound" referent="1501">
           <Properties>
             <string name="Name">Impact_Glass_1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17398,7 +17431,7 @@
             <float name="Volume">0.376</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1499">
+        <Item class="Sound" referent="1502">
           <Properties>
             <string name="Name">Impact_Glass_2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17411,7 +17444,7 @@
             <float name="Volume">0.392</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1500">
+        <Item class="Sound" referent="1503">
           <Properties>
             <string name="Name">Impact_Glass_3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17424,7 +17457,7 @@
             <float name="Volume">0.405</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1501">
+        <Item class="Sound" referent="1504">
           <Properties>
             <string name="Name">Impact_Glass_4</string>
             <float name="PlaybackSpeed">1</float>
@@ -17437,7 +17470,7 @@
             <float name="Volume">0.457</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1502">
+        <Item class="Sound" referent="1505">
           <Properties>
             <string name="Name">Impact_Glass_5</string>
             <float name="PlaybackSpeed">1</float>
@@ -17452,11 +17485,11 @@
         </Item>
       </Item>
     </Item>
-    <Item class="Folder" referent="1503">
+    <Item class="Folder" referent="1506">
       <Properties>
         <string name="Name">Music</string>
       </Properties>
-      <Item class="Sound" referent="1504">
+      <Item class="Sound" referent="1507">
         <Properties>
           <string name="Name">Lobby</string>
           <bool name="Looped">true</bool>
@@ -17470,7 +17503,7 @@
           <float name="Volume">0.45</float>
         </Properties>
       </Item>
-      <Item class="Sound" referent="1505">
+      <Item class="Sound" referent="1508">
         <Properties>
           <string name="Name">Tension</string>
           <bool name="Looped">true</bool>
@@ -17485,15 +17518,15 @@
         </Properties>
       </Item>
     </Item>
-    <Item class="Folder" referent="1506">
+    <Item class="Folder" referent="1509">
       <Properties>
         <string name="Name">Casings</string>
       </Properties>
-      <Item class="Folder" referent="1507">
+      <Item class="Folder" referent="1510">
         <Properties>
           <string name="Name">Land</string>
         </Properties>
-        <Item class="Sound" referent="1508">
+        <Item class="Sound" referent="1511">
           <Properties>
             <string name="Name">Casing_Land_1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17506,7 +17539,7 @@
             <float name="Volume">0.501</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1509">
+        <Item class="Sound" referent="1512">
           <Properties>
             <string name="Name">Casing_Land_2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17519,7 +17552,7 @@
             <float name="Volume">0.642</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1510">
+        <Item class="Sound" referent="1513">
           <Properties>
             <string name="Name">Casing_Land_3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17532,7 +17565,7 @@
             <float name="Volume">0.527</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1511">
+        <Item class="Sound" referent="1514">
           <Properties>
             <string name="Name">Casing_Land_4</string>
             <float name="PlaybackSpeed">1</float>
@@ -17545,7 +17578,7 @@
             <float name="Volume">0.478</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1512">
+        <Item class="Sound" referent="1515">
           <Properties>
             <string name="Name">Casing_Land_5</string>
             <float name="PlaybackSpeed">1</float>
@@ -17558,7 +17591,7 @@
             <float name="Volume">0.486</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1513">
+        <Item class="Sound" referent="1516">
           <Properties>
             <string name="Name">Casing_Land_6</string>
             <float name="PlaybackSpeed">1</float>
@@ -17572,11 +17605,11 @@
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="1514">
+      <Item class="Folder" referent="1517">
         <Properties>
           <string name="Name">Bounce</string>
         </Properties>
-        <Item class="Sound" referent="1515">
+        <Item class="Sound" referent="1518">
           <Properties>
             <string name="Name">Casing_Bounce_1</string>
             <float name="PlaybackSpeed">1</float>
@@ -17589,7 +17622,7 @@
             <float name="Volume">0.205</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1516">
+        <Item class="Sound" referent="1519">
           <Properties>
             <string name="Name">Casing_Bounce_2</string>
             <float name="PlaybackSpeed">1</float>
@@ -17602,7 +17635,7 @@
             <float name="Volume">0.221</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1517">
+        <Item class="Sound" referent="1520">
           <Properties>
             <string name="Name">Casing_Bounce_3</string>
             <float name="PlaybackSpeed">1</float>
@@ -17615,7 +17648,7 @@
             <float name="Volume">0.264</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1518">
+        <Item class="Sound" referent="1521">
           <Properties>
             <string name="Name">Casing_Bounce_4</string>
             <float name="PlaybackSpeed">1</float>
@@ -17628,7 +17661,7 @@
             <float name="Volume">0.303</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1519">
+        <Item class="Sound" referent="1522">
           <Properties>
             <string name="Name">Casing_Bounce_5</string>
             <float name="PlaybackSpeed">1</float>
@@ -17641,7 +17674,7 @@
             <float name="Volume">0.275</float>
           </Properties>
         </Item>
-        <Item class="Sound" referent="1520">
+        <Item class="Sound" referent="1523">
           <Properties>
             <string name="Name">Casing_Bounce_6</string>
             <float name="PlaybackSpeed">1</float>
@@ -17652,6 +17685,159 @@
               <uri>rbxassetid://129070321076378</uri>
             </Content>
             <float name="Volume">0.195</float>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="1524">
+      <Properties>
+        <string name="Name">Debris</string>
+      </Properties>
+      <Item class="Folder" referent="1525">
+        <Properties>
+          <string name="Name">Land</string>
+        </Properties>
+        <Item class="Sound" referent="1526">
+          <Properties>
+            <string name="Name">Debris_Land_1</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://72610056126985</uri>
+            </Content>
+            <float name="Volume">0.519</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1527">
+          <Properties>
+            <string name="Name">Debris_Land_2</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://139219331846328</uri>
+            </Content>
+            <float name="Volume">0.556</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1528">
+          <Properties>
+            <string name="Name">Debris_Land_3</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://75765794321891</uri>
+            </Content>
+            <float name="Volume">0.587</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1529">
+          <Properties>
+            <string name="Name">Debris_Land_4</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://80232718418758</uri>
+            </Content>
+            <float name="Volume">0.853</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1530">
+          <Properties>
+            <string name="Name">Debris_Land_5</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://109930937774392</uri>
+            </Content>
+            <float name="Volume">0.484</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1531">
+          <Properties>
+            <string name="Name">Debris_Land_6</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://91786701886222</uri>
+            </Content>
+            <float name="Volume">0.379</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1532">
+          <Properties>
+            <string name="Name">Debris_Land_7</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://133812400843710</uri>
+            </Content>
+            <float name="Volume">0.426</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1533">
+          <Properties>
+            <string name="Name">Debris_Land_8</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://111763484997137</uri>
+            </Content>
+            <float name="Volume">0.416</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1534">
+          <Properties>
+            <string name="Name">Debris_Land_9</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://107321411732175</uri>
+            </Content>
+            <float name="Volume">0.578</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1535">
+          <Properties>
+            <string name="Name">Debris_Land_10</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://136210935909340</uri>
+            </Content>
+            <float name="Volume">0.489</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1536">
+          <Properties>
+            <string name="Name">Debris_Land_11</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">120</float>
+            <float name="EmitterSize">20</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://93953748877418</uri>
+            </Content>
+            <float name="Volume">0.373</float>
           </Properties>
         </Item>
       </Item>

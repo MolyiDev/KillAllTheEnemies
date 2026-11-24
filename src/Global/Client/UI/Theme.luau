@@ -4,6 +4,9 @@
 --
 -- Text contrast was measured (WCAG): white on defense blue and on boss red is 3.95, so those carry only LARGE letters
 -- (keys, initials) and names sit on ink bars; muted on the locked grey is 3.9, so locked faces use white.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
+
 local Theme = {}
 
 local SANS = "rbxasset://fonts/families/BuilderSans.json"
@@ -51,6 +54,25 @@ Theme.Palette = table.freeze({
 	-- His green slab's deep bottom colour.
 	GoBottom = Color3.fromRGB(12, 137, 86),
 })
+
+-- The one rarity look (TData.TRarity, keyed as ERarities): every gun, class, piece of equipment, potion and run upgrade
+-- card draws its rarity from here, so a rarity reads the same wherever it is met. Its colour, its word, and whether its
+-- tag is lettered in ink. His grey COMMON, green UNCOMMON, pink EPIC and gold LEGENDARY; MYTHIC is red, which he did
+-- not draw.
+Theme.Rarities = table.freeze({
+	Common = table.freeze({ Accent = Theme.Palette.Grey, Text = "COMMON", IsInk = true }),
+	Uncommon = table.freeze({ Accent = Theme.Palette.Green, Text = "UNCOMMON", IsInk = true }),
+	Rare = table.freeze({ Accent = Theme.Palette.Violet, Text = "RARE", IsInk = false }),
+	Epic = table.freeze({ Accent = Theme.Palette.Pink, Text = "EPIC", IsInk = false }),
+	Legendary = table.freeze({ Accent = Theme.Palette.Gold, Text = "LEGENDARY", IsInk = true }),
+	Mythic = table.freeze({ Accent = Color3.fromRGB(230, 60, 72), Text = "MYTHIC", IsInk = false }),
+})
+-- The same looks by ERarities number, as a card or a potion carries its rarity.
+local raritiesByNumber = {}
+for name, rarity in ERarities do
+	raritiesByNumber[rarity] = Theme.Rarities[name]
+end
+Theme.RaritiesByNumber = table.freeze(raritiesByNumber)
 
 Theme.Font = table.freeze({
 	Medium = Font.new(SANS, Enum.FontWeight.Medium),

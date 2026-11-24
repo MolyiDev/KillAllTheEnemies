@@ -1,6 +1,6 @@
 --!nonstrict
 -- Gems a claim pays, bursting out of where they were won (a daily reward's gem, a quest's reward) and pulled into the
--- lobby HUD's Gems pill (UI.md 5j): thrown out
+-- lobby HUD's Gems pill (UI.md 5j), or a code's XP into the level plate's bar: thrown out
 -- round the gem against drag, they hang, then each is pulled home on its own bend, carrying on the way it was thrown
 -- before it turns. They land one at a time on a closing beat, each handing the pill its slice, so the count climbs in
 -- ticks you can count, and the last one lands the whole amount.
@@ -12,6 +12,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Icons = require(script.Parent.Icons)
 local Motion = require(script.Parent.Motion)
 local Theme = require(script.Parent.Theme)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local Palette = Theme.Palette
@@ -69,7 +70,7 @@ local COLORS = table.freeze({
 
 export type TPayout = {
 	Layer: Frame,
-	-- Throws `amount` Gems from `from` (screen px) at `now`. `onLand(owed)` is called on each landing with what is
+	-- Throws `amount` (Gems or XP) from `from` (screen px) at `now`. `onLand(owed)` is called on each landing with what is
 	-- still in the air; 0 on the last.
 	Burst: (from: Vector2, amount: number, now: number, onLand: (owed: number) -> ()) -> (),
 	-- Moves every piece; false once nothing is left to do.
@@ -83,10 +84,11 @@ local function cubic(a: Vector2, b: Vector2, c: Vector2, d: Vector2, t: number):
 	return a * (u * u * u) + b * (3 * u * u * t) + c * (3 * u * t * t) + d * (t * t * t)
 end
 
--- `scale` is the screen's px per design px; `target` where the pill's glyph is now, in screen px (nil while there is
--- none: they land where it was last seen).
-function GemPayout.Build(scale: () -> number, target: () -> Vector2?): TPayout
+-- `scale` is the screen's px per design px; `target` where they land now, in screen px (nil while there is none: they
+-- land where it was last seen). `picture` is what flies, the gem unless said.
+function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: string?): TPayout
 	local random = Random.new()
+	local flown = Icons.Pictures[picture or EIcons.Gem]
 	local pieces = table.create(Tune.POOL)
 	local icons = table.create(Tune.POOL)
 	local streaks = table.create(Tune.POOL)
@@ -95,9 +97,9 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?): TPayout
 			Name = "Gem",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Image = Icons.IMAGE,
-			ImageRectOffset = Icons.Cells.Gem,
-			ImageRectSize = Icons.CELL_SIZE,
+			Image = flown.Image,
+			ImageRectOffset = flown.Offset,
+			ImageRectSize = Icons.PICTURE_CELL_SIZE,
 			ScaleType = Enum.ScaleType.Fit,
 			Visible = false,
 			ZIndex = 2,
@@ -198,11 +200,10 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?): TPayout
 				Bend = random:NextNumber(Tune.BEND_MIN, Tune.BEND_MAX),
 				Land = Vector2.new(random:NextNumber(-1, 1), random:NextNumber(-1, 1)) * Tune.LAND_JITTER * unit,
 				Spin = if random:NextNumber() < 0.5 then Tune.SPIN else -Tune.SPIN,
-				Side = math.round(glyph / Icons.GLYPH_SHARE * unit),
+				Side = math.round(glyph / Icons.PICTURE_SHARE * unit),
 				Rank = rank,
 				Last = from,
 			}
-			icons[cursor].ImageColor3 = color
 			streaks[cursor].BackgroundColor3 = color
 		end
 	end

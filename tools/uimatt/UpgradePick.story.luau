@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
+local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 
 local Pick = StarterPlayer.StarterPlayerScripts.Client.Controllers.UpgradePickController
 local Card = require(Pick.Card)
@@ -20,15 +21,20 @@ local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
 local SWAPS = {
+	[Icons.Pictures.Gem.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures1.png",
+	[Icons.Pictures.Potion.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures2.png",
+	[Icons.Pictures.Pointer.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures3.png",
+	[Icons.Pictures.UpArrow.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures4.png",
+	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "PanelTexture.png",
 }
 local SPACING = 396
 local REST_Y = 30
 local HAND = {
-	{ Id = 1, Level = 1, Rarity = 2 },
-	{ Id = 6, Level = 1, Rarity = 3 },
-	{ Id = 2, Level = 3, Rarity = 1 },
+	{ Id = 1, Level = 1, Rarity = ERarities.Rare },
+	{ Id = 6, Level = 1, Rarity = ERarities.Epic },
+	{ Id = 2, Level = 3, Rarity = ERarities.Common },
 }
 
 local function swapImages(root: Instance)
@@ -98,6 +104,7 @@ return {
 					Level = source(card.Level),
 					Rarity = source(card.Rarity),
 					IsFaceUp = source(moment ~= "Backs"),
+					IsRevealed = source(moment ~= "Backs"),
 					Hover = source(if (moment == "Rest" and index == 1) or isChosen then 1 else 0),
 					GlareAt = source(-0.3),
 					Shade = source(0),

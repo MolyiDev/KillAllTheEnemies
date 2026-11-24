@@ -6,6 +6,14 @@ event LeavePad {
 	data: ()
 }
 
+-- I just stepped into this pad's zone, so put me on it now rather than when the zone poll finds me. (pad)
+event StepOnPad {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8)
+}
+
 -- The Play button: put me on a free pad as its host, or into an open party if none is free.
 event Play {
 	from: Client,
@@ -15,10 +23,10 @@ event Play {
 }
 
 -- The host's party, once picked. Only the host of a pad still being chosen is heard.
--- (maxPlayers, map (MapsCore.LIST), isFriendsOnly)
+-- (maxPlayers, map (MapsCore.LIST), difficulty (MapsCore.DIFFICULTIES), isFriendsOnly)
 event StartParty {
 	from: Client,
 	type: Reliable,
 	call: SingleAsync,
-	data: (u8, u8, boolean)
+	data: (u8, u8, u8, boolean)
 }

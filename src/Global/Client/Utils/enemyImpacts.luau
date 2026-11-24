@@ -192,6 +192,7 @@ local endBursts = 0
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("EnemyPieces", Tune.PIECE_PARTS)
+pieces.Landed = thrownPieces.BrickLanded
 -- Read once a frame (BeginFrame): every burst asks how far it is.
 local cameraPosition = Vector3.zero
 local kit: TKit? = nil

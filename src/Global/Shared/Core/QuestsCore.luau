@@ -8,8 +8,8 @@ local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 -- What a quest counts. Kills (by the player, of `Enemy` when it names one), Bosses (defeated with the player in the
 -- match, of `Enemy` when it names one), Waves (cleared with the player in the match), BestWave (the highest wave
--- cleared in one run: a high mark, not a sum), Runs (runs started), Abilities and Ultimates (cast), Defenses (placed).
-export type TMetric = "Kills" | "Bosses" | "Waves" | "BestWave" | "Runs" | "Abilities" | "Ultimates" | "Defenses"
+-- cleared in one run: a high mark, not a sum), Runs (runs started), Abilities and Ultimates (cast).
+export type TMetric = "Kills" | "Bosses" | "Waves" | "BestWave" | "Runs" | "Abilities" | "Ultimates"
 -- A board holds one quest of each group, in GROUPS order. A group is also the card's colour on the screen.
 export type TGroup = "Slay" | "Hunt" | "Survive" | "Boss" | "Skill"
 
@@ -179,16 +179,6 @@ local Pools: { [TBoardKind]: { TQuest } } = {
 			Gems = 50,
 			Group = "Skill",
 		},
-		{
-			Id = 14,
-			Name = "Engineer",
-			Title = "ENGINEER",
-			Description = "Place 6 defenses",
-			Metric = "Defenses",
-			Goal = 6,
-			Gems = 40,
-			Group = "Skill",
-		},
 	},
 	Weekly = {
 		{
@@ -324,16 +314,6 @@ local Pools: { [TBoardKind]: { TQuest } } = {
 			Metric = "Ultimates",
 			Goal = 15,
 			Gems = 350,
-			Group = "Skill",
-		},
-		{
-			Id = 114,
-			Name = "Fortifier",
-			Title = "FORTIFIER",
-			Description = "Place 40 defenses",
-			Metric = "Defenses",
-			Goal = 40,
-			Gems = 300,
 			Group = "Skill",
 		},
 	},

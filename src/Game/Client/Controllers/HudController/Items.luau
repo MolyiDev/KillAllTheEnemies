@@ -8,6 +8,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Types = require(script.Parent.Types)
@@ -23,12 +24,14 @@ local Font = Theme.Font
 local RIGHT = 244
 local TOP = 176
 local CARD = Vector2.new(100, 96)
-local GAP = 8
+-- 18, not his 8: under a press a card's brackets reach 11 px out, and at his HEAL ALL's crossed NUKE's.
+local GAP = 18
 local BADGE = Vector2.new(70, -8)
 local BADGE_SIZE = 30
 local BADGE_TEXT = 17
 local GLYPH = Vector2.new(47, 40)
-local GLYPH_SIZE = 47
+-- The picture's longer side.
+local PICTURE_SIZE = 54
 local LABEL_Y = 82
 local LABEL_TEXT = 13
 local SPOT = Vector2.new(-112, 122)
@@ -41,15 +44,14 @@ local SHEEN_SECONDS = 0.7
 -- The move out to the spot: a little past and back, the one flourish here.
 local PROMPT_SPRING = 0.42
 local PROMPT_DAMPING = 0.68
--- Under the hand: how far the brackets stand off and open, and how much the glyph grows with the card's rise.
-local BRACKETS = 8
-local BRACKETS_OPEN = 4
+-- Under the hand: how much the glyph grows with the card's rise.
 local GLYPH_RISE = 0.12
 
 local Items = {}
 
 type TItem = {
 	Name: string,
+	Picture: string,
 	Label: string,
 	Accent: Color3,
 	Home: Vector2,
@@ -112,9 +114,7 @@ local function card(state: Types.THudState, actions: Types.TActions, item: TItem
 				local e = math.clamp(emphasis(), 0, 1)
 				return 0.7 - math.max(0.4 * e + 0.12 * wave(), 0.4 * hand.Light())
 			end,
-			Brackets = function()
-				return BRACKETS + BRACKETS_OPEN * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			BracketTransparency = function()
 				return 0.65 - 0.35 * hand.Light()
 			end,
@@ -138,11 +138,10 @@ local function card(state: Types.THudState, actions: Types.TActions, item: TItem
 				3
 			),
 		}),
-		Components.Icon(item.Name, {
+		Components.Picture(item.Picture, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(GLYPH.X, GLYPH.Y),
-			Size = Components.GlyphBox(GLYPH_SIZE),
-			ImageColor3 = item.Accent,
+			Size = Components.PictureBox(PICTURE_SIZE),
 			ZIndex = 2,
 			create("UIScale")({
 				Scale = function()
@@ -208,6 +207,7 @@ function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
 		end,
 		card(state, actions, {
 			Name = "HealAll",
+			Picture = EIcons.Potion,
 			Label = "HEAL ALL",
 			Accent = Palette.Green,
 			Home = CARD / 2,
@@ -217,6 +217,7 @@ function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
 		}),
 		card(state, actions, {
 			Name = "NukeAll",
+			Picture = EIcons.Bomb,
 			Label = "NUKE ALL",
 			Accent = Palette.Gold,
 			Home = Vector2.new(CARD.X * 1.5 + GAP, CARD.Y / 2),

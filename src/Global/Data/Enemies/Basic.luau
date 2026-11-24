@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- GDD 11: runs at the nearest player or barricade and hits at melee range. The main horde unit.
@@ -27,6 +28,7 @@ local data: TData.TEnemy = {
 	IntroRound = 1,
 	SpawnWeight = 10,
 	GoldDrop = 2,
+	Energy = { Upgrade = EUpgradesIds.Regeneration, Cost = 10, Chance = 0.03, Color = Color3.fromRGB(51, 217, 128) },
 }
 
 return table.freeze(data)

@@ -1,7 +1,7 @@
 -- The lobby's shooting range, as both sides see it: the hall off the plaza (Workspace.Lobby.Map.Range), the box a
 -- player is in it inside, the booths TRY takes a player to, and its dummies: one per Model under Range.Targets,
 -- numbered by the number in their names, which is what lets the network name one with a byte. A dummy is a first-wave
--- monster's stand-in (its health, its sounds, its bursts in the dummy's own colours), swaying on its rail by the
+-- monster's stand-in (its health, its sounds, its bursts in the dummy's own colours), some swaying side to side by the
 -- server's clock so both sides have it in the same place, and down for a moment once killed.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -26,9 +26,9 @@ export type TDummy = {
 
 local RangeCore = {}
 
--- The middle of the hall: the plaza is down its -X, the targets up its +X. The box takes in the entrance (x -5..40),
--- narrower than the hall past it; the walls keep players out of the rest.
-local ORIGIN = CFrame.new(97.5, 0, 1)
+-- The middle of the hall, on the plaza's axis: the plaza is down its -X, the targets up its +X. The box takes in the
+-- corridor in from the plaza (x -5..40), narrower than the hall past it; the walls keep players out of the rest.
+local ORIGIN = CFrame.new(97.5, 0, -13)
 local BOUNDS_MIN = Vector3.new(-102.5, -4, -45)
 local BOUNDS_MAX = Vector3.new(102.5, 30, 45)
 -- An enemy's chest share of its height (EnemiesCore's AIM_CHEST_FRACTION).
@@ -56,16 +56,16 @@ RangeCore.HOLD_SECONDS = 1.6
 RangeCore.RISE_SECONDS = 0.45
 RangeCore.DOWN_SECONDS = RangeCore.FALL_SECONDS + RangeCore.HOLD_SECONDS + RangeCore.RISE_SECONDS
 
--- Where TRY stands a player: a booth behind the counter (between its dividers), root height, facing the targets. The
--- two in the middle first: the first free one is taken.
+-- Where TRY stands a player: a spot behind the counter in front of a lane of dummies, root height, facing the
+-- targets. The two in the middle first: the first free one is taken.
 RangeCore.BOOTHS = table.freeze({
-	CFrame.lookAlong(Vector3.new(48.5, 3, -6.5), Vector3.xAxis),
-	CFrame.lookAlong(Vector3.new(48.5, 3, 8.5), Vector3.xAxis),
-	CFrame.lookAlong(Vector3.new(48.5, 3, -21.5), Vector3.xAxis),
-	CFrame.lookAlong(Vector3.new(48.5, 3, 23.5), Vector3.xAxis),
+	CFrame.lookAlong(Vector3.new(48.5, 3, -20.5), Vector3.xAxis),
+	CFrame.lookAlong(Vector3.new(48.5, 3, -5.5), Vector3.xAxis),
+	CFrame.lookAlong(Vector3.new(48.5, 3, -35.5), Vector3.xAxis),
+	CFrame.lookAlong(Vector3.new(48.5, 3, 9.5), Vector3.xAxis),
 })
 
--- The dummies on rails, by Model name: how far each side of home and seconds a full swing.
+-- The dummies that sway, by Model name: how far each side of home and seconds a full swing.
 local SWAYS: { [string]: { Studs: number, Period: number } } = table.freeze({
 	Target3 = { Studs = 5, Period = 3.2 },
 	Target6 = { Studs = 5, Period = 4.4 },

@@ -12,6 +12,8 @@ export type TMessage = {
 	-- The pad the party queued on, and the map it was for (MapsCore.MAPS).
 	PadName: string,
 	MapName: string,
+	-- The difficulty the host picked (MapsCore.DIFFICULTIES); nil on a token from before there was a choice.
+	Difficulty: string?,
 }
 
 return nil

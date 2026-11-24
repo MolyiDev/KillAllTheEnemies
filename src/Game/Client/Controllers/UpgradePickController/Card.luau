@@ -7,15 +7,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
+local Ribbon = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Ribbon)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local UpgradesCore = require(ReplicatedStorage.Shared.Core.UpgradesCore)
-local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local Palette = Theme.Palette
 local Font = Theme.Font
 local UPGRADES = DataCore.Upgrades.ById
+local RARITIES = Theme.RaritiesByNumber
 
 local Card = {}
 
@@ -27,14 +29,14 @@ Card.CANVAS = Card.SIZE + Vector2.new(2 * Card.MARGIN, 2 * Card.MARGIN)
 local Layout = table.freeze({
 	KEY = Vector2.new(25, 24),
 	KEY_SIZE = 44,
-	TAG = Vector2.new(283, 30),
-	TAG_SIZE = Vector2.new(65, 30),
+	-- NEW or the level, on a ribbon across the top right corner where he drew its tag.
+	RIBBON_ALONG = 100,
+	RIBBON_THICKNESS = 28,
 	TAG_TEXT = 16,
-	-- The picture's frame, its glyph's longer side, and how far its brackets stand off it.
+	-- The picture's frame and the picture's longer side.
 	ICON = Vector2.new(113, 92),
 	ICON_SIZE = 148,
-	GLYPH = 92,
-	ICON_BRACKETS = 8,
+	PICTURE = 108,
 	NAME_Y = 271,
 	NAME_TEXT = 29,
 	DESCRIPTION = Vector2.new(30, 312),
@@ -45,32 +47,11 @@ local Layout = table.freeze({
 	RARITY_PAD = 15,
 	-- How far the bottom of the face warms toward the rarity, measured off his three.
 	TINT = 0.45,
-	BRACKETS = 8,
 	-- The light that follows the hand across the face: how wide a share of the card its band is, and its strength.
 	GLARE_BAND = 0.22,
 	GLARE_PEAK = 0.16,
 })
 
--- His three rarity colours, sampled off his tags; the two he did not draw take the HUD's gold and pink.
-local RARITY_COLORS = table.freeze({
-	[ERarities.Common] = Color3.fromRGB(89, 191, 255),
-	[ERarities.Rare] = Color3.fromRGB(139, 92, 255),
-	[ERarities.Epic] = Color3.fromRGB(255, 128, 38),
-	[ERarities.Legendary] = Palette.Gold,
-	[ERarities.Mythic] = Palette.Pink,
-})
-local RARITY_NAMES = table.freeze({
-	[ERarities.Common] = "COMMON",
-	[ERarities.Rare] = "RARE",
-	[ERarities.Epic] = "EPIC",
-	[ERarities.Legendary] = "LEGENDARY",
-	[ERarities.Mythic] = "MYTHIC",
-})
--- His ink on the bright tags, white on the deep ones.
-local DARK_INK = table.freeze({
-	[ERarities.Common] = true,
-	[ERarities.Legendary] = true,
-})
 local BACK_ACCENT = Color3.fromRGB(120, 108, 150)
 
 -- What a card is told (UpgradePickController writes them). Hover, Shade and Flash are 0 to 1; GlareAt is where the
@@ -81,6 +62,8 @@ export type TCardState = {
 	Level: vide.Source<number>,
 	Rarity: vide.Source<number>,
 	IsFaceUp: vide.Source<boolean>,
+	-- Turned up for this hand: its ribbon slaps in as it is first turned up and goes as it is turned down to be redealt.
+	IsRevealed: vide.Source<boolean>,
 	Hover: vide.Source<number>,
 	GlareAt: vide.Source<number>,
 	Shade: vide.Source<number>,
@@ -88,7 +71,7 @@ export type TCardState = {
 }
 
 function Card.RarityColor(rarity: number): Color3
-	return RARITY_COLORS[rarity] or RARITY_COLORS[ERarities.Common]
+	return RARITIES[rarity].Accent
 end
 
 local function text(props: { [any]: any }): TextLabel
@@ -101,7 +84,7 @@ local function text(props: { [any]: any }): TextLabel
 	})
 end
 
--- A small tag in the rarity's colour (NEW or the level, and the rarity's name): as wide as its word.
+-- A small tag in the rarity's colour (the rarity's name): as wide as its word.
 local function tag(state: TCardState, label: () -> string, props: { [any]: any }): Frame
 	return create("Frame")({
 		BorderSizePixel = 0,
@@ -115,7 +98,7 @@ local function tag(state: TCardState, label: () -> string, props: { [any]: any }
 			TextSize = Layout.TAG_TEXT,
 			Text = label,
 			TextColor3 = function()
-				return if DARK_INK[state.Rarity()] then Palette.Ink else Palette.White
+				return if RARITIES[state.Rarity()].IsInk then Palette.Ink else Palette.White
 			end,
 		}),
 		props,
@@ -164,7 +147,11 @@ local function front(state: TCardState): Frame
 		Tint = Layout.TINT,
 		Tall = true,
 		Marks = true,
-		Brackets = Layout.BRACKETS,
+		Brackets = true,
+		-- His chosen card wears a white frame where the brackets stand: they close into it.
+		BracketsClosed = function()
+			return state.Hover() > 0.5
+		end,
 		GlowTransparency = function()
 			return 0.7 - 0.35 * state.Hover() - 0.3 * state.Flash()
 		end,
@@ -177,34 +164,40 @@ local function front(state: TCardState): Frame
 			Position = UDim2.fromOffset(Layout.KEY.X, Layout.KEY.Y),
 			ZIndex = 3,
 		}),
-		tag(state, function()
-			local level = state.Level()
-			return if level > 1 then `LV {level}` else "NEW"
-		end, {
-			Name = "Level",
-			Position = UDim2.fromOffset(Layout.TAG.X, Layout.TAG.Y),
-			Size = UDim2.fromOffset(Layout.TAG_SIZE.X, Layout.TAG_SIZE.Y),
+		Ribbon.Build({
+			Corner = "TopRight",
+			Text = function()
+				local level = state.Level()
+				return if level > 1 then `LV {level}` else "NEW"
+			end,
+			Color = accent,
+			IsInk = function()
+				return RARITIES[state.Rarity()].IsInk
+			end,
+			IsShown = state.IsRevealed,
+			Along = Layout.RIBBON_ALONG,
+			Thickness = Layout.RIBBON_THICKNESS,
+			TextSize = Layout.TAG_TEXT,
+			ZIndex = 4,
 		}),
 		Components.Card({
 			Accent = accent,
 			Tint = 0.3,
-			Brackets = Layout.ICON_BRACKETS,
+			Brackets = true,
 			BracketLength = 18,
 		}, {
 			Name = "Picture",
 			Position = UDim2.fromOffset(Layout.ICON.X, Layout.ICON.Y),
 			Size = UDim2.fromOffset(Layout.ICON_SIZE, Layout.ICON_SIZE),
 			ZIndex = 3,
-			Components.Icon("Coins", {
+			Components.Picture(function()
+				local upgrade = data()
+				return if upgrade then upgrade.Icon else EIcons.GoldCoin
+			end, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
-				Size = Components.GlyphBox(Layout.GLYPH),
+				Size = Components.PictureBox(Layout.PICTURE),
 				ZIndex = 3,
-				ImageColor3 = accent,
-				ImageRectOffset = function()
-					local upgrade = data()
-					return Components.IconCell(if upgrade then upgrade.Icon else "Coins")
-				end,
 			}),
 		}),
 		text({
@@ -232,7 +225,7 @@ local function front(state: TCardState): Frame
 			end,
 		}),
 		tag(state, function()
-			return RARITY_NAMES[state.Rarity()] or ""
+			return RARITIES[state.Rarity()].Text
 		end, {
 			Name = "Rarity",
 			AnchorPoint = Vector2.new(0.5, 0),
@@ -245,23 +238,6 @@ local function front(state: TCardState): Frame
 			}),
 		}),
 		glare(state),
-		-- The white frame his chosen card wears, standing where the brackets do.
-		create("Frame")({
-			Name = "Outline",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(1, 2 * Layout.BRACKETS, 1, 2 * Layout.BRACKETS),
-			BackgroundTransparency = 1,
-			ZIndex = 0,
-			create("UICorner")({ CornerRadius = UDim.new(0, 5) }),
-			create("UIStroke")({
-				Color = Palette.White,
-				Thickness = 2,
-				Transparency = function()
-					return 1 - state.Hover()
-				end,
-			}),
-		}),
 		create("Frame")({
 			Name = "Shade",
 			Size = UDim2.fromScale(1, 1),
@@ -293,7 +269,7 @@ local function back(state: TCardState): Frame
 		Tint = 0.3,
 		Tall = true,
 		Marks = true,
-		Brackets = Layout.BRACKETS,
+		Brackets = true,
 	}, {
 		Name = "Back",
 		Position = UDim2.fromOffset(Card.MARGIN, Card.MARGIN),
@@ -304,7 +280,7 @@ local function back(state: TCardState): Frame
 		Components.Card({
 			Accent = BACK_ACCENT,
 			Tint = 0.3,
-			Brackets = Layout.ICON_BRACKETS,
+			Brackets = true,
 			BracketLength = 18,
 		}, {
 			Name = "Picture",

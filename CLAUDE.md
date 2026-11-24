@@ -74,6 +74,13 @@ ids live in the project files (`servePlaceIds`, with the old ones in a comment) 
   area: never floor, and the nav grid covers only their footprint) and `Backdrop` (scenery moved out of the arena
   before the bake: the sea, far islands). No spawn parts: enemies drop in around the players. Read `Maps.md` for
   the look and the rule that matters most: **no player may stand where enemies cannot follow**.
+- **The lobby's world:** `Workspace.Lobby.Map` is built in Studio and saved with the Lobby place (the plaza, its
+  buildings, the shooting range). `tools/lobby/` reads and renders it offline and rebuilds the range:
+  `preview.py dump` / `render` (the live place through a playtest, drawn by `ror`), `range.py` and `range_push.py`
+  (the range's hall, generated and pushed through Tripwire), `range_front.luau` (its front, the SHOP's own pieces
+  lifted from the old Lobby file). The lobby's Lighting is in `lobby.project.json` (the old Lobby place's values);
+  its Sky instances are in the place. Read `Maps.md` section 9 before changing anything there: it is the order of
+  work, the plaza's kit with numbers, and what the user has rejected and why.
 - **The old places, offline:** `research/OldGame` and `research/OldLobby` (gitignored) are dumps of the user's saved
   copies (`GameOld.rbxl`, `LobbyOld.rbxl` in Vinegar's `Documents/KillAllTheMonsters`): every script as a file at its
   instance path plus `_tree.txt`, and `_assets.txt` (every sound, mesh, texture and particle id with its instance
@@ -171,7 +178,8 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
 - **RoundService** + **RoundCore**: wave sizes, scales, the boss, rewards (Gold, Gems, XP %, records per map and
   party category) paid once per clear; kill Gold on each kill with its coin picture (`Economy.Coins`).
 - **CharacterService**: ECS health (the Humanoid only mirrors it), the hurt window, regeneration, no auto-respawn,
-  avatars loaded on `blockyBody`, and the InstanceId handshake (announced, acknowledged by every client, then
+  avatars loaded whole by `GlobalServer.Utils.loadCharacter` (R6 from the place's avatar type; never strip the
+  description, or the player loses their limbs and accessories), and the InstanceId handshake (announced, acknowledged by every client, then
   registered).
 - **EnemiesService**: spawn / damage / kill / remove, `DamageMultiple` / `KillMultiple` (one event per volley per
   player), immunity, the stagger, the boss bar. Events go only to the body's AOI subscribers.
@@ -200,6 +208,13 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
   `AbilityController` and `Utils/decoyFx`, `foamFx`, `orbitalFx`. The `ult` console command fills the meter.
 - **DefenseService**: placement validated on the nav grid; barricades block nodes and are the barricade field's
   targets; turrets shoot the nearest enemy and credit their owner.
+- **EquipmentService** (global) + **EquipmentCore**: pieces kept for good (`Data/Equipment`, `TProfile.Equipment` by
+  Name; an `EarlyUnlock` piece is everybody's), one a slot, each shown on the avatar or not. A match reads what the worn
+  ones add (`StatOf`: max health in CharacterService, armor on each blow, kill Gold in RoundService);
+  **EquipmentDropsService** rolls a boss's pieces for every player as it dies. Every client draws everybody's shown
+  pieces (`EquipmentWearController`: classic rigid accessories in `Models.Equipment`, welded by the attachment each
+  names, which R6 bodies carry). The lobby's screen is the classes screen's EQUIPMENT tab (`EquipmentController`).
+  `gear give <piece|all>` / `gear clear` in the console.
 
 ### Enemies and navigation
 
@@ -236,11 +251,20 @@ This is the part that makes the game: keep its rules when the enemies change.
 it is full, when the countdown drops to `PadsCore.FULL_COUNTDOWN_SECONDS`. A player on a pad is anchored there until
 EXIT. The pads' rim and glow are built on each client (`LobbyController/PadArt`).
 
+The lobby's screens (classes, weapons, index, quests, daily, settings, codes, shop) are one up at a time: anything
+that opens one from over another goes through `LobbyController`'s `swapTo` (the screen up leaves, then the new one
+comes in), and a new screen joins `isPlayerScreenUp` and `closeScreens`. UI.md, "A screen's life", has the rest.
+
 ### UI and the top bar
 
 UI is `vide` (`src/Global/Client/UI`: `Theme`, `Components`, `ConsoleUI`; the HUD in
 `src/Game/Client/Controllers/HudController`). The current HUD is a placeholder; the real one follows `UIMatt.md`.
-`UI.md` is Ballarc's UI method (benches, motion, juice): its lessons apply, its pixel look does not.
+`UI.md` is Ballarc's UI method (benches, motion, juice): its lessons apply, its pixel look does not. Every icon is a
+rendered picture drawn as `Components.Picture(EIcons.X, ...)` (only Robux stays a flat glyph); `EIcons` is generated
+by `Assets/ui/rendered/build.py`, and `UI.md` "Icons" has the rules.
+Corner brackets stand one distance off everything (`Components.Brackets`, never a number per screen), a picked piece
+closes its own brackets into an outline, and two pieces stand far enough apart for the worst case (a press with the
+hand on one): `UI.md`, "Brackets, picked and side by side", is the check every new piece passes.
 `GlobalShared.TopbarPlus` is a vendored TopbarPlus v3 with local changes (Butler instead of Janitor, a `PixelSkin`
 feature that is Ballarc's look): update it by hand, never from Wally.
 

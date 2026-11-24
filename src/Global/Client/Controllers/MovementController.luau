@@ -15,8 +15,8 @@ local AnimationsFolder = ReplicatedStorage:WaitForChild("Animations")
 local FADE_IN = 0.3
 local FADE_OUT = 0.3
 local IDLE_SPEED = 0.65
--- The walk clips' authored speed: at this WalkSpeed a stride is played at 1x (Roblox's default; the places set 22).
-local BASE_WALK_SPEED = 16
+-- At this WalkSpeed a stride is played at 1x: the Game place's speed, so the Lobby's 33 walks at 1.5x.
+local BASE_WALK_SPEED = 22
 -- Eighths of a turn clockwise from straight ahead: 1 front, 2 front-right, 3 right ... 8 front-left.
 local SECTOR_ANGLE = math.pi / 4
 local STANDING = 0
@@ -92,6 +92,8 @@ local function onAnimationPlayed(track: AnimationTrack)
 	if not animation or not ANIMATE_WALK_CLIPS[animation.Name] then return end
 	animateWalk = track
 	track.TimePosition = resumeTime(track.Length)
+	-- Animate scales only Roblox's own walk clip to the body's speed, never the marked one useMarkedWalk swaps in.
+	track:AdjustSpeed(walkSpeed())
 end
 
 local function load(animator: Animator, path: { string }): AnimationTrack?
@@ -140,6 +142,9 @@ local function adjustSpeed()
 	for _, track in walkTracks do
 		if track.IsPlaying then track:AdjustSpeed(speed) end
 	end
+
+	local track = animateWalk
+	if track and track.IsPlaying then track:AdjustSpeed(speed) end
 end
 
 -- Roblox's default walk carries no Footstep marker, so FootstepsController hears nothing off it; Animations.Walk is

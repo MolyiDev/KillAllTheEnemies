@@ -10,9 +10,11 @@ export type TRangeState = {
 	Scale: Source<number>,
 	-- os.clock(), written only while a gesture runs.
 	Now: Source<number>,
-	-- The local player stands in the range, and when that last changed.
+	-- The local player stands in the range.
 	IsInside: Source<boolean>,
-	InsideAt: Source<number>,
+	-- The strip is up (the player stands in the range and no lobby screen covers it), and when that last changed.
+	IsUp: Source<boolean>,
+	UpAt: Source<number>,
 	-- The guns the range offers, in the strip's order (Range.Offer): the loadout, or the one TRY brought.
 	Shown: Source<{ number }>,
 	-- The gun in hand (a gun Id, 0 for none) and when it was picked.

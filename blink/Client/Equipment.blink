@@ -1,0 +1,26 @@
+-- The equipment screen's requests (EquipmentService), each only the piece's Id: whether it is owned and the slot it
+-- goes in are the server's.
+
+-- Put an owned piece in its slot, taking out whatever was there.
+event Equip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Take a piece out of its slot, leaving the slot empty.
+event Unequip {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: u8
+}
+
+-- Draw an owned piece on the avatar or take it off it; worn either way, it still counts. (piece Id, shown)
+event Show {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, boolean)
+}

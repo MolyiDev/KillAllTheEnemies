@@ -14,6 +14,7 @@ local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Gu
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Types = require(script.Parent.Types)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
@@ -102,23 +103,26 @@ local Layout = table.freeze({
 	DOUBLE_VALUE_SIZE = 48,
 	DOUBLE_GEM_SIZE = 33,
 	DOUBLE_GEM_GAP = 13,
+	-- The two offers 3 px narrower than his and 20 apart (his 14): under a press one's brackets reach 13 px out.
 	ROBUX = Vector2.new(27, 117),
-	ROBUX_ALONE = Vector2.new(175, 117),
-	ADVERT = Vector2.new(323, 117),
-	OFFER = Vector2.new(282, 72),
+	ROBUX_ALONE = Vector2.new(176, 117),
+	ADVERT = Vector2.new(326, 117),
+	OFFER = Vector2.new(279, 72),
 
 	LOBBY = Vector2.new(35, 576),
 	LOBBY_SIZE = Vector2.new(290, 112),
-	AGAIN = Vector2.new(340, 575),
-	AGAIN_SIZE = Vector2.new(382, 114),
-	VOTES = Vector2.new(729, 576),
+	-- The bottom row over his span, 22 between any two pieces (his 15 and 7): under a press PLAY AGAIN's and REVIVE's
+	-- brackets reach 15 px out, so both are narrower than his 382 and 358.
+	AGAIN = Vector2.new(347, 575),
+	AGAIN_SIZE = Vector2.new(364, 114),
+	VOTES = Vector2.new(733, 576),
 	VOTES_SIZE = Vector2.new(110, 112),
 	VOTES_VALUE_Y = 27,
 	VOTES_VALUE_SIZE = 37,
 	VOTES_LABEL_Y = 71,
 	VOTES_LABEL_SIZE = 13,
-	REVIVE = Vector2.new(854, 575),
-	REVIVE_SIZE = Vector2.new(358, 114),
+	REVIVE = Vector2.new(865, 575),
+	REVIVE_SIZE = Vector2.new(347, 114),
 
 	UPGRADES = Vector2.new(58, 746),
 	UPGRADES_TAG = Vector2.new(244, 42),
@@ -216,7 +220,6 @@ local Timing = table.freeze({
 	HOVER_SCALE = 1.03,
 	PRESS_SCALE = 0.96,
 	HOVER_GLOW = 0.38,
-	HOVER_BRACKETS = 3,
 	-- The buttons that are bought catch the light in turn, and REVIVE's heart beats twice a cycle.
 	ASK_EVERY = 3.4,
 	ASK_SHEEN = 0.8,
@@ -239,7 +242,6 @@ local Colors = table.freeze({
 	GEMS = Color3.fromRGB(80, 166, 225),
 	DOUBLE = Color3.fromRGB(124, 82, 228),
 	GEM = Color3.fromRGB(89, 191, 255),
-	KILLS = Color3.fromRGB(255, 128, 38),
 	KILLS_EDGE = Color3.fromRGB(144, 73, 34),
 	TIME_EDGE = Color3.fromRGB(144, 109, 45),
 	BONUS = Color3.fromRGB(139, 92, 255),
@@ -444,17 +446,9 @@ local function dealt(
 	})
 end
 
--- His brackets round a card stand 8 px off its ends and 5 off its top and bottom.
+-- His brackets round a card, fainter than a button's.
 local function cardBrackets(): Frame
-	return create("Frame")({
-		Name = "BracketsHolder",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(1, 6, 1, 0),
-		BackgroundTransparency = 1,
-		ZIndex = 0,
-		Components.Brackets(5, 0.65, 22),
-	})
+	return Components.Brackets(nil, 0.65, 22)
 end
 
 -- A light crossing its parent's face as `travel` runs 0 to 1, cut to the face.
@@ -483,19 +477,31 @@ local function caption(spec: { [string]: any }): Frame
 			Padding = UDim.new(0, spec.Gap),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
-		-- In a holder of its own, so a glyph that swells (IconChild, a UIScale) does not push the word about.
+		-- In a holder of its own, so a picture that swells (IconChild, a UIScale) does not push the word about. Robux
+		-- is the flat glyph (Glyph), as Roblox draws it.
 		if spec.Icon
 			then create("Frame")({
+				LayoutOrder = 1,
+				Size = Components.PictureBox(spec.IconSize),
+				BackgroundTransparency = 1,
+				Visible = spec.IsIconShown,
+				Components.Picture(spec.Icon, {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.fromScale(1, 1),
+					spec.IconChild,
+				}),
+			})
+			elseif spec.Glyph then create("Frame")({
 				LayoutOrder = 1,
 				Size = Components.GlyphBox(spec.IconSize),
 				BackgroundTransparency = 1,
 				Visible = spec.IsIconShown,
-				Components.Icon(spec.Icon, {
+				Components.Icon(spec.Glyph, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
 					Size = UDim2.fromScale(1, 1),
 					ImageColor3 = Palette.White,
-					spec.IconChild,
 				}),
 			})
 			else nil,
@@ -541,9 +547,7 @@ local function slabButton(spec: { [string]: any }): TextButton
 		Components.Slab({
 			Kind = spec.Kind,
 			Marks = true,
-			Brackets = function()
-				return 5 + Timing.HOVER_BRACKETS * hand.Rise()
-			end,
+			Brackets = hand.Rise,
 			GlowTransparency = function()
 				return Lerp(0.6, Timing.HOVER_GLOW, hand.Light())
 			end,
@@ -572,12 +576,11 @@ local function header(state: Types.THudState, clock: TClock): { Instance }
 	end
 
 	return {
-		Components.Icon("Skull", {
+		Components.Picture(EIcons.Skull, {
 			Name = "Skull",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.SKULL.X, Layout.SKULL.Y),
-			Size = Components.GlyphBox(Layout.SKULL_SIZE),
-			ImageColor3 = Palette.Pink,
+			Size = Components.PictureBox(Layout.SKULL_SIZE),
 			ZIndex = 2,
 			ImageTransparency = function()
 				return 1 - Motion.Out(clock.Since(Timing.SKULL_DELAY, Timing.SKULL * 0.6))
@@ -703,7 +706,7 @@ local function header(state: Types.THudState, clock: TClock): { Instance }
 	}
 end
 
--- One of the two stats under the wave: an ink plate edged in its colour, its glyph, caption and number.
+-- One of the two stats under the wave: an ink plate edged in its colour, its picture, caption and number.
 local function stat(spec: { [string]: any }): Frame
 	return create("Frame")({
 		Name = spec.Name,
@@ -728,11 +731,10 @@ local function stat(spec: { [string]: any }): Frame
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			}),
 		}),
-		Components.Icon(spec.Icon, {
+		Components.Picture(spec.Icon, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.STAT_ICON.X, Layout.STAT_ICON.Y),
-			Size = Components.GlyphBox(Layout.STAT_ICON_SIZE),
-			ImageColor3 = spec.Color,
+			Size = Components.PictureBox(Layout.STAT_ICON_SIZE),
 			ZIndex = 2,
 		}),
 		label({
@@ -933,8 +935,7 @@ local function waveCard(state: Types.THudState, clock: TClock): Frame
 			Name = "Kills",
 			At = Layout.KILLS,
 			Edge = Colors.KILLS_EDGE,
-			Icon = "Skull",
-			Color = Colors.KILLS,
+			Icon = EIcons.Skull,
 			Label = "SQUAD KILLS",
 			Value = function()
 				return Components.Commas(math.round(results.SquadKills() * stats()))
@@ -944,8 +945,7 @@ local function waveCard(state: Types.THudState, clock: TClock): Frame
 			Name = "Time",
 			At = Layout.TIME,
 			Edge = Colors.TIME_EDGE,
-			Icon = "Stopwatch",
-			Color = Palette.Gold,
+			Icon = EIcons.Stopwatch,
 			Label = "TIME SURVIVED",
 			Value = function()
 				local seconds = math.round(results.Seconds() * stats())
@@ -1045,14 +1045,11 @@ local function gemsCard(clock: TClock, gems: TGems): Frame
 			TextColor3 = Colors.GEM,
 			Text = "GEMS EARNED",
 		}),
-		Components.Icon("Gem", {
+		Components.Picture(EIcons.Gem, {
 			Name = "Gem",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(Layout.GEM.X, Layout.GEM.Y),
-			Size = Components.GlyphBox(Layout.GEM_SIZE),
-			ImageColor3 = function()
-				return Colors.GEM:Lerp(Palette.White, 0.7 * gems.EarnedFlash())
-			end,
+			Size = Components.PictureBox(Layout.GEM_SIZE),
 			ZIndex = 2,
 			create("UIScale")({
 				Scale = function()
@@ -1177,10 +1174,9 @@ local function doubleCard(state: Types.THudState, actions: Types.TActions): Fram
 				Padding = UDim.new(0, Layout.DOUBLE_GEM_GAP),
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
-			Components.Icon("Gem", {
+			Components.Picture(EIcons.Gem, {
 				LayoutOrder = 1,
-				Size = Components.GlyphBox(Layout.DOUBLE_GEM_SIZE),
-				ImageColor3 = Colors.GEM,
+				Size = Components.PictureBox(Layout.DOUBLE_GEM_SIZE),
 			}),
 			label({
 				LayoutOrder = 2,
@@ -1202,7 +1198,7 @@ local function doubleCard(state: Types.THudState, actions: Types.TActions): Fram
 			Kind = function()
 				return if isOffered() then "Violet" else "Off"
 			end,
-			Icon = "Robux",
+			Glyph = "Robux",
 			IconSize = 24,
 			IsIconShown = isOffered,
 			Text = function()
@@ -1225,7 +1221,7 @@ local function doubleCard(state: Types.THudState, actions: Types.TActions): Fram
 			-- There only while an ad can be shown for the doubling.
 			IsShown = results.CanWatchAd,
 			Kind = "Steel",
-			Icon = "Advert",
+			Icon = EIcons.Advert,
 			IconSize = 21,
 			Text = "WATCH AD",
 			TextSize = 23,
@@ -1282,7 +1278,7 @@ local function lobbyButton(actions: Types.TActions): TextButton
 		end,
 		create("UIScale")({ Scale = scale }),
 		Components.Panel({
-			Brackets = 5,
+			Brackets = true,
 			Stroke = function()
 				return Palette.EdgePink:Lerp(Palette.Pink, 0.7 * hover())
 			end,
@@ -1290,7 +1286,7 @@ local function lobbyButton(actions: Types.TActions): TextButton
 			Name = "Face",
 			Size = UDim2.fromScale(1, 1),
 			caption({
-				Icon = "Arrow",
+				Icon = EIcons.Arrow,
 				IconSize = 17,
 				Text = "LOBBY",
 				TextSize = 25,
@@ -1303,7 +1299,7 @@ end
 -- The PLAY AGAIN count: his dark plate. The number swells as it changes.
 local function votes(state: Types.THudState): Frame
 	local results = state.Results
-	return Components.Panel({ Brackets = 5 }, {
+	return Components.Panel({ Brackets = true }, {
 		Name = "Votes",
 		Size = UDim2.fromScale(1, 1),
 		label({
@@ -1345,7 +1341,7 @@ local function flights(gems: TGems): Frame
 			end)
 			table.insert(
 				sprites,
-				Components.Icon("Gem", {
+				Components.Picture(EIcons.Gem, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = function()
 						local point = where().At
@@ -1356,7 +1352,6 @@ local function flights(gems: TGems): Frame
 						local side = math.round(flight.Size * (0.5 + 0.5 * where().There))
 						return UDim2.fromOffset(side, side)
 					end,
-					ImageColor3 = Colors.GEM,
 					ImageTransparency = function()
 						return 1 - where().There
 					end,
@@ -1443,7 +1438,7 @@ function Results.Build(state: Types.THudState, actions: Types.TActions): Frame
 					return 1 - shown()
 				end,
 				-- Longer than the streak texture: its window starts at the corner and it is tiled across.
-				Components.Panel({ Brackets = 5, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
+				Components.Panel({ Brackets = true, TexturePhase = Vector2.zero, Wide = true, Tall = true }, {
 					Name = "Panel",
 					Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
 					Size = UDim2.new(1, -Layout.MARGIN * 2, 1, -Layout.MARGIN * 2),
@@ -1484,7 +1479,7 @@ function Results.Build(state: Types.THudState, actions: Types.TActions): Frame
 					Kind = function()
 						return if hasVoted() then "Off" else "Go"
 					end,
-					Icon = "Replay",
+					Icon = EIcons.Replay,
 					IconSize = 25,
 					Text = "PLAY AGAIN",
 					TextSize = 29,
@@ -1510,7 +1505,7 @@ function Results.Build(state: Types.THudState, actions: Types.TActions): Frame
 					Kind = function()
 						return if results.CanRevive() then "Pink" else "Off"
 					end,
-					Icon = "Revive",
+					Icon = EIcons.Revive,
 					IconSize = 31,
 					IconChild = create("UIScale")({
 						Scale = function()

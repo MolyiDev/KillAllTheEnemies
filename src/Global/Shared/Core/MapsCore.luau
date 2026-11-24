@@ -9,7 +9,6 @@ export type TMap = {
 	-- Also the map's Model under ServerStorage.Maps in the Game place.
 	Name: string,
 	DisplayName: string,
-	Difficulty: string,
 	-- The record that opens it: HighestCompleted on `UnlockRecordMap` at least `UnlockRound`. 0 is always open.
 	UnlockRound: number,
 	UnlockRecordMap: string?,
@@ -18,12 +17,13 @@ export type TMap = {
 local MapsCore = {}
 
 MapsCore.DEFAULT = "Baseplate"
--- In the order the lobby offers them.
-MapsCore.DIFFICULTIES = table.freeze({ "Normal" })
+-- The difficulties a host can pick for a party, in the order the lobby offers them. The index is the difficulty's
+-- number on the network (append, never reorder); the name is what travels to the match and is saved.
+MapsCore.DIFFICULTIES = table.freeze({ "Normal", "Hard", "Nightmare", "Hell" })
 MapsCore.LIST = table.freeze({
-	table.freeze({ Name = "PirateCove", DisplayName = "Pirate Cove", Difficulty = "Normal", UnlockRound = 0 }),
-	table.freeze({ Name = "GrassLands", DisplayName = "Grass Lands", Difficulty = "Normal", UnlockRound = 0 }),
-	table.freeze({ Name = "Baseplate", DisplayName = "Baseplate", Difficulty = "Normal", UnlockRound = 0 }),
+	table.freeze({ Name = "PirateCove", DisplayName = "Pirate Cove", UnlockRound = 0 }),
+	table.freeze({ Name = "GrassLands", DisplayName = "Grass Lands", UnlockRound = 0 }),
+	table.freeze({ Name = "Baseplate", DisplayName = "Baseplate", UnlockRound = 0 }),
 }) :: { TMap }
 
 local maps: { [string]: TMap } = {}

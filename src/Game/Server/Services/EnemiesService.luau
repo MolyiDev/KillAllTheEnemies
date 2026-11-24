@@ -80,11 +80,17 @@ EnemiesService.OnEnemyRemoving = Signal.new()
 
 -- A hit the body survives drops the swing it was winding up and holds the next one off for HitStunTime, carried
 -- as a NEGATIVE AttackWindup: that is already the countdown a finished attack recovers through, so the stagger needs
--- no component and no branch in the movement update. A committed AoE is EnemyAttacksService's and resolves anyway.
+-- no component and no branch in the movement update. A ground warning is never dropped: EnemyAttacksService resolves
+-- it anyway, so its caster stays on it rather than walking away from where it lands.
 local function stagger(enemyEntity: jecs.Entity<any>, enemyData: TData.TEnemy)
 	if enemyData.IsBoss then return end
 	local windup = EnemyWorld:get(enemyEntity, Components.AttackWindup)
 	if not windup then return end
+	if windup > 0 then
+		local windingUp = enemyData.Attacks[EnemyWorld:get(enemyEntity, Components.AttackIndex) :: number]
+		if windingUp and windingUp.Kind ~= "Melee" then return end
+	end
+
 	local stunTime = enemyData.HitStunTime
 	if not stunTime then
 		if windup > 0 then EnemyWorld:set(enemyEntity, Components.AttackWindup, 0) end

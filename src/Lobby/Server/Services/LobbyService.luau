@@ -1,7 +1,8 @@
 -- The physical lobby (GDD 3, start-game area): queue pads that fill up, count down and teleport their party into a
 -- match together. The first player on an empty pad is its host and picks the party (size, map, access); the Play
--- button puts a player on a free pad as host, or into an open party. A player on a pad is held there (his root is
--- anchored) until he presses Exit, so a step aside cannot drop him out of a party that is about to leave.
+-- button puts a player on a free pad as host, or into an open party. Joining puts the body on its spot at once
+-- (PadsCore.SPOTS: the host in the middle, the rest at the sides), held there (its root anchored) until Exit, so a step
+-- aside cannot drop anyone out of a party that is about to leave.
 --
 -- The client only carries a one-time token (GlobalServer.Utils.JoinData), so nothing it can edit reaches the match.
 -- Zones are polled, not Touched: a poll cannot miss a player who teleported or respawned onto a pad.
@@ -32,22 +33,21 @@ local ERefusal = PadsCore.ERefusal
 
 local Tune = table.freeze({
 	ZONE_POLL_SECONDS = 0.2,
-	-- How long a body that joined a pad has to come to rest before it is anchored where it is. Meanwhile the poll
-	-- trusts it is on the pad: its client stops it (the controls go off with PadJoined), and after Play the old
-	-- position can still arrive for a moment.
+	-- How long a body put on its spot has to come to rest before it is anchored anyway. Meanwhile the poll trusts it
+	-- is on the pad: its client stops it (the controls go off with PadJoined), and the old position can still arrive
+	-- for a moment.
 	ARRIVAL_GRACE_SECONDS = 1,
 	-- Under this speed (studs a second) and within this of standing height it has come to rest: the top of a jump
 	-- is slow too.
 	SETTLED_SPEED = 0.5,
 	SETTLED_HEIGHT = 0.5,
-	-- A body anchored outside the pad's footprint is put back this far inside its edge.
-	EDGE_INSET = 1.5,
 	-- A standing body's root over the floor under its feet.
 	STAND_HEIGHT = 3,
-	-- How far from the pad's centre Play scatters a character, as a share of the pad's half size.
-	ARRIVAL_SCATTER = 0.6,
 	-- Where Exit puts him: this far out from the pad's +Z side, so every pad is turned with its +Z to the way out.
 	EXIT_STUDS = 5,
+	-- How far outside a pad's zone (studs) a body that says it stepped in may still be here: its position arrives a
+	-- frame or two after its request.
+	STEP_SLACK = 3,
 })
 
 local NO_COUNTDOWN = -1
@@ -59,8 +59,12 @@ type TPad = {
 	-- The first member; whoever picked the party, or took it over when the host left.
 	Host: Player?,
 	Members: { Player },
+	-- Each member's index into PadsCore.SPOTS, kept while they stay: a leaver's spot goes to the next to join.
+	Spots: { [Player]: number },
 	MaxPlayers: number,
 	Map: MapsCore.TMap,
+	-- MapsCore.DIFFICULTIES, by name.
+	Difficulty: string,
 	IsFriendsOnly: boolean,
 	-- os.clock() the countdown ends at, or nil when none is running.
 	EndsAt: number?,
@@ -94,11 +98,20 @@ local function secondsLeft(pad: TPad): number
 end
 
 -- PadState's arguments, in its order.
-local function stateOf(pad: TPad): (number, number, number, number, number, boolean, number, number)
+local function stateOf(pad: TPad): (number, number, number, number, number, number, boolean, number, number)
 	local host = pad.Host
 	local hostId = if host then host.UserId else 0
 	local map = MapsCore.INDEX[pad.Map.Name]
-	return pad.Index, pad.Phase, #pad.Members, pad.MaxPlayers, map, pad.IsFriendsOnly, hostId, secondsLeft(pad)
+	local difficulty = table.find(MapsCore.DIFFICULTIES, pad.Difficulty) or 1
+	return pad.Index,
+		pad.Phase,
+		#pad.Members,
+		pad.MaxPlayers,
+		map,
+		difficulty,
+		pad.IsFriendsOnly,
+		hostId,
+		secondsLeft(pad)
 end
 
 -- To everybody, or to one player who just joined.
@@ -120,8 +133,10 @@ end
 local function resetPad(pad: TPad)
 	pad.Phase = EPhase.Empty
 	pad.Host = nil
+	table.clear(pad.Spots)
 	pad.MaxPlayers = PadsCore.DEFAULT_PLAYERS
 	pad.Map = MapsCore.MAPS[MapsCore.DEFAULT]
+	pad.Difficulty = MapsCore.DIFFICULTIES[1]
 	pad.IsFriendsOnly = false
 	pad.EndsAt = nil
 end
@@ -175,6 +190,7 @@ end
 -- Whether the player could join this pad now, and the refusal to show if not (0 for one that needs no notice).
 local function canJoin(player: Player, pad: TPad): (boolean, number)
 	if pad.Phase == EPhase.Empty then return true, 0 end
+	if pad.Phase == EPhase.Choosing then return false, ERefusal.Busy end
 	if pad.Phase ~= EPhase.Open or #pad.Members >= pad.MaxPlayers then return false, 0 end
 
 	-- The hard map's gate (GDD 20) is checked per player: everyone on its pad has earned it.
@@ -211,18 +227,33 @@ local function isAtRest(pad: TPad, rootPart: BasePart): boolean
 	return math.abs(height - Tune.STAND_HEIGHT) < Tune.SETTLED_HEIGHT
 end
 
--- Anchored where it came to rest, so nobody can push it off a party that is about to leave. Only once at rest:
--- anchored while walking, the walk clip never hears the body stop and plays for as long as it is held. A body
--- that did not stop on the pad is stood back inside it first.
-local function hold(player: Player, pad: TPad, rootPart: BasePart)
-	if not PadsCore.IsOnPad(pad.Part, rootPart.Position) then
-		local onPad = pad.Part.CFrame:PointToObjectSpace(rootPart.Position)
-		local reach = pad.Part.Size / 2 - Vector3.one * Tune.EDGE_INSET
-		local x = math.clamp(onPad.X, -reach.X, reach.X)
-		local z = math.clamp(onPad.Z, -reach.Z, reach.Z)
-		rootPart.CFrame = standingAt(pad, rootPart, x, z)
+-- The root standing on the member's spot, facing the front.
+local function standingOnSpot(pad: TPad, spot: number): CFrame
+	return PadsCore.SpotAt(pad.Part, spot) * CFrame.new(0, Tune.STAND_HEIGHT, 0)
+end
+
+-- The lowest spot no member stands on.
+local function freeSpot(pad: TPad): number
+	for index in PadsCore.SPOTS do
+		local isTaken = false
+		for _, taken in pad.Spots do
+			if taken == index then
+				isTaken = true
+				break
+			end
+		end
+		if not isTaken then return index end
 	end
 
+	return 1
+end
+
+-- Anchored on its spot, so nobody can push it off a party that is about to leave. Only once at rest: anchored while
+-- walking, the walk clip never hears the body stop and plays for as long as it is held. Stood on the spot again
+-- first, in case the client's old position arrived after Join put it there.
+local function hold(player: Player, pad: TPad, rootPart: BasePart)
+	local spot = pad.Spots[player]
+	if spot then rootPart.CFrame = standingOnSpot(pad, spot) end
 	rootPart.Anchored = true
 	heldRoot[player] = rootPart
 end
@@ -246,18 +277,31 @@ function LobbyService.Join(player: Player, pad: TPad)
 	end
 
 	refusalSent[player] = nil
+	local spot = freeSpot(pad)
 	pad.Members[#pad.Members + 1] = player
+	pad.Spots[player] = spot
 	padOfPlayer[player] = pad
 	arrivingUntil[player] = os.clock() + Tune.ARRIVAL_GRACE_SECONDS
+
+	-- Stood on the spot at once, and still, so the first poll finds it at rest and anchors it there.
+	local rootPart = getRoot(player)
+	if rootPart then
+		rootPart.AssemblyLinearVelocity = Vector3.zero
+		rootPart.CFrame = standingOnSpot(pad, spot)
+	end
+
 	if pad.Phase == EPhase.Empty then
 		pad.Phase = EPhase.Choosing
 		pad.Host = player
+		pad.EndsAt = os.clock() + PadsCore.CHOOSE_SECONDS
 	else
 		shortenIfFull(pad)
 	end
 
-	ServerNetworkLobby.PadJoined.Fire(player, pad.Index)
+	-- The state first: both go out in one buffer in call order, and a client told it is on a pad it still knows as
+	-- Empty shows the queue screen (EXIT, the countdown) for a moment before the host's party screen.
 	sendState(pad)
+	ServerNetworkLobby.PadJoined.Fire(player, pad.Index)
 end
 
 function LobbyService.Leave(player: Player)
@@ -265,6 +309,7 @@ function LobbyService.Leave(player: Player)
 	if not pad then return end
 	padOfPlayer[player] = nil
 	arrivingUntil[player] = nil
+	pad.Spots[player] = nil
 	local index = table.find(pad.Members, player)
 	if index then table.remove(pad.Members, index) end
 
@@ -312,7 +357,12 @@ local function startTeleport(pad: TPad)
 
 	-- Read everything before the first yield: a member leaving mid-teleport can empty the pad.
 	local players = table.clone(pad.Members)
-	local message = { SupposedPlayers = #players, PadName = pad.Part.Name, MapName = pad.Map.Name }
+	local message = {
+		SupposedPlayers = #players,
+		PadName = pad.Part.Name,
+		MapName = pad.Map.Name,
+		Difficulty = pad.Difficulty,
+	}
 	local placeId = EPlaceIds.Game
 	local reservedCode = pad.ReservedCode
 	sendState(pad)
@@ -365,15 +415,6 @@ local function findPadForPlay(player: Player): TPad?
 	return nil
 end
 
-local function moveOnto(player: Player, pad: TPad)
-	local rootPart = getRoot(player)
-	if not rootPart then return end
-	local reach = pad.Part.Size / 2 * Tune.ARRIVAL_SCATTER
-	local x = (math.random() * 2 - 1) * reach.X
-	local z = (math.random() * 2 - 1) * reach.Z
-	rootPart.CFrame = standingAt(pad, rootPart, x, z)
-end
-
 local function poll()
 	local now = os.clock()
 	for _, player in Players:GetPlayers() do
@@ -408,7 +449,15 @@ local function poll()
 
 	for _, pad in pads do
 		local endsAt = pad.EndsAt
-		if endsAt and pad.Phase == EPhase.Open and now >= endsAt then task.spawn(startTeleport, pad) end
+		if not endsAt or now < endsAt then continue end
+		if pad.Phase == EPhase.Open then
+			task.spawn(startTeleport, pad)
+		elseif pad.Phase == EPhase.Choosing and pad.Host then
+			-- Picked nothing in time: the pad goes back to whoever comes next.
+			local host = pad.Host
+			ServerNetworkLobby.PadRefused.Fire(host, pad.Index, ERefusal.Idle)
+			LobbyService.Leave(host)
+		end
 	end
 end
 
@@ -420,8 +469,10 @@ LobbyService.OnStart = function()
 			Phase = EPhase.Empty,
 			Host = nil,
 			Members = {},
+			Spots = {},
 			MaxPlayers = PadsCore.DEFAULT_PLAYERS,
 			Map = MapsCore.MAPS[MapsCore.DEFAULT],
+			Difficulty = MapsCore.DIFFICULTIES[1],
 			IsFriendsOnly = false,
 			EndsAt = nil,
 			ReservedCode = nil,
@@ -474,6 +525,16 @@ ClientNetworkLobby.LeavePad.On(function(player: Player)
 	LobbyService.Leave(player)
 end)
 
+-- The client asks the moment its body crosses into a pad's zone, so it is put on its spot then rather than at the
+-- next poll. The poll still finds anyone who never asks.
+ClientNetworkLobby.StepOnPad.On(function(player: Player, index: number)
+	local pad = pads[index]
+	if not pad or padOfPlayer[player] then return end
+	local rootPart = getRoot(player)
+	if not rootPart or not PadsCore.IsOnPad(pad.Part, rootPart.Position, Tune.STEP_SLACK) then return end
+	LobbyService.Join(player, pad)
+end)
+
 ClientNetworkLobby.Play.On(function(player: Player)
 	if padOfPlayer[player] then return end
 	if not getCharacterEntityFromPlayer(player) then return end
@@ -484,7 +545,6 @@ ClientNetworkLobby.Play.On(function(player: Player)
 		return
 	end
 
-	moveOnto(player, pad)
 	LobbyService.Join(player, pad)
 end)
 
@@ -496,23 +556,28 @@ TeleportService.TeleportInitFailed:Connect(function(player: Player, result: Enum
 	LobbyService.Leave(player)
 end)
 
-ClientNetworkLobby.StartParty.On(function(player: Player, maxPlayers: number, mapIndex: number, isFriendsOnly: boolean)
-	local pad = padOfPlayer[player]
-	if not pad or pad.Host ~= player or pad.Phase ~= EPhase.Choosing then return end
-	if maxPlayers < 1 or maxPlayers > PadsCore.MAX_PLAYERS then return end
-	local map = MapsCore.LIST[mapIndex]
-	if not map then return end
-	local profile = DatabaseService.Get(player)
-	if not profile or not MapsCore.IsUnlocked(profile, map.Name) then return end
+ClientNetworkLobby.StartParty.On(
+	function(player: Player, maxPlayers: number, mapIndex: number, difficultyIndex: number, isFriendsOnly: boolean)
+		local pad = padOfPlayer[player]
+		if not pad or pad.Host ~= player or pad.Phase ~= EPhase.Choosing then return end
+		if maxPlayers < 1 or maxPlayers > PadsCore.MAX_PLAYERS then return end
+		local map = MapsCore.LIST[mapIndex]
+		if not map then return end
+		local difficulty = MapsCore.DIFFICULTIES[difficultyIndex]
+		if not difficulty then return end
+		local profile = DatabaseService.Get(player)
+		if not profile or not MapsCore.IsUnlocked(profile, map.Name) then return end
 
-	pad.MaxPlayers = maxPlayers
-	pad.Map = map
-	pad.IsFriendsOnly = isFriendsOnly
-	pad.Phase = EPhase.Open
-	pad.EndsAt = os.clock() + PadsCore.COUNTDOWN_SECONDS
-	shortenIfFull(pad)
-	prefetchReservedServer(pad)
-	sendState(pad)
-end)
+		pad.MaxPlayers = maxPlayers
+		pad.Map = map
+		pad.Difficulty = difficulty
+		pad.IsFriendsOnly = isFriendsOnly
+		pad.Phase = EPhase.Open
+		pad.EndsAt = os.clock() + PadsCore.COUNTDOWN_SECONDS
+		shortenIfFull(pad)
+		prefetchReservedServer(pad)
+		sendState(pad)
+	end
+)
 
 return Ignis.Register(LobbyService)

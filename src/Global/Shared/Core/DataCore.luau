@@ -35,5 +35,7 @@ DataCore.Defenses = collect(ReplicatedStorage.Data.Defenses) :: TCollection<TDat
 DataCore.Guns = collect(ReplicatedStorage.Data.Guns) :: TCollection<TData.TGun>
 DataCore.Classes = collect(ReplicatedStorage.Data.Classes) :: TCollection<TData.TClass>
 DataCore.Upgrades = collect(ReplicatedStorage.Data.Upgrades) :: TCollection<TData.TUpgrade>
+DataCore.Equipment = collect(ReplicatedStorage.Data.Equipment) :: TCollection<TData.TEquipment>
+DataCore.Potions = collect(ReplicatedStorage.Data.Potions) :: TCollection<TData.TPotion>
 
 return table.freeze(DataCore)
