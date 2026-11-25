@@ -5,6 +5,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
+local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 local TData = require(ReplicatedStorage.Types.TData)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
@@ -20,9 +21,24 @@ local PotionsCore = {}
 
 -- Free brews every UTC day; VIP and the Extra Daily Brew pass add one each.
 PotionsCore.BREWS_PER_DAY = 2
--- One brew bought with Robux once the day's are used (EProducts.ExtraBrew), and the most one BREW makes at once.
-PotionsCore.BREW_ROBUX = 25
-PotionsCore.MAX_BATCH = 25
+-- The most one BREW makes at once.
+PotionsCore.MAX_BATCH = 10
+-- How many one BREW makes (its count menu), what that many brews cost once the day's are used, as set on their
+-- products (a pack is cheaper a brew, as the Gem packs give more a Robux: about +9%, +15% and +26% more brews for the
+-- Robux), and the products (0: not on sale yet).
+PotionsCore.BREW_COUNTS = table.freeze({ 1, 3, 5, 10 })
+PotionsCore.BREW_PRICES = table.freeze({
+	[1] = 25,
+	[3] = 69,
+	[5] = 109,
+	[10] = 199,
+} :: { [number]: number })
+PotionsCore.BREW_PRODUCTS = table.freeze({
+	[1] = EProducts.ExtraBrew,
+	[3] = EProducts.ExtraBrew3,
+	[5] = EProducts.ExtraBrew5,
+	[10] = EProducts.ExtraBrew10,
+} :: { [number]: number })
 -- The second (or third) slot, bought once for good.
 PotionsCore.GEM_SLOT_PRICE = 500000
 -- What a potion of each rarity adds, times its upgrades' Value, and how often each comes out of a brew (weights): the

@@ -2958,7 +2958,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://70440549875850</uri>
             </Content>
-            <float name="Volume">0.742</float>
+            <float name="Volume">0.589</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="266">
@@ -2971,7 +2971,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://138802288760025</uri>
             </Content>
-            <float name="Volume">0.569</float>
+            <float name="Volume">0.452</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="267">
@@ -2984,7 +2984,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://133792845442641</uri>
             </Content>
-            <float name="Volume">0.732</float>
+            <float name="Volume">0.581</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="268">
@@ -2997,7 +2997,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://96999769066050</uri>
             </Content>
-            <float name="Volume">0.659</float>
+            <float name="Volume">0.523</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="269">
@@ -3010,7 +3010,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://130924824371558</uri>
             </Content>
-            <float name="Volume">0.888</float>
+            <float name="Volume">0.705</float>
           </Properties>
         </Item>
       </Item>
@@ -9066,7 +9066,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9117396530</uri>
             </Content>
-            <float name="Volume">0.5</float>
+            <float name="Volume">2.001</float>
           </Properties>
         </Item>
       </Item>
@@ -9102,7 +9102,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://12222065</uri>
             </Content>
-            <float name="Volume">1</float>
+            <float name="Volume">0.54</float>
           </Properties>
         </Item>
       </Item>
@@ -9120,7 +9120,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9119295553</uri>
             </Content>
-            <float name="Volume">1</float>
+            <float name="Volume">1.778</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="796">
@@ -9133,7 +9133,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9119298326</uri>
             </Content>
-            <float name="Volume">1</float>
+            <float name="Volume">2.309</float>
           </Properties>
         </Item>
       </Item>
@@ -9151,7 +9151,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9116922179</uri>
             </Content>
-            <float name="Volume">1.1</float>
+            <float name="Volume">1.139</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="799">
@@ -9164,7 +9164,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9116921804</uri>
             </Content>
-            <float name="Volume">1.1</float>
+            <float name="Volume">0.874</float>
           </Properties>
         </Item>
       </Item>
@@ -9182,7 +9182,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9114695068</uri>
             </Content>
-            <float name="Volume">0.9</float>
+            <float name="Volume">0.916</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="802">
@@ -9195,7 +9195,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9114695742</uri>
             </Content>
-            <float name="Volume">0.9</float>
+            <float name="Volume">0.653</float>
           </Properties>
         </Item>
       </Item>
@@ -9316,7 +9316,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9113029219</uri>
             </Content>
-            <float name="Volume">0.9</float>
+            <float name="Volume">1.312</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="816">
@@ -9329,7 +9329,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9114693595</uri>
             </Content>
-            <float name="Volume">0.9</float>
+            <float name="Volume">0.916</float>
           </Properties>
         </Item>
       </Item>
@@ -9347,7 +9347,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://9114725315</uri>
             </Content>
-            <float name="Volume">0.9</float>
+            <float name="Volume">0.523</float>
           </Properties>
         </Item>
       </Item>
@@ -9448,7 +9448,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://114977941148415</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="828">
@@ -9461,7 +9461,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://103844646359735</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="829">
@@ -9474,7 +9474,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://129955586204620</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="830">
@@ -9487,7 +9487,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://109130955865775</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="831">
@@ -9500,7 +9500,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://88091343412659</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="832">
@@ -9513,7 +9513,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://116053120039128</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.207</float>
           </Properties>
         </Item>
       </Item>
@@ -9531,7 +9531,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://130060354957002</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="835">
@@ -9544,7 +9544,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://126687025820377</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="836">
@@ -9557,7 +9557,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://70587336710239</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="837">
@@ -9570,7 +9570,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://105649907763650</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="838">
@@ -9583,7 +9583,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://87768060068131</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="839">
@@ -9596,7 +9596,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://76958567351128</uri>
             </Content>
-            <float name="Volume">0.491</float>
+            <float name="Volume">0.31</float>
           </Properties>
         </Item>
       </Item>
@@ -9614,7 +9614,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://76992175176649</uri>
             </Content>
-            <float name="Volume">0.592</float>
+            <float name="Volume">0.516</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="842">
@@ -9627,7 +9627,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://130005390375475</uri>
             </Content>
-            <float name="Volume">0.611</float>
+            <float name="Volume">0.531</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="843">
@@ -9640,7 +9640,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://109034092649857</uri>
             </Content>
-            <float name="Volume">0.627</float>
+            <float name="Volume">0.546</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="844">
@@ -9653,7 +9653,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://87051145769578</uri>
             </Content>
-            <float name="Volume">0.59</float>
+            <float name="Volume">0.514</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="845">
@@ -9666,7 +9666,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://109138396894660</uri>
             </Content>
-            <float name="Volume">0.63</float>
+            <float name="Volume">0.549</float>
           </Properties>
         </Item>
         <Item class="Sound" referent="846">
@@ -9679,7 +9679,7 @@
             <Content name="AudioContent">
               <uri>rbxassetid://107225825921963</uri>
             </Content>
-            <float name="Volume">0.576</float>
+            <float name="Volume">0.502</float>
           </Properties>
         </Item>
       </Item>
@@ -17838,6 +17838,641 @@
               <uri>rbxassetid://93953748877418</uri>
             </Content>
             <float name="Volume">0.373</float>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="1537">
+      <Properties>
+        <string name="Name">Bosses</string>
+      </Properties>
+      <Item class="Folder" referent="1538">
+        <Properties>
+          <string name="Name">TRex</string>
+        </Properties>
+        <Item class="Sound" referent="1539">
+          <Properties>
+            <string name="Name">Roar</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://85585405017269</uri>
+            </Content>
+            <float name="Volume">1.935</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1540">
+          <Properties>
+            <string name="Name">RoarShort</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://74935249433372</uri>
+            </Content>
+            <float name="Volume">2.11</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="1541">
+          <Properties>
+            <string name="Name">Idle</string>
+          </Properties>
+          <Item class="Sound" referent="1542">
+            <Properties>
+              <string name="Name">TRex_DeepIdle_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://119624798215608</uri>
+              </Content>
+              <float name="Volume">0.715</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1543">
+            <Properties>
+              <string name="Name">TRex_DeepIdle_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://131015646375177</uri>
+              </Content>
+              <float name="Volume">0.636</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1544">
+            <Properties>
+              <string name="Name">TRex_DeepIdle_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://83282292104031</uri>
+              </Content>
+              <float name="Volume">0.822</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Sound" referent="1545">
+          <Properties>
+            <string name="Name">Bite</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://100747212718825</uri>
+            </Content>
+            <float name="Volume">2.369</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1546">
+          <Properties>
+            <string name="Name">DeathCry</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://117830702392736</uri>
+            </Content>
+            <float name="Volume">1.445</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="1547">
+          <Properties>
+            <string name="Name">Step</string>
+          </Properties>
+          <Item class="Sound" referent="1548">
+            <Properties>
+              <string name="Name">TRex_HeavyStep_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://107906675283388</uri>
+              </Content>
+              <float name="Volume">0.819</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1549">
+            <Properties>
+              <string name="Name">TRex_HeavyStep_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://75119024143615</uri>
+              </Content>
+              <float name="Volume">0.809</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1550">
+            <Properties>
+              <string name="Name">TRex_HeavyStep_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://74487342199588</uri>
+              </Content>
+              <float name="Volume">0.826</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1551">
+            <Properties>
+              <string name="Name">TRex_HeavyStep_4</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://110683407901498</uri>
+              </Content>
+              <float name="Volume">0.843</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Sound" referent="1552">
+          <Properties>
+            <string name="Name">Stomp</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://119705044147244</uri>
+            </Content>
+            <float name="Volume">1.796</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1553">
+          <Properties>
+            <string name="Name">QuakeWave</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://76761216548463</uri>
+            </Content>
+            <float name="Volume">1.512</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1554">
+          <Properties>
+            <string name="Name">Skid</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://122409827995784</uri>
+            </Content>
+            <float name="Volume">1.415</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="1555">
+          <Properties>
+            <string name="Name">TailSweep</string>
+          </Properties>
+          <Item class="Sound" referent="1556">
+            <Properties>
+              <string name="Name">TRex_TailSweep_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://73723964039000</uri>
+              </Content>
+              <float name="Volume">1.674</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1557">
+            <Properties>
+              <string name="Name">TRex_TailSweep_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://136024579837588</uri>
+              </Content>
+              <float name="Volume">1.294</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="1558">
+          <Properties>
+            <string name="Name">Snort</string>
+          </Properties>
+          <Item class="Sound" referent="1559">
+            <Properties>
+              <string name="Name">TRex_DeepSnort_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://99112260934135</uri>
+              </Content>
+              <float name="Volume">0.954</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1560">
+            <Properties>
+              <string name="Name">TRex_DeepSnort_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://102035144735272</uri>
+              </Content>
+              <float name="Volume">0.903</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="1561">
+          <Properties>
+            <string name="Name">SpineLaunch</string>
+          </Properties>
+          <Item class="Sound" referent="1562">
+            <Properties>
+              <string name="Name">TRex_SpineLaunch_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://123114358320539</uri>
+              </Content>
+              <float name="Volume">2.117</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1563">
+            <Properties>
+              <string name="Name">TRex_SpineLaunch_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://133871669683764</uri>
+              </Content>
+              <float name="Volume">1.761</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1564">
+            <Properties>
+              <string name="Name">TRex_SpineLaunch_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://131972172100345</uri>
+              </Content>
+              <float name="Volume">2.251</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Folder" referent="1565">
+          <Properties>
+            <string name="Name">SpineLand</string>
+          </Properties>
+          <Item class="Sound" referent="1566">
+            <Properties>
+              <string name="Name">TRex_SpineLand_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://86764548704141</uri>
+              </Content>
+              <float name="Volume">1.003</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1567">
+            <Properties>
+              <string name="Name">TRex_SpineLand_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://75403650409486</uri>
+              </Content>
+              <float name="Volume">1.014</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1568">
+            <Properties>
+              <string name="Name">TRex_SpineLand_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://125511594173431</uri>
+              </Content>
+              <float name="Volume">1.424</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Sound" referent="1569">
+          <Properties>
+            <string name="Name">Sink</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://75513207834437</uri>
+            </Content>
+            <float name="Volume">1.541</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="1570">
+          <Properties>
+            <string name="Name">Crack</string>
+          </Properties>
+          <Item class="Sound" referent="1571">
+            <Properties>
+              <string name="Name">TRex_DeepCrack_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://77219066851684</uri>
+              </Content>
+              <float name="Volume">1.259</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1572">
+            <Properties>
+              <string name="Name">TRex_DeepCrack_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://94265504903004</uri>
+              </Content>
+              <float name="Volume">0.799</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1573">
+            <Properties>
+              <string name="Name">TRex_DeepCrack_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://134580852719788</uri>
+              </Content>
+              <float name="Volume">1.205</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Sound" referent="1574">
+          <Properties>
+            <string name="Name">Rise</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://136270008848380</uri>
+            </Content>
+            <float name="Volume">1.726</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1575">
+          <Properties>
+            <string name="Name">Reassemble</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://74593045765718</uri>
+            </Content>
+            <float name="Volume">1.125</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1576">
+          <Properties>
+            <string name="Name">ShieldUp</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://103766363782182</uri>
+            </Content>
+            <float name="Volume">1.209</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="1577">
+          <Properties>
+            <string name="Name">ShieldHit</string>
+          </Properties>
+          <Item class="Sound" referent="1578">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_1</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://82932811005963</uri>
+              </Content>
+              <float name="Volume">0.773</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1579">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_2</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://101355663741055</uri>
+              </Content>
+              <float name="Volume">0.704</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1580">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_3</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://134412675001561</uri>
+              </Content>
+              <float name="Volume">0.505</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1581">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_4</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://112175973898220</uri>
+              </Content>
+              <float name="Volume">0.57</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1582">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_5</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://99441847604418</uri>
+              </Content>
+              <float name="Volume">0.72</float>
+            </Properties>
+          </Item>
+          <Item class="Sound" referent="1583">
+            <Properties>
+              <string name="Name">TRex_ShieldHit_6</string>
+              <float name="PlaybackSpeed">1</float>
+              <float name="xmlRead_MaxDistance_3">1000</float>
+              <float name="EmitterSize">100</float>
+              <token name="RollOffMode">0</token>
+              <Content name="AudioContent">
+                <uri>rbxassetid://92054917844913</uri>
+              </Content>
+              <float name="Volume">0.769</float>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="Sound" referent="1584">
+          <Properties>
+            <string name="Name">BeamSnap</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://93423915573626</uri>
+            </Content>
+            <float name="Volume">1.278</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1585">
+          <Properties>
+            <string name="Name">ShieldBreak</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://102109945204555</uri>
+            </Content>
+            <float name="Volume">1.868</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1586">
+          <Properties>
+            <string name="Name">Shatter</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://116136835515102</uri>
+            </Content>
+            <float name="Volume">2.022</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1587">
+          <Properties>
+            <string name="Name">Collapse</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://93661751833510</uri>
+            </Content>
+            <float name="Volume">1.654</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1588">
+          <Properties>
+            <string name="Name">Fall</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://133140709589421</uri>
+            </Content>
+            <float name="Volume">1.528</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1589">
+          <Properties>
+            <string name="Name">Hunt</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://109806902528057</uri>
+            </Content>
+            <float name="Volume">0.541</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1590">
+          <Properties>
+            <string name="Name">Glare</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://139484612330829</uri>
+            </Content>
+            <float name="Volume">0.417</float>
+          </Properties>
+        </Item>
+        <Item class="Sound" referent="1591">
+          <Properties>
+            <string name="Name">Inhale</string>
+            <float name="PlaybackSpeed">1</float>
+            <float name="xmlRead_MaxDistance_3">1000</float>
+            <float name="EmitterSize">100</float>
+            <token name="RollOffMode">0</token>
+            <Content name="AudioContent">
+              <uri>rbxassetid://90247422975200</uri>
+            </Content>
+            <float name="Volume">0.457</float>
           </Properties>
         </Item>
       </Item>

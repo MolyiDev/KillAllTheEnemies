@@ -13,6 +13,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -65,21 +66,14 @@ local Layout = table.freeze({
 	PLUS_GAP = 16,
 	PLUS_SIZE = 67,
 	PLUS_ARM = Vector2.new(24, 8),
-	-- The rail: each card's left and its drawn top from the screen's middle; inside a card the key and the label's top.
-	-- Five at his size (SHOP, QUESTS, INDEX, LAB, INVITE FRIENDS: the daily ones went to the top bar), 160 apart where
-	-- his four were 175, centred on the screen's middle: 41 px between cards, past the bracket check's 18 and the
-	-- Notice's 20 over a card's top corner.
+	-- The rail: each card's left and its drawn top from the screen's middle. Five (SHOP, QUESTS, INDEX, LAB, INVITE
+	-- FRIENDS: the daily ones went to the top bar), his width and taller than his square for the word on the band (it
+	-- stood under the card), 160 apart, centred on the screen's middle: 32 px between cards, past the bracket check's
+	-- 18 and the Notice's 20 over a card's top corner.
 	CARD_LEFT = 48,
-	CARD = 119,
-	CARD_TOPS = { -380, -220, -60, 100, 260 },
-	CARD_BRACKET_LENGTH = 22,
-	KEY = Vector2.new(78, 7),
-	KEY_SIZE = Vector2.new(33, 28),
-	-- KeyBadge's letter is 0.63 of this: his is 20.
-	KEY_BADGE = 32,
-	CARD_LABEL_TOP = 130,
-	CARD_LABEL_TEXT = 21,
-	-- A card's picture's longer side: it fills his lighter tile inside the card.
+	CARD = Vector2.new(119, 128),
+	CARD_TOPS = { -384, -224, -64, 96, 256 },
+	-- A card's picture's longer side.
 	CARD_PICTURE = 64,
 	-- The action row: each slab's left from the screen's middle, their bottom from the screen's bottom.
 	-- Each slab is laid out at his size inside and drawn at its spec's Scale: PLAY up, WEAPONS and CLASSES down, so
@@ -95,7 +89,7 @@ local Layout = table.freeze({
 	PLAY_TEXT = 58,
 	-- A Notice's middle and side on a rail card and on a slab (laid out at his size, so drawn at the slab's scale): its
 	-- middle exactly on the button's top left corner, over the bracket's corner (the user's placement), clear of the
-	-- picture and the key. A little bigger than the key badge on a card.
+	-- picture.
 	CARD_NOTICE = Vector2.new(0, 0),
 	CARD_NOTICE_SIZE = 40,
 	SLAB_NOTICE = Vector2.new(0, 0),
@@ -118,25 +112,18 @@ local GEM_BLUE = Theme.Color.Gem
 local GEM_LIGHT = Color3.fromRGB(190, 238, 255)
 -- The INDEX card, a sixth colour after his five: his red slab's face.
 local INDEX_RED = Color3.fromRGB(230, 60, 72)
--- How faint the cards' and slabs' glow is at rest, as his.
-local GLOW_TRANSPARENCY = 0.7
+-- How faint the slabs' glow is at rest, as his.
 local SLAB_GLOW_TRANSPARENCY = 0.55
--- His cards' edge is their accent a little darker; the glow is the accent itself.
-local CARD_EDGE = 0.85
-local CARD_TINT = 0.5
 
 -- What waits behind a button, worn as a Notice: the index's discoveries and the finished quests (counted), and a gun
 -- or a class ability the Gems held can pay for (the up arrow). The button also calls for it in light.
 type TNotice = "Index" | "Quests" | "Lab" | "Weapons" | "Classes"
 
--- A rail card: its word, its picture (Icons.Pictures) and the picture's middle in the card, its key, its accent (and
--- its glow where his is not the accent), the action's name in TLobbyActions (nil: nothing to open yet), and what waits
--- behind it.
+-- A rail card: its word, its picture (Icons.Pictures), its accent (and its glow where his is not the accent), the
+-- action's name in TLobbyActions (nil: nothing to open yet), and what waits behind it.
 type TCardSpec = {
 	Name: string,
 	Picture: string,
-	At: Vector2,
-	Key: Enum.KeyCode,
 	Accent: Color3,
 	Glow: Color3?,
 	Action: string?,
@@ -164,16 +151,12 @@ local CARDS: { TCardSpec } = table.freeze({
 	{
 		Name = "SHOP",
 		Picture = EIcons.ShoppingBag,
-		At = Vector2.new(60, 57),
-		Key = Enum.KeyCode.B,
 		Accent = Palette.Gold,
 		Action = "OpenShop",
 	},
 	{
 		Name = "QUESTS",
 		Picture = EIcons.Scroll,
-		At = Vector2.new(60, 59),
-		Key = Enum.KeyCode.Q,
 		Accent = Palette.Steel,
 		Action = "OpenQuests",
 		Notice = "Quests",
@@ -181,9 +164,6 @@ local CARDS: { TCardSpec } = table.freeze({
 	{
 		Name = "INDEX",
 		Picture = EIcons.MonsterBook,
-		At = Vector2.new(60, 58),
-		-- Not I: Roblox's camera zooms in on it.
-		Key = Enum.KeyCode.X,
 		Accent = INDEX_RED,
 		Action = "OpenIndex",
 		Notice = "Index",
@@ -191,8 +171,6 @@ local CARDS: { TCardSpec } = table.freeze({
 	{
 		Name = "LAB",
 		Picture = EIcons.Flask,
-		At = Vector2.new(60, 58),
-		Key = Enum.KeyCode.L,
 		Accent = Palette.Violet,
 		Action = "OpenLab",
 		Notice = "Lab",
@@ -200,8 +178,6 @@ local CARDS: { TCardSpec } = table.freeze({
 	{
 		Name = "INVITE FRIENDS",
 		Picture = EIcons.AddFriend,
-		At = Vector2.new(60, 57),
-		Key = Enum.KeyCode.F,
 		Accent = Palette.Green,
 		-- His invite card glows pink, not green.
 		Glow = Palette.Pink,
@@ -285,7 +261,8 @@ local XpBar = table.freeze({
 	RING_REACH = 22,
 	RING_PERIOD = 0.5,
 })
--- What a card, a slab and their glyph do under the hand: the glyph grows this share with the rise; a press that goes through pops the glyph and throws it up this far, WEAPONS's rifle kicks back.
+-- What a slab and its glyph do under the hand: the glyph grows this share with the rise; a press that goes through
+-- pops the glyph and throws it up this far, WEAPONS's rifle kicks back.
 local Gesture = table.freeze({
 	GLYPH_RISE = 0.12,
 	GLOW_LIT = 0.35,
@@ -514,22 +491,6 @@ local function label(props: { [any]: any }): TextLabel
 		ZIndex = 4,
 		props,
 	})
-end
-
--- Presses the button by its key: down while the key is held, through as it is let go.
-local function bindKey(state: Types.TLobbyState, key: Enum.KeyCode, hand: Hand.TReaction, activate: () -> ())
-	local isHeld = derive(function(): boolean
-		return state.HeldKey() == key
-	end)
-	local wasHeld = false
-	vide.effect(function()
-		local held = isHeld()
-		vide.untrack(function()
-			hand.IsPressed(held)
-			if wasHeld and not held then activate() end
-			wasHeld = held
-		end)
-	end)
 end
 
 -- ============================== The level plate ==============================
@@ -1120,7 +1081,7 @@ end
 
 -- ============================== The rail ==============================
 
--- One of the rail's cards: his tinted card, the glyph in its accent, the key, the word under it.
+-- One of the rail's cards: the lobby's one card (ItemCard), its picture in its accent and its word on its band.
 local function railCard(
 	state: Types.TLobbyState,
 	actions: Types.TLobbyActions,
@@ -1131,93 +1092,35 @@ local function railCard(
 	local arrive = arrival(state, delay, Vector2.new(-Arrive.FROM_LEFT, 0), "Covered")
 	local landed = landing(state, delay)
 	local hand = Hand.React("Operate")
-	local hop, strikeHop = Hand.Kick(Gesture.HOP_PERIOD, Gesture.HOP_DAMPING)
 	local action = if spec.Action then (actions :: any)[spec.Action] else nil
 	local waits = waiting(state, spec.Notice, delay, Layout.CARD_NOTICE_SIZE, Layout.CARD_NOTICE)
+	local size = Layout.CARD
 
-	local function activate()
-		hand.Commit()
-		strikeHop(-Gesture.HOP)
-		if action then action() end
-	end
-	bindKey(state, spec.Key, hand, activate)
-
-	local edge = Color3.new(spec.Accent.R * CARD_EDGE, spec.Accent.G * CARD_EDGE, spec.Accent.B * CARD_EDGE)
-	local half = Layout.CARD / 2
-
-	return Components.Button({
+	return ItemCard.Build({
 		Name = spec.Picture,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = size,
 		Position = function()
-			return UDim2.new(0, Layout.CARD_LEFT + half, 0.5, Layout.CARD_TOPS[index] + half) + arrive()
+			return UDim2.new(0, Layout.CARD_LEFT + size.X / 2, 0.5, Layout.CARD_TOPS[index] + size.Y / 2) + arrive()
 		end,
-		Size = UDim2.fromOffset(Layout.CARD, Layout.CARD),
-		BackgroundTransparency = 1,
-		Activated = activate,
-		hand.Events,
-		Components.Card({
-			Accent = edge,
-			Glow = spec.Glow or spec.Accent,
-			GlowTransparency = function()
-				return GLOW_TRANSPARENCY
-					- Gesture.GLOW_LIT * hand.Light()
-					- (if waits.IsCalling() then Gesture.CALL_GLOW else 0)
-			end,
-			Tint = CARD_TINT,
-			Marks = true,
-			Brackets = hand.Rise,
-			BracketLength = Layout.CARD_BRACKET_LENGTH,
-			BracketTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
-			end,
-		}, {
-			Name = "Card",
+		Hand = hand,
+		Accent = spec.Accent,
+		Glow = spec.Glow,
+		Title = spec.Name,
+		GlowLift = function()
+			return if waits.IsCalling() then Gesture.CALL_GLOW else 0
+		end,
+		Sheen = function(): number
+			local light = landed()
+			return if light < 1 then light else waits.Called()
+		end,
+		Picture = Components.Picture(spec.Picture, {
+			Name = "Glyph",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(1, 1),
-			create("UIScale")({ Scale = hand.Scale }),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(
-				Hand.Sheen(hand, function(): number
-					local light = landed()
-					return if light < 1 then light else waits.Called()
-				end),
-				3
-			),
-			Components.Picture(spec.Picture, {
-				Name = "Glyph",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = function()
-					return UDim2.fromOffset(spec.At.X, spec.At.Y + math.round(hop()))
-				end,
-				Size = Components.PictureBox(Layout.CARD_PICTURE),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + Gesture.GLYPH_RISE * hand.Rise()
-					end,
-				}),
-			}),
-			Components.KeyBadge(spec.Key, Layout.KEY_BADGE, {
-				Position = UDim2.fromOffset(Layout.KEY.X, Layout.KEY.Y),
-				Size = UDim2.fromOffset(Layout.KEY_SIZE.X, Layout.KEY_SIZE.Y),
-				ZIndex = 5,
-			}),
-			label({
-				Name = "Label",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(half, Layout.CARD_LABEL_TOP),
-				Size = UDim2.fromOffset(220, Layout.CARD_LABEL_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextSize = Layout.CARD_LABEL_TEXT,
-				TextColor3 = Palette.Lavender,
-				Text = spec.Name,
-				-- Under the card, so straight on the world: his lavender is lost on the lobby's bright floors. 2 px, or at
-				-- a phone's scale the ink thins under a pixel and goes.
-				Components.Ink(Layout.CARD_LABEL_TEXT, 2),
-			}),
-			waits.Chip,
+			Size = Components.PictureBox(Layout.CARD_PICTURE),
 		}),
+		Children = { waits.Chip },
+		Activated = action,
 	})
 end
 

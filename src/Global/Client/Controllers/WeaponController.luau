@@ -43,6 +43,8 @@ local GUNS = DataCore.Guns.ById
 local SOUND_GROUP = "Guns"
 -- Rendered bodies only: a parked one sits far away and is never under the crosshair.
 local DrawnEnemiesQuery = EnemyWorld:query(Components.CFrame, Components.AimShape):with(Tags.Enemy):cached()
+-- A long body's pieces (TEnemy.AimPieces) on top of its AimShape, which is only its trunk.
+local PiecedQuery = EnemyWorld:query(Components.CFrame, Components.AimPieces):with(Tags.Enemy):cached()
 
 local Tune = table.freeze({
 	AIM_RANGE = 1000,
@@ -212,6 +214,17 @@ local function addBodyAhead(
 	bodyEntities[bodies.Count] = entity
 end
 
+-- Every long body's pieces, wherever its feet are: its head can be in front of a ray its feet are far from.
+local function addPieced()
+	for entity, cframe, pieces in PiecedQuery do
+		-- The body faces its CFrame's back (EnemiesController's buildTarget).
+		local first = GunsCore.AddPieces(bodies, cframe.Position, cframe.ZVector, pieces)
+		for index = first, bodies.Count do
+			bodyEntities[index] = entity
+		end
+	end
+end
+
 -- The drawn bodies a shot from `origin` can reach, gathered once a shot.
 local function gatherDrawnBodies(origin: Vector3, direction: Vector3, range: number)
 	local rangeSq = range * range
@@ -220,6 +233,8 @@ local function gatherDrawnBodies(origin: Vector3, direction: Vector3, range: num
 	for entity, cframe, aim in DrawnEnemiesQuery do
 		addBodyAhead(entity, cframe.Position, aim, origin, direction, rangeSq)
 	end
+
+	addPieced()
 end
 
 -- Where a ray stops: in one of the gathered bodies (its index, 0 for none), on the arena (with what it hit), or at its
@@ -233,9 +248,14 @@ local function castLine(
 ): (Vector3, RaycastResult?, number)
 	local wall, length = sightCast(origin, unit * range, WeaponController.SightParams)
 	local body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, -1)
-	for _ = 1, pierce do
-		if body == 0 then break end
+	local piercesLeft = pierce
+	while body > 0 and piercesLeft > 0 do
+		local entity = bodyEntities[body]
 		body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, distance)
+		-- The next piece of the same long body is no new body to pierce.
+		if body > 0 and bodyEntities[body] ~= entity then
+			piercesLeft -= 1
+		end
 	end
 	if body > 0 then return origin + unit * distance, nil, body end
 
@@ -307,6 +327,8 @@ local function gatherAim(camera: Camera, pointer: Vector2, origin: Vector3, rang
 			- (if entity == heldEntity then Tune.ASSIST_STICKY else 0)
 		rankCandidate(entity, point, score)
 	end
+
+	addPieced()
 
 	return eye, direction
 end

@@ -6,8 +6,8 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TPotion = {
 	Id = EPotionsIds.KingsFeast,
 	Name = "King's Feast",
-	Energies = { EEnemiesIds.Slammer, EEnemiesIds.ZombieKing },
-	Description = "The Zombie King's own cup. Kills heal you and fill your pockets.",
+	Energies = { EEnemiesIds.Slammer, EEnemiesIds.TRex },
+	Description = "The Bone Tyrant's own cup. Kills heal you and fill your pockets.",
 }
 
 return table.freeze(data)

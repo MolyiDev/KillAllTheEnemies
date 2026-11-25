@@ -42,10 +42,12 @@ local WalkQuery = EnemyWorld:query(
 	Components.Data
 )
 	:with(Tags.Enemy)
+	:without(Tags.Submerged)
 	:cached()
 
-local FrozenQuery =
-	EnemyWorld:query(Components.InstanceId, Components.Position, Components.Yaw):with(Tags.Enemy):cached()
+local FrozenQuery = EnemyWorld:query(Components.InstanceId, Components.Position, Components.Yaw, Components.Data)
+	:with(Tags.Enemy)
+	:cached()
 
 -- Only a character every client knows (it has its InstanceId), alive, and not picking an upgrade can be a target. A
 -- picker is not one at all: the crowd neither walks to them nor swings at them, it goes for the others.
@@ -69,7 +71,7 @@ EnemyMovementService.IsRunning = false
 -- The studs each shoved body still has to travel, for a Mass of 1.
 local pushes: { [any]: vector } = {}
 -- Spots the crowd goes for as it goes for a character (SetLure), by an id no character has.
-type TLure = { Feet: vector, OnStruck: (damage: number) -> () }
+type TLure = { Feet: vector, OnStruck: (crusher: any?) -> () }
 local lures: { [number]: TLure } = {}
 local aggroCounts: { [number]: number } = {}
 local tick: enemiesUpdate.TTick = {
@@ -85,6 +87,7 @@ local tick: enemiesUpdate.TTick = {
 	OutIds = table.create(EnemiesCore.MAX_ALIVE),
 	OutPositions = table.create(EnemiesCore.MAX_ALIVE),
 	OutYaws = table.create(EnemiesCore.MAX_ALIVE),
+	OutViews = table.create(EnemiesCore.MAX_ALIVE),
 	OnAttackStarted = function(enemy: any, attackIndex: number, attack: TData.TEnemyAttack, center: vector, _)
 		if EnemyWorld:contains(enemy) then EnemyAttacksService.Start(enemy, attackIndex, attack, center) end
 	end,
@@ -98,7 +101,7 @@ local tick: enemiesUpdate.TTick = {
 
 		local lure = lures[targetId]
 		if lure then
-			lure.OnStruck(damage)
+			lure.OnStruck(nil)
 			return
 		end
 
@@ -129,9 +132,10 @@ function EnemyMovementService.Push(enemyEntities: { any }, direction: Vector3, s
 end
 
 -- Stands a lure at `feet` (a point on the nav grid's floor): every body within `radius` flat studs goes for it ahead
--- of any player, by path as it would for a character, and swings at it; each blow that lands calls `onStruck`. `id`
--- must be one no character has (theirs stop at 1000). It stands until ClearLure.
-function EnemyMovementService.SetLure(id: number, feet: vector, radius: number, onStruck: (damage: number) -> ())
+-- of any player, by path as it would for a character, and swings at it; each blow that lands calls `onStruck`, with
+-- the body that dealt it when it was a crushing one (CrushLure). `id` must be one no character has (theirs stop at
+-- 1000). It stands until ClearLure. A boss goes for one only when baited (Tags.Baited).
+function EnemyMovementService.SetLure(id: number, feet: vector, radius: number, onStruck: (crusher: any?) -> ())
 	lures[id] = { Feet = feet, OnStruck = onStruck }
 	tick.Lures[id] = radius * radius
 end
@@ -141,6 +145,32 @@ function EnemyMovementService.ClearLure(id: number)
 	lures[id] = nil
 	tick.Lures[id] = nil
 	NavService.RemoveCharacter(id)
+end
+
+function EnemyMovementService.HasLure(id: number): boolean
+	return lures[id] ~= nil
+end
+
+-- The nearest lure whose reach takes in `position`: its id and feet, or nil.
+function EnemyMovementService.LureReaching(position: vector): (number?, vector?)
+	local bestId: number? = nil
+	local bestFeet: vector? = nil
+	local bestSq = math.huge
+	for id, lure in lures do
+		local feet = lure.Feet
+		local dx, dz = feet.x - position.x, feet.z - position.z
+		local sq = dx * dx + dz * dz
+		if sq > tick.Lures[id] or sq >= bestSq then continue end
+		bestId, bestFeet, bestSq = id, feet, sq
+	end
+
+	return bestId, bestFeet
+end
+
+-- A blow from `crusher` (a boss) on lure `id`, which it does not survive.
+function EnemyMovementService.CrushLure(id: number, crusher: any)
+	local lure = lures[id]
+	if lure then lure.OnStruck(crusher) end
 end
 
 -- This tick's part of every shove, written as the Force the movement update reads (a velocity, for a Mass of 1).
@@ -171,6 +201,7 @@ local function stream(count: number)
 			tick.OutIds,
 			tick.OutPositions,
 			tick.OutYaws,
+			tick.OutViews,
 			count,
 			state.camX,
 			state.camY,
@@ -179,6 +210,7 @@ local function stream(count: number)
 			state.lookY,
 			state.lookZ,
 			state.thresholdSq,
+			state.apexShiftPerRadius,
 			state.renderDistanceSq
 		)
 		if packet then ServerNetworkEnemies.Positions.Fire(player, packet) end
@@ -189,11 +221,12 @@ end
 -- client parks anything whose packets stopped).
 local function streamFrozen()
 	local count = 0
-	for _, instanceId, position, yaw in FrozenQuery do
+	for _, instanceId, position, yaw, enemyData in FrozenQuery do
 		count += 1
 		tick.OutIds[count] = instanceId
 		tick.OutPositions[count] = position
 		tick.OutYaws[count] = yaw
+		tick.OutViews[count] = EnemiesCore.ViewSphere(enemyData)
 	end
 
 	stream(count)

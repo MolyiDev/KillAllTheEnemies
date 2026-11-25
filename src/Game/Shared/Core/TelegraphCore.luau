@@ -53,7 +53,8 @@ end
 -- The warning an attack shows: (ETelegraphs kind, size, width) as Distance takes them.
 function TelegraphCore.ShapeOf(attack: TData.TEnemyAttack): (number, number, number)
 	local kind = attack.Kind
-	if kind == "Shockwave" then return ETelegraphs.Ring, attack.Radius or 30, 0 end
+	if kind == "Shockwave" or kind == "Summon" then return ETelegraphs.Ring, attack.Radius or 30, 0 end
+	if kind == "Charge" then return ETelegraphs.Line, attack.Radius or 12, attack.Width or 4 end
 	if kind ~= "Slam" or attack.Shape == nil or attack.Shape == "Circle" then
 		return ETelegraphs.Circle, attack.Radius or 6, 0
 	end

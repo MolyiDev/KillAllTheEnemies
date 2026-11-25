@@ -31,6 +31,8 @@ local Components = {
 	-- (chest height, height, radius) over the feet (EnemiesCore.AimShape). Also on the clients' rows, enemies' and the
 	-- range's dummies', which is what WeaponController aims at.
 	AimShape = jecs.component() :: jecs.Id<vector>,
+	-- TEnemy.AimPieces, on the rows of a body that has them (both sides): what a gun hits in place of AimShape.
+	AimPieces = jecs.component() :: jecs.Id<{ TData.TEnemyAimPiece }>,
 	Mass = jecs.component() :: jecs.Id<number>,
 	-- > 0 winding up an attack, < 0 recovering from one or staggered, 0 free. See enemiesUpdate.
 	AttackWindup = jecs.component() :: jecs.Id<number>,

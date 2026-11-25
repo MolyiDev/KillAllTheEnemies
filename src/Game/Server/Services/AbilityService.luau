@@ -11,6 +11,7 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
+local BossService = require(script.Parent.BossService)
 local CharacterService = require(script.Parent.CharacterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
@@ -20,6 +21,7 @@ local QuestProgressService = require(script.Parent.QuestProgressService)
 local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
+local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
@@ -59,6 +61,9 @@ local Tune = table.freeze({
 	FOAM_HEIGHT = 10,
 	-- A wall this close past a body's chest is the body's own width, not cover.
 	FOAM_SIGHT_SLACK = 1.5,
+	-- A boss is slowed for this share of the foam's hold (BossService.Slow), never held; it takes the extra damage
+	-- for all of it.
+	FOAM_BOSS_SLOW_SHARE = 0.5,
 	-- The beam's first blow, as it lands, reaches this much further than its ticks.
 	ORBITAL_SLAM_SCALE = 1.5,
 	ORBITAL_SYNCS_PER_SECOND = 10,
@@ -169,8 +174,9 @@ end
 
 -- ============================== Decoy ==============================
 
--- One blow on every body round a standing doll, credited to its thrower.
-local function blastDecoy(decoy: TDecoy)
+-- One blow on every body round a standing doll, credited to its thrower, and on the boss that crushed it (`crusher`)
+-- however far its feet are: its jaws were on it.
+local function blastDecoy(decoy: TDecoy, crusher: jecs.Entity<any>?)
 	local ability = decoy.Ability
 	local damage = ability.Damage
 	local radius = ability.BlastRadius
@@ -188,17 +194,22 @@ local function blastDecoy(decoy: TDecoy)
 		struck[count] = enemyEntity
 	end
 
+	if crusher and EnemyWorld:contains(crusher) and not table.find(struck, crusher) then
+		count += 1
+		struck[count] = crusher
+	end
+
 	if count == 0 then return end
 	EnemiesService.DamageMultiple(getCharacterEntityFromPlayer(decoy.Owner), struck, damage)
 end
 
--- `isBlast`: it pops in the arena (worn out, timed out, replaced) rather than being cleared away with the run or
--- its thrower.
-local function popDecoy(decoy: TDecoy, isBlast: boolean)
+-- `isBlast`: it pops in the arena (worn out, timed out, replaced, crushed by `crusher`) rather than being cleared away
+-- with the run or its thrower.
+local function popDecoy(decoy: TDecoy, isBlast: boolean, crusher: jecs.Entity<any>?)
 	decoys[decoy.Id] = nil
 	if decoy.IsOut then EnemyMovementService.ClearLure(Tune.LURE_ID_BASE + decoy.Id) end
 	ServerNetworkAbilities.DecoyPopped.FireAll(decoy.Id)
-	if isBlast and decoy.IsOut then blastDecoy(decoy) end
+	if isBlast and decoy.IsOut then blastDecoy(decoy, crusher) end
 end
 
 -- The floor a decoy thrown at `target` comes down on: the nav grid's under the aim, or the nearest one found walking
@@ -258,9 +269,16 @@ local function throwDecoy(
 	ServerNetworkAbilities.DecoyThrown.FireAll(nextDecoyId, instanceId, feet :: any, flight, ability.Duration)
 end
 
-local function strikeDecoy(decoy: TDecoy)
+-- A crushing blow (`crusher`, a boss's) pops it whatever it has left.
+local function strikeDecoy(decoy: TDecoy, crusher: jecs.Entity<any>?)
+	if decoys[decoy.Id] ~= decoy then return end
+	if crusher then
+		popDecoy(decoy, true, crusher)
+		return
+	end
+
 	local now = TimeCore.GameClock
-	if now < decoy.HurtUntil or decoys[decoy.Id] ~= decoy then return end
+	if now < decoy.HurtUntil then return end
 	decoy.HurtUntil = now + Tune.DECOY_HURT_SECONDS
 	decoy.Blows -= 1
 	if decoy.Blows <= 0 then
@@ -277,8 +295,9 @@ local function stepDecoys(now: number)
 			popDecoy(decoy, true)
 		elseif not decoy.IsOut and now >= decoy.LandsAt then
 			decoy.IsOut = true
-			EnemyMovementService.SetLure(Tune.LURE_ID_BASE + decoy.Id, decoy.Feet, decoy.Ability.Radius, function()
-				strikeDecoy(decoy)
+			local lureId = Tune.LURE_ID_BASE + decoy.Id
+			EnemyMovementService.SetLure(lureId, decoy.Feet, decoy.Ability.Radius, function(crusher)
+				strikeDecoy(decoy, crusher)
 			end)
 		end
 	end
@@ -287,11 +306,13 @@ end
 -- ============================== Foam Cannon ==============================
 
 -- Sets one body: held where it stands with no attack to start until it is let go, and brittle meanwhile. A boss is
--- never held (as it is never shoved or staggered), only made brittle.
-local function foam(enemyEntity: jecs.Entity<any>, ability: TData.TAbility, now: number)
+-- never held (as it is never shoved or staggered): slowed for part of the hold and brittle for all of it, or nothing
+-- when it shrugs foam off (BossService.Slow). Returns whether it set.
+local function foam(enemyEntity: jecs.Entity<any>, ability: TData.TAbility, now: number): boolean
+	local isBoss = EnemyWorld:has(enemyEntity, Tags.Boss)
+	if isBoss and not BossService.Slow(enemyEntity, ability.Duration * Tune.FOAM_BOSS_SLOW_SHARE) then return false end
 	local state = foamed[enemyEntity]
 	if not state then
-		local isBoss = EnemyWorld:has(enemyEntity, Tags.Boss)
 		state = { Until = 0, Speed = if isBoss then nil else EnemyWorld:get(enemyEntity, Components.MovementSpeed) }
 		foamed[enemyEntity] = state
 		if state.Speed then EnemyWorld:set(enemyEntity, Components.MovementSpeed, 0) end
@@ -302,6 +323,7 @@ local function foam(enemyEntity: jecs.Entity<any>, ability: TData.TAbility, now:
 	-- A negative wind-up is the countdown a finished attack recovers through (enemiesUpdate): it drops the swing being
 	-- wound up and starts none until it has run out.
 	if state.Speed then EnemyWorld:set(enemyEntity, Components.AttackWindup, -ability.Duration) end
+	return true
 end
 
 local function thaw(enemyEntity: jecs.Entity<any>, state: TFoamed)
@@ -347,7 +369,7 @@ local function sprayFoam(
 		local wall, wallDistance = sightCast(origin, toChest)
 		if wall and wallDistance < toChest.Magnitude - Tune.FOAM_SIGHT_SLACK then continue end
 
-		foam(enemyEntity, ability, now)
+		if not foam(enemyEntity, ability, now) then continue end
 		struckIds[#struckIds + 1] = enemyId
 	end
 
@@ -377,10 +399,10 @@ end
 
 -- One blow of the beam on everything within `radius` of it, at any height: it reaches the sky. Whatever is not a
 -- boss takes one figure worth an overkill on the toughest of them, so they come apart rather than fall over; a boss
--- takes a share of its own health.
+-- takes a share of its solo health, so a bigger party makes it tougher, never its beams stronger.
 local function strike(beam: TBeam, radius: number)
 	local position = beam.Position
-	local bossShare = beam.Ability.BossShare or 0
+	local bossShare = (beam.Ability.BossShare or 0) / RoundCore.GetBossPartyScale(#Players:GetPlayers())
 	local toughest = 0
 
 	table.clear(candidates)
@@ -588,11 +610,11 @@ function AbilityService.FillUltimate(player: Player)
 end
 
 -- The intent only: a slot and where the crosshair was. The guards are this side's: the match not paused, a standing
--- character every client knows that has no beam out already nor is picking an upgrade (it cannot be hurt
--- meanwhile), a slot its class has, and that slot ready
--- (its cooldown over and its Gold paid in the same step, or the meter full). The reach is clamped where the ability is cast.
+-- character every client knows that is not picking an upgrade (it cannot be hurt meanwhile), a slot its class has,
+-- and that slot ready (its cooldown over and its Gold paid in the same step, or the meter full and no beam still out:
+-- the other abilities stay castable under the beam). The reach is clamped where the ability is cast.
 ClientNetworkAbilities.Cast.On(function(player: Player, slot: number, aimPoint: Vector3)
-	if TimeCore.IsPaused or beams[player] then return end
+	if TimeCore.IsPaused then return end
 	if aimPoint.X ~= aimPoint.X or aimPoint.Y ~= aimPoint.Y or aimPoint.Z ~= aimPoint.Z then return end
 	local characterEntity = getCharacterEntityFromPlayer(player)
 	if not characterEntity or not World:has(characterEntity, Tags.Alive) then return end
@@ -612,7 +634,7 @@ ClientNetworkAbilities.Cast.On(function(player: Player, slot: number, aimPoint: 
 		if not EconomyService.TrySpendGold(player, ability.Cost or 0) then return end
 		loadout.ReadyAt[slot] = now + cooldown * Tune.COOLDOWN_TOLERANCE
 	else
-		if loadout.Charge < (ability.ChargeKills or math.huge) then return end
+		if beams[player] or loadout.Charge < (ability.ChargeKills or math.huge) then return end
 		loadout.Charge = 0
 		sendState(player, loadout)
 	end

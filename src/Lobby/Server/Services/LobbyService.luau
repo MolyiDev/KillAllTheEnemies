@@ -153,7 +153,7 @@ local function resetPad(pad: TPad)
 	pad.Host = nil
 	table.clear(pad.Spots)
 	pad.MaxPlayers = PadsCore.DEFAULT_PLAYERS
-	pad.Map = MapsCore.MAPS[MapsCore.DEFAULT]
+	pad.Map = MapsCore.LIST[1]
 	pad.Difficulty = MapsCore.DIFFICULTIES[1]
 	pad.IsFriendsOnly = false
 	pad.EndsAt = nil
@@ -525,7 +525,7 @@ LobbyService.OnStart = function()
 			Members = {},
 			Spots = {},
 			MaxPlayers = PadsCore.DEFAULT_PLAYERS,
-			Map = MapsCore.MAPS[MapsCore.DEFAULT],
+			Map = MapsCore.LIST[1],
 			Difficulty = MapsCore.DIFFICULTIES[1],
 			IsFriendsOnly = false,
 			EndsAt = nil,

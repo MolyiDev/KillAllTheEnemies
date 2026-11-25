@@ -156,6 +156,11 @@ local landPos, landVel = 0, 0
 -- The deepest fall speed of this airborne stretch: the touchdown snap zeroes velocity before the state fires.
 local airborneFallSpeed = 0
 local pendingLookAt: Vector3? = nil
+-- A cutscene's camera (Script): it builds the whole camera each frame. The zoom the player had when it took over, to
+-- hand back at.
+local scripted: ((dt: number) -> (CFrame, number))? = nil
+local scriptedZoom = 0
+local scriptedFov = 70
 local stateConnection: RBXScriptConnection? = nil
 
 -- The held shot. While Active the camera is Scriptable and built here alone: turning it while the PlayerModule still
@@ -278,6 +283,37 @@ function CameraController.ReleaseShot()
 		return
 	end
 	if not held.ReleasedAt then held.ReleasedAt = accumulatedTime end
+end
+
+-- Takes the camera for a cutscene: from the next frame `step(dt)` builds it whole, (CFrame, field of view), and only
+-- the shakes are laid on top. nil hands it back at once (behind a cut), behind the player and looking at `lookAt`
+-- when given, at the zoom and field of view they had.
+function CameraController.Script(step: ((dt: number) -> (CFrame, number))?, lookAt: Vector3?)
+	local camera = Workspace.CurrentCamera
+	if step then
+		if not scripted then
+			scriptedZoom = (camera.Focus.Position - camera.CFrame.Position).Magnitude
+			scriptedFov = camera.FieldOfView
+		end
+		scripted = step
+		camera.CameraType = Enum.CameraType.Scriptable
+		return
+	end
+	if not scripted then return end
+
+	scripted = nil
+	camera.FieldOfView = scriptedFov
+	local root = selfRoot
+	if root then
+		local subject = root.Position + Vector3.new(0, 1.5, 0)
+		local toward = if lookAt then lookAt - subject else camera.CFrame.LookVector
+		local flat = Vector3.new(toward.X, math.min(toward.Y, 0) * 0.2, toward.Z)
+		local look = if flat.Magnitude > 1e-3 then flat.Unit else -Vector3.zAxis
+		local eye = subject - look * math.max(scriptedZoom, 8) + Vector3.new(0, 2, 0)
+		camera.CFrame = CFrame.lookAt(eye, subject)
+		camera.Focus = CFrame.new(subject)
+	end
+	camera.CameraType = Enum.CameraType.Custom
 end
 
 -- Pushes a held shot's eye along its view at `speed` studs a second; its spring brings it back.
@@ -579,6 +615,15 @@ local function update(dt: number)
 	dt = math.min(dt, Tune.MAX_FRAME_DT)
 	accumulatedTime += dt
 	local camera = Workspace.CurrentCamera
+	local step = scripted
+	if step then
+		local cframe, fov = step(dt)
+		CameraController.AimCFrame = cframe
+		camera.CFrame = if #activeShakes > 0 then cframe * computeShakeOffset() else cframe
+		camera.FieldOfView = fov
+		return
+	end
+
 	local framed = camera.CFrame
 	local cameraCFrame = framed
 

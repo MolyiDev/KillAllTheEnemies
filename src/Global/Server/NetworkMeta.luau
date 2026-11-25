@@ -459,11 +459,22 @@ function SerdesFunctions.Server_Spins_WriteEVENT_State(Value1: number, Value2: n
 	buffer.writeu8(SendBuffer, BLOCK_START + 8, Value4)
 end
 
-function SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value: number): ()
-	-- Allocate BLOCK: 2 bytes
-	local BLOCK_START = Allocate(2)
+function SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value: { number }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
-	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, #Value)
+		-- Allocate BLOCK: 1 bytes
+	local ARRAY_START_1 = Allocate(1 * #Value)
+	for Index = 1, #Value do
+		local Item_1 = Value[Index]
+		-- Allocate 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		buffer.writeu8(SendBuffer, OPERATION_OFFSET_0, Item_1)
+	end
+	-- END ARRAY
 end
 
 function SerdesFunctions.Server_Results_WriteEVENT_Show(Value: { MapName: string, Wave: number, BestWaveBefore: number, Seconds: number, BestSecondsBefore: number, Gems: number, Kills: number, SquadKills: number, LevelBefore: number, XpBefore: number, XpWaves: number, XpBosses: number, Squad: { { UserId: number, Name: string, ClassId: number, Kills: number } } }): ()
@@ -1180,7 +1191,10 @@ function SerdesFunctions.Client_DailyRewards_ReadEVENT_Claim(): (nil)
 	return Value
 end
 
-function SerdesFunctions.Client_Spins_ReadEVENT_Spin(): (nil)
+function SerdesFunctions.Client_Spins_ReadEVENT_Spin(): (number)
+	-- Read BLOCK: 1 bytes
+	local BLOCK_START = Read(1)
+	local Value = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	return Value
 end
 
@@ -1956,7 +1970,7 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 				table.insert(Queue.Reliable[51], {Player, Value} :: {any})
 			end
 		elseif Index == 52 then
-			local Value: nil = SerdesFunctions.Client_Spins_ReadEVENT_Spin()
+			local Value: number = SerdesFunctions.Client_Spins_ReadEVENT_Spin()
 			if Events.Reliable[52] ~= nil then
 				task.spawn(Events.Reliable[52], Player, Value)
 			else
@@ -2954,12 +2968,12 @@ local Returns = table.freeze({
 				end,
 			},
 			Landed = {
-				Fire = function(Player: Player, Value: number): ()
+				Fire = function(Player: Player, Value: { number }): ()
 					Load(PlayersMap[Player])
 					SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value)
 					PlayersMap[Player] = Save()
 				end,
-				FireAll = function(Value: number): ()
+				FireAll = function(Value: { number }): ()
 					Load()
 					SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value)
 					local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -2971,7 +2985,7 @@ local Returns = table.freeze({
 						PlayersMap[Player] = Save()
 					end
 				end,
-				FireList = function(List: {Player}, Value: number): ()
+				FireList = function(List: {Player}, Value: { number }): ()
 					Load()
 					SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value)
 					local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -2983,7 +2997,7 @@ local Returns = table.freeze({
 						PlayersMap[Player] = Save()
 					end
 				end,
-				FireExcept = function(Except: Player, Value: number): ()
+				FireExcept = function(Except: Player, Value: { number }): ()
 					Load()
 					SerdesFunctions.Server_Spins_WriteEVENT_Landed(Value)
 					local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -4122,7 +4136,7 @@ local Returns = table.freeze({
 		},
 		Spins = {
 			Spin = {
-				On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
+				On = function(Listener: (Player: Player, Value: number) -> ()): () -> ()
 					Events.Reliable[52] = Listener
 					for Index, Arguments in Queue.Reliable[52] do
 						task.spawn(Listener, table.unpack(Arguments))

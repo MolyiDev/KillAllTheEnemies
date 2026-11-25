@@ -1,8 +1,8 @@
--- The spins screen's request (SpinsService): spin the reel, with a free spin or a bought one. Whether one is left and
--- what it lands on are the server's.
+-- The spins screen's request (SpinsService): spin up to this many reels at once, free spins first, then bought ones.
+-- How many are left and what each lands on are the server's. (how many)
 event Spin {
 	from: Client,
 	type: Reliable,
 	call: SingleAsync,
-	data: ()
+	data: u8
 }

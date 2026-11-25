@@ -129,7 +129,6 @@ return {
 			PlayAt = source(if moment == "Play" then at else -math.huge),
 			PlayRefusedAt = source(if moment == "PlayRefused" then at else -math.huge),
 			PlayCallAt = source(if moment == "PlayCall" then at else -math.huge),
-			HeldKey = source(nil),
 			IsCovered = source(false),
 			CoveredAt = source(-math.huge),
 			IsPlateCovered = source(false),

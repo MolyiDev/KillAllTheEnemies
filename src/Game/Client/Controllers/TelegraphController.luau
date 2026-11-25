@@ -172,7 +172,8 @@ type TTelegraph = {
 	Width: number,
 	Duration: number,
 	Speed: number,
-	Blow: string,
+	-- nil for a boss's: it voices its own blows on its moves (BossController), and a second sound would stack on them.
+	Blow: string?,
 	IsExplosion: boolean,
 	Palette: number,
 	-- The length of its outline, and what is owed to its rim and its front (a fraction carries over): pixels, and a
@@ -799,7 +800,8 @@ end
 -- The wind-up has run out: a shockwave starts rolling, anything else lands.
 local function strike(telegraph: TTelegraph)
 	shakeForBlast(telegraph)
-	SoundsCore.PlayWorldRandom(Tune.BLOW_GROUP, telegraph.Blow, telegraph.Frame.Position)
+	local blow = telegraph.Blow
+	if blow then SoundsCore.PlayWorldRandom(Tune.BLOW_GROUP, blow, telegraph.Frame.Position) end
 	burst(telegraph)
 	telegraph.StateElapsed = 0
 	if telegraph.Kind == ETelegraphs.Ring then
@@ -852,8 +854,9 @@ function TelegraphController.Show(
 		FrontDebt = 0,
 		BrickDebt = 0,
 		Dust = Tune.NO_FLOOR_COLOR,
-		Blow = if kind == ETelegraphs.Ring
-			then "Shockwave"
+		Blow = if isBoss
+			then nil
+			elseif kind == ETelegraphs.Ring then "Shockwave"
 			elseif not isExplosion then "Slam"
 			elseif size >= Tune.BIG_BLAST_SIZE then "ExplodeBig"
 			else "ExplodeSmall",

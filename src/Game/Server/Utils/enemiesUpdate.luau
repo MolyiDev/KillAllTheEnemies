@@ -16,6 +16,7 @@ local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local TelegraphCore = require(ReplicatedStorage.Shared.Core.TelegraphCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
+local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local SpatialHash = require(ReplicatedStorage.GlobalShared.Utils.SpatialHash)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -27,6 +28,7 @@ local max = math.max
 local min = math.min
 local floor = math.floor
 local atan2 = math.atan2
+local cos = math.cos
 local vectorCreate = vector.create
 local readu8 = buffer.readu8
 local readu32 = buffer.readu32
@@ -48,6 +50,9 @@ local WALL_RADIUS_SCALE = 0.5
 local LEDGE_DROP = 0.5
 -- Bodies that fall this far under the lowest floor are gone (thrown off the map).
 local FALL_OUT_DEPTH = 40
+-- A boss turning (TEnemyBoss.TurnRate) walks at least this share of its speed while it faces away from its way.
+local BOSS_TURN_CRAWL = 0.25
+local TAU = 2 * math.pi
 
 -- Separation steering (Fieldrunners-style): a soft push from neighbours in a ring past hard contact,
 -- plus a sidestep from the ones ahead, so a column slides apart instead of stacking. Budgeted to a fraction of the
@@ -96,6 +101,7 @@ export type TTick = {
 	OutIds: { number },
 	OutPositions: { vector },
 	OutYaws: { number },
+	OutViews: { vector },
 	-- Deferred effects. A target id > 0 is a character, < 0 is -barricadeId.
 	OnAttackStarted: (
 		enemy: any,
@@ -385,7 +391,8 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 	local gravityStep = GRAVITY * dt
 	local kForce = K_FORCE * dt
 	local fallOutY = (if grid then grid.MinY else ArenaCore.FlatY) - FALL_OUT_DEPTH
-	local outIds, outPositions, outYaws = tick.OutIds, tick.OutPositions, tick.OutYaws
+	local outIds, outPositions, outYaws, outViews = tick.OutIds, tick.OutPositions, tick.OutYaws, tick.OutViews
+	local viewSphereOf = EnemiesCore.ViewSphere
 	local written = 0
 	local hasTargets = next(charFeet) ~= nil or barricadeCount > 0
 
@@ -417,9 +424,10 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		for id, feet in charFeet do
 			local dx, dz = feet.x - pos.x, feet.z - pos.z
 			local flatSq = dx * dx + dz * dz
-			-- A lure is nothing to a body out of its reach.
+			-- A lure is nothing to a body out of its reach, nor to a boss BossService has not baited with it: its moves
+			-- go for a decoy once in a while, and its walk with them.
 			local lureSq = lures[id]
-			if lureSq and flatSq > lureSq then continue end
+			if lureSq and (flatSq > lureSq or data.Boss and not EnemyWorld:has(entity, Tags.Baited)) then continue end
 			if flatSq < fallbackSq then
 				fallbackSq = flatSq
 				fallbackId = id
@@ -521,6 +529,18 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		-- wall or shove moves it, and it keeps the facing it aimed with.
 		local isHeld = windingUp ~= nil and windingUp.Kind ~= "Melee"
 		local walkSpeed = if hasTargets and not isWindingUp then speed else 0
+
+		-- A boss turns at its TurnRate, slowing until it faces its way: a body this long cannot spin on the spot, so a
+		-- player can get round to its tail.
+		local bossKit = data.Boss
+		local turnedYaw = yaw
+		if bossKit and not isHeld then
+			local wanted = atan2(walkDirX, walkDirZ)
+			local diff = (wanted - yaw + math.pi) % TAU - math.pi
+			local maxTurn = math.rad(bossKit.TurnRate) * dt
+			turnedYaw = yaw + clamp(diff, -maxTurn, maxTurn)
+			walkSpeed *= max(cos(wanted - turnedYaw), BOSS_TURN_CRAWL)
+		end
 		local walkVelX = walkDirX * walkSpeed
 		local walkVelZ = walkDirZ * walkSpeed
 
@@ -664,7 +684,10 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		local attacks = data.Attacks
 		local newWindup = attackWindup
 		local newCount = attackCount
-		if attackWindup > 0 then
+		-- A boss's attacks are BossService's: its AttackWindup is only whether it is busy (held) or free to walk.
+		if data.IsBoss then
+			newWindup = attackWindup
+		elseif attackWindup > 0 then
 			newWindup = attackWindup - dt
 			if newWindup <= 0 then
 				if windingUp and windingUp.Kind == "Melee" then
@@ -723,7 +746,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		end
 
 		-- Facing is where it WANTS to go, not its position delta: a knocked-back body keeps facing its target.
-		local newYaw = if isHeld then yaw else atan2(walkDirX, walkDirZ)
+		local newYaw = if isHeld or bossKit then turnedYaw else atan2(walkDirX, walkDirZ)
 
 		EnemyWorld:set(entity, Components.Position, newPos)
 		EnemyWorld:set(entity, Components.Velocity, vectorCreate(walkVelX, vy, walkVelZ))
@@ -736,6 +759,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		outIds[written] = instanceId
 		outPositions[written] = newPos
 		outYaws[written] = newYaw
+		outViews[written] = viewSphereOf(data)
 	end
 
 	for i = 1, startCount do

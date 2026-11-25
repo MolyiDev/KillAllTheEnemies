@@ -13,6 +13,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
 
 local create = vide.create
 local derive = vide.derive
@@ -44,7 +45,7 @@ local Layout = table.freeze({
 
 local Timing = table.freeze({
 	-- How long it is up, start to gone.
-	SECONDS = 4.6,
+	SECONDS = EquipmentCore.DROP_SHOW_SECONDS,
 	-- It arrives a little large and settles with no overshoot, and leaves a little small; never faded in: its first
 	-- frame is its white one.
 	IN = 0.24,

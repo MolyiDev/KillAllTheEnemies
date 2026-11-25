@@ -45,6 +45,13 @@ function TimeService.SetHeld(isHeld: boolean)
 	sync(seconds)
 end
 
+-- Stops the whole match at once for a boss's intro, or lets it go at once (BossIntroService).
+function TimeService.SetCutscene(isCutscene: boolean)
+	if TimeCore.IsCutscene == isCutscene then return end
+	TimeCore.SetCutscene(isCutscene)
+	sync(0)
+end
+
 -- A new run: the clocks start over at full speed.
 function TimeService.Reset()
 	TimeCore.Reset()

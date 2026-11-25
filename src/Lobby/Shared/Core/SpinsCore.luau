@@ -1,7 +1,8 @@
 -- The daily spins' rules, the same on both sides (SpinsService decides, SpinsController shows): two free spins a UTC
--- day, more bought one at a time with Robux (EProducts.ExtraSpin), each landing on one of seven prizes drawn by weight.
+-- day, more bought with Robux (PRODUCTS), up to MAX_COUNT spun at once, each landing on one of seven prizes drawn by weight.
 -- The reel shows the seven in this order, over and over; the server draws which one it stops on.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 -- A prize: Gems, or XP as a share of a level in percent (the profile's Xp), and how often it is drawn against the
@@ -18,8 +19,21 @@ export type TPrize = {
 local SpinsCore = {}
 
 SpinsCore.FREE_PER_DAY = 2
--- What an extra spin costs, as set on the product itself.
-SpinsCore.ROBUX = 25
+-- How many one SPIN turns (its count menu, a reel each), what that many cost as set on their products (a pack is
+-- cheaper a spin, as the Gem packs give more a Robux: about +9% and +15% more spins for the Robux), and the products
+-- (0: not on sale yet).
+SpinsCore.COUNTS = table.freeze({ 1, 3, 5 })
+SpinsCore.PRICES = table.freeze({
+	[1] = 25,
+	[3] = 69,
+	[5] = 109,
+} :: { [number]: number })
+SpinsCore.PRODUCTS = table.freeze({
+	[1] = EProducts.ExtraSpin,
+	[3] = EProducts.ExtraSpin3,
+	[5] = EProducts.ExtraSpin5,
+} :: { [number]: number })
+SpinsCore.MAX_COUNT = 5
 
 -- The reel's order, left to right as it rests (his seven cards: the violet one first, the blue ones fourth and last).
 -- Weights are percent.

@@ -8,6 +8,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
@@ -52,16 +53,11 @@ local Layout = table.freeze({
 	CARD_TOP = 160,
 	CARD = Vector2.new(120, 176),
 	ROW_STEP = 196,
-	-- Inside a card: the picture's box and middle, the rule over the name band, the name, the corner badge.
+	-- The picture's box inside a card.
 	PICTURE_BOX = 100,
-	PICTURE = Vector2.new(60, 74),
-	CARD_RULE = Vector2.new(12, 143),
-	CARD_RULE_WIDTH = 96,
-	NAME_Y = 152,
-	NAME_TEXT = 13,
-	CORNER_BADGE = 24,
-	CORNER = Vector2.new(88, 8),
 })
+-- The top right badge's middle on a card: the lock, or the tick on a piece worn.
+local CORNER = ItemCard.TopRight(Layout.CARD.X)
 
 local Timing = table.freeze({
 	-- The cards grow onto their places one after another as the page comes up and as a filter is picked.
@@ -75,15 +71,12 @@ local Timing = table.freeze({
 	SWEEP = 0.12,
 	PICK_PERIOD = 0.3,
 	PICK_DAMPING = 0.72,
-	-- A count changing punches its number.
-	COUNT_PERIOD = 0.3,
-	COUNT_DAMPING = 0.5,
-	COUNT_PUNCH = 0.3,
 	-- A piece put on: its card pops and flashes, and its tick is struck in from big.
 	POP_PERIOD = 0.26,
 	POP_DAMPING = 0.58,
 	POP = 0.12,
 	FLASH = 0.4,
+	RING = 0.5,
 	TICK_FROM = 1.8,
 	TICK = 0.32,
 	-- A card the hand is on that refuses (not owned): the lock shakes this many px for this long.
@@ -248,6 +241,11 @@ local function card(
 		if state.ChangedItem() ~= item.Id or state.Change() ~= "Equip" then return 0 end
 		return Motion.Fade(state.Now(), state.ChangedAt(), Timing.FLASH)
 	end)
+	-- One ring off the card as it is put on.
+	local ring = derive(function(): number
+		if state.ChangedItem() ~= item.Id or state.Change() ~= "Equip" then return 1 end
+		return Progress(state.Now(), state.ChangedAt(), Timing.RING)
+	end)
 	local pop, strikePop = Hand.Kick(Timing.POP_PERIOD, Timing.POP_DAMPING)
 	-- Struck once a piece put on, on the answer's stamp: never as the page is built.
 	vide.effect(function()
@@ -267,90 +265,47 @@ local function card(
 		return if isOwned() then Palette.White else Parts.LOCKED_TINT
 	end)
 
-	return Components.Button({
+	return ItemCard.Build({
 		Name = item.Name,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = Layout.CARD,
 		Position = UDim2.fromOffset(
 			Layout.CARD_XS[column] + Layout.CARD.X / 2,
 			Layout.CARD_TOP + row * Layout.ROW_STEP + Layout.CARD.Y / 2
 		),
-		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = function()
-			hand.Commit()
-			actions.Select(item.Id)
+		Hand = hand,
+		Accent = accent,
+		Title = string.upper(item.Name),
+		Lit = function(): number
+			return if isOwned() then 1 else 0
 		end,
-		hand.Events,
-		create("UIScale")({
-			Scale = function()
-				return Motion.Decelerate(dealt()) * (hand.Scale() + pop())
+		IsSelected = isSelected,
+		Grown = function()
+			return Motion.Decelerate(dealt())
+		end,
+		-- The light crosses it as it is dealt.
+		Sheen = dealt,
+		Pop = pop,
+		Flash = flash,
+		Ring = ring,
+		Picture = Parts.Picture(function()
+			return item.Id
+		end, {
+			Tint = tint,
+			Transparency = function()
+				return if isOwned() then 0 else Parts.LOCKED_TRANSPARENCY
 			end,
-		}),
-		Components.Card({
-			Accent = Parts.EdgeOf(accent),
-			Glow = accent,
-			GlowTransparency = function()
-				return 0.7 - 0.35 * math.max(hand.Light(), flash())
-			end,
-			Tint = 0.35,
-			Marks = true,
-			Brackets = hand.Rise,
-			BracketLength = 20,
-			BracketTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
-			end,
-			BracketsClosed = isSelected,
 		}, {
-			Name = "Card",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(hand.Glint, 3),
-			Parts.Picture(function()
-				return item.Id
-			end, {
-				Tint = tint,
-				Transparency = function()
-					return if isOwned() then 0 else Parts.LOCKED_TRANSPARENCY
-				end,
-			}, {
-				Name = "Picture",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
-				Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.PICTURE_BOX),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + 0.1 * hand.Rise()
-					end,
-				}),
-			}),
-			create("Frame")({
-				Name = "Rule",
-				Position = UDim2.fromOffset(Layout.CARD_RULE.X, Layout.CARD_RULE.Y),
-				Size = UDim2.fromOffset(Layout.CARD_RULE_WIDTH, 2),
-				BackgroundColor3 = accent,
-				BackgroundTransparency = 0.6,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-			}),
-			Label({
-				Name = "Name",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.NAME_Y),
-				Size = UDim2.fromOffset(Layout.CARD.X - 12, Layout.NAME_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextScaled = true,
-				TextColor3 = function()
-					return if isOwned() then Palette.White else Palette.Lavender
-				end,
-				Text = string.upper(item.Name),
-				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
-			}),
-			Parts.Badge("Lock", Layout.CORNER_BADGE, {
+			Name = "Picture",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.PICTURE_BOX),
+		}),
+		Children = {
+			Parts.Badge("Lock", ItemCard.BADGE, {
 				Name = "Lock",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function()
-					return UDim2.fromOffset(Layout.CORNER.X + shake(), Layout.CORNER.Y)
+					return UDim2.fromOffset(CORNER.X + shake(), CORNER.Y)
 				end,
 				Visible = function()
 					return not isOwned()
@@ -358,13 +313,10 @@ local function card(
 				ZIndex = 6,
 			}),
 			-- Struck in from big as the piece is put on.
-			Parts.Badge("Check", Layout.CORNER_BADGE, {
+			Parts.Badge("Check", ItemCard.BADGE, {
 				Name = "Worn",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(
-					Layout.CORNER.X + Layout.CORNER_BADGE / 2,
-					Layout.CORNER.Y + Layout.CORNER_BADGE / 2
-				),
+				Position = UDim2.fromOffset(CORNER.X, CORNER.Y),
 				Visible = isWorn,
 				ZIndex = 6,
 				create("UIScale")({
@@ -373,22 +325,11 @@ local function card(
 					end,
 				}),
 			}),
-			create("Frame")({
-				Name = "Flash",
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Palette.White,
-				BorderSizePixel = 0,
-				ZIndex = 7,
-				Visible = function()
-					return flash() > 0.01
-				end,
-				BackgroundTransparency = function()
-					return 1 - 0.7 * flash()
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			}),
-		}),
-	}) :: TextButton
+		},
+		Activated = function()
+			actions.Select(item.Id)
+		end,
+	})
 end
 
 -- One filter's cards, for vide.switch: grown in when the filter comes up and shrunk away when another does.
@@ -430,9 +371,9 @@ local function page(
 	return frame, Timing.SWEEP + 0.02
 end
 
--- How many of the filter's pieces are owned, and how many there are.
-local function counts(state: Types.TEquipmentState): () -> (number, number)
-	return function(): (number, number)
+-- How many of the filter's pieces are owned, out of how many.
+local function countText(state: Types.TEquipmentState): () -> string
+	return function(): string
 		local items = itemsOf(state.Filter())
 		local owned = state.Owned()
 		local count = 0
@@ -441,52 +382,14 @@ local function counts(state: Types.TEquipmentState): () -> (number, number)
 				count += 1
 			end
 		end
-		return count, #items
+		return `{count} / {#items} OWNED`
 	end
-end
-
-local function countText(owned: number, total: number): string
-	return `{owned} / {total} OWNED`
-end
-
--- Every text the count can show, keyed by itself.
-local function countTexts(): { [string]: string }
-	local texts = {}
-	for _, filter in FILTERS do
-		local total = #itemsOf(filter)
-		for owned = 0, total do
-			local text = countText(owned, total)
-			texts[text] = text
-		end
-	end
-
-	return texts
 end
 
 function Grid.Build(state: Types.TEquipmentState, actions: Types.TEquipmentActions): Frame
 	local headerIn = Parts.Dealt(state, Timing.HEADER, Timing.DEAL)
 	local away = Parts.Away(state)
 	local landed = Parts.Landing(state, 0)
-	local count = counts(state)
-	local punch, strike = Hand.Kick(Timing.COUNT_PERIOD, Timing.COUNT_DAMPING)
-	local text = derive(function(): string
-		return countText(count())
-	end)
-	local textBounds = Parts.TextBounds(countTexts(), Font.DisplayBold, Layout.COUNT_TEXT)
-	-- The count's box is its text's width, its right edge on COUNT_RIGHT, so the punch grows from the text's middle.
-	-- Unmeasured, the box is empty and its right-aligned text runs left from that edge all the same.
-	local countWidth = derive(function(): number
-		local bounds = textBounds()[text()]
-		return if bounds then bounds.X else 0
-	end)
-	local last = nil
-	vide.effect(function()
-		local current = text()
-		vide.untrack(function()
-			if last and current ~= last then strike(Timing.COUNT_PUNCH) end
-			last = current
-		end)
-	end)
 
 	local pages = {}
 	for _, filter in FILTERS do
@@ -553,16 +456,9 @@ function Grid.Build(state: Types.TEquipmentState, actions: Types.TEquipmentActio
 			}),
 			Label({
 				Name = "Count",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = function()
-					return UDim2.fromOffset(
-						Layout.COUNT_RIGHT - countWidth() / 2,
-						Layout.COUNT_Y + Layout.COUNT_TEXT / 2
-					)
-				end,
-				Size = function()
-					return UDim2.fromOffset(countWidth(), Layout.COUNT_TEXT)
-				end,
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.fromOffset(Layout.COUNT_RIGHT, Layout.COUNT_Y),
+				Size = UDim2.fromOffset(200, Layout.COUNT_TEXT),
 				TextXAlignment = Enum.TextXAlignment.Right,
 				FontFace = Font.DisplayBold,
 				TextSize = Layout.COUNT_TEXT,
@@ -570,17 +466,14 @@ function Grid.Build(state: Types.TEquipmentState, actions: Types.TEquipmentActio
 				TextTransparency = function()
 					return 1 - Motion.Out(headerIn())
 				end,
-				Text = text,
-				create("UIScale")({
-					Scale = function()
-						return 1 + punch()
-					end,
-				}),
+				Text = countText(state),
 			}),
 			create("Frame")({
 				Name = "Rule",
 				Position = UDim2.fromOffset(Layout.RULE.X, Layout.RULE.Y),
-				Size = UDim2.fromOffset(Layout.RULE_WIDTH, 1),
+				Size = function()
+					return UDim2.fromOffset(Layout.RULE_WIDTH, math.max(1, 1 / panelTop.Scale()))
+				end,
 				BackgroundColor3 = Parts.RULE,
 				BackgroundTransparency = Parts.RULE_TRANSPARENCY,
 				BorderSizePixel = 0,

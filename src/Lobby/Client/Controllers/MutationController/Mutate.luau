@@ -1,14 +1,14 @@
 --!nonstrict
 -- The MUTATE page on his panel: the two souls picked (ingredient slots), the potion they make (the result card), the
--- souls held (SELECT SOULS), how many to brew at once (Count) and BREW POTION, which sells a brew for Robux once the
--- day's are used.
+-- souls held (SELECT SOULS), how many to brew at once (countPicker) and BREW POTION, which sells that many brews for
+-- Robux once the day's are used.
 --
 -- A brew is beats off its stamps (Brew.Times): BREW pressed pours both souls into the flask as pixels while the
 -- card shakes and brightens (the wind-up, never shorter than WINDUP however fast the server answers); then the
 -- rarity CLIMBS, the card's colour stepping up through the rarities to the one rolled, each step a tick higher and a
 -- beat slower; then it LANDS: a white flash, one ring, the bottle punched in in its colour over rays, the name and
--- the tags. The rarer, the harder it lands; a batch climbs to its rarest. Its potions then fly to the POTIONS tab
--- (Flight).
+-- the tags. The rarer, the harder it lands. A batch opens its cards in the tray where the souls stood (Tray), and the
+-- result card follows the best so far, landing with the last. Its potions then fly to the POTIONS tab (Flight).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -20,12 +20,12 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
 local Brew = require(script.Parent.Brew)
-local Count = require(script.Parent.Count)
 local Parts = require(script.Parent.Parts)
+local Tray = require(script.Parent.Tray)
 local Picture = require(script.Parent.Parent.IndexController.Picture)
+local countPicker = require(script.Parent.Parent.Parent.Utils.countPicker)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
-local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 
 local create = vide.create
 local derive = vide.derive
@@ -77,8 +77,11 @@ local Layout = table.freeze({
 	CARD_COUNT_Y = 135,
 	CARD_COUNT_TEXT = 21,
 	CHECK = 26,
-	-- BREW POTION, 40 px off the count trigger (Count): past the reach of a 1024 px Operate slab at its press.
+	-- BREW POTION, 40 px off the count trigger: past the reach of a 1024 px Operate slab at its press.
 	BREW = Rect.new(568, 845, 1592, 917),
+	COUNT = Rect.new(328, 845, 528, 917),
+	-- Round the souls' cards inside the group that fades them out for the tray: their glow, brackets and growth.
+	SOULS_MARGIN = 48,
 	BREW_TEXT = 30,
 	BREW_GLYPH = 34,
 	ROBUX = 26,
@@ -110,15 +113,8 @@ local Timing = table.freeze({
 
 local Mutate = {}
 
--- The room the panel's rise makes (Screen) goes to the cards: the top row (the slots, the result card) and the souls'
--- cards under it each grow by a share, the souls' header and cards moving down by the top row's.
-local function topGrowth(): number
-	return math.floor(Parts.Lift() / 2)
-end
-
-local function cardsGrowth(): number
-	return Parts.Lift() - topGrowth()
-end
+local topGrowth = Parts.TopGrowth
+local cardsGrowth = Parts.CardsGrowth
 
 -- How far the middle of the top row moves down as it grows.
 local function topShift(): number
@@ -180,12 +176,20 @@ function Mutate.Possible(state: Types.TLabState): number
 	return math.min(affordable(state), state.BrewsLeft())
 end
 
--- How many BREW makes now: the count picked, held to what is possible (MAX is all of it), at least 1.
+-- How many BREW makes now: the count picked, held to what is possible, at least 1.
 function Mutate.Count(state: Types.TLabState): number
-	local possible = Mutate.Possible(state)
-	local count = state.BrewCount()
-	if count == 0 then return math.max(possible, 1) end
-	return math.max(math.min(count, possible), 1)
+	return math.max(math.min(state.BrewCount(), Mutate.Possible(state)), 1)
+end
+
+-- How many brews BREW sells once the day's are used: the count picked, held to what the souls pay for, down to a
+-- count sold on its own (PotionsCore.BREW_PRODUCTS). 0 when none is for sale.
+function Mutate.BuyCount(state: Types.TLabState): number
+	local most = math.min(state.BrewCount(), affordable(state))
+	local best = 0
+	for _, count in PotionsCore.BREW_COUNTS do
+		if count <= most and PotionsCore.BREW_PRODUCTS[count] ~= 0 then best = count end
+	end
+	return best
 end
 
 -- Why BREW cannot brew now, as its words, or nil when it can. Out of brews with the souls ready, it may sell one
@@ -208,7 +212,7 @@ function Mutate.Mode(state: Types.TLabState): "Brew" | "Buy" | "Off"
 	local blocker = Mutate.Blocker(state)
 	if not blocker then return "Brew" end
 	local isOutOfBrews = state.BrewsLeft() <= 0 and affordable(state) > 0 and not Brew.IsBusy(state)
-	if isOutOfBrews and state.CanBuyBrew() and EProducts.ExtraBrew ~= 0 then return "Buy" end
+	if isOutOfBrews and state.CanBuyBrew() and Mutate.BuyCount(state) > 0 then return "Buy" end
 	return "Off"
 end
 
@@ -604,7 +608,7 @@ local function resultCard(state: Types.TLabState, actions: Types.TLabActions, sh
 		if not recipe() then return "" end
 		local chances = PotionsCore.Chances(state.Luck())
 		local mythic = chances[Parts.MAX_RARITY] * 100
-		local luck = if state.Luck() > 1 then " (2X LUCK)" else ""
+		local luck = if state.Luck() > 1 then " (DOUBLE LUCK)" else ""
 		return `MYTHIC {string.format("%.0f", mythic)}%{luck}: LASTS 2 MATCHES`
 	end)
 	local isFaded = derive(function(): boolean
@@ -902,7 +906,13 @@ end
 
 -- ============================== Energy ==============================
 
-local function energyCard(state: Types.TLabState, actions: Types.TLabActions, enemy: any, index: number): TextButton
+local function energyCard(
+	state: Types.TLabState,
+	actions: Types.TLabActions,
+	enemy: any,
+	index: number,
+	soulsShown: () -> number
+): TextButton
 	local enemyId = enemy.Id
 	local kind = enemy.Energy
 	local x = Parts.LEFT + 2 + (index - 1) * (Layout.CARD_SIZE.X + Layout.CARD_GAP)
@@ -947,7 +957,10 @@ local function energyCard(state: Types.TLabState, actions: Types.TLabActions, en
 		end,
 		BackgroundTransparency = 1,
 		ZIndex = 3,
-		Interactable = Parts.Uncovered(state),
+		-- Not while the tray stands in the souls' place.
+		Interactable = function()
+			return not state.IsMenuOpen() and soulsShown() >= 1
+		end,
 		Activated = function()
 			if isKnown() and not Brew.IsBusy(state) then hand.Commit() end
 			actions.PickEnergy(enemyId)
@@ -1082,7 +1095,10 @@ local function brewButton(state: Types.TLabState, actions: Types.TLabActions): T
 	end)
 	local words = derive(function(): string
 		local current = mode()
-		if current == "Buy" then return "BUY A BREW" end
+		if current == "Buy" then
+			local count = Mutate.BuyCount(state)
+			return if count == 1 then "BUY A BREW" else `BUY {count} BREWS`
+		end
 		if current == "Off" then return Mutate.Blocker(state) or "" end
 		local count = Mutate.Count(state)
 		return if count == 1 then "BREW POTION" else `BREW {count} POTIONS`
@@ -1169,7 +1185,9 @@ local function brewButton(state: Types.TLabState, actions: Types.TLabActions): T
 					Size = UDim2.fromOffset(0, Layout.BREW_TEXT),
 					TextSize = Layout.BREW_TEXT,
 					Visible = isBuy,
-					Text = tostring(PotionsCore.BREW_ROBUX),
+					Text = function()
+						return tostring(PotionsCore.BREW_PRICES[Mutate.BuyCount(state)] or 0)
+					end,
 				}),
 			}),
 		}),
@@ -1181,14 +1199,24 @@ function Mutate.Build(state: Types.TLabState, actions: Types.TLabActions): { any
 	local result = Parts.Dealt(state, 1, Timing.RESULT_DELAY)
 	local bottom = Parts.Dealt(state, 1, Timing.BOTTOM_DELAY)
 	local header = Parts.Dealt(state, 1, 0)
-	-- Once for the count trigger and each of its menu's rows.
-	local possible = derive(function(): number
-		return Mutate.Possible(state)
+	-- Once for the count menu's rows.
+	local souls = derive(function(): number
+		return affordable(state)
 	end)
+	local isLive = derive(function(): boolean
+		return Mutate.Mode(state) ~= "Off"
+	end)
+	local soulsShown = Tray.SoulsShown(state)
+	local soulsDrop = Tray.SoulsDrop(soulsShown)
+	-- The souls' section's room inside the group that fades it as the tray takes its place: the cards, their glow,
+	-- brackets and the hand's growth.
+	local groupAt = function(): Vector2
+		return Vector2.new(Parts.LEFT - Layout.SOULS_MARGIN, Layout.CARDS_Y + topGrowth() - Layout.SOULS_MARGIN)
+	end
 
 	local cards = {}
 	for index, enemy in PotionsCore.ENERGIES do
-		cards[index] = energyCard(state, actions, enemy, index)
+		cards[index] = energyCard(state, actions, enemy, index, soulsShown)
 	end
 
 	return {
@@ -1196,12 +1224,45 @@ function Mutate.Build(state: Types.TLabState, actions: Types.TLabActions): { any
 		ingredient(state, actions, 2, slots),
 		resultCard(state, actions, result),
 		motes(state),
-		Parts.Header("SELECT SOULS", "", Layout.HEADER_Y, EIcons.Soul, nil, {
-			Position = function()
-				return UDim2.fromOffset(Parts.LEFT, Layout.HEADER_Y + topGrowth() + math.round(12 * (1 - header())))
+		Parts.Header(
+			Tray.Title(state, soulsShown),
+			Tray.Info(state, soulsShown),
+			Layout.HEADER_Y,
+			function()
+				return if soulsShown() > 0.5 then EIcons.Soul else EIcons.PotionBottle
 			end,
+			nil,
+			{
+				Position = function()
+					return UDim2.fromOffset(Parts.LEFT, Layout.HEADER_Y + topGrowth() + math.round(12 * (1 - header())))
+				end,
+			}
+		),
+		Components.FadeGroup("Souls", soulsShown, {
+			Position = function()
+				local at = groupAt()
+				return UDim2.fromOffset(at.X, at.Y)
+			end,
+			Size = function()
+				return UDim2.fromOffset(
+					Parts.RIGHT - Parts.LEFT + 2 * Layout.SOULS_MARGIN,
+					Layout.CARD_SIZE.Y + cardsGrowth() + 2 * Layout.SOULS_MARGIN
+				)
+			end,
+			ZIndex = 3,
+		}, {
+			create("Frame")({
+				Name = "Screen",
+				Position = function()
+					local at = groupAt()
+					return UDim2.fromOffset(-at.X, -at.Y + math.round(soulsDrop()))
+				end,
+				Size = UDim2.fromOffset(1920, 1080),
+				BackgroundTransparency = 1,
+				cards,
+			}),
 		}),
-		cards,
+		Tray.Build(state),
 		-- His rects, so the bottom row keeps its place as the panel grows over it, rising in as one; over the cards,
 		-- where the count's menu opens.
 		create("Frame")({
@@ -1213,7 +1274,27 @@ function Mutate.Build(state: Types.TLabState, actions: Types.TLabActions): { any
 			BackgroundTransparency = 1,
 			ZIndex = 11,
 			brewButton(state, actions),
-			Count.Build(state, actions, possible),
+			countPicker.Build({
+				Rect = Layout.COUNT,
+				Caption = "BREW",
+				Options = PotionsCore.BREW_COUNTS,
+				Picked = state.BrewCount,
+				IsOpen = state.IsMenuOpen,
+				MenuAt = state.MenuAt,
+				Now = state.Now,
+				IsLive = isLive,
+				IsReachable = function(count: number): boolean
+					return count <= math.max(souls(), 1)
+				end,
+				Price = function(count: number): number?
+					local isSold = state.BrewsLeft() <= 0
+						and state.CanBuyBrew()
+						and PotionsCore.BREW_PRODUCTS[count] ~= 0
+					return if isSold then PotionsCore.BREW_PRICES[count] else nil
+				end,
+				SetOpen = actions.SetMenu,
+				Pick = actions.PickCount,
+			}),
 		}),
 	}
 end

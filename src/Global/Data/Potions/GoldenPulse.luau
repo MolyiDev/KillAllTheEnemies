@@ -6,7 +6,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TPotion = {
 	Id = EPotionsIds.GoldenPulse,
 	Name = "Golden Pulse",
-	Energies = { EEnemiesIds.Basic, EEnemiesIds.ZombieKing },
+	Energies = { EEnemiesIds.Basic, EEnemiesIds.TRex },
 	Description = "Glitters going down. You heal as you fight, and the horde pays better.",
 }
 

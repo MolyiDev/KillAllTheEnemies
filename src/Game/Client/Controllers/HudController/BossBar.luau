@@ -1,13 +1,19 @@
 --!nonstrict
 -- The boss strip under the wave plate (UIMatt.md, In-Game HUD, Boss Container) and the boss's bar it grows into. With
--- no boss up it is his strip exactly: NEXT BOSS, the name, and the way to that boss in four segments. When a boss
--- comes on the same pieces grow (one object, its states told apart by size, colour and light): the tag reads BOSS,
--- the segments become the boss's health with its share on the right, and the two who have taken the most off it
--- unfold under it. Every rect is in px at 1080; the strip's are his drawn ones.
+-- no boss up it is his strip exactly: NEXT BOSS, the name, and the way to that boss in four segments, which the kills
+-- fill (the boss comes once the run's kills reach the bodies of every wave up to its own, RoundService). When a boss
+-- comes on the same pieces grow into the boss's bar (one object, its states told apart by size, colour and light): the
+-- panel and the portrait go, so the bar stands on the world with its letters inked (Boss); the tag reads BOSS, the
+-- segments become the boss's health with its share inside the bar, and under it the two who have taken the most off
+-- it unfold on the left and what it drops on the right. Every rect is in px at 1080; the strip's are his drawn ones.
+--
+-- The way rises on BarJuice's given-back chase, its head lit by the kills pressing in; each segment it completes is
+-- struck with one ring and a light run, and the last one rings the whole strip, reads INCOMING and charges white until
+-- the boss comes on (its intro is the release).
 --
 -- What it does is BarJuice's chase on the boss's health, plus its own moments, each with its cue: the bar fills on
--- arrival a segment at a time, a segment emptied bursts, and a fall strikes the whole strip and stamps it DEFEATED
--- before it turns back into the way to the next one. Everything timed off the HUD's clock is derived, so a bar at
+-- arrival a segment at a time, a segment emptied bursts, and a fall punches the strip, rings the bar and stamps it
+-- DEFEATED, rolls for its drops, and turns back into the way to the next one. Everything timed off the HUD's clock is derived, so a bar at
 -- rest works nothing out while the clock runs for the rest of the HUD.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -19,6 +25,8 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local BarJuice = require(script.Parent.BarJuice)
 local Types = require(script.Parent.Types)
+local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
+local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
@@ -27,63 +35,105 @@ local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
 local Lerp = Motion.Lerp
+local PIECES = DataCore.Equipment.ById
 
--- Each piece as his strip draws it, and as the boss's bar does. Px at 1080, x from the strip's left.
+-- Each piece as his strip draws it, and what the boss's bar (Boss below) draws the same way. Px at 1080, x from the
+-- strip's left.
 local Layout = table.freeze({
 	-- The wave plate's top and height (Wave.luau), which the strip hangs under and comes out from behind.
 	PLATE_TOP = 16,
 	PLATE_HEIGHT = 88,
 	TOP = 116,
 	STRIP = Vector2.new(460, 76),
-	BOSS = Vector2.new(620, 132),
 	PORTRAIT = Vector2.new(11, 9),
 	PORTRAIT_SIZE = 55,
 	CROWN = 41,
-	BOSS_PORTRAIT = Vector2.new(12, 12),
-	BOSS_PORTRAIT_SIZE = 108,
-	BOSS_CROWN = 74,
 	-- The row of the tag, sized to its word, and the name after it.
 	TAG = Vector2.new(82, 10),
-	BOSS_TAG = Vector2.new(136, 12),
 	TAG_HEIGHT = 24,
-	BOSS_TAG_HEIGHT = 28,
 	TAG_TEXT = 12,
-	BOSS_TAG_TEXT = 15,
 	TAG_PAD = 10,
 	TAG_GAP = 7,
 	NAME_SIZE = 26,
-	BOSS_NAME_SIZE = 30,
 	-- The row ends this far in from the strip's right.
 	ROW_RIGHT = 12,
-	BOSS_ROW_RIGHT = 16,
 	BAR = Vector2.new(82, 50),
 	BAR_SIZE = Vector2.new(354, 10),
-	BOSS_BAR = Vector2.new(136, 50),
-	BOSS_BAR_SIZE = Vector2.new(468, 24),
 	SEGMENTS = 4,
 	BAR_GAP = 7,
-	-- The boss's share, at the right end of the name's row, and the room the name leaves it.
-	PERCENT_TEXT = 28,
+	-- The room the name leaves the boss's share, and how far in from the bar's end it stands inside the bar.
 	PERCENT_ROOM = 104,
+	PERCENT_IN_BAR = 10,
+	-- The shield's marks, one a guard, in the share's place while it is up: this big, this far apart.
+	GUARD_MARK = 16,
+	GUARD_GAP = 6,
 	-- The damage share: a line each for the two who have taken the most, one under the other, under the bar. Each is
-	-- its rank, the name, a bar for the part, and the part as a number.
-	SHARE_ROW = Vector2.new(136, 84),
+	-- its rank, the name, a bar for the part, and the part as a number. Its corner and widths are the look's.
 	SHARE_HEIGHT = 16,
 	SHARE_STEP = 20,
 	SHARE_TEXT = 15,
 	SHARE_GAP = 10,
 	SHARE_RANK = 12,
-	SHARE_NAME = 150,
 	SHARE_BAR = 8,
 	SHARE_PERCENT = 64,
 	-- The cut at the fill's end.
 	CUT = 3,
+	-- What the boss drops, under the bar: its caption (the die over DROPS) in a column this wide, then a card a piece,
+	-- this far apart.
+	DROPS_CAPTION = 14,
+	DROPS_CAPTION_WIDTH = 52,
+	DROPS_DIE = 22,
+	DROP_CARD_GAP = 12,
+	-- A card: an edge in the piece's rarity round its picture's face, and under the face, the card's own width, a band
+	-- with its chance.
+	DROP_CARD = Vector2.new(44, 60),
+	DROP_CARD_EDGE = 2,
+	DROP_BAND = 16,
+	DROP_CHIP_TEXT = 11,
+	DROP_CHECK = 18,
+	-- The share's caption over its lines, and the chance's.
+	CAPTION_TEXT = 12,
 })
 
+-- The most pieces the drops show; a boss dropping more shows its rarest.
+local MOST_DROPS = 4
+
+-- The boss's bar the strip grows into, px at 1080 from the strip's left. It stands on the world with no panel and no
+-- portrait, its letters inked: the tag and the name, the bar in his brackets with the share inside its right end, and
+-- under it DAMAGE SHARE on the left and DROPS on the right, a card a piece.
+local Boss = table.freeze({
+	SIZE = Vector2.new(760, 150),
+	-- The strip's portrait shrinks to nothing here.
+	PORTRAIT = Vector2.zero,
+	PORTRAIT_SIZE = 0,
+	CROWN = 0,
+	TAG = Vector2.new(0, 0),
+	TAG_HEIGHT = 28,
+	TAG_TEXT = 15,
+	NAME_SIZE = 30,
+	ROW_RIGHT = 0,
+	BAR = Vector2.new(0, 40),
+	BAR_SIZE = Vector2.new(760, 28),
+	PERCENT_TEXT = 22,
+	-- DAMAGE SHARE: its caption's top, its first line's corner, the column's width and the name's.
+	CAPTION = 80,
+	SHARES = Vector2.new(0, 98),
+	SHARES_WIDTH = 360,
+	SHARE_NAME = 160,
+	-- DROPS: the caption's corner, the cards after it.
+	DROPS = Vector2.new(440, 82),
+	-- Wider than half the streak texture: where the strip's face looks into it as it grows.
+	TEXTURE_PHASE = Vector2.new(40, 160),
+})
+
+-- The room round the strip's panel for its shade, inside the group it fades out as.
+local SHADE_ROOM = 24
+
 local SEGMENT = Color3.fromRGB(49, 44, 66)
--- What was just taken, behind the fill, and what is being given back.
+-- What was just taken, behind the fill, and what is being given back; on the way to a boss, the kills just made.
 local GHOST = Palette.White
 local GIVEN = Palette.Green:Lerp(Palette.White, 0.55)
+local GAINED = Palette.Pink:Lerp(Palette.White, 0.5)
 local DEFEATED_NAME = Color3.fromRGB(150, 140, 175)
 
 -- Seconds, each gesture timed from the stamp that starts it.
@@ -112,11 +162,44 @@ local Timing = table.freeze({
 	-- A line's part growing, and the two lines trading places.
 	GREW = 0.3,
 	SWAP = 0.4,
+	-- What the boss drops, dealt once the arrival's fill is most of the way (FILL_DELAY plus 0.7 of FILL), each after
+	-- the one before it, its chance counting up as it lands.
+	DEAL_FROM = 1.07,
+	DEAL = 0.32,
+	DEAL_STEP = 0.09,
+	COUNT = 0.45,
+	-- A segment emptied runs a light down the chances, each a step after the one above.
+	GLINT_DELAY = 0.08,
+	GLINT = 0.45,
+	GLINT_STEP = 0.07,
+	-- The fall's rolls: a light runs over the pieces still open, ROLL_PASSES times round them and slowing, until the
+	-- rolls are settled (before the strip may be tucked away, TUCK_AFTER); a piece not won by then greys out.
+	ROLL_DELAY = 0.15,
+	SETTLE = 1.15,
+	DIM = 0.3,
+	-- A piece won: its strike and its punch.
+	WON = 0.6,
+	WON_PUNCH = 0.4,
 })
+
+local ROLL_PASSES = 2
 
 -- How far a ring grows past what throws it, in px.
 local BREAK_REACH = 14
 local FALL_REACH = 24
+local WON_REACH = 12
+
+-- The kills coming in on the way: each batch the server sends adds to a pressure that drains, eased onto what is shown,
+-- so a crowd going down is a surge and not a shiver (UI.md 5j, "A reaction that fires per piece must survive the
+-- rate"). A batch counts at most MOST_PER_BATCH kills: a nuke is a surge, not a white-out.
+local Surge = table.freeze({
+	PER_KILL = 0.18,
+	MOST_PER_BATCH = 4,
+	DRAIN = 0.35,
+	EASE = 0.08,
+	-- Shown at this resolution, so a settling surge stops writing.
+	STEPS = 50,
+})
 
 -- A line's part rolls toward what the server last said at this exponential rate.
 local SHARE_ROLL_RATE = 12
@@ -130,6 +213,8 @@ local SELF_INK = Palette.Green
 local OTHER_INK = Palette.Steel
 
 local BossBar = {}
+
+BossBar.MOST_DROPS = MOST_DROPS
 
 -- One of the two who have taken the most off the boss: their UserId (0 for nobody), name, and the health they took
 -- as a share of its max.
@@ -149,6 +234,13 @@ export type TBossSeen = {
 	Top: { TShareSeen },
 	SelfId: number,
 	IsRunning: boolean,
+	-- The way to the next boss: bodies killed on it, and how many it takes.
+	WayKills: number,
+	WayNeeded: number,
+	-- What the boss up drops, read as it comes on; and the os.clock each piece was last won by the local player, by
+	-- equipment Id.
+	Drops: { Types.TDropRow },
+	WonAt: { [number]: number },
 }
 
 -- A damage share line between frames: whose it is, its part as shown and as last sent.
@@ -166,6 +258,14 @@ export type TBossMemory = {
 	Segments: number,
 	Rows: { TShareMemory },
 	FallEndsAt: number,
+	-- The way: its chase, the kills and the size last seen, the segments it has completed, and the kills' pressure and
+	-- how much of it is shown.
+	Way: BarJuice.TChase,
+	WayKills: number,
+	WayNeeded: number,
+	WaySegments: number,
+	Pressure: number,
+	Surge: number,
 }
 
 function BossBar.NewMemory(): TBossMemory
@@ -175,6 +275,12 @@ function BossBar.NewMemory(): TBossMemory
 		Segments = 0,
 		Rows = { { UserId = 0, Shown = 0, Sent = 0 }, { UserId = 0, Shown = 0, Sent = 0 } },
 		FallEndsAt = -math.huge,
+		Way = BarJuice.NewChase(0),
+		WayKills = 0,
+		WayNeeded = 0,
+		WaySegments = 0,
+		Pressure = 0,
+		Surge = 0,
 	}
 end
 
@@ -209,10 +315,74 @@ local function updateShares(bar: Types.TBossBar, memory: TBossMemory, seen: TBos
 	return isMoving
 end
 
+-- The way to the next boss, one frame: its chase, what its kills complete, and their pressure. Returns the os.clock the
+-- HUD's clock must run until (-math.huge for nothing).
+local function updateWay(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSeen, now: number, dt: number): number
+	local kills, needed = seen.WayKills, seen.WayNeeded
+	local share = if needed > 0 then math.clamp(kills / needed, 0, 1) else 0
+	local segments = math.floor(share * Layout.SEGMENTS + 1e-6)
+	local isSnap = needed ~= memory.WayNeeded or kills < memory.WayKills
+	if isSnap then
+		-- A new way (a boss fell, a run began, a late join) or the party's size changed what it takes: put there, with
+		-- nothing to celebrate.
+		memory.WaySegments = segments
+		if share < 1 then
+			bar.FullAt(-math.huge)
+		elseif bar.FullAt() == -math.huge then
+			bar.FullAt(now)
+		end
+	elseif kills > memory.WayKills then
+		local batch = math.min(kills - memory.WayKills, Surge.MOST_PER_BATCH)
+		memory.Pressure = math.min(memory.Pressure + Surge.PER_KILL * batch, 1)
+		-- The last segment is the whole strip's moment, with its own ring: one ring a moment.
+		if segments >= Layout.SEGMENTS and memory.WaySegments < Layout.SEGMENTS then
+			bar.FullAt(now)
+		elseif segments > memory.WaySegments then
+			bar.Filled(segments)
+			bar.FilledAt(now)
+		end
+		memory.WaySegments = segments
+	end
+	memory.WayKills, memory.WayNeeded = kills, needed
+
+	BarJuice.Step(memory.Way, share, 1, dt, now, isSnap)
+	BarJuice.Write(bar.Way, memory.Way, 0, share, now)
+	if memory.Pressure > 0 then
+		memory.Pressure *= math.exp(-dt / Surge.DRAIN)
+		memory.Surge += (memory.Pressure - memory.Surge) * (1 - math.exp(-dt / Surge.EASE))
+		if memory.Pressure < 1e-3 and memory.Surge < 1e-3 then
+			memory.Pressure, memory.Surge = 0, 0
+		end
+		bar.Surge(math.round(memory.Surge * Surge.STEPS) / Surge.STEPS)
+	end
+
+	-- Moving, lit, or charging for a boss on its way.
+	local way = memory.Way
+	local isCharging = seen.DataId == 0 and bar.FullAt() ~= -math.huge
+	if way.Fill ~= share or way.Ghost ~= share or memory.Surge > 0 or isCharging then return now + GESTURE_SECONDS end
+	return -math.huge
+end
+
+-- Stamps each piece on the bar the local player has won since the boss came on (the server says so once it is saved,
+-- which can be after the fall). Returns whether one was.
+local function updateDrops(bar: Types.TBossBar, seen: TBossSeen, now: number): boolean
+	local isWon = false
+	for index, row in bar.Drops() do
+		local wonAt = bar.DropWonAt[index]
+		if not wonAt or row.IsOwned or wonAt() ~= -math.huge then continue end
+		local at = seen.WonAt[row.Id]
+		if not at or at < bar.AppearedAt() then continue end
+		wonAt(now)
+		isWon = true
+	end
+
+	return isWon
+end
+
 -- One frame of the bar: writes `bar` from `seen`. Returns the os.clock the HUD's clock must run until for what this
 -- frame started (-math.huge for nothing).
 function BossBar.Update(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSeen, now: number, dt: number): number
-	local runUntil = -math.huge
+	local runUntil = updateWay(bar, memory, seen, now, dt)
 	local share = seen.Share
 	if seen.DataId ~= 0 and seen.DataId ~= memory.DataId then
 		memory.DataId = seen.DataId
@@ -222,6 +392,10 @@ function BossBar.Update(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSee
 			row.UserId, row.Shown, row.Sent = 0, 0, 0
 		end
 		bar.Name(seen.Name)
+		bar.Drops(seen.Drops)
+		for _, wonAt in bar.DropWonAt do
+			wonAt(-math.huge)
+		end
 		bar.DefeatedAt(-math.huge)
 		bar.AppearedAt(now)
 		SoundsCore.PlayUINamed(SOUNDS, "Arrive")
@@ -240,6 +414,7 @@ function BossBar.Update(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSee
 
 	if memory.DataId == 0 and now >= memory.FallEndsAt then bar.Name("") end
 	if bar.Name() == "" then return runUntil end
+	if updateDrops(bar, seen, now) then runUntil = math.max(runUntil, now + Timing.WON) end
 
 	local bite = BarJuice.Step(memory.Chase, share, 1, dt, now, false)
 	if bite > 0 then runUntil = math.max(runUntil, now + GESTURE_SECONDS) end
@@ -270,6 +445,20 @@ local function label(props: { [any]: any }): TextLabel
 		FontFace = Font.Display,
 		TextColor3 = Palette.White,
 		props,
+	})
+end
+
+-- Ink round letters of `size`, which stand on the world once the panel has gone: it comes in as `mix` (the strip grown
+-- into the boss's bar) runs 0 to 1. A tenth of the letter, so a caption is not choked and a name holds on sand.
+-- `shown` is the letters' own fade, which the ink follows.
+local function inked(mix: () -> number, size: number, shown: (() -> number)?): UIStroke
+	return create("UIStroke")({
+		Color = Palette.Ink,
+		Thickness = math.max(1, size * 0.1),
+		LineJoinMode = Enum.LineJoinMode.Round,
+		Transparency = function()
+			return 1 - mix() * (if shown then shown() else 1)
+		end,
 	})
 end
 
@@ -312,7 +501,7 @@ type TBarLook = {
 	-- What the segments show, as shares of the bar: the fill and the ghost behind it.
 	Fill: () -> number,
 	Ghost: () -> number,
-	IsHealing: () -> boolean,
+	GhostColor: () -> Color3,
 	-- 0 to 1 per segment: the white it is struck, lit as the arrival's fill passes it or emptied.
 	Strike: (index: number) -> number,
 	-- The newest blow's wash over the fill, and its light on the cut.
@@ -322,7 +511,8 @@ type TBarLook = {
 	Sheen: () -> number,
 }
 
-local function bar(state: Types.THudState, look: TBarLook): Frame
+-- `extras` are drawn on the bar too: what the boss's bar hangs on it in its panel's place.
+local function bar(state: Types.THudState, look: TBarLook, extras: { Instance }?): Frame
 	local boss = state.Boss
 	local count = Layout.SEGMENTS
 	local segments = table.create(count)
@@ -350,9 +540,7 @@ local function bar(state: Types.THudState, look: TBarLook): Frame
 				Size = function()
 					return UDim2.fromScale(ghostPart(), 1)
 				end,
-				BackgroundColor3 = function()
-					return if look.IsHealing() then GIVEN else GHOST
-				end,
+				BackgroundColor3 = look.GhostColor,
 				BorderSizePixel = 0,
 				BackgroundTransparency = function()
 					return if ghostPart() > 0 then 0 else 1
@@ -423,8 +611,12 @@ local function bar(state: Types.THudState, look: TBarLook): Frame
 				end,
 				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
 			}),
+			-- Off a segment emptied, or one the way completed.
 			ring(function()
-				return if boss.Broken() == index then Progress(state.Now(), boss.BrokeAt(), Timing.RING) else 1
+				local now = state.Now()
+				local life = if boss.Broken() == index then Progress(now, boss.BrokeAt(), Timing.RING) else 1
+				if boss.Filled() == index then life = math.min(life, Progress(now, boss.FilledAt(), Timing.RING)) end
+				return life
 			end, BREAK_REACH, Palette.Pink, 0),
 		})
 	end
@@ -436,10 +628,10 @@ local function bar(state: Types.THudState, look: TBarLook): Frame
 	return create("Frame")({
 		Name = "Bar",
 		Position = function()
-			return offset(Layout.BAR:Lerp(Layout.BOSS_BAR, look.Mix()))
+			return offset(Layout.BAR:Lerp(Boss.BAR, look.Mix()))
 		end,
 		Size = function()
-			return offset(Layout.BAR_SIZE:Lerp(Layout.BOSS_BAR_SIZE, look.Mix()))
+			return offset(Layout.BAR_SIZE:Lerp(Boss.BAR_SIZE, look.Mix()))
 		end,
 		BackgroundTransparency = 1,
 		ZIndex = 2,
@@ -477,6 +669,7 @@ local function bar(state: Types.THudState, look: TBarLook): Frame
 			Spread = 1 / Layout.SEGMENTS,
 			Color = chipColor,
 		}),
+		extras,
 	})
 end
 
@@ -485,7 +678,13 @@ end
 -- The line for `rank` (1 the most damage), after its rank's number: the name ("YOU" for the local player, in green), a
 -- bar for the part and the part as a number. Two who trade places slide past each other: the one going up is lit, the
 -- one going down fades through the crossing so the two never print over each other.
-local function shareLine(state: Types.THudState, rank: number, shown: () -> number, swapping: () -> number): Frame
+local function shareLine(
+	state: Types.THudState,
+	rank: number,
+	shown: () -> number,
+	swapping: () -> number,
+	mix: () -> number
+): Frame
 	local line = state.Boss.Shares[rank]
 	local grew = derive(function(): number
 		local k = Motion.Fade(state.Now(), line.GrewAt(), Timing.GREW)
@@ -511,20 +710,21 @@ local function shareLine(state: Types.THudState, rank: number, shown: () -> numb
 			TextTransparency = function()
 				return 1 - seen()
 			end,
+			inked(mix, Layout.SHARE_TEXT, seen),
 			props,
 		})
 	end
 
-	local top = Layout.SHARE_ROW.Y + (rank - 1) * Layout.SHARE_STEP
+	local top = Boss.SHARES.Y + (rank - 1) * Layout.SHARE_STEP
 	-- Where it came from: the other line's place.
-	local from = Layout.SHARE_ROW.Y + (2 - rank) * Layout.SHARE_STEP
-	local left = Layout.SHARE_ROW.X + Layout.SHARE_RANK + Layout.SHARE_GAP
+	local from = Boss.SHARES.Y + (2 - rank) * Layout.SHARE_STEP
+	local left = Boss.SHARES.X + Layout.SHARE_RANK + Layout.SHARE_GAP
 	return create("Frame")({
 		Name = "Share",
 		Position = function()
 			return UDim2.fromOffset(left, math.round(Lerp(top, from, swapping())))
 		end,
-		Size = UDim2.new(1, -left - Layout.BOSS_ROW_RIGHT, 0, Layout.SHARE_HEIGHT),
+		Size = UDim2.fromOffset(Boss.SHARES.X + Boss.SHARES_WIDTH - left, Layout.SHARE_HEIGHT),
 		BackgroundTransparency = 1,
 		ZIndex = if rank == 1 then 4 else 3,
 		create("UIListLayout")({
@@ -536,7 +736,7 @@ local function shareLine(state: Types.THudState, rank: number, shown: () -> numb
 		text({
 			Name = "Who",
 			LayoutOrder = 2,
-			Size = UDim2.new(0, Layout.SHARE_NAME, 1, 0),
+			Size = UDim2.new(0, Boss.SHARE_NAME, 1, 0),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextColor3 = function()
@@ -596,12 +796,12 @@ local function shares(state: Types.THudState, mix: () -> number): { Frame }
 		return 1 - Motion.Out(Progress(state.Now(), boss.SwappedAt(), Timing.SWAP))
 	end)
 
-	local frames = table.create(4)
+	local frames = table.create(5)
 	for rank, line in boss.Shares do
-		frames[rank] = shareLine(state, rank, shown, swapping)
+		frames[rank] = shareLine(state, rank, shown, swapping, mix)
 		frames[rank + 2] = label({
 			Name = "Rank",
-			Position = UDim2.fromOffset(Layout.SHARE_ROW.X, Layout.SHARE_ROW.Y + (rank - 1) * Layout.SHARE_STEP),
+			Position = UDim2.fromOffset(Boss.SHARES.X, Boss.SHARES.Y + (rank - 1) * Layout.SHARE_STEP),
 			Size = UDim2.fromOffset(Layout.SHARE_RANK, Layout.SHARE_HEIGHT),
 			FontFace = Font.DisplayBold,
 			TextSize = Layout.SHARE_TEXT,
@@ -611,6 +811,399 @@ local function shares(state: Types.THudState, mix: () -> number): { Frame }
 			TextTransparency = function()
 				return if line.Name() ~= "" then 1 - shown() else 1
 			end,
+			inked(mix, Layout.SHARE_TEXT, function()
+				return if line.Name() ~= "" then shown() else 0
+			end),
+		})
+	end
+
+	-- DAMAGE SHARE over the lines.
+	local caption = Boss.CAPTION
+	if caption then
+		frames[5] = label({
+			Name = "Caption",
+			Position = UDim2.fromOffset(Boss.SHARES.X, caption),
+			Size = UDim2.fromOffset(Boss.SHARES_WIDTH, Layout.DROPS_CAPTION),
+			FontFace = Font.DisplayBold,
+			TextSize = Layout.CAPTION_TEXT,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Palette.Lavender,
+			ZIndex = 3,
+			Text = "DAMAGE SHARE",
+			TextTransparency = function()
+				return 1 - shown()
+			end,
+			inked(mix, Layout.CAPTION_TEXT, shown),
+		})
+	end
+
+	return frames
+end
+
+-- The shield's marks at the right end of the name's row: one a guard raised, lit green while it stands.
+local function guardMarks(boss: Types.TBossBar, isShielded: () -> boolean): Frame
+	local marks = {}
+	for i = 1, 8 do
+		marks[i] = create("Frame")({
+			Name = `Guard{i}`,
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(Layout.GUARD_MARK, Layout.GUARD_MARK),
+			Visible = function()
+				return i <= boss.GuardsTotal()
+			end,
+			BackgroundColor3 = function()
+				return if i <= boss.Guards() then Palette.Green else SEGMENT
+			end,
+			BorderSizePixel = 0,
+			Rotation = 45,
+			create("UIStroke")({
+				Color = function()
+					return if i <= boss.Guards() then Palette.White else Palette.Lavender
+				end,
+				Thickness = 1,
+				Transparency = 0.3,
+			}),
+		})
+	end
+
+	return create("Frame")({
+		Name = "Guards",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -Boss.ROW_RIGHT, 0, Boss.TAG.Y + Boss.NAME_SIZE / 2),
+		Size = UDim2.fromOffset(Layout.PERCENT_ROOM, Boss.NAME_SIZE),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Visible = isShielded,
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, Layout.GUARD_GAP),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		marks,
+	})
+end
+
+-- ============================== The drops ==============================
+
+-- A chance as its card's band writes it: whole percents plain, a smaller one to a tenth.
+local function chanceText(chance: number): string
+	local percent = 100 * chance
+	if math.abs(percent - math.round(percent)) < 1e-6 then return `{math.round(percent)}%` end
+	return string.format("%.1f%%", percent)
+end
+
+-- What the drops are told by the strip: how far it has grown into the boss's bar, and whether the boss has fallen.
+type TDropsLook = {
+	Mix: () -> number,
+	IsFallen: () -> boolean,
+}
+
+-- One piece the boss drops, as its card shows it: dealt in once the arrival's fill is most of the way, its chance
+-- counting up as it lands; lit by a segment emptied (the loot is nearer); at the fall, swept by the roll's light until it
+-- is won (struck, punched, and lit in its rarity for good) or the rolls settle without it (it greys). A piece owned as
+-- the boss came on cannot drop, so it reads OWNED.
+type TDrop = {
+	Row: () -> Types.TDropRow?,
+	Accent: () -> Color3,
+	IsOwned: () -> boolean,
+	IsWon: () -> boolean,
+	WonAt: () -> number,
+	-- 0 to 1: dealt in (and out with the strip), counted up, greyed once missed, the roll's light on it, the win's
+	-- strike and punch, and a segment's glint (a sheen's travel).
+	Dealt: () -> number,
+	Counted: () -> number,
+	Missed: () -> number,
+	Rolling: () -> number,
+	Strike: () -> number,
+	Punch: () -> number,
+	Glint: () -> number,
+	-- The band under the picture: its words, their colour, and its face.
+	BandText: () -> string,
+	BandInk: () -> Color3,
+	BandFace: () -> Color3,
+}
+
+-- Piece `index`, of `count` shown.
+local function drop(state: Types.THudState, look: TDropsLook, index: number, count: () -> number): TDrop
+	local boss = state.Boss
+	local wonAt = boss.DropWonAt[index]
+	local row = derive(function(): Types.TDropRow?
+		return if index <= count() then boss.Drops()[index] else nil
+	end)
+
+	local item = derive(function()
+		local current = row()
+		return if current then PIECES[current.Id] else nil
+	end)
+
+	local rarity = derive(function()
+		local piece = item()
+		return Theme.Rarities[if piece then piece.Rarity else "Common"]
+	end)
+
+	local isOwned = function(): boolean
+		local current = row()
+		return current ~= nil and current.IsOwned
+	end
+
+	local isWon = derive(function(): boolean
+		return wonAt() ~= -math.huge
+	end)
+
+	local dealAt = function(): number
+		return boss.AppearedAt() + Timing.DEAL_FROM + Timing.DEAL_STEP * (index - 1)
+	end
+
+	-- In from the arrival, out with the strip as it shrinks after the fall.
+	local dealt = derive(function(): number
+		if not row() then return 0 end
+		local grown = math.clamp((look.Mix() - 0.6) / 0.4, 0, 1)
+		return grown * Motion.Decelerate(Progress(state.Now(), dealAt(), Timing.DEAL))
+	end)
+
+	local counted = derive(function(): number
+		if not row() then return 0 end
+		return Motion.Out(Progress(state.Now(), dealAt(), Timing.COUNT))
+	end)
+
+	local isOpen = function(): boolean
+		return look.IsFallen() and not isWon() and not isOwned()
+	end
+
+	local missed = derive(function(): number
+		if not isOpen() then return 0 end
+		return Motion.Out(Progress(state.Now(), boss.DefeatedAt(), Timing.DIM, Timing.SETTLE))
+	end)
+
+	-- The roll's light: a spot running over the pieces ROLL_PASSES times, slowing, swelling in and dying away by the
+	-- time the rolls settle; each piece lit as it passes.
+	local rolling = derive(function(): number
+		if not isOpen() then return 0 end
+		local u = (state.Now() - boss.DefeatedAt() - Timing.ROLL_DELAY) / (Timing.SETTLE - Timing.ROLL_DELAY)
+		if u <= 0 or u >= 1 then return 0 end
+		local n = count()
+		local at = (Motion.Out(u) * ROLL_PASSES * n - (index - 1)) % n
+		local away = math.min(at, n - at)
+		return math.max(1 - away, 0) * Motion.Bump(u)
+	end)
+
+	local strike = derive(function(): number
+		if not isWon() then return 0 end
+		local k = Motion.Fade(state.Now(), wonAt(), Timing.WON)
+		return k * k
+	end)
+
+	local punch = derive(function(): number
+		if not isWon() then return 0 end
+		local k = Motion.Fade(state.Now(), wonAt(), Timing.WON_PUNCH)
+		return k * k
+	end)
+
+	return {
+		Row = row,
+		Accent = function(): Color3
+			return rarity().Accent
+		end,
+		IsOwned = isOwned,
+		IsWon = isWon,
+		WonAt = wonAt,
+		Dealt = dealt,
+		Counted = counted,
+		Missed = missed,
+		Rolling = rolling,
+		Strike = strike,
+		Punch = punch,
+		Glint = function(): number
+			if look.IsFallen() then return 1 end
+			local at = boss.BrokeAt() + Timing.GLINT_DELAY + Timing.GLINT_STEP * (index - 1)
+			return Progress(state.Now(), at, Timing.GLINT)
+		end,
+		BandText = function(): string
+			if isOwned() then return "OWNED" end
+			if isWon() then return "WON" end
+			local current = row()
+			if not current then return "" end
+			local k = counted()
+			if k >= 1 then return chanceText(current.Chance) end
+			return `{math.floor(100 * current.Chance * k)}%`
+		end,
+		BandInk = function(): Color3
+			if isOwned() then return Palette.Green end
+			local ink = if rarity().IsInk then Palette.Ink else Palette.White
+			return ink:Lerp(Palette.Lavender, missed())
+		end,
+		BandFace = function(): Color3
+			if isOwned() then return Palette.Ink end
+			return rarity().Accent:Lerp(SEGMENT, missed())
+		end,
+	}
+end
+
+-- The drops' caption: the die over DROPS, lit while the fall's rolls are open. The word fades in with the strip's
+-- growth; the die, a picture, grows in.
+local function dropsCaption(state: Types.THudState, look: TDropsLook, shown: () -> number, props): Frame
+	local boss = state.Boss
+	return create("Frame")({
+		Name = "DropsCaption",
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Vertical,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		Components.Picture(EIcons.Dice, {
+			Name = "Die",
+			LayoutOrder = 1,
+			Size = function()
+				return Components.PictureBox(math.round(Layout.DROPS_DIE * shown()))
+			end,
+		}),
+		label({
+			Name = "Word",
+			LayoutOrder = 2,
+			Size = UDim2.fromOffset(0, Layout.DROPS_CAPTION),
+			AutomaticSize = Enum.AutomaticSize.X,
+			FontFace = Font.DisplayBold,
+			TextSize = Layout.CAPTION_TEXT,
+			TextColor3 = function()
+				local isRolling = look.IsFallen() and state.Now() < boss.DefeatedAt() + Timing.SETTLE
+				return if isRolling then Palette.White else Palette.Lavender
+			end,
+			Text = "DROPS",
+			TextTransparency = function()
+				return 1 - shown()
+			end,
+			inked(look.Mix, Layout.CAPTION_TEXT, shown),
+		}),
+		props,
+	})
+end
+
+-- The drops as cards in a row after the caption. A card is an edge in the piece's rarity round its picture's face, and
+-- under the face, as wide as the card, a band with its chance (OWNED on ink in green for a piece owned, which also
+-- wears a check on its corner). Nothing on a card is ever see-through: it grows in from nothing one after another and
+-- shrinks away with the strip, and a piece missed darkens. The roll's light runs along the row; a piece won punches, is
+-- struck white and closes its brackets round itself as a pick does.
+local function dropCards(state: Types.THudState, look: TDropsLook): { Instance }
+	local captionShown = derive(function(): number
+		return math.clamp((look.Mix() - 0.6) / 0.4, 0, 1)
+	end)
+
+	-- How many the boss drops, as many as there is room for: read by every card, worked out once.
+	local count = derive(function(): number
+		return math.min(#state.Boss.Drops(), MOST_DROPS)
+	end)
+
+	local card = Layout.DROP_CARD
+	local edge = Layout.DROP_CARD_EDGE
+	local frames: { Instance } = table.create(MOST_DROPS + 1)
+	frames[1] = dropsCaption(state, look, captionShown, {
+		Position = UDim2.fromOffset(Boss.DROPS.X, Boss.DROPS.Y),
+		Size = UDim2.fromOffset(Layout.DROPS_CAPTION_WIDTH, card.Y),
+	})
+
+	for index = 1, MOST_DROPS do
+		local piece = drop(state, look, index, count)
+		-- The roll's light and the win's strike, white over the face and the band.
+		local lit = derive(function(): number
+			return math.max(0.6 * piece.Rolling(), piece.Strike())
+		end)
+
+		local left = Boss.DROPS.X + Layout.DROPS_CAPTION_WIDTH + Layout.DROP_CARD_GAP
+		local middle =
+			Vector2.new(left + (index - 1) * (card.X + Layout.DROP_CARD_GAP) + card.X / 2, Boss.DROPS.Y + card.Y / 2)
+		local face = card.X - 2 * edge
+		frames[index + 1] = create("Frame")({
+			Name = "Drop",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(middle.X, middle.Y),
+			Size = UDim2.fromOffset(card.X, card.Y),
+			BackgroundColor3 = function()
+				return piece.Accent():Lerp(SEGMENT, 0.7 * piece.Missed())
+			end,
+			BorderSizePixel = 0,
+			ZIndex = 3,
+			Visible = function()
+				return piece.Row() ~= nil and piece.Dealt() > 0
+			end,
+			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+			create("UIScale")({
+				Scale = function()
+					return piece.Dealt() * (1 + 0.3 * piece.Punch())
+				end,
+			}),
+			create("Frame")({
+				Name = "Face",
+				Position = UDim2.fromOffset(edge, edge),
+				Size = UDim2.fromOffset(face, face),
+				BorderSizePixel = 0,
+				BackgroundColor3 = function()
+					return Palette.Ink:Lerp(piece.Accent(), 0.3 * (1 - piece.Missed())):Lerp(Palette.White, lit())
+				end,
+				create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
+			}),
+			GunPicture.Build(function()
+				local current = piece.Row()
+				return if current then GunPicture.FromEquipment(current.Id) else nil
+			end, {
+				Tint = function()
+					return Palette.White:Lerp(Color3.fromRGB(90, 86, 110), piece.Missed())
+				end,
+			}, {
+				Name = "Picture",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(card.X / 2, edge + face / 2),
+				Size = UDim2.fromOffset(face, face),
+				ZIndex = 2,
+			}),
+			label({
+				Name = "Band",
+				AnchorPoint = Vector2.new(0, 1),
+				Position = UDim2.fromScale(0, 1),
+				Size = UDim2.new(1, 0, 0, Layout.DROP_BAND),
+				BackgroundTransparency = 0,
+				BackgroundColor3 = piece.BandFace,
+				BorderSizePixel = 0,
+				TextSize = Layout.DROP_CHIP_TEXT,
+				TextColor3 = piece.BandInk,
+				Text = piece.BandText,
+				ZIndex = 4,
+				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+				create("Frame")({
+					Name = "Lit",
+					Size = UDim2.fromScale(1, 1),
+					BackgroundColor3 = Palette.White,
+					BorderSizePixel = 0,
+					ZIndex = 2,
+					BackgroundTransparency = function()
+						return 1 - 0.85 * lit()
+					end,
+					create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+				}),
+			}),
+			-- A segment emptied runs a light across the cards.
+			Components.Sheen(piece.Glint, 5, card.X / card.Y),
+			-- Owned: a check on the card's corner, its middle on the corner.
+			Components.Picture(EIcons.Check, {
+				Name = "Owned",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(1, 0),
+				Size = Components.PictureBox(Layout.DROP_CHECK),
+				ImageColor3 = Palette.Green,
+				ZIndex = 6,
+				Visible = piece.IsOwned,
+			}),
+			Components.Brackets(nil, function()
+				return if piece.IsWon() then 0.2 else 1
+			end, 12, piece.IsWon),
+			ring(function()
+				return if piece.IsWon() then Progress(state.Now(), piece.WonAt(), Timing.RING) else 1
+			end, WON_REACH, piece.Accent, 1),
 		})
 	end
 
@@ -618,6 +1211,30 @@ local function shares(state: Types.THudState, mix: () -> number): { Frame }
 end
 
 -- ============================== The strip ==============================
+
+-- The strip's body: his panel, drawn as a group with room for its shade so the whole panel fades out as `mix` (the
+-- strip grown into the boss's bar) runs 0 to 1 while the pieces in `props` stay.
+local function body(mix: () -> number, props: { [any]: any }): Frame
+	return create("Frame")({
+		BackgroundTransparency = 1,
+		create("CanvasGroup")({
+			Name = "PanelFade",
+			Position = UDim2.fromOffset(-SHADE_ROOM, -SHADE_ROOM),
+			Size = UDim2.new(1, 2 * SHADE_ROOM, 1, 2 * SHADE_ROOM),
+			BackgroundTransparency = 1,
+			ZIndex = 1,
+			GroupTransparency = mix,
+			Visible = function()
+				return mix() < 0.999
+			end,
+			Components.Panel({ Brackets = true, TexturePhase = Boss.TEXTURE_PHASE }, {
+				Position = UDim2.fromOffset(SHADE_ROOM, SHADE_ROOM),
+				Size = UDim2.new(1, -2 * SHADE_ROOM, 1, -2 * SHADE_ROOM),
+			}),
+		}),
+		props,
+	})
+end
 
 function BossBar.Build(state: Types.THudState): Frame
 	local phase = state.Phase
@@ -655,23 +1272,42 @@ function BossBar.Build(state: Types.THudState): Frame
 		return boss.AppearedAt() + Timing.FILL_DELAY + Timing.FILL * (1 - (1 - share) ^ (1 / 3))
 	end
 
-	-- With no boss up, the bar is the way to the next one: the waves of its cycle already cleared (none yet once the
-	-- round's own boss is down).
-	local cycle = function(): number
-		local every = RoundCore.BOSS_EVERY
-		return math.clamp((state.Round() - 1 - (state.NextBossRound() - every)) / every, 0, 1)
-	end
-
+	-- With no boss up, the bar is the way to the next one, filled by the kills; a boss coming on drains it as the strip
+	-- grows, and fills it again with the boss's health.
 	local fill = derive(function(): number
-		if not isBossUp() then return cycle() end
+		if not isBossUp() then return boss.Way.Fill() end
 		local intro = arrival()
-		if intro <= 0 then return cycle() * (1 - mix()) end
+		if intro <= 0 then return boss.Way.Fill() * (1 - mix()) end
 		return math.min(boss.Bar.Fill(), intro)
 	end)
 
 	local ghost = derive(function(): number
-		if not isBossUp() then return 0 end
+		if not isBossUp() then return boss.Way.Ghost() end
 		return math.min(math.max(boss.Bar.Ghost(), boss.Bar.Fill()), arrival())
+	end)
+
+	-- The way is full and its boss is on its way.
+	local isComing = derive(function(): boolean
+		return not isBossUp() and boss.FullAt() ~= -math.huge
+	end)
+
+	-- The anticipation: from the way filling to the boss's arrival, 0 to 1, slow at first. Its release is the intro.
+	local charge = derive(function(): number
+		if not isComing() then return 0 end
+		return Motion.Accelerate(Progress(state.Now(), boss.FullAt(), RoundCore.BOSS_ARRIVE_SECONDS))
+	end)
+
+	-- 1 as the way fills, and as it completes a segment, falling away.
+	local full = derive(function(): number
+		if not isComing() then return 0 end
+		local k = Motion.Fade(state.Now(), boss.FullAt(), Timing.FLASH)
+		return k * k
+	end)
+
+	local filled = derive(function(): number
+		if isBossUp() then return 0 end
+		local k = Motion.Fade(state.Now(), boss.FilledAt(), Timing.PUNCH)
+		return k * k
 	end)
 
 	-- 1 on the fall's frame, falling away.
@@ -692,7 +1328,10 @@ function BossBar.Build(state: Types.THudState): Frame
 		Mix = mix,
 		Fill = fill,
 		Ghost = ghost,
-		IsHealing = boss.Bar.IsHealing,
+		GhostColor = function(): Color3
+			if not isBossUp() then return GAINED end
+			return if boss.Bar.IsHealing() then GIVEN else GHOST
+		end,
 		Strike = function(index: number): number
 			local now = state.Now()
 			local lit = 0
@@ -700,15 +1339,24 @@ function BossBar.Build(state: Types.THudState): Frame
 				local k = Motion.Fade(now, tickAt(index), Timing.TICK)
 				lit = 0.7 * k * k
 			end
+			if not isBossUp() and boss.Filled() == index then
+				local k = Motion.Fade(now, boss.FilledAt(), Timing.BREAK)
+				lit = math.max(lit, 0.9 * k * k)
+			end
 			if boss.Broken() ~= index then return lit end
 			local k = Motion.Fade(now, boss.BrokeAt(), Timing.BREAK)
 			return math.max(lit, 0.9 * k * k)
 		end,
 		Flash = flash,
-		Flare = flare,
+		-- On the way, the head is lit by the kills pressing in.
+		Flare = function(): number
+			return if isBossUp() then flare() else boss.Surge()
+		end,
 		Sheen = derive(function(): number
-			if not isBossUp() or isFallen() then return 0 end
-			return Progress(state.Now(), boss.AppearedAt() + Timing.FILL_DELAY + Timing.FILL, Timing.SHEEN)
+			local now = state.Now()
+			if not isBossUp() then return Progress(now, math.max(boss.FilledAt(), boss.FullAt()), Timing.SHEEN) end
+			if isFallen() then return 0 end
+			return Progress(now, boss.AppearedAt() + Timing.FILL_DELAY + Timing.FILL, Timing.SHEEN)
 		end),
 	}
 
@@ -728,36 +1376,62 @@ function BossBar.Build(state: Types.THudState): Frame
 	end)
 
 	local size = derive(function(): Vector2
-		return Layout.STRIP:Lerp(Layout.BOSS, mix())
+		return Layout.STRIP:Lerp(Boss.SIZE, mix())
 	end)
 
-	-- The fall and an emptied segment punch the strip: a reward moves.
+	-- The fall, an emptied segment, a segment the way completed and the way full punch the strip: a reward moves. The
+	-- kills coming in thump it gently, and a boss on its way pulls it in before the release.
 	local punch = function(): number
-		return 0.06 * struck() + 0.025 * broke()
+		return 0.06 * struck()
+			+ 0.025 * broke()
+			+ 0.025 * filled()
+			+ 0.05 * full()
+			+ 0.012 * boss.Surge()
+			- 0.035 * charge()
+	end
+
+	-- Its guards' shield is up: the share gives way to a mark a guard, lit while it stands.
+	local isShielded = function(): boolean
+		return isBossUp() and not isFallen() and boss.Guards() > 0
 	end
 
 	local tagText = function(): string
+		if isComing() then return "INCOMING" end
 		if not isBossUp() then return "NEXT BOSS" end
-		return if isFallen() then "DEFEATED" else "BOSS"
+		if isFallen() then return "DEFEATED" end
+		return if isShielded() then "SHIELDED" else "BOSS"
 	end
 
 	local tagHeight = function(): number
-		return math.round(Lerp(Layout.TAG_HEIGHT, Layout.BOSS_TAG_HEIGHT, mix()))
+		return math.round(Lerp(Layout.TAG_HEIGHT, Boss.TAG_HEIGHT, mix()))
 	end
 
 	local tagSize = function(): number
-		return math.round(Lerp(Layout.TAG_TEXT, Layout.BOSS_TAG_TEXT, mix()))
+		return math.round(Lerp(Layout.TAG_TEXT, Boss.TAG_TEXT, mix()))
 	end
 
 	local tagPop = derive(function(): number
+		if isComing() then return 1 + 0.35 * full() end
 		if not isFallen() then return 1 end
 		local k = Motion.Fade(state.Now(), boss.DefeatedAt(), Timing.PUNCH)
 		return 1 + 0.35 * k * k
 	end)
 
 	local nameSize = function(): number
-		return math.round(Lerp(Layout.NAME_SIZE, Layout.BOSS_NAME_SIZE, mix()))
+		return math.round(Lerp(Layout.NAME_SIZE, Boss.NAME_SIZE, mix()))
 	end
+
+	-- With no panel to ring or strike at the fall, the bar takes its ring; and it stands in his brackets.
+	local barExtras = {
+		ring(function(): number
+			return if isFallen() then Progress(state.Now(), boss.DefeatedAt(), Timing.RING) else 1
+		end, FALL_REACH, Palette.Green, 0),
+		Components.Brackets(nil, function()
+			return 1 - 0.7 * mix()
+		end, 14),
+	}
+
+	local drops = dropCards(state, { Mix = mix, IsFallen = isFallen })
 
 	-- A window from the plate's bottom down, so the strip comes out from behind the plate.
 	local windowTop = Layout.PLATE_TOP + Layout.PLATE_HEIGHT - 4
@@ -766,14 +1440,14 @@ function BossBar.Build(state: Types.THudState): Frame
 		Name = "BossWindow",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, windowTop),
-		Size = UDim2.fromOffset(Layout.BOSS.X + 80, resting + Layout.BOSS.Y + 50),
+		Size = UDim2.fromOffset(Boss.SIZE.X + 80, resting + Boss.SIZE.Y + 50),
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		ZIndex = 2,
 		Visible = function()
 			return shown() > 0.001 and name() ~= ""
 		end,
-		Components.Panel({ Brackets = true }, {
+		body(mix, {
 			Name = "Boss",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
@@ -793,19 +1467,25 @@ function BossBar.Build(state: Types.THudState): Frame
 			Components.Card({ Accent = Palette.Pink, Tint = 0.3, GlowTransparency = 0.7 }, {
 				Name = "Portrait",
 				Position = function()
-					return offset(Layout.PORTRAIT:Lerp(Layout.BOSS_PORTRAIT, mix()))
+					return offset(Layout.PORTRAIT:Lerp(Boss.PORTRAIT, mix()))
 				end,
 				Size = function()
-					local side = math.round(Lerp(Layout.PORTRAIT_SIZE, Layout.BOSS_PORTRAIT_SIZE, mix()))
+					local side = math.round(Lerp(Layout.PORTRAIT_SIZE, Boss.PORTRAIT_SIZE, mix()))
 					return UDim2.fromOffset(side, side)
+				end,
+				-- The boss's bar shrinks it to nothing.
+				Visible = function()
+					return Lerp(Layout.PORTRAIT_SIZE, Boss.PORTRAIT_SIZE, mix()) >= 2
 				end,
 				ZIndex = 2,
 				Components.Brackets(nil, nil, 21),
 				Components.Picture(EIcons.ZombieKing, {
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
+					-- The boss feeds on the kills, and rises as it comes.
 					Size = function()
-						return Components.PictureBox(math.round(Lerp(Layout.CROWN, Layout.BOSS_CROWN, mix())))
+						local grow = 1 + 0.1 * boss.Surge() + 0.18 * charge()
+						return Components.PictureBox(math.round(Lerp(Layout.CROWN, Boss.CROWN, mix()) * grow))
 					end,
 					ZIndex = 2,
 				}),
@@ -813,13 +1493,13 @@ function BossBar.Build(state: Types.THudState): Frame
 			create("Frame")({
 				Name = "Title",
 				Position = function()
-					return offset(Layout.TAG:Lerp(Layout.BOSS_TAG, mix()))
+					return offset(Layout.TAG:Lerp(Boss.TAG, mix()))
 				end,
 				Size = function()
 					local m = mix()
-					local left = Lerp(Layout.TAG.X, Layout.BOSS_TAG.X, m)
-					local right = Lerp(Layout.ROW_RIGHT, Layout.BOSS_ROW_RIGHT, m)
-					local height = Lerp(Layout.NAME_SIZE, Layout.BOSS_NAME_SIZE, m)
+					local left = Lerp(Layout.TAG.X, Boss.TAG.X, m)
+					local right = Lerp(Layout.ROW_RIGHT, Boss.ROW_RIGHT, m)
+					local height = Lerp(Layout.NAME_SIZE, Boss.NAME_SIZE, m)
 					return UDim2.new(1, -math.round(left + right), 0, math.round(height))
 				end,
 				BackgroundTransparency = 1,
@@ -864,7 +1544,8 @@ function BossBar.Build(state: Types.THudState): Frame
 						Size = UDim2.fromScale(1, 1),
 						BackgroundTransparency = 0,
 						BackgroundColor3 = function()
-							return if isFallen() then Palette.GoBottom:Lerp(Palette.Green, 0.6) else Palette.Pink
+							if isFallen() then return Palette.GoBottom:Lerp(Palette.Green, 0.6) end
+							return if isShielded() then Palette.GoBottom else Palette.Pink
 						end,
 						BorderSizePixel = 0,
 						TextSize = tagSize,
@@ -891,42 +1572,52 @@ function BossBar.Build(state: Types.THudState): Frame
 						return string.upper(name())
 					end,
 					create("UIFlexItem")({ FlexMode = Enum.UIFlexMode.Fill }),
+					inked(mix, Boss.NAME_SIZE),
 				}),
 			}),
-			-- The boss's share, at the right end of the name's row: counts up with the arrival, punches pink as a
-			-- segment goes.
+			-- The boss's share, at the right end of the name's row or inside the bar's: counts up with the arrival, punches
+			-- pink as a segment goes.
 			label({
 				Name = "Percent",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function()
 					local m = mix()
-					local right = Lerp(Layout.ROW_RIGHT, Layout.BOSS_ROW_RIGHT, m)
-					local middle =
-						Lerp(Layout.TAG.Y + Layout.NAME_SIZE / 2, Layout.BOSS_TAG.Y + Layout.BOSS_NAME_SIZE / 2, m)
-					return UDim2.new(1, -math.round(right + Layout.PERCENT_ROOM / 2), 0, math.round(middle))
+					local stripX = size().X - Layout.ROW_RIGHT - Layout.PERCENT_ROOM / 2
+					local stripY = Layout.TAG.Y + Layout.NAME_SIZE / 2
+					local x = Boss.BAR.X + Boss.BAR_SIZE.X - Layout.PERCENT_IN_BAR - Layout.PERCENT_ROOM / 2
+					local y = Boss.BAR.Y + Boss.BAR_SIZE.Y / 2
+					return UDim2.fromOffset(math.round(Lerp(stripX, x, m)), math.round(Lerp(stripY, y, m)))
 				end,
-				Size = UDim2.fromOffset(Layout.PERCENT_ROOM, Layout.BOSS_NAME_SIZE),
+				Size = UDim2.fromOffset(Layout.PERCENT_ROOM, Boss.NAME_SIZE),
 				TextXAlignment = Enum.TextXAlignment.Right,
-				TextSize = Layout.PERCENT_TEXT,
-				ZIndex = 3,
+				TextSize = Boss.PERCENT_TEXT,
+				ZIndex = 5,
 				TextTransparency = function()
+					if isShielded() then return 1 end
 					return 1 - math.clamp((mix() - 0.5) * 2, 0, 1)
 				end,
 				TextColor3 = function()
 					return Palette.White:Lerp(Palette.Pink, broke())
 				end,
 				Text = function()
-					return string.format("%.1f%%", 100 * fill())
+					-- The chase can dip a hair under nothing as the last blow lands.
+					return string.format("%.1f%%", 100 * math.max(fill(), 0))
 				end,
+				inked(mix, Boss.PERCENT_TEXT, function()
+					return if isShielded() then 0 else math.clamp((mix() - 0.5) * 2, 0, 1)
+				end),
 				create("UIScale")({
 					Scale = function()
 						return 1 + 0.3 * broke()
 					end,
 				}),
 			}),
-			bar(state, look),
+			guardMarks(boss, isShielded),
+			bar(state, look, barExtras),
 			shares(state, mix),
-			-- The fall: the whole strip struck white, and a ring off it.
+			drops,
+			-- The way full: the whole strip struck white, and a ring off it. A boss on its way charges it white. (A fall
+			-- comes with no panel to strike: the bar takes its ring.)
 			create("Frame")({
 				Name = "Struck",
 				Size = UDim2.fromScale(1, 1),
@@ -934,13 +1625,13 @@ function BossBar.Build(state: Types.THudState): Frame
 				BorderSizePixel = 0,
 				ZIndex = 9,
 				BackgroundTransparency = function()
-					return 1 - 0.75 * struck()
+					return 1 - math.max(0.6 * full(), 0.5 * charge())
 				end,
 				create("UICorner")({ CornerRadius = UDim.new(0, 3) }),
 			}),
 			ring(function()
-				return if isFallen() then Progress(state.Now(), boss.DefeatedAt(), Timing.RING) else 1
-			end, FALL_REACH, Palette.Green, 0),
+				return if isComing() then Progress(state.Now(), boss.FullAt(), Timing.RING) else 1
+			end, FALL_REACH, Palette.Pink, 0),
 		}),
 	})
 end

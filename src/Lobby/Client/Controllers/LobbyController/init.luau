@@ -227,7 +227,6 @@ local state: Types.TLobbyState = {
 	PlayAt = source(-math.huge),
 	PlayRefusedAt = source(-math.huge),
 	PlayCallAt = source(-math.huge),
-	HeldKey = source(nil :: Enum.KeyCode?),
 	IsCovered = source(false),
 	CoveredAt = source(-math.huge),
 	IsPlateCovered = source(false),
@@ -435,7 +434,6 @@ local function updateCover()
 	if not restamp(state.IsCovered, state.CoveredAt, isCovered) then return end
 
 	RangeController.SetCovered(isCovered)
-	state.HeldKey(nil)
 	updateControls()
 end
 
@@ -1579,15 +1577,6 @@ LobbyController.OnStart = function()
 	syncLevel()
 	ProfileController.OnChanged:Connect(syncLevel)
 
-	-- A key a text box took (chat) is typing, not a press; and a screen over the lobby covers the HUD's keys.
-	UserInputService.InputBegan:Connect(function(input: InputObject, isProcessed: boolean)
-		if isProcessed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-		if state.IsCovered() then return end
-		state.HeldKey(input.KeyCode)
-	end)
-	UserInputService.InputEnded:Connect(function(input: InputObject)
-		if state.HeldKey() == input.KeyCode then state.HeldKey(nil) end
-	end)
 	-- A click or a tap on an open place's body that no button took. A tap has no hover, so it is aimed from its own
 	-- point (inset-excluded, which ScreenPointToRay expects).
 	UserInputService.InputBegan:Connect(function(input: InputObject, isProcessed: boolean)

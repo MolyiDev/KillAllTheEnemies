@@ -162,8 +162,10 @@ function GunsCore.PelletDirections(direction: Vector3, seed: number, spreadDeg: 
 	end
 end
 
--- Distance along `unit` from `origin` to an upright cylinder (centre x/z, `radius`, from `floorY` up `height`), or nil
--- when the ray misses it. Its side, and its top for a ray coming down onto it.
+-- Distance along `unit` from `origin` to where the ray first is inside an upright cylinder (centre x/z, `radius`,
+-- from `floorY` up `height`), or nil when it misses it: through its side, its top or its bottom, and 0 from inside
+-- it. A ray from under a body aimed up at it, or from inside a long one, hits: only the side and the top, it went
+-- into the air.
 local function rayCylinder(
 	origin: Vector3,
 	unit: Vector3,
@@ -179,28 +181,32 @@ local function rayCylinder(
 	local topY = floorY + height
 	local a = dx * dx + dz * dz
 	local c = fx * fx + fz * fz - radius * radius
-	local best: number? = nil
 
+	-- The stretch of the ray within the radius, seen from above.
+	local enter, leave = 0, math.huge
 	if a > EPSILON then
 		local b = 2 * (fx * dx + fz * dz)
 		local discriminant = b * b - 4 * a * c
-		if discriminant >= 0 then
-			local root = math.sqrt(discriminant)
-			local t = (-b - root) / (2 * a)
-			if t < 0 then t = (-b + root) / (2 * a) end
-			local y = origin.Y + dy * t
-			if t >= 0 and y >= floorY and y <= topY then best = t end
-		end
+		if discriminant < 0 then return nil end
+		local root = math.sqrt(discriminant)
+		enter = (-b - root) / (2 * a)
+		leave = (-b + root) / (2 * a)
+	elseif c > 0 then
+		return nil
 	end
 
-	if dy < -EPSILON and origin.Y > topY then
-		local t = (topY - origin.Y) / dy
-		local hx = fx + dx * t
-		local hz = fz + dz * t
-		if hx * hx + hz * hz <= radius * radius and (best == nil or t < best) then best = t end
+	-- And within its height.
+	if math.abs(dy) > EPSILON then
+		local toFloor = (floorY - origin.Y) / dy
+		local toTop = (topY - origin.Y) / dy
+		enter = math.max(enter, math.min(toFloor, toTop))
+		leave = math.min(leave, math.max(toFloor, toTop))
+	elseif origin.Y < floorY or origin.Y > topY then
+		return nil
 	end
 
-	return best
+	enter = math.max(enter, 0)
+	return if enter <= leave then enter else nil
 end
 
 GunsCore.RayCylinder = rayCylinder
@@ -228,6 +234,23 @@ function GunsCore.AddBody(bodies: TBodies, feet: Vector3, radius: number, height
 	bodies.FloorY[index] = feet.Y
 	bodies.Radius[index] = radius
 	bodies.Height[index] = height
+end
+
+-- A long body's pieces (TEnemy.AimPieces) for a body standing at `feet` facing `forward` (flat unit), each as one
+-- more body. Returns the index of the first; the caller maps every index from it to the body's entity.
+function GunsCore.AddPieces(bodies: TBodies, feet: Vector3, forward: Vector3, pieces: { TData.TEnemyAimPiece }): number
+	local first = bodies.Count + 1
+	for _, piece in pieces do
+		local index = bodies.Count + 1
+		bodies.Count = index
+		bodies.X[index] = feet.X + forward.X * piece.Ahead
+		bodies.Z[index] = feet.Z + forward.Z * piece.Ahead
+		bodies.FloorY[index] = feet.Y + piece.Bottom
+		bodies.Radius[index] = piece.Radius
+		bodies.Height[index] = piece.Height
+	end
+
+	return first
 end
 
 -- The nearest body the ray meets within `length` (each widened by `pad`) and further than `beyond`: its index and

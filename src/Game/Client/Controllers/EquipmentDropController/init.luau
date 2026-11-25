@@ -35,6 +35,11 @@ local REVEAL_SOUNDS = table.freeze({
 
 local EquipmentDropController = {}
 
+-- The pieces this player owns (Equipment.Sync), Id -> true, and the os.clock each piece was last won here, for the
+-- boss bar's drops.
+EquipmentDropController.Owned = {} :: { [number]: boolean }
+EquipmentDropController.WonAt = {} :: { [number]: number }
+
 local scale = source(1)
 local now = source(os.clock())
 -- The piece on show (0 for none) and when it went up.
@@ -85,7 +90,16 @@ end
 
 ServerNetworkEquipment.Dropped.On(function(itemId: number)
 	if not PIECES[itemId] then return end
+	EquipmentDropController.WonAt[itemId] = os.clock()
 	table.insert(queue, itemId)
+end)
+
+ServerNetworkEquipment.Sync.On(function(ownedIds: { number })
+	local owned = EquipmentDropController.Owned
+	table.clear(owned)
+	for _, itemId in ownedIds do
+		owned[itemId] = true
+	end
 end)
 
 return Ignis.Register(EquipmentDropController)

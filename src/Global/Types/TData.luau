@@ -21,7 +21,18 @@ export type TEnemyModel = Model & {
 --   Shockwave  a ring expanding from the body at Speed out to Radius; it hits whoever it passes who is on the ground.
 -- Every kind but Melee shows its area on the ground for the whole wind-up (Enemies.Telegraph), and the area shown is
 -- exactly the area that hurts: the floor it was cast on and what that floor steps onto (TelegraphCore).
-export type TEnemyAttackKind = "Melee" | "Explode" | "Slam" | "Shockwave"
+-- A boss's own (BossService runs them; enemiesUpdate never starts one):
+--   Charge  a Line of Width from the body Radius long: after the wind-up the body runs it at Speed, hitting whoever it
+--           passes, and skids to a stop. A wall or a ledge on the line ends it early.
+--   Dive    sinks into the floor (nothing can hit it), runs under it to its target and bursts up in a circle of Radius.
+--   Summon  roars (a ring of Radius at Speed to jump) and raises Count bodies of Summons, shielded until they fall.
+export type TEnemyAttackKind = "Melee" | "Explode" | "Slam" | "Shockwave" | "Charge" | "Dive" | "Summon"
+
+-- Where a boss's target has to stand round its body for it to take an attack (BossesCore's arcs).
+--   Front   in the front arc.
+--   Behind  in the rear arc; its Cone or Line is turned to point back.
+--   Beside  in neither, or under the body.
+export type TEnemyAttackFacing = "Front" | "Behind" | "Beside"
 
 -- A Slam's area (TEnemyAttack.Shape). A Cone or a Line starts at the body and points where it faces (at its target),
 -- whatever AtTarget says.
@@ -47,9 +58,41 @@ export type TEnemyAttack = {
 	Shape: TEnemyAttackShape?,
 	Angle: number?,
 	Width: number?,
-	-- The clip played on the wind-up (TEnemy.AnimationSet), "Attack" when nil. Every attack clip lands its blow at
-	-- EnemiesCore.ATTACK_CLIP_IMPACT and is played faster or slower to meet Delay.
+	-- The clip played on the wind-up (TEnemy.AnimationSet), "Attack" when nil. Every attack clip of the shared set
+	-- lands its blow at EnemiesCore.ATTACK_CLIP_IMPACT and is played faster or slower to meet Delay; a boss's are
+	-- authored at their real timing and play at its pace (TEnemyBoss.TempoStart, BossController).
 	AnimationName: string?,
+
+	-- A boss's (BossService), each nil for none:
+	-- Where its target must stand, and how far at least (flat studs).
+	Facing: TEnemyAttackFacing?,
+	MinRange: number?,
+	-- Taken only while the boss's health share is under / over these.
+	HealthBelow: number?,
+	HealthAbove: number?,
+	-- Seconds from its start until the body moves again: its clip's length.
+	Length: number?,
+	-- A sequence: seconds into the clip each blow lands, the first being Delay. Each is the attack's shape again.
+	Beats: { number }?,
+	-- A Slam lands one circle on each player in Range at once (and at every beat) instead of on its one target. Each
+	-- is thrown at its beat and flies Flight seconds; its circle shows Delay before it lands, on where the player was.
+	IsVolley: boolean?,
+	Flight: number?,
+	-- The last beat also rolls a ring out to this radius at FinisherSpeed.
+	FinisherRadius: number?,
+	FinisherSpeed: number?,
+	-- A Volley: how many spines each player in Range takes, drawn between these two (fewest, most) and split over
+	-- the Beats, a few at once, so one salvo covers where they run and where they would cut to. nil: one a beat.
+	SpineCount: { number }?,
+	-- Aimed this share of the way to where its target would be when it lands, if they kept running (a Volley's
+	-- spines, a Charge's line). nil: at where they stand.
+	Lead: number?,
+	-- Charge: how many more charges it chains after the first (a skid, a turn, and off again).
+	Chains: number?,
+	-- Summon: the type raised (an EEnemiesIds value), how many, and the longest the shield holds without them dead.
+	Summons: number?,
+	Count: number?,
+	ShieldSeconds: number?,
 }
 
 export type TEnemy = {
@@ -80,6 +123,9 @@ export type TEnemy = {
 	IntroRound: number,
 	SpawnWeight: number,
 	IsBoss: boolean?,
+	-- What a gun hits instead of the one AimShape cylinder: a long body whose head and tail are far from its feet.
+	-- Studs at the size it is played, in its own frame. nil: the AimShape.
+	AimPieces: { TEnemyAimPiece }?,
 	-- The maps it comes on (MapsCore names), for the draw and the lobby's index; nil for every map.
 	Maps: { string }?,
 
@@ -90,14 +136,106 @@ export type TEnemy = {
 
 	-- Clips under ReplicatedStorage.Animations.Enemies.<AnimationSet>: Idle, Walk, and each attack's AnimationName
 	-- ("Attack" when it has none). A set rather than a clip per enemy: every R6 zombie shares one (tools/rig), since
-	-- its clips key rotations only and play on any size. There is no death clip: a kill ragdolls (EnemiesController).
+	-- its clips key rotations only and play on any size. A kill ragdolls (EnemiesController), unless the set has a
+	-- Death clip: then the body plays it and stays where it fell until it sinks.
 	AnimationSet: string,
+	-- A boss's fight past its attacks (BossService, BossController); nil for an ordinary body.
+	Boss: TEnemyBoss?,
+	-- Its own Highlight lit in this colour while it lives (a guard's glow), at BossesCore.GLOW_TRANSPARENCY. Never a
+	-- Highlight of its own (EnemiesCore.MAX_ALIVE).
+	Glow: Color3?,
 	-- Its own voice, on top of the impact palette every enemy shares (Client/Utils/enemyImpacts). nil: the palette
 	-- alone.
 	Sounds: TEnemySounds?,
 	-- What its model is painted in, for the stud pieces and pixels a blow knocks off it (Client/Utils/enemyImpacts).
 	-- Repaint the model and these change with it. nil: grey pieces.
 	Colors: TEnemyColors?,
+}
+
+-- One upright cylinder of a long body's aim (TEnemy.AimPieces): its centre this far ahead of the feet (negative
+-- behind), from Bottom to Bottom + Height above them.
+export type TEnemyAimPiece = {
+	Ahead: number,
+	Bottom: number,
+	Height: number,
+	Radius: number,
+}
+
+-- A boss's fight past its attacks. Every time is seconds into its own clips (the kit's anim/clips.json), which the
+-- server times its blows by (its attacks' stretched by its Tempo) and the client plays to match.
+export type TEnemyBoss = {
+	-- The intro's title card.
+	Title: string,
+	Subtitle: string,
+	-- Its picture on the boss bar and wherever a boss is shown (an EIcons name).
+	Icon: string,
+	-- Its pace by its health: every wind-up, clip, cooldown and rest takes TempoStart times as long at full health and
+	-- TempoEnd times at none, straight in between (BossesCore.Tempo), so it opens slow to read and ends fast.
+	TempoStart: number,
+	TempoEnd: number,
+	-- Seconds after it comes on (the intro over) before its first attack: room to see it and spread out.
+	OpeningSeconds: number,
+	-- Degrees a second it turns while it walks, slowing until it faces the way it goes: a body this long cannot spin
+	-- on the spot, so a player can get round to its tail.
+	TurnRate: number,
+	-- Its body round Root, for what it runs into: the snout this far ahead, the flanks this far either side.
+	BodyFront: number,
+	BodyHalfWidth: number,
+	-- Seconds without reaching anyone (its target farther than its closest attack) before a Charge needs no MinRange.
+	ChaseSeconds: number,
+	-- Seconds its target has stood where it cannot walk before it Dives.
+	StrandedSeconds: number,
+	-- The arcs Facing reads, in degrees off its nose (Front inside FrontArc, Behind outside 180 - RearArc), and the
+	-- distance under which a target counts as under the body whatever its angle.
+	FrontArc: number,
+	RearArc: number,
+	UnderRadius: number,
+	-- Charge: the wind-up's clip length is the attack's Delay; the skid bleeds the run's speed off over SkidStop and
+	-- the body stands in it until SkidLength; a chained charge turns round over TurnLength.
+	SkidStop: number,
+	SkidLength: number,
+	TurnLength: number,
+	-- Dive: under the floor from DiveUnder into DiveSink's clip (DiveSinkLength long); it runs under at DiveSpeed;
+	-- DiveRise's clip bursts through the floor at DiveRiseImpact and lasts DiveRiseLength; then ReassembleLength.
+	DiveUnder: number,
+	DiveSinkLength: number,
+	DiveSpeed: number,
+	DiveRiseImpact: number,
+	DiveRiseLength: number,
+	ReassembleLength: number,
+	-- The walk's and the Charge loop's ground speeds in their clips (studs a second): each is played at the body's
+	-- speed over it (BaseMovementSpeed, the Charge attack's Speed), so the planted feet hold.
+	WalkSpeed: number,
+	ChargeSpeed: number,
+	-- Seconds into the Walk clip each foot lands (left, right), for its steps' weight.
+	WalkSteps: { number },
+	-- The Charge loop's.
+	ChargeSteps: { number },
+	-- The Death clip: on the floor at DeathDown, and lasting DeathLength (then held on its last frame).
+	DeathDown: number,
+	DeathLength: number,
+	-- The intro (its Intro clip): how long the match is held for it, and its beats.
+	Intro: TEnemyBossIntro,
+}
+
+export type TEnemyBossIntro = {
+	-- The clip's length, and how far ahead of where it ends (Root) the frame of its camera keys stands
+	-- (BossesCore.INTRO_SHOTS: the delivered RootPart's ground point, in studs at the size it is played).
+	Length: number,
+	ShotsAhead: number,
+	-- Feet landing in the walk-in (seconds into the clip, the side "l" or "r"), the stomp, the roar, the chomp, and the
+	-- frame it holds on.
+	Steps: { { Time: number, Side: string } },
+	-- When the neck's hunt starts: its sound (Sounds.Bosses.TRex.Hunt) is one file played from there.
+	Hunt: number,
+	Stomp: number,
+	StompSide: string,
+	Roar: number,
+	Chomp: number,
+	Hold: number,
+	-- The cutscene's clock when the view is handed back: clip seconds, running on past Hold while the pose is held.
+	-- BossesCore.IntroSeconds turns it into real time (the roar's slow motion included).
+	End: number,
 }
 
 -- What a kind's energy is (PotionsCore): the run upgrade a potion brewed from it adds to (an EUpgradesIds value), how

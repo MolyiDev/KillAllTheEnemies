@@ -22,7 +22,6 @@ local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
-local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 local Brew = require(script.Brew)
 local Flight = require(script.Flight)
@@ -30,6 +29,7 @@ local Mutate = require(script.Mutate)
 local Parts = require(script.Parts)
 local Potions = require(script.Potions)
 local Screen = require(script.Screen)
+local Tray = require(script.Tray)
 local Types = require(script.Types)
 
 local ServerNetworkMutation = NetworkMeta.Server.Mutation
@@ -61,6 +61,8 @@ local Tune = table.freeze({
 	},
 	-- Each climb step's tick is this much higher than the last, and each landing's in a stream.
 	TICK_STEP = 0.1,
+	-- A batch: each card's opening ticks this much higher than the one before, its climb's ticks a step under it.
+	CARD_TICK_STEP = 0.06,
 	LANDING_STEP = 0.03,
 	LANDING_STEPS = 12,
 	-- While BREW can go, the light crosses it this often.
@@ -77,6 +79,9 @@ local Tune = table.freeze({
 	-- A flight is let go this long after it lands, and a dissolved card waits this long for the server to take it.
 	LANDED_KEEP = 0.5,
 	LEAVING_TIMEOUT = 5,
+	-- Brews bought are brewed once Roblox's dialog is closed, or this long after they arrived if it never says so (the
+	-- shop's receipt waits as long).
+	MAX_DIALOG_WAIT = 10,
 	-- Where brewed potions and souls land (the tabs' glyphs); they leave from the result card's flask (Mutate.FlaskAt).
 	MUTATE_TAB = Vector2.new(387, 224),
 	POTIONS_TAB = Vector2.new(640, 224),
@@ -112,6 +117,7 @@ local state: Types.TLabState = {
 	MenuAt = source(-math.huge),
 	CalledAt = source(-math.huge),
 	BrewAt = source(-math.huge),
+	Asked = source(1),
 	AnsweredAt = source(math.huge),
 	BrewedId = source(0),
 	Shown = source(nil :: Types.TPotion?),
@@ -141,8 +147,16 @@ local motionUntil = -math.huge
 local dueSounds: { { At: number, Group: string, Name: string, Speed: number? } } = {}
 -- What the next Brewed answers: the picks it was asked with.
 local isAsking = false
--- A brew bought from BREW, brewed as it arrives.
+-- Brews bought from BREW, brewed once they have arrived and Roblox's dialog is down: whether one is awaited, whether
+-- the dialog is still up (its confirmation not yet pressed), and when the brews arrived.
 local isAwaitingPurchase = false
+local isPrompting = false
+local grantedAt = math.huge
+-- Every product that sells brews (PotionsCore.BREW_PRODUCTS), to know their prompts when they close.
+local brewProducts: { [number]: boolean } = {}
+for _, productId in PotionsCore.BREW_PRODUCTS do
+	if productId ~= 0 then brewProducts[productId] = true end
+end
 local nextClockAt = 0
 local nextCallAt = 0
 -- The flights already landed, so each ticks once, and how many have in this stream of them.
@@ -403,7 +417,9 @@ local actions: Types.TLabActions = {
 		local mode = Mutate.Mode(state)
 		if mode == "Buy" then
 			isAwaitingPurchase = true
-			MarketplaceService:PromptProductPurchase(LocalPlayer, EProducts.ExtraBrew)
+			isPrompting = true
+			grantedAt = math.huge
+			MarketplaceService:PromptProductPurchase(LocalPlayer, PotionsCore.BREW_PRODUCTS[Mutate.BuyCount(state)])
 			return
 		end
 		local blocker = Mutate.Blocker(state)
@@ -420,6 +436,7 @@ local actions: Types.TLabActions = {
 			state.IsShownNew(false)
 			state.BrewedId(0)
 			state.AnsweredAt(math.huge)
+			state.Asked(count)
 			state.BrewAt(now)
 		end)
 		stir(Brew.WINDUP + 4)
@@ -543,9 +560,46 @@ end
 
 -- The brew's beats from its answer: a tick for each rarity the climb passes, the landing in the rarity's voice, and
 -- its potions thrown out of the flask into the POTIONS tab (Flight), rarest last off the card.
+-- A batch's beats: each card's climb ticking up to it, its opening a tick higher than the last card's and its landing
+-- in its rarity's voice; then each potion thrown out of its own card into the POTIONS tab, one after another.
+local function scheduleBatch(times: Brew.TTimes, cards: { Brew.TCard })
+	local count = #cards
+	for index, card in cards do
+		local pitch = 1 + Tune.CARD_TICK_STEP * (index - 1)
+		for step = ERarities.Common + 1, card.Rarity do
+			local at = card.StartAt + card.Step * (step - ERarities.Common - 1)
+			schedule(at, "UI.UpgradePick", "Tick", pitch + 0.5 * Tune.TICK_STEP * (step - 1))
+		end
+		schedule(card.LandAt, "UI.UpgradePick", Tune.PICK_SOUNDS[card.Rarity])
+		local reveal = Tune.REVEAL_SOUNDS[card.Rarity]
+		if reveal then schedule(card.LandAt, "UI.UpgradePick", reveal) end
+	end
+	schedule(times.FlyAt, "UI.UpgradePick", "Deal")
+
+	local lastLanding = times.FlyAt
+	for index, potion in state.Batch() do
+		local look: Types.TFlightLook = {
+			Picture = EIcons.PotionBottle,
+			Color = Parts.Rarity(potion.Rarity).Accent,
+			Size = Tune.POTION_SIZE,
+			Tab = 2,
+			PotionId = potion.Id,
+		}
+		local at = times.FlyAt + Brew.FLY_STAGGER * (index - 1)
+		local planned = Flight.Plan({ look }, Tray.CardAt(index, count), Tune.POTIONS_TAB, at, 0, random)
+		lastLanding = math.max(lastLanding, launch(planned, at))
+	end
+	stir(lastLanding + 0.8 - os.clock())
+end
+
 local function scheduleReveal()
 	local times = Brew.Times(state)
 	if not times then return end
+	local cards = times.Cards
+	if cards then
+		scheduleBatch(times, cards)
+		return
+	end
 	for step = ERarities.Common + 1, times.Rarity do
 		schedule(Brew.StepMoment(times, step), "UI.UpgradePick", "Tick", 1 + Tune.TICK_STEP * step)
 	end
@@ -639,6 +693,17 @@ local function releaseLeaving(now: number)
 	state.Leaving(kept)
 end
 
+-- Brews just bought are brewed once they have arrived and Roblox's dialog is down, as the shop's receipt waits for it:
+-- the brew never starts under the dialog's confirmation.
+local function brewBought(now: number)
+	if grantedAt == math.huge then return end
+	if isPrompting and now - grantedAt < Tune.MAX_DIALOG_WAIT then return end
+	if not state.IsOpen() or Mutate.Mode(state) ~= "Brew" then return end
+	isAwaitingPurchase = false
+	isPrompting = false
+	actions.Brew()
+end
+
 MutationController.OnStart = function()
 	vide.mount(function()
 		local isDrawn = vide.derive(function(): boolean
@@ -691,6 +756,7 @@ MutationController.OnStart = function()
 			releaseLeaving(now)
 		end
 		if #dueSounds > 0 then playDueSounds(now) end
+		if isAwaitingPurchase then brewBought(now) end
 		if state.IsOpen() and now >= nextClockAt then
 			nextClockAt = now + 1
 			state.Clock(os.time())
@@ -758,10 +824,9 @@ ServerNetworkMutation.Sync.On(function(lab)
 		state.Found(found)
 	end)
 
-	-- A brew just bought is brewed as it arrives.
-	if isAwaitingPurchase and lab.BrewsLeft > 0 and state.IsOpen() and Mutate.Mode(state) == "Brew" then
-		isAwaitingPurchase = false
-		actions.Brew()
+	if isAwaitingPurchase and grantedAt == math.huge and lab.BrewsLeft > 0 then
+		grantedAt = os.clock()
+		brewBought(grantedAt)
 	end
 end)
 
@@ -806,8 +871,13 @@ end)
 
 MarketplaceService.PromptProductPurchaseFinished:Connect(
 	function(userId: number, productId: number, isPurchased: boolean)
-		if userId ~= LocalPlayer.UserId or productId ~= EProducts.ExtraBrew then return end
-		if not isPurchased then isAwaitingPurchase = false end
+		if userId ~= LocalPlayer.UserId or not brewProducts[productId] then return end
+		isPrompting = false
+		if not isPurchased then
+			isAwaitingPurchase = false
+			return
+		end
+		brewBought(os.clock())
 	end
 )
 

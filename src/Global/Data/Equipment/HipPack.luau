@@ -11,7 +11,7 @@ local data: TData.TEquipment = {
 	Description = "A pouch on the belt with room for every coin a monster drops.",
 	Stats = { { Stat = "KillGold", Value = 0.2 } },
 	ModelName = "HipPack",
-	Drop = { Enemy = EEnemiesIds.ZombieKing, Chance = 0.05 },
+	Drop = { Enemy = EEnemiesIds.TRex, Chance = 0.05 },
 }
 
 return table.freeze(data)

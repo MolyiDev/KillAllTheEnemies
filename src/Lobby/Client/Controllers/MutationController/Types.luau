@@ -83,8 +83,8 @@ export type TLabState = {
 	-- The souls picked for the next brew (enemy data Ids, in the order picked, at most two), and when each was picked.
 	Picks: Source<{ number }>,
 	PickedAt: Source<{ [number]: number }>,
-	-- How many BREW makes at once: a count from the menu, 0 for as many as the souls and the brews allow. The menu
-	-- under it: open or not, and when it last opened or shut.
+	-- How many BREW makes at once: a count from the menu (PotionsCore.BREW_COUNTS), held to what the souls and the
+	-- brews allow. The menu under it: open or not, and when it last opened or shut.
 	BrewCount: Source<number>,
 	IsMenuOpen: Source<boolean>,
 	MenuAt: Source<number>,
@@ -93,6 +93,8 @@ export type TLabState = {
 	-- A brew: pressed at, answered at (math.huge until the answer), and what it made (a potion Id, 0 refused). The
 	-- reveal starts at RevealAt (the wind-up's end or the answer, whichever is later) and climbs the rarities to it.
 	BrewAt: Source<number>,
+	-- How many the last BREW asked for: more than one deals that many cards into the tray (Tray) as it pours.
+	Asked: Source<number>,
 	AnsweredAt: Source<number>,
 	BrewedId: Source<number>,
 	-- The potion the result card shows once revealed: held here, so the card keeps it after the lab's list has moved on.
@@ -138,7 +140,7 @@ export type TLabActions = {
 	DropPick: (index: number) -> (),
 	-- BREW pressed: brews, or offers one for Robux when the day's are used.
 	Brew: () -> (),
-	-- The count menu opened or shut, and a count picked from it (0 for MAX).
+	-- The count menu opened or shut, and a count picked from it.
 	SetMenu: (isOpen: boolean) -> (),
 	PickCount: (count: number) -> (),
 	-- A potion card pressed: into the first free slot, or out of its slot; picking potions to dissolve, picked or let go.

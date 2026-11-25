@@ -11,7 +11,7 @@ local data: TData.TEquipment = {
 	Description = "Steel plates bolted over both shoulders. Claws skid right off them.",
 	Stats = { { Stat = "Armor", Value = 0.1 } },
 	ModelName = "KnightShoulders",
-	Drop = { Enemy = EEnemiesIds.ZombieKing, Chance = 0.15 },
+	Drop = { Enemy = EEnemiesIds.TRex, Chance = 0.15 },
 }
 
 return table.freeze(data)

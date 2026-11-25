@@ -18,6 +18,7 @@ local Controllers = StarterPlayer.StarterPlayerScripts.Client.Controllers
 local Shell = require(Controllers.DailyController.Shell)
 local RewardsScreen = require(Controllers.DailyRewardsController.Screen)
 local SpinsScreen = require(Controllers.SpinsController.Screen)
+local SpinsShape = require(Controllers.SpinsController.Shape)
 
 local source = vide.source
 local create = vide.create
@@ -56,6 +57,7 @@ local function swapImages(root: Instance)
 end
 
 local function noop() end
+local SPINS_ACTIONS = { Spin = noop, SetMenu = noop, PickCount = noop }
 
 return {
 	vide = vide,
@@ -115,8 +117,15 @@ return {
 			SecondsLeft = source(CLOCK),
 			CanBuy = source(true),
 			Mode = source(if moment == "Refused" then "Busy" else "Spin"),
-			Rest = source(4),
-			Spin = source(if moment == "Refused" then { StartAt = now, From = 4 } else nil),
+			Count = source(1),
+			IsMenuOpen = source(false),
+			MenuAt = source(-math.huge),
+			Reels = source(1),
+			ReelsAt = source(-math.huge),
+			Batch = source(1),
+			Price = source(0),
+			Rests = source({ 4, 2, 6, 3, 5 }),
+			Spins = source(if moment == "Refused" then { { StartAt = now, From = 4 } } else {}),
 			PillAt = source(PILL),
 			BarAt = source(BAR),
 			BarLength = source(226),
@@ -125,14 +134,19 @@ return {
 		}
 
 		local morph = Shell.Morph(shell)
-		local top = Shell.Top(morph)
+		local spinShape = SpinsShape.Build(spins)
+		local spinPanel = vide.derive(function(): Vector2
+			local shape = spinShape()
+			return Vector2.new(shape.Top, shape.Height)
+		end)
+		local top = Shell.Top(morph, spinPanel)
 		local rewardsPage = RewardsScreen.Build(
 			rewards,
 			{ Claim = noop, PickWeek = noop, Refuse = noop },
 			Shell.Lift(top, 1, rewards.IsOpen)
 		)
 		local spinsPage, spinsFlights, shake =
-			SpinsScreen.Build(spins, { Spin = noop }, Shell.Lift(top, 2, spins.IsOpen))
+			SpinsScreen.Build(spins, SPINS_ACTIONS, Shell.Lift(top, 2, spins.IsOpen), spinShape)
 		local payout = GemPayout.Build(rewards.Scale, function()
 			return PILL
 		end)
@@ -157,6 +171,7 @@ return {
 				return spins.Mode() == "Busy"
 			end,
 			Shake = shake,
+			SpinShape = spinPanel,
 		}, morph, top, { page("Rewards", rewardsPage), page("Spins", spinsPage) })
 
 		-- What DailyController does on the moment.

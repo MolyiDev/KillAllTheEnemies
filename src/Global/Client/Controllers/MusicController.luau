@@ -13,6 +13,15 @@ local MusicController = {}
 
 local tracks: { [string]: Sound } = {}
 local fullVolumes: { [string]: number } = {}
+local levels: { [string]: number } = {}
+-- Every track's level is multiplied by this: a moment clearing room for itself, kept apart from the levels the
+-- places ask for so it gives each track back the level it had.
+local duck = 1
+
+local function fade(track: Sound, volume: number, seconds: number)
+	local info = TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(track, info, { Volume = volume }):Play()
+end
 
 -- A track faded to 0 keeps playing, so a layer that comes back picks up where it was instead of from its top, and it
 -- starts only when first asked for above 0. A new fade cancels the one running (TweenService does that for a property
@@ -31,8 +40,16 @@ function MusicController.SetLevel(name: string, level: number, fadeSeconds: numb
 		fullVolumes[name] = source.Volume
 	end
 
-	local info = TweenInfo.new(fadeSeconds or DEFAULT_FADE_SECONDS, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(track, info, { Volume = fullVolumes[name] * level }):Play()
+	levels[name] = level
+	fade(track, fullVolumes[name] * level * duck, fadeSeconds or DEFAULT_FADE_SECONDS)
+end
+
+-- Every track down to `level` of what it is asked for (1 gives it all back), over `fadeSeconds`.
+function MusicController.Duck(level: number, fadeSeconds: number)
+	duck = level
+	for name, track in tracks do
+		fade(track, fullVolumes[name] * levels[name] * duck, fadeSeconds)
+	end
 end
 
 return Ignis.Register(MusicController)

@@ -1,0 +1,48 @@
+import "../Types/EnemyInstanceId.blink"
+import "../Types/DataId.blink"
+import "../Types/Vec.blink"
+
+-- A boss's fight (BossService, BossIntroService), to everybody: the boss is the round's, so it is shown to all.
+
+-- A boss arrives: its intro plays for everyone, the match held meanwhile. (boss, dataId, where it stands, its yaw)
+event Intro {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type, DataId.Type, Vec.Type, f32)
+}
+
+-- What its body does next (EBossMoves), so the client plays the clip, drives the body where the server moves it and
+-- throws its effects. (boss, move, attack index, from, to, value: a yaw, seconds or a speed by move, tempo: how many
+-- times as long as authored the move takes, BossesCore.Tempo)
+event Move {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type, u8, u8, Vec.Type, Vec.Type, f32, f32)
+}
+
+-- Its shield and the guards holding it up: (boss, the guards still standing, how many it raised). No guards: down.
+event Shield {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type, EnemyInstanceId.Type[], u8)
+}
+
+-- A blow its shield took instead of it. (boss)
+event ShieldHit {
+	from: Server,
+	type: Unreliable,
+	call: SingleAsync,
+	data: (EnemyInstanceId.Type)
+}
+
+-- The receiver's own body was run over or thrown: its velocity, studs a second. The client owns its body, so the
+-- shove is laid on there.
+event Knocked {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (Vec.Type)
+}

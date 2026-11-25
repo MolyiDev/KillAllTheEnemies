@@ -30,6 +30,9 @@ TimeCore.IsManualPaused = false
 TimeCore.IsEnemiesManualPaused = false
 -- Held by an upgrade pick (UpgradesService): eased to a stop, and back to the scale asked for once let go.
 TimeCore.IsHeld = false
+-- Held by a boss's intro (BossIntroService): stopped at once, since an ease would let a blow land, and no blow lands
+-- on a character until it lets go (CharacterService).
+TimeCore.IsCutscene = false
 TimeCore.GameClock = 0
 TimeCore.EnemyClock = 0
 
@@ -74,7 +77,7 @@ end
 
 -- Where the server's scale is headed: what it was asked for, unless a pause or a hold keeps it at 0.
 function TimeCore.GetTargetTimeScale(): number
-	return if TimeCore.IsManualPaused or TimeCore.IsHeld then 0 else underlyingTimeScale
+	return if TimeCore.IsManualPaused or TimeCore.IsHeld or TimeCore.IsCutscene then 0 else underlyingTimeScale
 end
 
 function TimeCore.SetTimeScale(value: number)
@@ -90,6 +93,11 @@ end
 function TimeCore.SetHeld(isHeld: boolean, seconds: number)
 	TimeCore.IsHeld = isHeld
 	TimeCore.TweenTimeScale(TimeCore.GetTargetTimeScale(), seconds)
+end
+
+function TimeCore.SetCutscene(isCutscene: boolean)
+	TimeCore.IsCutscene = isCutscene
+	TimeCore.TweenTimeScale(TimeCore.GetTargetTimeScale(), 0)
 end
 
 function TimeCore.SetEnemyTimeScale(value: number)
@@ -119,6 +127,7 @@ end
 
 function TimeCore.Reset()
 	enemyFreezeRemaining = 0
+	TimeCore.IsCutscene = false
 	TimeCore.GameClock = 0
 	TimeCore.EnemyClock = 0
 	TimeCore.SetEnemyTimeScale(if TimeCore.IsEnemiesManualPaused then 0 else 1)

@@ -25,7 +25,7 @@ local Progress = Motion.Progress
 
 -- His drawn rects in px at 1080. The panel keeps its left and width on both pages (his two differ by 18 px, and the
 -- SPIN page stands in the middle of it); its top and height are each page's, DAILY's 40 px shorter than his so it ends
--- above EXIT as the other lobby screens' panels do. The header is placed from the panel's top left: his tabs where his
+-- above EXIT as the other lobby screens' panels do, SPIN's his for one reel and growing with more (the page's shape). The header is placed from the panel's top left: his tabs where his
 -- Daily Spins draws them, the words and the rule where both his screens do. EXIT is on the screen, where every lobby
 -- screen has it.
 local Layout = table.freeze({
@@ -138,10 +138,10 @@ function Shell.Morph(state: Types.TDailyScreenState): () -> number
 	return value
 end
 
--- The panel's top in px at 1080 as it takes its shape.
-function Shell.Top(morph: () -> number): () -> number
+-- The panel's top in px at 1080 as it takes its shape: `spinShape` is the SPIN page's (its top and height).
+function Shell.Top(morph: () -> number, spinShape: () -> Vector2): () -> number
 	return derive(function(): number
-		return Motion.Lerp(Layout.TOPS[1], Layout.TOPS[2], morph())
+		return Motion.Lerp(Layout.TOPS[1], spinShape().X, morph())
 	end)
 end
 
@@ -505,7 +505,7 @@ function Shell.Build(
 		return Timing.SINK * Motion.Accelerate(Progress(elapsed(), 0, Timing.CLOSE))
 	end)
 	local height = derive(function(): number
-		return math.round(Motion.Lerp(Layout.HEIGHTS[1], Layout.HEIGHTS[2], morph()))
+		return math.round(Motion.Lerp(Layout.HEIGHTS[1], pages.SpinShape().Y, morph()))
 	end)
 	-- The panel's top left on the screen, the jackpot's shake and the open's rise on it.
 	local corner = derive(function(): Vector2

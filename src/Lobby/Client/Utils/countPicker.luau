@@ -1,7 +1,8 @@
 --!nonstrict
--- How many BREW makes at once: the trigger left of BREW (the count picked) and the menu it unrolls upward over the
--- souls (1X nearest the trigger, up to MAX). One plate slides to the row under the hand, its leading edge on a quicker spring so it
--- stretches toward the row and snaps shut on it; each row's hover is a step higher. A press anywhere else folds it.
+-- How many a button makes at once (the Mutation Lab's BREW, the daily SPIN): a trigger beside it (the count picked)
+-- and the menu it unrolls upward (the smallest count nearest the trigger). One plate slides to the row under the hand,
+-- its leading edge on a quicker spring so it stretches toward the row and snaps shut on it; each row's hover is a step
+-- higher. A row may say what that many would cost in Robux. A press anywhere else folds it.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
@@ -10,8 +11,6 @@ local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
-local Parts = require(script.Parent.Parts)
-local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
@@ -20,19 +19,18 @@ local source = vide.source
 local Palette = Theme.Palette
 local Font = Theme.Font
 local Progress = Motion.Progress
-local Label = Parts.Label
 
 local Layout = table.freeze({
-	-- The trigger, where the cost box stood: 40 px off BREW, past an Operate BREW's reach at its press (UI.md).
-	TRIGGER = Rect.new(328, 845, 528, 917),
 	TRIGGER_TEXT = 34,
+	CAPTION_TEXT = 13,
 	CHEVRON = 26,
 	-- The menu stands this far over the trigger, its rows this tall inside this much padding.
 	MENU_GAP = 12,
 	ROW = 50,
 	PAD = 8,
 	ROW_TEXT = 26,
-	ROW_NOTE = 16,
+	PRICE_TEXT = 18,
+	ROBUX = 16,
 })
 
 local Timing = table.freeze({
@@ -41,41 +39,72 @@ local Timing = table.freeze({
 	CLOSE = 0.08,
 	PLATE_LEAD = 0.07,
 	PLATE_TRAIL = 0.16,
+	-- The number punches as a new count is picked.
 	PUNCH = 0.3,
 })
 
-local Count = {}
+export type TProps = {
+	-- The trigger's rect in its parent's px; the menu unrolls up from its top.
+	Rect: Rect,
+	-- The small word over the count: BREW, SPIN.
+	Caption: string,
+	-- The counts on offer, smallest first.
+	Options: { number },
+	Picked: () -> number,
+	IsOpen: () -> boolean,
+	-- When the menu last opened or shut, on the caller's clock (`Now`, written while a gesture runs).
+	MenuAt: () -> number,
+	Now: () -> number,
+	-- Whether the button beside it can go: the count is drawn white, else lavender.
+	IsLive: () -> boolean,
+	-- Whether a count can be had now (dimmed when not; it can still be picked).
+	IsReachable: ((count: number) -> boolean)?,
+	-- What that many would cost in Robux now, or nil when it would not be bought.
+	Price: ((count: number) -> number?)?,
+	SetOpen: (isOpen: boolean) -> (),
+	Pick: (count: number) -> (),
+	-- Off while something covers the trigger.
+	Interactable: (() -> boolean)?,
+}
 
--- The counts on offer, top row first: 0 is MAX.
-Count.OPTIONS = table.freeze({ 0, 10, 5, 3, 1 })
-Count.Layout = Layout
+local countPicker = {}
 
--- A count's word: x5, or MAX.
-function Count.Word(count: number): string
-	return if count == 0 then "MAX" else `x{count}`
+-- A count's word: x5.
+function countPicker.Word(count: number): string
+	return `x{count}`
 end
 
 -- 0 to 1 as the menu unrolls, back to 0 as it folds.
-local function unrolled(state: Types.TLabState): () -> number
+local function unrolled(props: TProps): () -> number
 	return derive(function(): number
-		local at = state.MenuAt()
-		if state.IsMenuOpen() then return Motion.Decelerate(Progress(state.Now(), at, Timing.OPEN)) end
-		return 1 - Motion.Accelerate(Progress(state.Now(), at, Timing.CLOSE))
+		local at = props.MenuAt()
+		if props.IsOpen() then return Motion.Decelerate(Progress(props.Now(), at, Timing.OPEN)) end
+		return 1 - Motion.Accelerate(Progress(props.Now(), at, Timing.CLOSE))
 	end)
 end
 
-local function trigger(state: Types.TLabState, actions: Types.TLabActions, canBrew: () -> boolean)
-	local rect = Layout.TRIGGER
+local function label(fields: { [any]: any }): TextLabel
+	return create("TextLabel")({
+		BackgroundTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		FontFace = Font.Display,
+		TextColor3 = Palette.White,
+		ZIndex = 4,
+		fields,
+	})
+end
+
+local function trigger(props: TProps, open: () -> number): TextButton
+	local rect = props.Rect
 	local hand = Hand.React("Operate")
-	local open = unrolled(state)
-	-- The number punches as a new count is picked.
 	local pickedAt = source(-math.huge)
-	local last = vide.untrack(state.BrewCount)
+	local last = vide.untrack(props.Picked)
 	vide.effect(function()
-		local count = state.BrewCount()
+		local count = props.Picked()
 		if count == last then return end
 		last = count
-		pickedAt(vide.untrack(state.Now))
+		pickedAt(vide.untrack(props.Now))
 	end)
 
 	return Components.Button({
@@ -85,15 +114,16 @@ local function trigger(state: Types.TLabState, actions: Types.TLabActions, canBr
 		Size = UDim2.fromOffset(rect.Width, rect.Height),
 		BackgroundTransparency = 1,
 		ZIndex = 3,
+		Interactable = props.Interactable,
 		Activated = function()
 			hand.Commit()
-			actions.SetMenu(not state.IsMenuOpen())
+			props.SetOpen(not props.IsOpen())
 		end,
 		hand.Events,
 		create("UIScale")({ Scale = hand.Scale }),
 		Components.Panel({
 			Brackets = hand.Rise,
-			BracketsClosed = state.IsMenuOpen,
+			BracketsClosed = props.IsOpen,
 			Glow = function()
 				return Color3.new():Lerp(Palette.Pink, math.max(hand.Light(), open()))
 			end,
@@ -105,31 +135,31 @@ local function trigger(state: Types.TLabState, actions: Types.TLabActions, canBr
 			Size = UDim2.fromScale(1, 1),
 			Hand.WashLayer(hand, 3, 2),
 			Components.Sheen(hand.Glint, 3, rect.Width / rect.Height),
-			Label({
+			label({
 				Name = "Caption",
 				Position = UDim2.fromOffset(20, 12),
-				Size = UDim2.fromOffset(120, 13),
+				Size = UDim2.fromOffset(120, Layout.CAPTION_TEXT),
 				FontFace = Font.DisplayBold,
-				TextSize = 13,
+				TextSize = Layout.CAPTION_TEXT,
 				TextColor3 = Palette.Lavender,
-				Text = "BREW",
+				Text = props.Caption,
 			}),
-			Label({
+			label({
 				Name = "Count",
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = UDim2.fromOffset(20, 44),
+				Position = UDim2.fromOffset(20, rect.Height - 28),
 				Size = UDim2.fromOffset(120, Layout.TRIGGER_TEXT),
 				TextSize = Layout.TRIGGER_TEXT,
 				TextYAlignment = Enum.TextYAlignment.Center,
 				TextColor3 = function()
-					return if canBrew() then Palette.White else Palette.Lavender
+					return if props.IsLive() then Palette.White else Palette.Lavender
 				end,
 				Text = function()
-					return Count.Word(state.BrewCount())
+					return countPicker.Word(props.Picked())
 				end,
 				create("UIScale")({
 					Scale = function()
-						return 1 + 0.25 * (1 - Motion.Decelerate(Progress(state.Now(), pickedAt(), Timing.PUNCH)))
+						return 1 + 0.25 * (1 - Motion.Decelerate(Progress(props.Now(), pickedAt(), Timing.PUNCH)))
 					end,
 				}),
 			}),
@@ -149,91 +179,116 @@ local function trigger(state: Types.TLabState, actions: Types.TLabActions, canBr
 	}) :: TextButton
 end
 
-local function menu(state: Types.TLabState, actions: Types.TLabActions, possible: () -> number): { Instance }
-	local rect = Layout.TRIGGER
-	local open = unrolled(state)
-	local rows = #Count.OPTIONS
+local function menu(props: TProps, open: () -> number): { Instance }
+	local rect = props.Rect
+	local options = props.Options
+	local rows = #options
 	local height = rows * Layout.ROW + 2 * Layout.PAD
 	local bottom = rect.Min.Y - Layout.MENU_GAP
 	local hovered = source(0)
-	-- The row the plate is on: the one under the hand, else the count picked. Rows count from the top.
+	-- Rows count from the top, the biggest count first.
+	local function rowOf(count: number): number
+		local at = table.find(options, count) or 1
+		return rows + 1 - at
+	end
+	-- The row the plate is on: the one under the hand, else the count picked.
 	local target = derive(function(): number
 		if hovered() > 0 then return hovered() end
-		return table.find(Count.OPTIONS, state.BrewCount()) or rows
+		return rowOf(props.Picked())
 	end)
-	local lead = Hand.Spring(function(): number
-		return target()
-	end, Timing.PLATE_LEAD)
-	local trail = Hand.Spring(function(): number
-		return target()
-	end, Timing.PLATE_TRAIL)
+	local lead = Hand.Spring(target, Timing.PLATE_LEAD)
+	local trail = Hand.Spring(target, Timing.PLATE_TRAIL)
 	local isDrawn = derive(function(): boolean
 		return open() > 0.001
 	end)
 	-- Folded, nothing is under the hand.
 	vide.effect(function()
-		if not state.IsMenuOpen() then hovered(0) end
+		if not props.IsOpen() then hovered(0) end
 	end)
 
-	local list = {}
-	for index, count in Count.OPTIONS do
+	local list = table.create(rows)
+	for at, count in options do
+		local row = rows + 1 - at
 		local isReachable = derive(function(): boolean
-			return count == 0 or count <= math.max(possible(), 1)
+			return if props.IsReachable then props.IsReachable(count) else true
 		end)
-		list[index] = create("TextButton")({
-			Name = `Row{index}`,
-			Position = UDim2.fromOffset(Layout.PAD, Layout.PAD + (index - 1) * Layout.ROW),
+		local price = derive(function(): number?
+			return if props.Price then props.Price(count) else nil
+		end)
+		list[at] = create("TextButton")({
+			Name = `Row{count}`,
+			Position = UDim2.fromOffset(Layout.PAD, Layout.PAD + (row - 1) * Layout.ROW),
 			Size = UDim2.fromOffset(rect.Width - 2 * Layout.PAD, Layout.ROW),
 			BackgroundTransparency = 1,
 			AutoButtonColor = false,
 			Text = "",
 			ZIndex = 4,
 			MouseEnter = function()
-				hovered(index)
-				SoundsCore.PlayUINamed("UI", "HoverHud", 1 + 0.05 * (rows - index))
+				hovered(row)
+				SoundsCore.PlayUINamed("UI", "HoverHud", 1 + 0.05 * (rows - row))
 			end,
 			MouseLeave = function()
-				if hovered() == index then hovered(0) end
+				if hovered() == row then hovered(0) end
 			end,
 			Activated = function()
-				actions.PickCount(count)
+				props.Pick(count)
 			end,
-			Label({
+			label({
 				Name = "Word",
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = UDim2.fromScale(0, 0.5) + UDim2.fromOffset(16, 0),
-				Size = UDim2.fromOffset(100, Layout.ROW_TEXT),
+				Size = UDim2.fromOffset(80, Layout.ROW_TEXT),
 				TextSize = Layout.ROW_TEXT,
 				TextYAlignment = Enum.TextYAlignment.Center,
 				TextColor3 = function()
-					if target() == index then return Palette.White end
+					if target() == row then return Palette.White end
 					return if isReachable() then Palette.White:Lerp(Palette.Lavender, 0.3) else Palette.Lavender
 				end,
 				TextTransparency = function()
 					return if isReachable() then 0 else 0.35
 				end,
-				Text = Count.Word(count),
+				Text = countPicker.Word(count),
 				ZIndex = 5,
 			}),
-			Label({
-				Name = "Note",
+			-- What that many costs, right-aligned: the Robux mark and the price.
+			create("Frame")({
+				Name = "Price",
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, -14, 0.5, 0),
-				Size = UDim2.fromOffset(80, Layout.ROW_NOTE),
-				FontFace = Font.DisplayBold,
-				TextSize = Layout.ROW_NOTE,
-				TextYAlignment = Enum.TextYAlignment.Center,
-				TextXAlignment = Enum.TextXAlignment.Right,
-				TextColor3 = Palette.Gold,
-				-- MAX says how many it makes now.
-				Text = function()
-					if count ~= 0 then return "" end
-					return `x{possible()}`
-				end,
+				AutomaticSize = Enum.AutomaticSize.X,
+				Size = UDim2.fromOffset(0, Layout.PRICE_TEXT),
+				BackgroundTransparency = 1,
 				Visible = function()
-					return count == 0 and possible() > 0
+					return price() ~= nil
 				end,
 				ZIndex = 5,
+				create("UIListLayout")({
+					FillDirection = Enum.FillDirection.Horizontal,
+					HorizontalAlignment = Enum.HorizontalAlignment.Right,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+					Padding = UDim.new(0, 5),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				}),
+				Components.Icon("Robux", {
+					LayoutOrder = 1,
+					Size = Components.GlyphBox(Layout.ROBUX),
+					ImageColor3 = Palette.Gold,
+					ZIndex = 5,
+				}),
+				label({
+					LayoutOrder = 2,
+					AutomaticSize = Enum.AutomaticSize.X,
+					Size = UDim2.fromOffset(0, Layout.PRICE_TEXT),
+					FontFace = Font.DisplayBold,
+					TextSize = Layout.PRICE_TEXT,
+					TextYAlignment = Enum.TextYAlignment.Center,
+					TextColor3 = Palette.Gold,
+					Text = function()
+						local robux = price()
+						return if robux then tostring(robux) else ""
+					end,
+					ZIndex = 5,
+				}),
 			}),
 		})
 	end
@@ -249,9 +304,9 @@ local function menu(state: Types.TLabState, actions: Types.TLabActions, possible
 			AutoButtonColor = false,
 			Text = "",
 			ZIndex = 11,
-			Visible = state.IsMenuOpen,
+			Visible = props.IsOpen,
 			Activated = function()
-				actions.SetMenu(false)
+				props.SetOpen(false)
 			end,
 		}),
 		create("Frame")({
@@ -295,13 +350,11 @@ local function menu(state: Types.TLabState, actions: Types.TLabActions, possible
 	}
 end
 
--- The trigger and its menu. `possible` is how many a brew of the picks could make now (0 when none).
-function Count.Build(state: Types.TLabState, actions: Types.TLabActions, possible: () -> number): { any }
-	local canBrew = derive(function(): boolean
-		return possible() > 0
-	end)
+-- The trigger and its menu, among the parent's children.
+function countPicker.Build(props: TProps): { any }
+	local open = unrolled(props)
 
-	return { trigger(state, actions, canBrew), menu(state, actions, possible) }
+	return { trigger(props, open), menu(props, open) }
 end
 
-return Count
+return countPicker

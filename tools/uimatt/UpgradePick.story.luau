@@ -99,7 +99,6 @@ return {
 				BackgroundTransparency = 1,
 				create("UIScale")({ Scale = if isChosen then 1.22 else 1 }),
 				Card.Build({
-					Key = ({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three })[index],
 					Id = source(card.Id),
 					Level = source(card.Level),
 					Rarity = source(card.Rarity),

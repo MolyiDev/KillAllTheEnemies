@@ -1,9 +1,12 @@
 -- The arena's console commands. Every one needs the developer permission, which GlobalCommandsService gives by group
 -- rank (everybody in Studio and the test places).
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Conch = require(ReplicatedStorage.Packages.conch)
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local AbilityService = require(script.Parent.AbilityService)
+local BossIntroService = require(script.Parent.BossIntroService)
+local BossService = require(script.Parent.BossService)
 local CharacterService = require(script.Parent.CharacterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
@@ -13,6 +16,7 @@ local TimeService = require(script.Parent.TimeService)
 local UpgradesService = require(script.Parent.UpgradesService)
 local WeaponService = require(script.Parent.WeaponService)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
+local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
@@ -100,6 +104,53 @@ local function registerTimeScale()
 			local scale = if value == "reset" then 1 else math.max(value :: number, 0)
 			TimeService.SetTimeScale(scale)
 			Conch.log("normal", `Time scale set to {scale}.`)
+		end,
+	})
+end
+
+-- A boss as a boss wave brings it: on its stage, with its intro, nothing else pouring in while it is up, and with the
+-- first boss wave's health for the players in the server, so the fight tested is the fight played. Outside a round,
+-- so no wave's clear waits on its kill.
+local function registerBoss()
+	Conch.register("boss", {
+		permissions = { PERMISSION_DEV },
+		description = "Bring a boss on as its wave does: its stage, its intro, its fight.",
+		arguments = function()
+			return CommandTypes.enemyName("name", "The boss.")
+		end,
+		callback = function(name: string)
+			local dataId = getEnemyId(name)
+			if not dataId then
+				Conch.log("error", `Unknown enemy: {name}`)
+				return
+			end
+			local healthScale = RoundCore.GetBossHealthScale(RoundCore.BOSS_EVERY, #Players:GetPlayers())
+			local enemyEntity = BossIntroService.Arrive(dataId, healthScale)
+			if not enemyEntity then
+				Conch.log("error", "Nowhere to stage it: nobody standing, or no floor round them.")
+				return
+			end
+			RoundService.HoldForBoss(enemyEntity)
+
+			Conch.log("normal", `{name} is coming.`)
+		end,
+	})
+end
+
+-- Any of a boss's moves on demand, to see and tune each one.
+local function registerBossMove()
+	Conch.register("bossmove", {
+		permissions = { PERMISSION_DEV },
+		description = "Make the boss up take a move next: chomp, tailsweep, stomp, quake, charge, barrage, barrage4, dive, summon.",
+		arguments = function()
+			return args.string("move", "The move: its clip's name or its kind.")
+		end,
+		callback = function(move: string)
+			local count = BossService.ForceNext(move)
+			Conch.log(
+				if count > 0 then "normal" else "error",
+				if count > 0 then `Next move: {move}.` else "No boss up."
+			)
 		end,
 	})
 end
@@ -276,6 +327,8 @@ CommandsService.OnStart = function()
 	registerPause()
 	registerTimeScale()
 	registerEnemy()
+	registerBoss()
+	registerBossMove()
 	registerGun()
 	registerGold()
 	registerGoldPack()

@@ -4,6 +4,7 @@
 -- LIST's order is the map's number on the network (append, never reorder) and the order they are played in: each
 -- opens on the player's level and on beating the boss of the map before it.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 export type TMap = {
@@ -14,18 +15,37 @@ export type TMap = {
 	-- LIST fell (TProfile.BossKills). 0 and 0 is always open.
 	UnlockLevel: number,
 	UnlockBossKills: number,
+	-- Its bosses (enemy data ids), taking turns every RoundCore.BOSS_EVERY waves: the principal first, then the filler.
+	Bosses: { number },
 }
 
 local MapsCore = {}
 
+-- The Game place's Studio test map, played when nobody came from the lobby. Kept out of LIST, so no pad offers it and
+-- a teleport naming it is ignored.
 MapsCore.DEFAULT = "Baseplate"
+-- The test map's bosses, as a LIST map's Bosses, so a boss wave can be played in Studio.
+MapsCore.DEFAULT_BOSSES = table.freeze({ EEnemiesIds.TRex })
 -- The difficulties a host can pick for a party, in the order the lobby offers them. The index is the difficulty's
 -- number on the network (append, never reorder); the name is what travels to the match and is saved.
 MapsCore.DIFFICULTIES = table.freeze({ "Normal", "Hard", "Nightmare", "Hell" })
 MapsCore.LIST = table.freeze({
-	table.freeze({ Name = "PirateCove", DisplayName = "Pirate Cove", UnlockLevel = 0, UnlockBossKills = 0 }),
-	table.freeze({ Name = "GrassLands", DisplayName = "Grass Lands", UnlockLevel = 10, UnlockBossKills = 3 }),
-	table.freeze({ Name = "Baseplate", DisplayName = "Baseplate", UnlockLevel = 20, UnlockBossKills = 3 }),
+	-- The Giant Spider (the filler on both) and the Pumpkin Head (Grass Lands' principal) are not built yet: the T-Rex
+	-- stands in for them (PlanBosses.md).
+	table.freeze({
+		Name = "PirateCove",
+		DisplayName = "Pirate Cove",
+		UnlockLevel = 0,
+		UnlockBossKills = 0,
+		Bosses = table.freeze({ EEnemiesIds.TRex }),
+	}),
+	table.freeze({
+		Name = "GrassLands",
+		DisplayName = "Grass Lands",
+		UnlockLevel = 10,
+		UnlockBossKills = 3,
+		Bosses = table.freeze({ EEnemiesIds.TRex }),
+	}),
 }) :: { TMap }
 
 local maps: { [string]: TMap } = {}

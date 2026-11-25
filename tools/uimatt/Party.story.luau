@@ -114,12 +114,7 @@ return {
 			BestByMap = source({ PirateCove = 23, GrassLands = 8 }),
 			BossKills = source(if isEarly then { PirateCove = 1 } else { PirateCove = 3, GrassLands = 3 }),
 			-- The controller marks a map shown as its unlock starts.
-			MapsShown = source(
-				if moment == "Path"
-					then { GrassLands = true, Baseplate = true }
-					elseif moment == "Unlock" then { GrassLands = true }
-					else {}
-			),
+			MapsShown = source(if moment == "Path" or moment == "Unlock" then { GrassLands = true } else {}),
 			Level = source(if isEarly then 7 else 24),
 			UnlockMap = source(if moment == "Unlock" then 2 else 0),
 			UnlockAt = source(if moment == "Unlock" then at else -math.huge),

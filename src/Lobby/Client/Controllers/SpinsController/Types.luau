@@ -5,7 +5,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 
 export type Source<T> = vide.Source<T>
 
--- One turn of the reel, from the press to the last of its prize landing in the HUD. Positions are in slots along the
+-- One turn of a reel, from the press to the last of its prize landing in the HUD. Positions are in slots along the
 -- reel (slot k rests under the pointer at offset k). A plan is never changed in place: a new one replaces it.
 export type TSpin = {
 	-- The press, and the offset the reel stood at.
@@ -29,8 +29,8 @@ export type TSpin = {
 	BarTo: number?,
 }
 
--- What the spin button does now: spin (a free or bought one is left), sell one, nothing (none left and none for sale
--- here), or wait (a spin is turning).
+-- What the spin button does now: spin (a free or bought one is left), sell some, nothing (none left and none for sale
+-- here), or wait (the reels are turning).
 export type TMode = "Spin" | "Buy" | "None" | "Busy"
 
 export type TSpinsState = {
@@ -48,12 +48,26 @@ export type TSpinsState = {
 	Bought: Source<number>,
 	-- Whole seconds left until the next UTC day, written as they change while the screen is drawn.
 	SecondsLeft: Source<number>,
-	-- Whether an extra spin may be sold to this player (PolicyService's paid random items).
+	-- Whether extra spins may be sold to this player (PolicyService's paid random items).
 	CanBuy: Source<boolean>,
 	Mode: Source<TMode>,
-	-- The slot the reel rests on between spins, and the spin turning now.
-	Rest: Source<number>,
-	Spin: Source<TSpin?>,
+	-- How many SPIN turns at once, as picked from its menu (SpinsCore.COUNTS); the menu open or not, and when it last
+	-- opened or shut.
+	Count: Source<number>,
+	IsMenuOpen: Source<boolean>,
+	MenuAt: Source<number>,
+	-- How many reels are drawn: what SPIN would turn now (the count, held to the spins left while any are), or the
+	-- reels turning. And when that last changed, so the page takes its new shape and the new reels are dealt: written
+	-- before Reels.
+	Reels: Source<number>,
+	ReelsAt: Source<number>,
+	-- How many SPIN turns or sells now, and the price when it sells (0 when it does not).
+	Batch: Source<number>,
+	Price: Source<number>,
+	-- The slot each reel rests on between spins (SpinsCore.MAX_COUNT of them), and the spins turning now, a reel each
+	-- (empty at rest).
+	Rests: Source<{ number }>,
+	Spins: Source<{ TSpin }>,
 	-- Where the prize flies to, in his 1920 x 1080: the Gems glyph in the HUD's pill and the start of its level bar,
 	-- with the bar's length.
 	PillAt: Source<Vector2>,
@@ -67,6 +81,9 @@ export type TSpinsState = {
 
 export type TSpinsActions = {
 	Spin: () -> (),
+	-- The count menu opened or shut, and a count picked from it.
+	SetMenu: (isOpen: boolean) -> (),
+	PickCount: (count: number) -> (),
 }
 
 return nil

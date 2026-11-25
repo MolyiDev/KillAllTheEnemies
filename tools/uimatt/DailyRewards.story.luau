@@ -22,6 +22,8 @@ local Screen = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.Dai
 local Shell = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.DailyController.Shell)
 
 local source = vide.source
+-- The SPIN page's panel with one reel (its top and height), the shape the shell takes on the SPIN tab.
+local SPIN_PANEL = Vector2.new(251, 560)
 local create = vide.create
 
 local ROOT = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/hud/"
@@ -119,7 +121,9 @@ return {
 			RefusedAt = source(-math.huge),
 		}
 		local morph = Shell.Morph(shell)
-		local top = Shell.Top(morph)
+		local top = Shell.Top(morph, function(): Vector2
+			return SPIN_PANEL
+		end)
 		local children, glyphs = Screen.Build(state, {
 			Claim = noop,
 			PickWeek = noop,
@@ -127,6 +131,9 @@ return {
 		}, Shell.Lift(top, 1, state.IsOpen))
 		local back, middle, front = Shell.Build(shell, { Close = noop, PickTab = noop }, {
 			Day = state.Day,
+			FreePerDay = function(): number
+				return 2
+			end,
 			IsWaiting = function(tab: number): boolean
 				return tab == 2
 			end,
@@ -135,6 +142,9 @@ return {
 			end,
 			Shake = function(): number
 				return 0
+			end,
+			SpinShape = function(): Vector2
+				return SPIN_PANEL
 			end,
 		}, morph, top, children)
 

@@ -9,10 +9,17 @@ return table.freeze({
 	-- The HUD's money packs: 1,000 and 99,999 run Gold.
 	GoldPackSmall = 3734121483,
 	GoldPackLarge = 3734121486,
-	-- The lobby's daily spins: one more spin once the free ones are used (SpinsCore.ROBUX).
+	-- The lobby's daily spins once the free ones are used: one, three or five more, cheaper a spin the more
+	-- (SpinsCore.PRODUCTS, SpinsCore.PRICES).
 	ExtraSpin = 3734872550,
-	-- The Mutation Lab's BREW once the brews are used up: one more, kept until brewed (PotionsCore.BREW_ROBUX).
+	ExtraSpin3 = 3735766103,
+	ExtraSpin5 = 3735766115,
+	-- The Mutation Lab's BREW once the brews are used up: one, three, five or ten more, kept until brewed, cheaper a
+	-- brew the more (PotionsCore.BREW_PRODUCTS, PotionsCore.BREW_PRICES).
 	ExtraBrew = 3735423324,
+	ExtraBrew3 = 3735766124,
+	ExtraBrew5 = 3735766137,
+	ExtraBrew10 = 3735766152,
 	-- The HUD's buy-all items: heal and revive the whole squad, kill every enemy alive.
 	HealAll = 3734121481,
 	NukeAll = 3734121479,

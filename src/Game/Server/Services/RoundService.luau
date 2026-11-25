@@ -14,6 +14,7 @@ local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local EquipmentService = require(ServerScriptService.GlobalServer.Services.EquipmentService)
+local BossIntroService = require(script.Parent.BossIntroService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local NavService = require(script.Parent.NavService)
@@ -22,6 +23,7 @@ local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
+local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
@@ -37,6 +39,7 @@ local ServerNetworkEconomy = Network.Server.Economy
 local ClientNetworkRounds = Network.Client.Rounds
 
 local ALL_ENEMIES = DataCore.Enemies.All
+local ENEMIES = DataCore.Enemies.ById
 -- The players bodies enter round: standing, and not picking an upgrade, whom the crowd would only walk away from.
 -- With nobody left, the spawns wait.
 local CharactersQuery = World:query(Components.HumanoidRootPart, Components.InstanceId)
@@ -64,6 +67,8 @@ type TOpenRound = {
 	Round: number,
 	ToSpawn: number,
 	IsBossPending: boolean,
+	-- TimeCore.GameClock its boss comes on, once the kills reach its way's end (bringBoss); math.huge until then.
+	BossAt: number,
 	Alive: number,
 	HealthScale: number,
 	DamageScale: number,
@@ -113,6 +118,8 @@ local votes: { [Player]: boolean } = {}
 local openRounds: { TOpenRound } = {}
 local roundOf: { [jecs.Entity<any>]: TOpenRound } = {}
 local bosses: { [jecs.Entity<any>]: boolean } = {}
+-- Bosses up outside any round (the console's `boss`): no round counts them, so no clear waits on them (HoldForBoss).
+local loneBosses: { [jecs.Entity<any>]: boolean } = {}
 local spawnAccumulator = 0
 local random = Random.new()
 local reusableRoots: { BasePart } = {}
@@ -122,24 +129,36 @@ local nextRemainingAt = 0
 -- Oldest first, and the kills counted since the last round was reached (OnRoundKilled).
 local uncountedRounds: { TUncountedRound } = {}
 local uncountedKills = 0
+-- The HUD's way to the next boss: the kills counted on each boss's way (by its round, RoundCore.BossRoundOf), each
+-- round's size once it has opened (the rest are worked out for the party here), and what was last sent.
+local wayKills: { [number]: number } = {}
+local roundSizes: { [number]: number } = {}
+local sentWayRound, sentWayKills, sentWayNeeded = -1, -1, -1
+local nextWayAt = 0
+-- The newest boss round whose boss has fallen (or that had none): the way runs to the boss after it. A boss round can
+-- stay open past its boss's fall, its own bodies still about after a skip.
+local wayDoneRound = 0
 
 local function isAutoSkip(player: Player): boolean
 	local profile = DatabaseService.Get(player)
 	return profile ~= nil and profile.Settings.IsAutoSkip
 end
 
--- A boss alive or still to come: the wave it closes must be won before any more are opened.
-local function isBossUp(): boolean
-	if next(bosses) ~= nil then return true end
+-- A boss on its way (the kills of its way are made) or up: no wave is skipped and no upgrade hand dealt until it falls.
+-- Its wave is skipped like any other before then.
+function RoundService.IsBossTime(): boolean
+	if next(bosses) ~= nil or next(loneBosses) ~= nil then return true end
 	for _, open in openRounds do
-		if open.IsBossPending then return true end
+		if open.IsBossPending and open.BossAt ~= math.huge then return true end
 	end
 
 	return false
 end
 
 local function canSkip(): boolean
-	return RoundService.State == ERoundState.Fighting and TimeCore.GameClock >= skipOpensAt and not isBossUp()
+	return RoundService.State == ERoundState.Fighting
+		and TimeCore.GameClock >= skipOpensAt
+		and not RoundService.IsBossTime()
 end
 
 -- Players counted toward SKIP WAVE: a vote, or auto-skip, which votes as soon as it opens. There is no vote during a
@@ -167,21 +186,26 @@ local function countRemaining(): number
 	return remaining
 end
 
+local function getBoss(round: number): TData.TEnemy?
+	return RoundCore.GetBoss(round, RoundService.MapName, ENEMIES, EnemiesCore.HasModel)
+end
+
 -- Opens the fight for RoundService.Round, beside any round a skip left open.
 local function fight()
 	local round = RoundService.Round
 	RoundService.State = ERoundState.Fighting
 	local healthScale, damageScale, speedScale = RoundCore.GetScales(round)
 	local pool: { TData.TEnemy } = {}
+	-- A boss round on a map with no boss is an ordinary one.
+	local hasBoss = RoundCore.IsBossRound(round) and getBoss(round) ~= nil
 	local toSpawn = RoundCore.GetCount(round, #Players:GetPlayers())
-	local isBossRound = RoundCore.IsBossRound(round)
-	-- A boss round with no boss in the data spawns none (spawnBosses), so it is no kill to count.
-	local hasBoss = isBossRound and RoundCore.GetBoss(round, RoundService.MapName, ALL_ENEMIES) ~= nil
-	uncountedRounds[#uncountedRounds + 1] = { Round = round, Size = toSpawn + (if hasBoss then 1 else 0) }
+	uncountedRounds[#uncountedRounds + 1] = { Round = round, Size = toSpawn }
+	roundSizes[round] = toSpawn
 	openRounds[#openRounds + 1] = {
 		Round = round,
 		ToSpawn = toSpawn,
-		IsBossPending = isBossRound,
+		IsBossPending = hasBoss,
+		BossAt = math.huge,
 		Alive = 0,
 		HealthScale = healthScale,
 		DamageScale = damageScale,
@@ -223,9 +247,15 @@ local function checkVotes()
 	RoundService.Prepare(RoundService.Round + 1)
 end
 
--- Opens the preparation before `round`: its countdown, after a clear or a skip alike.
+-- Opens the preparation before `round`: its countdown, after a clear or a skip alike. None with a boss coming or up
+-- (a console boss, as a wave clears): one frame of countdown would tuck the boss strip away and drop it back in.
 function RoundService.Prepare(round: number)
 	RoundService.Round = round
+	if RoundService.IsBossTime() then
+		fight()
+		return
+	end
+
 	RoundService.State = ERoundState.Preparing
 	table.clear(votes)
 	spawnAccumulator = 0
@@ -255,6 +285,18 @@ function RoundService.ReleasePrepare()
 	)
 end
 
+-- A boss up outside any round holds the run as a boss wave does: no bodies pour in and no wave is skipped until it
+-- falls.
+function RoundService.HoldForBoss(enemyEntity: jecs.Entity<any>)
+	loneBosses[enemyEntity] = true
+end
+
+-- Catches a late joiner up on the way to the next boss, which is otherwise sent only as it moves.
+function RoundService.SendWay(player: Player)
+	if sentWayNeeded < 0 then return end
+	ServerNetworkRounds.BossWay.Fire(player, sentWayRound, sentWayKills, sentWayNeeded)
+end
+
 -- A new run, from round 1.
 function RoundService.Begin()
 	RoundService.LastCleared = 0
@@ -266,9 +308,14 @@ function RoundService.Stop()
 	table.clear(openRounds)
 	table.clear(roundOf)
 	table.clear(bosses)
+	table.clear(loneBosses)
 	table.clear(votes)
 	table.clear(uncountedRounds)
 	uncountedKills = 0
+	table.clear(wayKills)
+	table.clear(roundSizes)
+	sentWayRound, sentWayKills, sentWayNeeded = -1, -1, -1
+	wayDoneRound = 0
 	prepareHoldSeconds = 0
 end
 
@@ -319,21 +366,33 @@ local function track(open: TOpenRound, enemyEntity: jecs.Entity<any>?)
 	roundOf[enemyEntity] = open
 end
 
+-- A boss comes once its wave's kills are made and the HUD has let it in (bringBoss), then plays its intro
+-- (BossIntroService). The hands up are put away for it (UpgradesService); it waits while every player is still
+-- watching the card they took.
 local function spawnBosses()
+	if TimeCore.IsHeld then return end
 	for _, open in openRounds do
-		if not open.IsBossPending then continue end
+		if not open.IsBossPending or TimeCore.GameClock < open.BossAt then continue end
 		if not EnemiesService.HasRoom() then return end
-		local boss = RoundCore.GetBoss(open.Round, RoundService.MapName, ALL_ENEMIES)
-		local position = pickSpawnPosition()
+		local boss = getBoss(open.Round)
 		if not boss then
 			open.IsBossPending = false
-		elseif position then
-			local bossHealth = RoundCore.GetBossHealthScale(open.Round, #Players:GetPlayers())
-			local _, enemyEntity = EnemiesService.Spawn(boss.Id, position, bossHealth, open.DamageScale, 1)
-			track(open, enemyEntity)
-			if enemyEntity then bosses[enemyEntity] = true end
-			open.IsBossPending = false
+			continue
 		end
+
+		local bossHealth = RoundCore.GetBossHealthScale(open.Round, #Players:GetPlayers())
+		local enemyEntity = BossIntroService.Arrive(boss.Id, bossHealth, open.DamageScale)
+		if not enemyEntity then
+			-- Nowhere to stage it (nobody standing): the old way in, on the spawn ring.
+			local position = pickSpawnPosition()
+			if not position then continue end
+			local _, entity = EnemiesService.Spawn(boss.Id, position, bossHealth, open.DamageScale, 1)
+			enemyEntity = entity
+		end
+
+		track(open, enemyEntity)
+		if enemyEntity then bosses[enemyEntity] = true end
+		open.IsBossPending = false
 	end
 end
 
@@ -423,21 +482,63 @@ EnemiesService.OnEnemyDied:Connect(function(position: vector, enemyData: TData.T
 	ServerNetworkEconomy.Coins.Fire(killer, position :: any, amount)
 end)
 
+-- The kills on boss round `round`'s way are made: its boss is on its way. Before OnRoundKilled is told, so its
+-- listeners already see the boss coming (IsBossTime). A boss round with no boss (a map without one) is its way done.
+local function bringBoss(round: number)
+	for _, open in openRounds do
+		if open.Round == round and open.IsBossPending then
+			open.BossAt = TimeCore.GameClock + RoundCore.BOSS_ARRIVE_SECONDS
+			return
+		end
+	end
+
+	wayDoneRound = math.max(wayDoneRound, round)
+end
+
+-- The way to the next boss for the HUD, at most REMAINING_INTERVAL apart: the kills on it and how many it takes, the
+-- waves not opened yet worked out for the party as it stands.
+local function sendWay()
+	if TimeCore.GameClock < nextWayAt then return end
+	nextWayAt = TimeCore.GameClock + Tune.REMAINING_INTERVAL
+	local bossRound = RoundCore.BossRoundOf(wayDoneRound + 1)
+	local playerCount = #Players:GetPlayers()
+	local needed = 0
+	for round = bossRound - RoundCore.BOSS_EVERY + 1, bossRound do
+		needed += roundSizes[round] or RoundCore.GetCount(round, playerCount)
+	end
+
+	local kills = math.min(wayKills[bossRound] or 0, needed)
+	if bossRound == sentWayRound and kills == sentWayKills and needed == sentWayNeeded then return end
+	sentWayRound, sentWayKills, sentWayNeeded = bossRound, kills, needed
+	ServerNetworkRounds.BossWay.FireAll(bossRound, kills, needed)
+end
+
 -- A kill and a removal alike: a body that fell out of the map is no longer one to kill.
 EnemiesService.OnEnemyRemoving:Connect(function(enemyEntity: jecs.Entity<any>)
+	loneBosses[enemyEntity] = nil
 	local open = roundOf[enemyEntity]
 	if not open then return end
 	roundOf[enemyEntity] = nil
-	bosses[enemyEntity] = nil
 	open.Alive -= 1
+	-- A boss is what its way's kills bring on, not one of them. Its fall ends the way.
+	if bosses[enemyEntity] then
+		bosses[enemyEntity] = nil
+		wayDoneRound = math.max(wayDoneRound, open.Round)
+		return
+	end
 
-	-- Any round's body counts toward the oldest round not yet reached. Told here, before the Heartbeat's clear, so a
-	-- listener can still hold the countdown that clear opens (HoldNextPrepare).
-	uncountedKills += 1
+	-- Any round's body counts toward the oldest round not yet reached, and toward that round's boss's way. Told here,
+	-- before the Heartbeat's clear, so a listener can still hold the countdown that clear opens (HoldNextPrepare).
 	local oldest = uncountedRounds[1]
+	if oldest then
+		local bossRound = RoundCore.BossRoundOf(oldest.Round)
+		wayKills[bossRound] = (wayKills[bossRound] or 0) + 1
+	end
+	uncountedKills += 1
 	while oldest and uncountedKills >= oldest.Size do
 		table.remove(uncountedRounds, 1)
 		uncountedKills -= oldest.Size
+		if RoundCore.IsBossRound(oldest.Round) then bringBoss(oldest.Round) end
 		RoundService.OnRoundKilled:Fire(oldest.Round)
 		oldest = uncountedRounds[1]
 	end
@@ -470,9 +571,12 @@ end)
 RunService.Heartbeat:Connect(function(dt: number)
 	if TimeCore.IsPaused then return end
 	local state = RoundService.State
+	if state ~= ERoundState.Idle then sendWay() end
 
 	if state == ERoundState.Preparing then
-		if TimeCore.GameClock >= prepareEndsAt then
+		-- A boss coming or up ends the countdown, which keeps the boss strip tucked away. The wave opened under it pours
+		-- in once it falls.
+		if TimeCore.GameClock >= prepareEndsAt or RoundService.IsBossTime() then
 			fight()
 			return
 		end
@@ -492,9 +596,10 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 
-	if not RoundService.IsSpawningPaused then
+	-- Bodies stop pouring in once a boss is up, and pour again once it falls.
+	if not RoundService.IsSpawningPaused and next(loneBosses) == nil then
 		spawnBosses()
-		spawnBodies(dt)
+		if next(bosses) == nil then spawnBodies(dt) end
 	end
 
 	local remaining = countRemaining()

@@ -13,9 +13,12 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local AbilityController = require(script.Parent.AbilityController)
+local BossController = require(script.Parent.BossController)
+local BossIntroController = require(script.Parent.BossIntroController)
 local CoinsController = require(script.Parent.CoinsController)
 local DefensePlacementController = require(script.Parent.DefensePlacementController)
 local EnemiesController = require(script.Parent.EnemiesController)
+local EquipmentDropController = require(script.Parent.EquipmentDropController)
 local HealthController = require(script.Parent.HealthController)
 local MatchController = require(script.Parent.MatchController)
 local UpgradePickController = require(script.Parent.UpgradePickController)
@@ -28,7 +31,9 @@ local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClien
 local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
 local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
+local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
+local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
@@ -65,7 +70,6 @@ local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local LocalPlayer = Players.LocalPlayer
 local ENEMIES = DataCore.Enemies.ById
-local ALL_ENEMIES = DataCore.Enemies.All
 local DEFENSES = DataCore.Defenses.ById
 -- Everybody's class until the server says otherwise.
 local DEFAULT_CLASS: TData.TClass = AbilitiesCore.ClassOf(nil)
@@ -176,6 +180,15 @@ local state: Types.THudState = {
 		Broken = source(0),
 		BrokeAt = source(-math.huge),
 		DefeatedAt = source(-math.huge),
+		Guards = source(0),
+		GuardsTotal = source(0),
+		Way = BarJuice.NewTrack(),
+		Filled = source(0),
+		FilledAt = source(-math.huge),
+		FullAt = source(-math.huge),
+		Surge = source(0),
+		Drops = source({}),
+		DropWonAt = table.create(BossBar.MOST_DROPS),
 	},
 	NextBossName = source(""),
 	NextBossRound = source(0),
@@ -289,6 +302,9 @@ local state: Types.THudState = {
 		VotesAt = source(-math.huge),
 	},
 }
+for index = 1, BossBar.MOST_DROPS do
+	state.Boss.DropWonAt[index] = source(-math.huge)
+end
 
 local squadMembers: { [Player]: Types.TSquadMember } = {}
 -- The Gold each squad row shows, before it is floored: it rolls toward the real amount.
@@ -336,8 +352,6 @@ local goldTarget = 0
 local lastPendingGold = 0
 local goldInAt = -math.huge
 local goldDeniedAt = -math.huge
--- The round a boss was seen in, so a boss round whose boss is dead points at the next one.
-local bossSeenRound = 0
 local nextBossRound, nextBossName = -1, ""
 -- The boss bar's memory between frames, and what is seen of the boss each frame (one table, refilled).
 local bossMemory = BossBar.NewMemory()
@@ -348,7 +362,13 @@ local bossSeen: BossBar.TBossSeen = {
 	Top = { { UserId = 0, Name = "", Share = 0 }, { UserId = 0, Name = "", Share = 0 } },
 	SelfId = LocalPlayer.UserId,
 	IsRunning = false,
+	WayKills = 0,
+	WayNeeded = 0,
+	Drops = {},
+	WonAt = EquipmentDropController.WonAt,
 }
+-- The boss whose drops bossSeen holds (0 for none), so they are read once as it comes on.
+local dropsBossId = 0
 -- Display names by UserId for the boss bar's damage share, looked up once each.
 local namesById: { [number]: string } = {}
 -- The frame's dt for updateFrame, so the per-frame batch passes a function that captures nothing.
@@ -389,9 +409,10 @@ local function updateRound(now: number, gameNow: number)
 
 	state.Votes(MatchController.Votes)
 	state.VotesNeeded(MatchController.VotesNeeded)
-	-- Never past a boss: the server refuses the vote until it is dead (RoundService).
-	local isBossUp = MatchController.BossDataId ~= 0
-	local canSkip = phase == "Fighting" and gameNow >= MatchController.SkipOpensAt and not isBossUp
+	-- Never past a boss on its way (its way full) or up: the server refuses the vote until it is dead (RoundService).
+	local wayNeeded = MatchController.BossWayNeeded
+	local isBossHeld = MatchController.BossDataId ~= 0 or (wayNeeded > 0 and MatchController.BossWayKills >= wayNeeded)
+	local canSkip = phase == "Fighting" and gameNow >= MatchController.SkipOpensAt and not isBossHeld
 	if canSkip and not wasSkipOpen then stamp(state.SkipOpenedAt, now) end
 	wasSkipOpen = canSkip
 	state.CanSkip(canSkip)
@@ -403,7 +424,7 @@ local function updateRound(now: number, gameNow: number)
 		else skipCooldownSeconds - (MatchController.SkipOpensAt - gameNow)
 	local cooldown = math.clamp(waited / skipCooldownSeconds, 0, 1)
 	state.SkipProgress(
-		if (phase ~= "Preparing" and phase ~= "Fighting") or isBossUp
+		if (phase ~= "Preparing" and phase ~= "Fighting") or isBossHeld
 			then 0
 			else math.round(cooldown * Tune.SKIP_FILL_STEPS) / Tune.SKIP_FILL_STEPS
 	)
@@ -424,18 +445,11 @@ local function updateRound(now: number, gameNow: number)
 
 	state.Countdown(countdown)
 
-	local boss = ENEMIES[MatchController.BossDataId]
-	if boss then bossSeenRound = round end
-
-	local every = RoundCore.BOSS_EVERY
-	local upcoming = math.max(math.ceil(round / every) * every, every)
-	if upcoming == round and bossSeenRound == round and not boss then
-		upcoming += every
-	end
-
+	-- The boss the way leads to, which moves on as it falls; before the server has said, the first one.
+	local upcoming = if MatchController.BossWayRound > 0 then MatchController.BossWayRound else RoundCore.BOSS_EVERY
 	if upcoming ~= nextBossRound then
 		nextBossRound = upcoming
-		local nextBoss = RoundCore.GetBoss(upcoming, MatchController.MapName, ALL_ENEMIES)
+		local nextBoss = RoundCore.GetBoss(upcoming, MatchController.MapName, ENEMIES, EnemiesCore.HasModel)
 		nextBossName = if nextBoss then nextBoss.Name else ""
 	end
 
@@ -467,6 +481,19 @@ local function updateBoss(now: number, dt: number)
 	fillShare(bossSeen.Top[1], MatchController.BossFirstId, MatchController.BossFirstDamage, maxHealth)
 	fillShare(bossSeen.Top[2], MatchController.BossSecondId, MatchController.BossSecondDamage, maxHealth)
 	bossSeen.IsRunning = MatchController.IsRunning and not MatchController.IsEnded
+	bossSeen.WayKills = MatchController.BossWayKills
+	bossSeen.WayNeeded = MatchController.BossWayNeeded
+	if bossSeen.DataId ~= dropsBossId then
+		dropsBossId = bossSeen.DataId
+		local drops = {}
+		for index, item in EquipmentCore.DropsOf(dropsBossId) do
+			if index > BossBar.MOST_DROPS then break end
+			local drop = item.Drop :: TData.TEquipmentDrop
+			drops[index] =
+				{ Id = item.Id, Chance = drop.Chance, IsOwned = EquipmentDropController.Owned[item.Id] == true }
+		end
+		bossSeen.Drops = drops
+	end
 	motionUntil = math.max(motionUntil, BossBar.Update(state.Boss, bossMemory, bossSeen, now, dt))
 end
 
@@ -1094,7 +1121,9 @@ HudController.OnStart = function()
 				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them. The
 				-- settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too.
 				Enabled = function()
-					return not UpgradePickController.IsCovering() and not SettingsController.IsOpen()
+					return not UpgradePickController.IsCovering()
+						and not SettingsController.IsOpen()
+						and not BossIntroController.IsPlaying()
 				end,
 				IgnoreGuiInset = true,
 				ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
@@ -1132,5 +1161,11 @@ HudController.OnStart = function()
 		vide.batch(updateFrame)
 	end)
 end
+
+-- The boss bar's marks for the guards holding its shield up.
+BossController.OnShield:Connect(function(_, standing: number, total: number)
+	state.Boss.Guards(standing)
+	state.Boss.GuardsTotal(if standing > 0 then total else 0)
+end)
 
 return Ignis.Register(HudController)

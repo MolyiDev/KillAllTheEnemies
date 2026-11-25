@@ -53,6 +53,8 @@ local Layout = table.freeze({
 	SCROLLBAR_LENGTH = 648,
 	-- A tab's glide puts its header this far under the window's top.
 	SCROLL_MARGIN = 6,
+	-- A card scrolled to is first seen once this far into the window (or half in, for a short one).
+	SEEN_INTO = 120,
 	MESSAGE = Vector2.new(470, 1005),
 	MESSAGE_TEXT = 20,
 })
@@ -69,6 +71,8 @@ local Timing = table.freeze({
 	CARDS = 0.2,
 	CARDS_STAGGER = 0.06,
 	CARDS_MAX = 0.8,
+	-- A card first seen by scrolling punches its chips and strikes its worth for this long.
+	SEEN_STIR = 1.4,
 	EXIT_DELAY = 0.28,
 	PICK_PERIOD = 0.3,
 	PICK_DAMPING = 0.75,
@@ -283,17 +287,13 @@ local function layout(state: Types.TShopState, actions: Types.TShopActions)
 		table.insert(placed, { Build = build, X = x, Top = top, Size = size, Extra = extra })
 	end
 
-	-- FEATURED: the gun of these three days, then the class bundle, each across the row.
+	-- FEATURED: one card across the row turning through the gun of these three days and the class bundle.
 	header(1, function(): string
 		state.Clock()
 		return `ENDS IN {Parts.Countdown(state.FeaturedEndsAt() - os.time())}`
 	end)
 	place(function(spec)
-		return Cards.FeaturedGun(state, actions, spec)
-	end, 0, y, CardLayout.FEATURED)
-	y += CardLayout.FEATURED.Y + Layout.GAP
-	place(function(spec)
-		return Cards.ClassBundle(state, actions, spec)
+		return Cards.Hero(state, actions, spec)
 	end, 0, y, CardLayout.FEATURED)
 	y += CardLayout.FEATURED.Y + Layout.SECTION_GAP
 
@@ -401,14 +401,33 @@ local function window(state: Types.TShopState, actions: Types.TShopActions, elap
 		local deal = function(): number
 			return 1
 		end
+		-- When it is first seen this visit: as its deal starts, or once it is well into the window.
+		local seenAt = source(math.huge)
 		if isSeen then
-			deal =
-				Cards.Dealt(state, elapsed, math.min(Timing.CARDS + Timing.CARDS_STAGGER * dealing, Timing.CARDS_MAX))
+			local delay = math.min(Timing.CARDS + Timing.CARDS_STAGGER * dealing, Timing.CARDS_MAX)
+			deal = Cards.Dealt(state, elapsed, delay)
+			seenAt(vide.untrack(state.ToggledAt) + delay)
 			dealing += 1
+		else
+			-- A plain flag, not `seenAt()`: an effect writing a source it reads is run again inside itself, and fails.
+			local isMarked = false
+			vide.effect(function()
+				local y = canvasY()
+				if isMarked or not state.IsOpen() then return end
+				local into = math.min(Layout.SEEN_INTO, entry.Size.Y / 2)
+				if bottom > y + into and top < y + windowHeight() - into then
+					isMarked = true
+					vide.untrack(function()
+						seenAt(os.clock())
+						actions.Stir(Timing.SEEN_STIR)
+					end)
+				end
+			end)
 		end
 		local spec = {
 			Position = Vector2.new(Layout.LEFT + entry.X, top),
 			Deal = deal,
+			Seen = seenAt,
 			-- Its art moves only while the screen is up and the card is in the window, give or take a little.
 			IsActive = vide.derive(function(): boolean
 				if not state.IsOpen() then return false end

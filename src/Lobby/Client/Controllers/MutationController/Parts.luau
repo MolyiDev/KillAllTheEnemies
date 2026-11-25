@@ -30,6 +30,16 @@ Parts.Lift = panelTop.Lift(Parts.PANEL.Min.Y)
 Parts.LEFT = 328
 Parts.RIGHT = 1592
 
+-- The room the panel's rise makes goes to the MUTATE page's cards: the top row (the slots, the result card) and the
+-- souls' cards under it each grow by a share, the souls' header and cards moving down by the top row's.
+function Parts.TopGrowth(): number
+	return math.floor(Parts.Lift() / 2)
+end
+
+function Parts.CardsGrowth(): number
+	return Parts.Lift() - Parts.TopGrowth()
+end
+
 -- A screen's open and shut (UI.md 5o): pieces decelerate in, staged by what the screen is for, and accelerate out
 -- faster; every fade runs on its own clock.
 Parts.Timing = table.freeze({
@@ -140,9 +150,9 @@ function Parts.Uncovered(state: Types.TLabState): () -> boolean
 end
 
 -- His section header (SELECT ENERGY ... PICK 2): a pink mark, the title, the gold words at the right, and the rule
--- under it. `info` may be a source; `tint` is the mark's colour (a white-plastic mark), nil for its own. Laid at `top`
+-- under it. `title`, `glyph` and `info` may be sources; `tint` is the mark's colour (a white-plastic mark), nil for its own. Laid at `top`
 -- across the panel's column.
-function Parts.Header(title: string, info: any, top: number, glyph: string, tint: Color3?, props: { [any]: any }): Frame
+function Parts.Header(title: any, info: any, top: number, glyph: any, tint: Color3?, props: { [any]: any }): Frame
 	return create("Frame")({
 		Name = "Header",
 		Position = UDim2.fromOffset(Parts.LEFT, top),

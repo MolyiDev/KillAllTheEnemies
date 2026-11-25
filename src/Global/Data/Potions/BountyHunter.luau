@@ -6,7 +6,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TPotion = {
 	Id = EPotionsIds.BountyHunter,
 	Name = "Bounty Hunter",
-	Energies = { EEnemiesIds.Exploding, EEnemiesIds.ZombieKing },
+	Energies = { EEnemiesIds.Exploding, EEnemiesIds.TRex },
 	Description = "Bitter, then golden. Every bullet hurts more, and every kill pays more.",
 }
 

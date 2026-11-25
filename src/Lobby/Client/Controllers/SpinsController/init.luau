@@ -1,11 +1,12 @@
--- The daily screen's SPIN page (UIMatt.md, Daily Spins): the reel, the free spins left today and SPIN, which sells an
--- extra spin for Robux once they are used (SpinsService decides each spin and what it lands on; this asks and shows).
--- DailyController owns the screen round it and shows the page (SetShown) and builds it into its gui (BuildPage).
+-- The daily screen's SPIN page (UIMatt.md, Daily Spins): the reels, the free spins left today and SPIN, which turns as
+-- many reels as its count menu says (held to the spins left while any are) and sells that many for Robux once they are
+-- used (SpinsService decides each spin and what it lands on; this asks and shows). DailyController owns the screen
+-- round it and shows the page (SetShown) and builds it into its gui (BuildShape, BuildPage).
 --
--- A prize is shown in the order it is paid: the server tells the prize in the same frame as the profile it paid, so
+-- A prize is shown in the order it is paid: the server tells the prizes in the same frame as the profile it paid, so
 -- the HUD's Gems and XP are held back by what is still to land (HeldGems, HeldXp) before they are drawn, and let
--- through a slice per piece as the prize flies into them (Payout). Selling a spin is a random item for Robux, so it is offered only where PolicyService
--- allows paid random items.
+-- through a slice per piece as each reel's prize flies into them (Payout). Selling spins is selling a random item for
+-- Robux, so it is offered only where PolicyService allows paid random items.
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -22,11 +23,11 @@ local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
-local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local Payout = require(script.Payout)
 local Reel = require(script.Reel)
 local ReelMotion = require(script.ReelMotion)
 local Screen = require(script.Screen)
+local Shape = require(script.Shape)
 local Types = require(script.Types)
 
 local ServerNetworkSpins = NetworkMeta.Server.Spins
@@ -48,6 +49,18 @@ local Tune = table.freeze({
 	AFTER_SPIN_BECKON_DELAY = 0.15,
 	-- A spin the server never answered is given up after this long.
 	ANSWER_TIMEOUT = 6,
+	-- A batch's reels are thrown this far apart, top first, and land at least this far apart, the last one a beat later
+	-- still, so the eye follows them down.
+	THROW_STAGGER = 0.07,
+	LAND_STAGGER = 0.32,
+	LAST_PAUSE = 0.22,
+	-- Where each reel rests before its first spin: apart, so the reels do not read as copies.
+	RESTS = { 4, 2, 6, 3, 5 },
+	-- Pieces landing tick no closer than this.
+	TICK_GAP = 0.03,
+	-- Spins bought turn once Roblox's dialog is closed, or this long after they arrived if it never says so (the
+	-- shop's receipt waits as long).
+	MAX_DIALOG_WAIT = 10,
 	DAY_SECONDS = 86400,
 	-- The gem on the HUD's Gems counter the prize flies into (LobbyController's Hud.Layout, px of its 1080-tall root:
 	-- its pill 154 left of the middle, the glyph 55 into it, 44 down from the screen's top) until the HUD hands over
@@ -69,8 +82,15 @@ local state: Types.TSpinsState = {
 	SecondsLeft = source(0),
 	CanBuy = source(false),
 	Mode = source("None" :: Types.TMode),
-	Rest = source(4),
-	Spin = source(nil :: Types.TSpin?),
+	Count = source(1),
+	IsMenuOpen = source(false),
+	MenuAt = source(-math.huge),
+	Reels = source(1),
+	ReelsAt = source(-math.huge),
+	Batch = source(1),
+	Price = source(0),
+	Rests = source(table.clone(Tune.RESTS)),
+	Spins = source({} :: { Types.TSpin }),
 	PillAt = source(Vector2.zero),
 	BarAt = source(Vector2.zero),
 	BarLength = source(0),
@@ -92,15 +112,20 @@ local flightLayer: Frame? = nil
 local motionUntil = -math.huge
 -- os.clock the next UTC day starts at.
 local dayEndsAt = math.huge
--- A purchase prompted and not finished: when its spin arrives, it is spun at once.
-local isAwaitingPurchase = false
--- How many of the current prize's pieces have landed, and whether its landing has been heard.
-local piecesLanded = 0
-local hasLandSounded = false
+-- The spins bought and not arrived yet: when they arrive, that many are spun at once (0: none awaited).
+local awaitedSpins = 0
+-- Whether Roblox's purchase dialog is still up (its confirmation not yet pressed), and when the spins it sold arrived.
+local isPrompting = false
+local grantedAt = math.huge
+-- How many of each reel's prize pieces have landed, and whether its landing has been heard.
+local piecesLanded: { number } = {}
+local hasLandSounded: { boolean } = {}
+-- The last tick of a piece landing.
+local lastPayTickAt = -math.huge
 local random = Random.new()
 
--- Whether the reel is turning or its prize still landing: the page holds the screen until it is done. Reads a vide
--- source.
+-- Whether the reels are turning or their prizes still landing: the page holds the screen until they are done. Reads a
+-- vide source.
 function SpinsController.IsSpinning(): boolean
 	return state.Mode() == "Busy"
 end
@@ -115,7 +140,7 @@ function SpinsController.FreePerDay(): number
 	return state.FreePerDay()
 end
 
--- Whether SPIN would spin now (a free or bought spin is left, the reel at rest). Reads a vide source.
+-- Whether SPIN would spin now (a free or bought spin is left, the reels at rest). Reads a vide source.
 function SpinsController.CanSpin(): boolean
 	return state.Mode() == "Spin"
 end
@@ -182,44 +207,93 @@ local function aimAtBar()
 	state.BarLength(size.X / scale)
 end
 
-local function updateMode()
-	local mode: Types.TMode
-	if state.Spin() then
-		mode = "Busy"
-	elseif state.FreeLeft() > 0 or state.Bought() > 0 then
-		mode = "Spin"
-	elseif state.CanBuy() and EProducts.ExtraSpin ~= 0 then
-		mode = "Buy"
-	else
-		mode = "None"
+-- The most spins `count` can be sold as: the count itself, or the biggest pack under it on sale here (0: none).
+local function packFor(count: number): number
+	for index = #SpinsCore.COUNTS, 1, -1 do
+		local pack = SpinsCore.COUNTS[index]
+		if pack <= count and (SpinsCore.PRODUCTS[pack] or 0) ~= 0 then return pack end
 	end
-	if state.Mode() ~= mode then state.Mode(mode) end
+	return 0
 end
 
--- Ends the spin where it would have ended: on its slot, with all of its prize let through.
+-- What SPIN does now and for how many, how many reels stand on the page, and the price when it sells.
+local function updateMode()
+	local spinning = #state.Spins()
+	local left = state.FreeLeft() + state.Bought()
+	local pack = if state.CanBuy() then packFor(state.Count()) else 0
+	local mode: Types.TMode
+	local batch
+	if spinning > 0 then
+		mode = "Busy"
+		batch = spinning
+	elseif left > 0 then
+		mode = "Spin"
+		batch = math.min(state.Count(), left)
+	elseif pack > 0 then
+		mode = "Buy"
+		batch = pack
+	else
+		mode = "None"
+		batch = state.Count()
+	end
+
+	if state.Mode() ~= mode then state.Mode(mode) end
+	if state.Batch() ~= batch then state.Batch(batch) end
+	local price = if mode == "Buy" then SpinsCore.PRICES[batch] else 0
+	if state.Price() ~= price then state.Price(price) end
+	-- The stamp first: the shape reads it as the count changes. The clock runs on for the new reels' deal.
+	if state.Reels() ~= batch then
+		state.ReelsAt(os.clock())
+		state.Reels(batch)
+		stir(Shape.SECONDS + Reel.DEAL_SECONDS)
+	end
+end
+
+-- Ends the spins where they would have ended: each reel on its slot, with all of its prize let through.
 local function finish()
-	local spin = state.Spin()
-	if not spin then return end
+	local spins = state.Spins()
+	if #spins == 0 then return end
 	vide.batch(function()
-		if spin.Slot then state.Rest(spin.Slot) end
-		state.Spin(nil)
+		local rests = table.clone(state.Rests())
+		for index, spin in spins do
+			if spin.Slot then rests[index] = spin.Slot end
+		end
+		state.Rests(rests)
+		state.Spins({})
 		updateMode()
 	end)
 	release(0, 0)
 	isLandingGems(false)
 end
 
-local function startSpin()
+-- Throws `count` reels, top first.
+local function startSpin(count: number)
 	local now = os.clock()
+	local rests = state.Rests()
+	local spins = table.create(count)
+	for index = 1, count do
+		spins[index] = { StartAt = now + (index - 1) * Tune.THROW_STAGGER, From = rests[index] }
+		piecesLanded[index] = 0
+		hasLandSounded[index] = false
+	end
 	vide.batch(function()
-		state.Spin({ StartAt = now, From = state.Rest() })
+		state.Spins(spins)
 		updateMode()
 	end)
-	piecesLanded = 0
-	hasLandSounded = false
 	stir(Tune.ANSWER_TIMEOUT)
 	SoundsCore.PlayUINamed("UI.UpgradePick", "Reroll")
-	ClientNetworkSpins.Spin.Fire()
+	ClientNetworkSpins.Spin.Fire(count)
+end
+
+-- Spins just bought turn once they have arrived and Roblox's dialog is down, as the shop's receipt waits for it: they
+-- never start under the dialog's confirmation.
+local function spinBought(now: number)
+	if awaitedSpins == 0 or grantedAt == math.huge then return end
+	if isPrompting and now - grantedAt < Tune.MAX_DIALOG_WAIT then return end
+	if not state.IsOpen() or state.Mode() ~= "Spin" then return end
+	awaitedSpins = 0
+	isPrompting = false
+	startSpin(state.Batch())
 end
 
 local function refuse()
@@ -256,115 +330,191 @@ function SpinsController.SetShown(isShown: boolean, delay: number?)
 		state.IsOpen(false)
 		-- Taken off before it came in: it stays out, rather than showing up to fade.
 		state.ToggledAt(if now < state.ToggledAt() then -math.huge else now)
+		state.IsMenuOpen(false)
 	end)
 	stir(Tune.MOTION_SECONDS)
-	isAwaitingPurchase = false
+	awaitedSpins = 0
+end
+
+local function setMenu(isOpen: boolean)
+	if state.IsMenuOpen() == isOpen then return end
+	vide.batch(function()
+		state.IsMenuOpen(isOpen)
+		state.MenuAt(os.clock())
+	end)
+	stir(0.6)
 end
 
 local actions: Types.TSpinsActions = {
 	-- Checked here first only to answer at once: the server checks it again.
 	Spin = function()
+		setMenu(false)
 		local mode = state.Mode()
 		if mode == "Spin" then
-			startSpin()
+			startSpin(state.Batch())
 		elseif mode == "Buy" then
-			isAwaitingPurchase = true
-			MarketplaceService:PromptProductPurchase(LocalPlayer, EProducts.ExtraSpin)
+			awaitedSpins = state.Batch()
+			isPrompting = true
+			grantedAt = math.huge
+			MarketplaceService:PromptProductPurchase(LocalPlayer, SpinsCore.PRODUCTS[awaitedSpins])
 		elseif mode == "None" then
 			refuse()
 		end
 	end,
+	SetMenu = function(isOpen: boolean)
+		setMenu(isOpen)
+		SoundsCore.PlayClick()
+	end,
+	PickCount = function(count: number)
+		setMenu(false)
+		vide.batch(function()
+			state.Count(count)
+			if #state.Spins() == 0 then updateMode() end
+		end)
+		stir(0.6)
+		SoundsCore.PlayUINamed("UI.UpgradePick", "Deal")
+	end,
 }
 
--- The server's answer to the spin turning now: where it stops, and the prize held back from the HUD until it lands.
-local function land(prize: number)
-	local spin = state.Spin()
-	if not spin or spin.BrakeAt then
-		-- Shut before the answer came: the reel is put on the prize, which the HUD already shows.
-		if prize > 0 then
-			local slot = state.Rest() + 1
+-- The server's answer to the reels turning now: where each stops, one after another down the page, and the prizes held
+-- back from the HUD until each lands.
+local function land(prizes: { number })
+	local spins = state.Spins()
+	if #spins == 0 or spins[1].BrakeAt then
+		-- Shut before the answer came: each reel is put on its prize, which the HUD already shows.
+		local rests = table.clone(state.Rests())
+		for index, prize in prizes do
+			if prize <= 0 or not rests[index] then continue end
+			local slot = rests[index] + 1
 			while SpinsCore.PrizeAt(slot) ~= prize do
 				slot += 1
 			end
-			state.Rest(slot)
+			rests[index] = slot
 		end
+		state.Rests(rests)
 		return
 	end
 
-	local now = os.clock()
-	local planned = ReelMotion.Plan(spin, prize, now, random:NextNumber(-1, 1))
-	local landAt = planned.LandAt :: number
-	local doneAt = landAt + Reel.LAND_SECONDS
-	if prize > 0 then
+	-- The profile has every prize already: the XP before them all is where the first XP prize's fill starts.
+	local gems, xp = 0, 0
+	for _, prize in prizes do
 		local data = SpinsCore.PRIZES[prize]
-		planned.PayAt = landAt + Tune.PAY_DELAY
-		planned.Pieces = Payout.Count(data)
-		aimAtPill()
-		aimAtBar()
+		if not data then continue end
 		if data.Kind == "Gems" then
-			heldGems(data.Amount)
+			gems += data.Amount
 		else
-			heldXp(data.Amount)
-			-- The profile has it already. Over a level the pieces fill the old level's bar to its end.
-			local before = (ProfileController.Xp - data.Amount) / 100
-			planned.BarFrom = if before < 0 then before + 1 else before
-			planned.BarTo = if before < 0 then 1 else ProfileController.Xp / 100
+			xp += data.Amount
 		end
-		doneAt = math.max(doneAt, planned.PayAt + Payout.SECONDS)
+	end
+	local xpAt = ProfileController.Xp - xp
+	aimAtPill()
+	aimAtBar()
+
+	local now = os.clock()
+	local planned = table.create(#spins)
+	local lastLanding = -math.huge
+	local doneAt = now
+	for index, spin in spins do
+		local prize = prizes[index] or 0
+		local gap = if index > 1 and index == #spins then Tune.LAND_STAGGER + Tune.LAST_PAUSE else Tune.LAND_STAGGER
+		local plan = ReelMotion.PlanAfter(spin, prize, now, random:NextNumber(-1, 1), lastLanding + gap)
+		local landAt = plan.LandAt :: number
+		lastLanding = landAt
+		doneAt = math.max(doneAt, landAt + Reel.LAND_SECONDS)
+		local data = SpinsCore.PRIZES[prize]
+		if prize > 0 and data then
+			plan.PayAt = landAt + Tune.PAY_DELAY
+			plan.Pieces = Payout.Count(data)
+			if data.Kind == "Xp" then
+				-- Over a level the pieces fill the old level's bar to its end.
+				local start = xpAt % 100
+				plan.BarFrom = start / 100
+				plan.BarTo = math.min(start + data.Amount, 100) / 100
+				xpAt += data.Amount
+			end
+			doneAt = math.max(doneAt, (plan.PayAt :: number) + Payout.SECONDS)
+		end
+		planned[index] = plan
 	end
 
-	state.Spin(planned)
+	release(gems, xp)
+	state.Spins(planned)
 	motionUntil = math.max(motionUntil, doneAt + 0.2)
 end
 
--- Each frame a spin is turning: its landing heard, its pieces paid as they land, and its end.
-local function stepSpin(now: number)
-	local spin = state.Spin()
-	if not spin then return end
+-- What each reel still holds back of its prize at `now`, and whether Gems are landing in the pill; a tick for each
+-- piece landed (no closer than TICK_GAP, with five streams at once).
+local function pay(spins: { Types.TSpin }, now: number)
+	local gems, xp = 0, 0
+	local isLanding = false
+	local hasTicked = false
+	for index, spin in spins do
+		local prize = if spin.Prize and spin.Prize > 0 then SpinsCore.PRIZES[spin.Prize] else nil
+		local payAt = spin.PayAt
+		local pieces = spin.Pieces
+		if not prize or not payAt or not pieces then continue end
+		local landed = piecesLanded[index] or 0
+		while now >= payAt and landed < pieces and now - payAt >= Payout.ArriveAt(landed + 1, pieces) do
+			landed += 1
+		end
+		if landed > (piecesLanded[index] or 0) then
+			piecesLanded[index] = landed
+			hasTicked = true
+		end
+		local left = prize.Amount - math.floor(prize.Amount * landed / pieces)
+		if prize.Kind == "Gems" then
+			gems += left
+			isLanding = isLanding or (landed > 0 and landed < pieces)
+		else
+			xp += left
+		end
+	end
 
-	if not spin.BrakeAt then
-		if now - spin.StartAt > Tune.ANSWER_TIMEOUT then land(0) end
+	release(gems, xp)
+	if isLandingGems() ~= isLanding then isLandingGems(isLanding) end
+	if hasTicked and now - lastPayTickAt >= Tune.TICK_GAP then
+		lastPayTickAt = now
+		SoundsCore.PlayUINamed("UI.UpgradePick", "Tick")
+	end
+end
+
+-- A reel's landing heard, in the voice of what it landed on.
+local function soundLanding(spin: Types.TSpin)
+	local prize = if spin.Prize and spin.Prize > 0 then SpinsCore.PRIZES[spin.Prize] else nil
+	if not prize then
+		SoundsCore.PlayUINamed("UI.UpgradePick", "Denied")
+	elseif prize.IsJackpot then
+		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealMythic")
+	elseif prize.Amount >= 100 or prize.Kind == "Xp" and prize.Amount >= 50 then
+		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealLegendary")
+	else
+		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
+	end
+end
+
+-- Each frame the reels are turning: each landing heard, the pieces paid as they land, and the end once every reel has
+-- landed and paid.
+local function stepSpin(now: number)
+	local spins = state.Spins()
+	if #spins == 0 then return end
+
+	if not spins[1].BrakeAt then
+		if now - spins[1].StartAt > Tune.ANSWER_TIMEOUT then land({}) end
 		return
 	end
 
-	local landAt = spin.LandAt :: number
-	if not hasLandSounded and now >= landAt then
-		hasLandSounded = true
-		local prize = if spin.Prize and spin.Prize > 0 then SpinsCore.PRIZES[spin.Prize] else nil
-		if not prize then
-			SoundsCore.PlayUINamed("UI.UpgradePick", "Denied")
-		elseif prize.IsJackpot then
-			SoundsCore.PlayUINamed("UI.UpgradePick", "RevealMythic")
-		elseif prize.Amount >= 100 or prize.Kind == "Xp" and prize.Amount >= 50 then
-			SoundsCore.PlayUINamed("UI.UpgradePick", "RevealLegendary")
-		else
-			SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
+	local doneAt = now
+	for index, spin in spins do
+		local landAt = spin.LandAt :: number
+		if not hasLandSounded[index] and now >= landAt then
+			hasLandSounded[index] = true
+			soundLanding(spin)
 		end
+		doneAt = math.max(doneAt, landAt + Reel.LAND_SECONDS)
+		if spin.PayAt then doneAt = math.max(doneAt, spin.PayAt + Payout.SECONDS) end
 	end
+	pay(spins, now)
 
-	local payAt = spin.PayAt
-	local pieces = spin.Pieces
-	if payAt and pieces and now >= payAt then
-		local landed = piecesLanded
-		while landed < pieces and now - payAt >= Payout.ArriveAt(landed + 1, pieces) do
-			landed += 1
-		end
-		if landed > piecesLanded then
-			piecesLanded = landed
-			local prize = SpinsCore.PRIZES[spin.Prize :: number]
-			local left = prize.Amount - math.floor(prize.Amount * landed / pieces)
-			if prize.Kind == "Gems" then
-				release(left, heldXp())
-				isLandingGems(landed < pieces)
-			else
-				release(heldGems(), left)
-			end
-			SoundsCore.PlayUINamed("UI.UpgradePick", "Tick")
-		end
-	end
-
-	local doneAt = landAt + Reel.LAND_SECONDS
-	if payAt then doneAt = math.max(doneAt, payAt + Payout.SECONDS) end
 	if now < doneAt then return end
 	finish()
 	beckon(now + Tune.AFTER_SPIN_BECKON_DELAY)
@@ -375,15 +525,21 @@ function SpinsController.IsShown(): boolean
 	return state.IsOpen()
 end
 
--- The page, for the shell to scale and cut (his 1920 x 1080, standing `lift` px under its own place), the layer its
--- prize flies in (scaled whole into the middle of the screen), and the jackpot's shake in px; built once inside the
--- daily screen's vide root.
-function SpinsController.BuildPage(lift: () -> number): (Frame, Frame, () -> number)
+-- The page's shape for the reels it draws (Shape): the shell's panel takes it too. Built once inside the daily screen's
+-- vide root, before the page.
+function SpinsController.BuildShape(): () -> Shape.TShape
+	return Shape.Build(state)
+end
+
+-- The page, for the shell to scale and cut (his 1920 x 1080, standing `lift` px under its own place, laid out by
+-- `shape`), the layer its prizes fly in (scaled whole into the middle of the screen), and the jackpot's shake in px;
+-- built once inside the daily screen's vide root.
+function SpinsController.BuildPage(lift: () -> number, shape: () -> Shape.TShape): (Frame, Frame, () -> number)
 	-- Drawn only while it is on show or still leaving: hidden, the page costs nothing.
 	local isDrawn = vide.derive(function(): boolean
 		return state.IsOpen() or state.Now() - state.ToggledAt() < Screen.LEAVE_SECONDS + 0.05
 	end)
-	local page, flights, shake = Screen.Build(state, actions, lift)
+	local page, flights, shake = Screen.Build(state, actions, lift, shape)
 	flightLayer = create("Frame")({
 		Name = "SpinsFlights",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -450,6 +606,7 @@ SpinsController.OnStart = function()
 			if now < motionUntil then state.Now(now) end
 			stepSpin(now)
 			updateSecondsLeft(now)
+			if awaitedSpins > 0 then spinBought(now) end
 		end)
 	end)
 
@@ -468,23 +625,28 @@ ServerNetworkSpins.State.On(function(free: number, bought: number, secondsLeft: 
 		updateMode()
 	end)
 
-	-- A spin just bought is spun as it arrives.
-	if isAwaitingPurchase and bought > 0 and state.IsOpen() and not state.Spin() then
-		isAwaitingPurchase = false
-		startSpin()
+	if awaitedSpins > 0 and grantedAt == math.huge and free + bought >= awaitedSpins then
+		grantedAt = os.clock()
+		spinBought(grantedAt)
 	end
 end)
 
-ServerNetworkSpins.Landed.On(function(prize: number)
+ServerNetworkSpins.Landed.On(function(prizes: { number })
 	vide.batch(function()
-		land(prize)
+		land(prizes)
 	end)
 end)
 
+-- Roblox's dialog is down (its confirmation pressed, or the purchase let go): the spins bought may turn now.
 MarketplaceService.PromptProductPurchaseFinished:Connect(
 	function(userId: number, productId: number, isPurchased: boolean)
-		if userId ~= LocalPlayer.UserId or productId ~= EProducts.ExtraSpin then return end
-		if not isPurchased then isAwaitingPurchase = false end
+		if userId ~= LocalPlayer.UserId or productId ~= SpinsCore.PRODUCTS[awaitedSpins] then return end
+		isPrompting = false
+		if not isPurchased then
+			awaitedSpins = 0
+			return
+		end
+		spinBought(os.clock())
 	end
 )
 

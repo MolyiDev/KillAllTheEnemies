@@ -92,7 +92,6 @@ local PICTURE_BACK = 0.18
 local ACCENTS = table.freeze({
 	PirateCove = Color3.fromRGB(89, 191, 255),
 	GrassLands = Palette.Green,
-	Baseplate = Palette.Violet,
 })
 -- Each map's picture (Assets/ui/party/maps); a map without one shows its initials on its colour. Still the old lobby's
 -- ids, not uploaded by this game's group yet.

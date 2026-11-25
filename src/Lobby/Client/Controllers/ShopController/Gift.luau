@@ -66,10 +66,12 @@ local function row(
 		return Motion.Decelerate(math.clamp(t / Timing.IN, 0, 1))
 	end)
 
-	return Components.Panel({ Stroke = Color3.fromRGB(70, 60, 100) }, {
-		Name = player.Name,
-		LayoutOrder = order,
-		Size = UDim2.fromOffset(Layout.ROW.X, Layout.ROW.Y),
+	-- The list places the slot; the row grows into it from its middle as it deals in.
+	local panel = Components.Panel({ Stroke = Color3.fromRGB(70, 60, 100) }, {
+		Name = "Row",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(1, 1),
 		create("UIScale")({
 			Scale = function()
 				return 0.94 + 0.06 * dealt()
@@ -133,6 +135,14 @@ local function row(
 			}),
 		}),
 	})
+
+	return create("Frame")({
+		Name = player.Name,
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(Layout.ROW.X, Layout.ROW.Y),
+		BackgroundTransparency = 1,
+		panel,
+	})
 end
 
 function Gift.Build(state: Types.TShopState, actions: Types.TShopActions): { Instance }
@@ -140,8 +150,13 @@ function Gift.Build(state: Types.TShopState, actions: Types.TShopActions): { Ins
 	local isUp = derive(function(): boolean
 		return shown() > 0
 	end)
+	-- The offer last gifted: shut, GiftOffer is nil at once, and the title keeps its name while the list fades out (a
+	-- derive is handed its last value).
+	local shownOffer = derive(function(last: string?): string
+		return state.GiftOffer() or last or ""
+	end)
 	local offerTitle = function(): string
-		local offer = ShopCore.ByName[state.GiftOffer() or ""]
+		local offer = ShopCore.ByName[shownOffer()]
 		if not offer then return "" end
 		if offer.Section == "Gems" then return offer.Title end
 		if offer.Rarity then return string.upper(ShopCore.FeaturedGun(os.time())) end

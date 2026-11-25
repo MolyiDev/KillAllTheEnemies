@@ -194,6 +194,14 @@ export type TShareRow = {
 	GrewAt: Source<number>,
 }
 
+-- One piece the boss on the bar drops: its equipment Id, the chance each player has of it, and whether the local
+-- player owned it as the boss came on (a piece owned is never dropped again, EquipmentDropsService).
+export type TDropRow = {
+	Id: number,
+	Chance: number,
+	IsOwned: boolean,
+}
+
 -- The boss's bar (BossBar.luau).
 export type TBossBar = {
 	-- The boss on the field, or the one whose fall is still playing; "" for none.
@@ -211,6 +219,21 @@ export type TBossBar = {
 	Broken: Source<number>,
 	BrokeAt: Source<number>,
 	DefeatedAt: Source<number>,
+	-- Its shield's guards still standing, of how many it raised (BossController.OnShield); 0 of anything: no shield.
+	Guards: Source<number>,
+	GuardsTotal: Source<number>,
+	-- The way to the next boss while none is up: the kills on it as a share of what it takes, moved by BarJuice; the
+	-- segment it last completed and when; when it filled (-math.huge until it has); and how hard the kills are coming
+	-- in, 0 to 1.
+	Way: TBarTrack,
+	Filled: Source<number>,
+	FilledAt: Source<number>,
+	FullAt: Source<number>,
+	Surge: Source<number>,
+	-- The pieces it drops, the rarest first (at most BossBar.MOST_DROPS), and the os.clock each row's piece was
+	-- won (-math.huge until it is).
+	Drops: Source<{ TDropRow }>,
+	DropWonAt: { Source<number> },
 }
 
 export type THudState = {

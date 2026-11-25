@@ -3,6 +3,9 @@
 -- still picking, and a hand nobody picks from in time is picked for them, since the others are waiting on it. What
 -- the picks add up to is in Utils/upgradeStats, read by the services whose numbers they change.
 --
+-- Nothing is dealt while a boss is coming or up (RoundService.IsBossTime): a hand up as it comes is put away as it
+-- stands (its cards, its redeals, its seconds left) and offered again as it was once the boss's fall has been seen.
+--
 -- A player is picking from the deal until the card they took has left their screen (UpgradesCore.SHOW_SECONDS).
 -- Meanwhile they are out of the fight (Tags.Picking): no blow lands on them, the crowd ignores them and no body enters
 -- round them. Everybody is told so, and while every player is picking the match eases to a stop (TimeService). Alone
@@ -16,6 +19,7 @@ local Network = require(ServerScriptService.GlobalServer.Network)
 local CharacterService = require(script.Parent.CharacterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
+local EquipmentDropsService = require(script.Parent.EquipmentDropsService)
 local NavService = require(script.Parent.NavService)
 local RoundService = require(script.Parent.RoundService)
 local TimeService = require(script.Parent.TimeService)
@@ -50,46 +54,70 @@ type TRun = {
 	-- The waves whose hands are still owed, oldest first (0 for one given from the console).
 	Owed: { number },
 	Hand: THand?,
+	-- The hand put away for a boss, and the seconds it had left; offered again before anything owed.
+	Stashed: THand?,
+	StashedSeconds: number,
 	-- os.clock until which the card just taken is still on the player's screen.
 	ShownUntil: number,
 	IsPicking: boolean,
 }
 
+local Tune = table.freeze({
+	-- Real seconds after a boss falls before the hands it held back come, so its fall and DEFEATED are seen first; and
+	-- after the last piece it dropped has left a player's screen, which a card dealt over it would hide.
+	AFTER_BOSS_SECONDS = 2.5,
+	AFTER_DROP_SECONDS = 0.4,
+})
+
 local UpgradesService = {}
 
 local runs: { [Player]: TRun } = {}
 local random = Random.new()
+-- Whether a boss was coming or up last frame, and the os.clock the hands it held back are dealt at (0 for none).
+local wasBossTime = false
+local resumeAt = 0
 
--- Deals the oldest hand `player` is owed, unless one is already up. A player with every upgrade at its last level is
--- owed nothing more.
+-- Puts `hand` up on `player`'s screen, to be picked for them `seconds` from now.
+local function offer(player: Player, hand: THand, seconds: number, isReroll: boolean)
+	hand.PickAt = os.clock() + seconds
+	ServerNetworkUpgrades.Offer.Fire(player, {
+		Cards = hand.Cards,
+		Round = hand.Round,
+		RerollPrice = UpgradesCore.RerollPrice(hand.Rerolls),
+		Seconds = seconds,
+		IsReroll = isReroll,
+	})
+end
+
+-- Deals the hand put away for a boss, else the oldest hand `player` is owed, unless one is already up. A player with
+-- every upgrade at its last level is owed nothing more.
 local function dealNext(player: Player)
 	local run = runs[player]
-	if not run or run.Hand or not run.Owed[1] then return end
-	if RoundService.State == RoundService.ERoundState.Idle then return end
+	if not run or run.Hand then return end
+	if RoundService.State == RoundService.ERoundState.Idle or RoundService.IsBossTime() or resumeAt > 0 then return end
+	local stashed = run.Stashed
+	if stashed then
+		run.Stashed = nil
+		run.Hand = stashed
+		offer(player, stashed, run.StashedSeconds, false)
+		return
+	end
+
+	if not run.Owed[1] then return end
 	local cards = UpgradesCore.Deal(ALL_UPGRADES, run.Levels, nil, random)
 	if #cards == 0 then
 		table.clear(run.Owed)
 		return
 	end
 
-	local round = table.remove(run.Owed, 1) :: number
-	run.Hand = {
-		Cards = cards,
-		Round = round,
-		Rerolls = 0,
-		PickAt = os.clock() + UpgradesCore.AUTO_PICK_SECONDS,
-	}
-	ServerNetworkUpgrades.Offer.Fire(player, {
-		Cards = cards,
-		Round = round,
-		RerollPrice = UpgradesCore.RerollPrice(0),
-		Seconds = UpgradesCore.AUTO_PICK_SECONDS,
-		IsReroll = false,
-	})
+	local hand: THand = { Cards = cards, Round = table.remove(run.Owed, 1) :: number, Rerolls = 0, PickAt = 0 }
+	run.Hand = hand
+	offer(player, hand, UpgradesCore.AUTO_PICK_SECONDS, false)
 end
 
--- The countdown to the next wave runs again once nobody has a hand up.
+-- The countdown to the next wave runs again once nobody has a hand up, or is about to be dealt one.
 local function releaseRoundIfDone()
+	if resumeAt > 0 then return end
 	for _, run in runs do
 		if run.Hand then return end
 	end
@@ -108,9 +136,11 @@ end
 -- A new run: every level and every hand owed is gone.
 function UpgradesService.ResetRun()
 	upgradeStats.ClearAll()
+	resumeAt = 0
 	for player, run in runs do
 		table.clear(run.Levels)
 		table.clear(run.Owed)
+		run.Stashed = nil
 		run.ShownUntil = 0
 		if run.Hand then
 			run.Hand = nil
@@ -167,6 +197,40 @@ local function updatePicking(now: number)
 	TimeService.SetHeld(isEverybodyPicking)
 end
 
+-- Real seconds from `now` until the hands a fallen boss held back are dealt.
+local function getAfterBossSeconds(now: number): number
+	local seconds = Tune.AFTER_BOSS_SECONDS
+	for player in runs do
+		seconds = math.max(seconds, EquipmentDropsService.ShownUntil(player) + Tune.AFTER_DROP_SECONDS - now)
+	end
+
+	return seconds
+end
+
+-- A boss is coming: every hand up is put away as it stands, its auto-pick stopped where it was. The players see it
+-- leave as it came.
+local function stashHands(now: number)
+	for player, run in runs do
+		local hand = run.Hand
+		if not hand then continue end
+		run.Hand = nil
+		run.Stashed = hand
+		run.StashedSeconds = math.max(hand.PickAt - now, 0)
+		ServerNetworkUpgrades.Picked.Fire(player, 0, false)
+	end
+end
+
+-- The boss's fall has been seen: the hands it held back are dealt, and the countdown it holds runs on once nobody has
+-- one up.
+local function resumeHands()
+	resumeAt = 0
+	for player in runs do
+		dealNext(player)
+	end
+
+	releaseRoundIfDone()
+end
+
 -- On the kill count reaching the round, not its clear: which bodies fell does not matter.
 RoundService.OnRoundKilled:Connect(function(round: number)
 	local isDealt = false
@@ -177,6 +241,17 @@ RoundService.OnRoundKilled:Connect(function(round: number)
 	end
 
 	if isDealt then RoundService.HoldNextPrepare(UpgradesCore.AUTO_PICK_SECONDS) end
+end)
+
+-- A clear while a boss holds hands back (it is coming or up, or its fall is still being seen): the countdown it opens
+-- waits for them. Told before that countdown opens.
+RoundService.OnRoundCleared:Connect(function()
+	for _, run in runs do
+		if run.Stashed or (run.Owed[1] and not run.Hand) then
+			RoundService.HoldNextPrepare(getAfterBossSeconds(os.clock()) + UpgradesCore.AUTO_PICK_SECONDS)
+			return
+		end
+	end
 end)
 
 -- Lifesteal: a kill of his own heals the killer.
@@ -195,7 +270,15 @@ CharacterService.OnCharacterReady:Connect(function(characterEntity, player: Play
 end)
 
 UpgradesService.OnPlayerConnected = function(player: Player)
-	runs[player] = { Levels = {}, Owed = {}, Hand = nil, ShownUntil = 0, IsPicking = false }
+	runs[player] = {
+		Levels = {},
+		Owed = {},
+		Hand = nil,
+		Stashed = nil,
+		StashedSeconds = 0,
+		ShownUntil = 0,
+		IsPicking = false,
+	}
 	for other, run in runs do
 		if run.IsPicking then ServerNetworkUpgrades.Picking.Fire(player, other, true, 0) end
 	end
@@ -226,19 +309,21 @@ ClientNetworkUpgrades.Reroll.On(function(player: Player)
 
 	hand.Rerolls += 1
 	hand.Cards = UpgradesCore.Deal(ALL_UPGRADES, run.Levels, hand.Cards, random)
-	hand.PickAt = os.clock() + UpgradesCore.AUTO_PICK_SECONDS
-	ServerNetworkUpgrades.Offer.Fire(player, {
-		Cards = hand.Cards,
-		Round = hand.Round,
-		RerollPrice = UpgradesCore.RerollPrice(hand.Rerolls),
-		Seconds = UpgradesCore.AUTO_PICK_SECONDS,
-		IsReroll = true,
-	})
+	offer(player, hand, UpgradesCore.AUTO_PICK_SECONDS, true)
 end)
 
 RunService.Heartbeat:Connect(function()
 	local now = os.clock()
 	local isRunOver = RoundService.State == RoundService.ERoundState.Idle
+	local isBossTime = RoundService.IsBossTime()
+	if isBossTime and not wasBossTime then
+		resumeAt = 0
+		stashHands(now)
+	elseif wasBossTime and not isBossTime then
+		resumeAt = now + getAfterBossSeconds(now)
+	end
+	wasBossTime = isBossTime
+	if resumeAt > 0 and now >= resumeAt then resumeHands() end
 	for player, run in runs do
 		local hand = run.Hand
 		if not hand then continue end

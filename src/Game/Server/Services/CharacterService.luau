@@ -132,6 +132,8 @@ function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: numb
 	if amount <= 0 then return end
 	if not World:has(characterEntity, Tags.Alive) then return end
 	if World:has(characterEntity, Tags.Picking) then return end
+	-- A boss's intro: everybody is watching, nobody can dodge.
+	if TimeCore.IsCutscene then return end
 	local now = TimeCore.GameClock
 	local hurtUntil = World:get(characterEntity, Components.HurtUntil) or 0
 	if now < hurtUntil then return end

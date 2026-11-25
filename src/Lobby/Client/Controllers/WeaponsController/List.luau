@@ -10,6 +10,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local LoadoutCore = require(ReplicatedStorage.GlobalShared.Core.LoadoutCore)
@@ -26,8 +27,6 @@ local Font = Theme.Font
 local Progress = Motion.Progress
 local Label = Parts.Label
 local GUNS = DataCore.Guns.ById
--- His price chip's face, darker than the cost block's tile.
-local CHIP_FACE = Color3.fromRGB(26, 20, 34)
 
 -- His drawn rects in px at 1080, from the panel's top left.
 local Layout = table.freeze({
@@ -45,17 +44,12 @@ local Layout = table.freeze({
 	COUNT_TEXT = 18,
 	RULE = Vector2.new(24, 64),
 	RULE_WIDTH = 392,
-	-- A section: its word, its count badge, and the cards under it.
+	-- A section: its word and the cards under it.
 	SECTION_X = 24,
 	SECTION_TEXT = 17,
-	BADGE_DROP = -4,
-	BADGE = 26,
-	BADGE_TEXT = 16,
-	OWNED_BADGE_X = 106,
-	LOCKED_BADGE_X = 150,
 	OWNED_Y = 84,
 	-- From a section's word to its first row, and from a section's last row to the next word. 40, not his 32: a card's
-	-- brackets under the hand reached up into the count badge beside the word.
+	-- brackets under the hand reach 12 px up toward the word.
 	ROWS_DROP = 40,
 	SECTION_GAP = 30,
 	-- 18 apart across and 19 down (his 16): a card grows its brackets 12 px out across and 13 down under a press, and at
@@ -63,22 +57,13 @@ local Layout = table.freeze({
 	CARD_XS = { 22, 160, 298 },
 	CARD = Vector2.new(120, 150),
 	ROW_STEP = 169,
-	-- Inside a card: the gun's box and middle, the rule over the name band, the name, the corner badges.
+	-- The gun's box inside a card.
 	GUN_BOX = 92,
-	GUN = Vector2.new(60, 62),
-	CARD_RULE = Vector2.new(12, 117),
-	CARD_RULE_WIDTH = 96,
-	NAME_Y = 126,
-	NAME_TEXT = 15,
-	CORNER_BADGE = 24,
-	CORNER_LEFT = Vector2.new(8, 8),
-	CORNER_RIGHT = Vector2.new(88, 8),
-	CHIP_HEIGHT = 26,
-	CHIP_TEXT = 14,
-	CHIP_GEM = 15,
-	-- 3 out, opening 1 under the hand: cards 16 apart grow 4 px a side under the hand and 6 on a press, and his 6 + 4
-	-- crossed the next card's.
 })
+-- The corner badges' middles on a card: the upgrade Notice top left; the lock and the equipped tick (which glides
+-- between cards) top right.
+local NOTICE = ItemCard.TopLeft()
+local TICK = ItemCard.TopRight(Layout.CARD.X)
 
 local Timing = table.freeze({
 	-- The panel arrives first: picking a gun is what the screen is for.
@@ -105,115 +90,12 @@ local Timing = table.freeze({
 	LOCK_RISE = 18,
 	FLASH = 0.45,
 	RING = 0.5,
-	RING_REACH = 24,
 	POP_PERIOD = 0.26,
 	POP_DAMPING = 0.58,
 	POP = 0.16,
-	-- A count changing punches its badge.
-	COUNT_PERIOD = 0.3,
-	COUNT_DAMPING = 0.5,
-	COUNT_PUNCH = 0.3,
 })
 
 local List = {}
-
--- A section's count, punched as it changes and gone while it is zero. A group, so its edge, face and number fade as
--- one: faded layer by layer, the edge shows through the face.
-local function countBadge(kind: string, count: () -> number, at: () -> Vector2, faded: () -> number): CanvasGroup
-	local punch, strike = Hand.Kick(Timing.COUNT_PERIOD, Timing.COUNT_DAMPING)
-	local last = nil
-	vide.effect(function()
-		local current = count()
-		vide.untrack(function()
-			if last and current ~= last then strike(Timing.COUNT_PUNCH) end
-			last = current
-		end)
-	end)
-
-	local isOwned = kind == "Owned"
-	local face = if isOwned
-		then create("Frame")({
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Palette.Green,
-			BorderSizePixel = 0,
-			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-		})
-		else Components.Plaque({ Size = UDim2.fromScale(1, 1) })
-
-	return create("CanvasGroup")({
-		Name = kind .. "Count",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = function()
-			local position = at()
-			return UDim2.fromOffset(position.X + Layout.BADGE / 2, position.Y + Layout.BADGE / 2)
-		end,
-		Size = UDim2.fromOffset(Layout.BADGE, Layout.BADGE),
-		BackgroundTransparency = 1,
-		GroupTransparency = faded,
-		Visible = function()
-			return count() > 0
-		end,
-		ZIndex = 4,
-		create("UIScale")({
-			Scale = function()
-				return 1 + punch()
-			end,
-		}),
-		face,
-		Label({
-			Size = UDim2.fromScale(1, 1),
-			TextXAlignment = Enum.TextXAlignment.Center,
-			TextYAlignment = Enum.TextYAlignment.Center,
-			TextSize = Layout.BADGE_TEXT,
-			TextColor3 = if isOwned then Palette.Ink else Palette.White,
-			Text = function()
-				return tostring(count())
-			end,
-			ZIndex = 5,
-		}),
-	})
-end
-
--- The price on a card not owned: his dark chip with a gold edge, a gem and the price.
-local function priceChip(gun, props: { [any]: any }): Frame
-	return create("Frame")({
-		Name = "Price",
-		AutomaticSize = Enum.AutomaticSize.X,
-		Size = UDim2.fromOffset(0, Layout.CHIP_HEIGHT),
-		BackgroundColor3 = Parts.GOLD_EDGE,
-		BorderSizePixel = 0,
-		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-		create("Frame")({
-			Name = "Face",
-			AutomaticSize = Enum.AutomaticSize.X,
-			Position = UDim2.fromOffset(1, 1),
-			Size = UDim2.fromOffset(0, Layout.CHIP_HEIGHT - 2),
-			BackgroundColor3 = CHIP_FACE,
-			BorderSizePixel = 0,
-			create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
-			create("UIPadding")({ PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 6) }),
-			create("UIListLayout")({
-				FillDirection = Enum.FillDirection.Horizontal,
-				VerticalAlignment = Enum.VerticalAlignment.Center,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-				Padding = UDim.new(0, 4),
-			}),
-			Components.Picture(EIcons.Gem, {
-				LayoutOrder = 1,
-				Size = Components.PictureBox(Layout.CHIP_GEM),
-			}),
-			Label({
-				LayoutOrder = 2,
-				AutomaticSize = Enum.AutomaticSize.X,
-				Size = UDim2.fromOffset(0, Layout.CHIP_TEXT),
-				TextSize = Layout.CHIP_TEXT,
-				TextColor3 = Palette.Gold,
-				Text = Components.Commas(gun.Price),
-			}),
-		}),
-		props,
-	})
-end
 
 -- Where each of a tier's guns stands in the panel, its centre, owned first and then the rest, each in its tier's order;
 -- and where each section's word starts. `held` (a gun Id, 0 for none) is kept where it was: a gun just bought unlocks
@@ -240,7 +122,7 @@ local function arrange(guns, levels: { [number]: number }, held: number)
 	local lockedY = ownedBottom + Layout.SECTION_GAP
 	place(locked, lockedY + Layout.ROWS_DROP)
 
-	return { Places = places, Owned = #owned, Locked = #locked, LockedY = lockedY }
+	return { Places = places, Locked = #locked, LockedY = lockedY }
 end
 
 -- One gun's card, and how much the hand and the purchase's pop grow it, which the tick on it takes too.
@@ -311,132 +193,61 @@ local function card(
 		return Parts.LOCKED_TINT:Lerp(Palette.White, Motion.Out(unlocked()))
 	end)
 
-	return Components.Button({
+	return ItemCard.Build({
 		Name = gun.Name,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = Layout.CARD,
 		Position = function()
 			local at = place()
 			return UDim2.fromOffset(math.round(at.X), math.round(at.Y))
 		end,
-		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = function()
-			hand.Commit()
-			actions.Select(gun.Id)
+		Hand = hand,
+		Accent = accent,
+		Title = string.upper(gun.Name),
+		Lit = unlocked,
+		IsSelected = isSelected,
+		Grown = function()
+			return Motion.Decelerate(dealt())
 		end,
-		hand.Events,
-		create("UIScale")({
-			Scale = function()
-				return Motion.Decelerate(dealt()) * grown()
+		-- The light crosses it as it is dealt.
+		Sheen = dealt,
+		Pop = pop,
+		Flash = flash,
+		Ring = ring,
+		Picture = Parts.Gun(function()
+			return gun.Id
+		end, {
+			Tint = tint,
+			Transparency = function()
+				return Parts.LOCKED_TRANSPARENCY * (1 - unlocked())
 			end,
-		}),
-		-- The purchase's one ring, the card's own outline grown off it.
-		create("Frame")({
-			Name = "Burst",
+		}, {
+			Name = "Gun",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = function()
-				local grow = math.round(Timing.RING_REACH * Motion.Out(ring()))
-				return UDim2.new(1, 2 * grow, 1, 2 * grow)
-			end,
-			BackgroundTransparency = 1,
-			Visible = function()
-				return ring() < 1
-			end,
-			create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
-			create("UIStroke")({ Color = accent, Thickness = 3, Transparency = ring }),
+			Size = UDim2.fromOffset(Layout.GUN_BOX, Layout.GUN_BOX),
 		}),
-		Components.Card({
-			Accent = Parts.EdgeOf(accent),
-			Glow = accent,
-			GlowTransparency = function()
-				return 0.7 - 0.35 * math.max(hand.Light(), flash())
-			end,
-			Tint = 0.35,
-			Marks = true,
-			Brackets = hand.Rise,
-			BracketLength = 20,
-			BracketTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
-			end,
-			BracketsClosed = isSelected,
-		}, {
-			Name = "Card",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(hand.Glint, 3),
-			Parts.Gun(function()
-				return gun.Id
-			end, {
-				Tint = tint,
-				Transparency = function()
-					return Parts.LOCKED_TRANSPARENCY * (1 - unlocked())
-				end,
-			}, {
-				Name = "Gun",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.GUN.X, Layout.GUN.Y),
-				Size = UDim2.fromOffset(Layout.GUN_BOX, Layout.GUN_BOX),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + 0.08 * hand.Rise()
-					end,
-				}),
-			}),
-			create("Frame")({
-				Name = "Rule",
-				Position = UDim2.fromOffset(Layout.CARD_RULE.X, Layout.CARD_RULE.Y),
-				Size = UDim2.fromOffset(Layout.CARD_RULE_WIDTH, 2),
-				BackgroundColor3 = accent,
-				BackgroundTransparency = 0.6,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-			}),
-			Label({
-				Name = "Name",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.NAME_Y),
-				Size = UDim2.fromOffset(Layout.CARD.X - 12, Layout.NAME_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextScaled = true,
-				TextColor3 = function()
-					return Palette.Lavender:Lerp(Palette.White, unlocked())
-				end,
-				Text = string.upper(gun.Name),
-				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
-			}),
+		Children = {
 			-- Where his gold badge stood: placed by its middle.
-			Notice.Build({ Kind = "Upgrade", Size = Layout.CORNER_BADGE, IsShown = canUpgrade }, {
+			Notice.Build({ Kind = "Upgrade", Size = ItemCard.BADGE, IsShown = canUpgrade }, {
 				Name = "CanUpgrade",
-				Position = UDim2.fromOffset(
-					Layout.CORNER_LEFT.X + Layout.CORNER_BADGE / 2,
-					Layout.CORNER_LEFT.Y + Layout.CORNER_BADGE / 2
-				),
+				Position = UDim2.fromOffset(NOTICE.X, NOTICE.Y),
 				ZIndex = 5,
 			}),
 			-- Gone the frame the purchase lands, under the card's flash.
-			priceChip(gun, {
-				Position = UDim2.fromOffset(Layout.CORNER_LEFT.X, Layout.CORNER_LEFT.Y),
+			ItemCard.Chip(Components.Commas(gun.Price), Palette.Gold, false, EIcons.Gem, {
+				Name = "Price",
 				Visible = function()
 					return level() == nil
 				end,
-				ZIndex = 5,
 			}),
 			-- Thrown off as the purchase lands: up, turning, growing and fading as one picture.
 			create("CanvasGroup")({
 				Name = "Lock",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = function()
-					return UDim2.fromOffset(
-						Layout.CORNER_RIGHT.X + Layout.CORNER_BADGE / 2,
-						Layout.CORNER_RIGHT.Y
-							+ Layout.CORNER_BADGE / 2
-							- math.round(Timing.LOCK_RISE * Motion.Out(thrown()))
-					)
+					return UDim2.fromOffset(TICK.X, TICK.Y - math.round(Timing.LOCK_RISE * Motion.Out(thrown())))
 				end,
-				Size = UDim2.fromOffset(Layout.CORNER_BADGE, Layout.CORNER_BADGE),
+				Size = UDim2.fromOffset(ItemCard.BADGE, ItemCard.BADGE),
 				Rotation = function()
 					return 25 * Motion.Out(thrown())
 				end,
@@ -449,24 +260,13 @@ local function card(
 						return 1 + 0.5 * Motion.Out(thrown())
 					end,
 				}),
-				Parts.Badge("Lock", Layout.CORNER_BADGE, {}),
+				Parts.Badge("Lock", ItemCard.BADGE, {}),
 			}),
-			create("Frame")({
-				Name = "Flash",
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Palette.White,
-				BorderSizePixel = 0,
-				ZIndex = 7,
-				Visible = function()
-					return flash() > 0.01
-				end,
-				BackgroundTransparency = function()
-					return 1 - 0.75 * flash()
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			}),
-		}),
-	}) :: TextButton,
+		},
+		Activated = function()
+			actions.Select(gun.Id)
+		end,
+	}),
 		grown
 end
 
@@ -552,11 +352,6 @@ local function tierPage(
 			TextTransparency = sectionsFade,
 			Text = "OWNED",
 		}),
-		countBadge("Owned", function()
-			return arranged().Owned
-		end, function()
-			return Vector2.new(Layout.OWNED_BADGE_X, Layout.OWNED_Y + Layout.BADGE_DROP)
-		end, sectionsFade),
 		Label({
 			Name = "NotOwned",
 			Position = function()
@@ -571,13 +366,8 @@ local function tierPage(
 				return arranged().Locked > 0
 			end,
 		}),
-		countBadge("Locked", function()
-			return arranged().Locked
-		end, function()
-			return Vector2.new(Layout.LOCKED_BADGE_X, arranged().LockedY + Layout.BADGE_DROP)
-		end, sectionsFade),
 		children,
-		Parts.Badge("Check", Layout.CORNER_BADGE, {
+		Parts.Badge("Check", ItemCard.BADGE, {
 			Name = "Equipped",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			-- On the corner of the card it lies on as that card grows and presses under the hand.
@@ -585,8 +375,8 @@ local function tierPage(
 				local at = tick()
 				local grown = equippedScale()
 				return UDim2.fromOffset(
-					math.round(at.X + grown * (Layout.CORNER_RIGHT.X + Layout.CORNER_BADGE / 2 - Layout.CARD.X / 2)),
-					math.round(at.Y + grown * (Layout.CORNER_RIGHT.Y + Layout.CORNER_BADGE / 2 - Layout.CARD.Y / 2))
+					math.round(at.X + grown * (TICK.X - Layout.CARD.X / 2)),
+					math.round(at.Y + grown * (TICK.Y - Layout.CARD.Y / 2))
 				)
 			end,
 			Visible = function()

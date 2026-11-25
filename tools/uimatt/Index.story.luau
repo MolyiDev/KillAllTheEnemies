@@ -94,7 +94,7 @@ return {
 		local selected = EEnemiesIds.Basic
 		if isReveal then selected = EEnemiesIds.Heavy end
 		if moment == "Unknown" then selected = EEnemiesIds.Slammer end
-		if moment == "Bosses" then selected = EEnemiesIds.ZombieKing end
+		if moment == "Bosses" then selected = EEnemiesIds.TRex end
 		local isPotions = moment == "Potions" or moment == "PotionUnknown"
 		local potions = {
 			[EPotionsIds.SecondWind] = { Brewed = 3, IsNew = false },
@@ -126,6 +126,7 @@ return {
 			Potions = source(potions),
 			-- The game marks a new recipe read as its page comes up; NEW stays on it until it is picked.
 			PotionsUnread = source({ [EPotionsIds.GoldRush] = isPotions }),
+			PotionsRevealAt = source({}),
 		}
 
 		local readAt = if moment == "Read" then os.clock() + 1 else math.huge

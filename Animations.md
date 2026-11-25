@@ -1534,3 +1534,164 @@ Players here are R6 and walk on Roblox's default Animate (its clips are Roblox's
   local body: on another player's it reads wrong.
 - **Per frame:** one gun lookup per body, no tables built. The same pose runs for every body on every client, from
   replicated velocity and the relayed aim (`Weapons.Aims`).
+
+## 16. A skinned boss from a delivered place (the Skeleton T-Rex, 2026-11-24)
+
+The T-Rex's 18 clips were built here in three review rounds; the user liked the walk and the charge built from it.
+Use this section as the recipe for the Pumpkin Head and the Giant Spider (`PlanBosses.md`): the tools carry over,
+and the checklist below is what the user corrected, so run it before showing anything.
+
+### Files and commands
+
+Everything is under `Assets/models/Bosses/TRex/` (gitignored, like all of `Assets/`):
+
+| File | What it is |
+| --- | --- |
+| `src/extract.luau`, `src/dump.luau` | lune: the model cut from the place to an rbxmx, then to `trex.json`: parts, bones, the KeyframeSequence |
+| `src/meshdump.rs` | a 60-line program on the renderer's `ror-mesh` crate: one mesh (v7 Draco included) to JSON with its skin |
+| `anim/build_rig.py` | builds `Rig` + the skinned `Bone` and `Neon` meshes in the OPEN Blender (renames, re-roots, scales) |
+| `anim/rest.json` | the built rig dumped once (bone heads, vertices, weights, triangles); redo it after any rebuild |
+| `anim/trex_lib.py` | numpy FK and skinning (matches Blender's own deform to 0.000005 studs), the leg solver, `assemble`, springs |
+| `anim/intro.py` | the delivered clip carried onto the rebuilt rig by deform matrices |
+| `anim/trex_clips.py` | every clip as a function of time; `measure` checks them; `run_name="bake"` bakes them into Blender |
+| `anim/clipcheck.py` | arms (and claws) inside the chest, belly or neck, every frame |
+| `anim/gait_search.py` | grid search of a gait's numbers against the leg's limits |
+| `anim/diag_folds.py` | lists every frame a knee or ankle passes its limit, planted or in the air |
+| `anim/bake.py` | writes a pose list as one LINEAR key per frame into Blender 5's layered action |
+| `anim/render.py` | headless review renders from a COPY (side and three-quarter MP4 + contact sheets, `TREX_TOP=1` adds a top view) |
+| `anim/clips.json` | each clip's length, loop, ground speed and beat times, for the game code |
+| `TRex.blend`, `preview/` | the rig with all clips; the renders shown to the user |
+
+```sh
+cd Assets/models/Bosses/TRex/anim
+python3 trex_clips.py measure [Clip ...]   # feet, floor, seams, leg shape, skin stretch, speeds
+python3 clipcheck.py [Clip ...]            # limbs inside the body ({} for every clip is the pass)
+python3 diag_folds.py Clip ...             # where a leg folds too far
+python3 gait_search.py walk|charge         # gait numbers against the leg's limits
+# in the live Blender (pop trex_lib, trex_clips, bake, intro, build_rig, clipcheck from sys.modules first):
+#   runpy.run_path(".../trex_clips.py", run_name="bake")["build"](["Walk", ...]); bpy.ops.wm.save_mainfile()
+# review: save_as_mainfile(copy=True) to <scratch>/c/TRex.blend, then
+#   blender -b <scratch>/c/TRex.blend --python render.py -- <out> Walk:13 Charge:50 Chomp ...
+```
+
+### Order of work that held
+
+1. Dump the place (strip its Tags chunk first, `tools/uimatt/strip.py`), decode every mesh, and check the bind
+   CFrames in the meshes against the place's Bone instances.
+2. FK the delivered clip both ways (translations raw and times the Model's scale): the right one keeps the feet on
+   the floor.
+3. Build the rig in the open Blender, dump `rest.json`, and check the library against Blender's own deform on a few
+   frames of the delivered clip before trusting either.
+4. Look at the rest pose closely (a jaw hinge, a wrong pivot) and fix pivots in the builder.
+5. Write the stance, then the loops, then the one-shots, measuring each (`measure` + `clipcheck`) before baking.
+6. Render, look at the sheets yourself, and show the user the `preview/` folder.
+
+### What the user corrected (check every clip against this first)
+
+- **Runs take long strides.** The charge as a 5-stud bounding gallop read as short steps; built from the liked walk
+  (same leg action, same 7.8-stud stroke, a faster 0.6 s cycle with a flight) it was accepted.
+- **Legs never fold flat or cross.** A metatarsus folded onto its shin (174 degrees), dive legs tucked flat (178):
+  limits are knee 125 and ankle 120 (rest 78 and 76), and a deep crouch tops out near 130.
+- **Limbs never sink into the body**, the little arms above all (they rest against the ribs).
+- **Skin never stretches between pieces.** Bones that share blended vertices move as one piece when a body comes
+  apart.
+- **A jump starts with an impulse**: crouch down, then drive up off planted legs before the feet leave.
+- **A turn at speed drifts, it does not hop**: braced feet scraping round, a lean into the turn, the tail swinging out.
+- **A death has no roar and nothing robotic**: a recoil, a stagger with a catching step, the knees giving, catching
+  and giving, the topple, all on the loose-part springs. Its falling-apart ending was liked as it was.
+- **The rest held up**: Idle, Walk, Chomp, TailSweep, Stomp, Quake, the charge windup and skid, Barrage, Summon,
+  Reassemble and the Intro were not corrected.
+
+### Before showing: what `measure` and `clipcheck` must read
+
+- Planted toes slide 0.0000 studs a frame (walk and charge against their ground speed); loops seam 0.00000.
+- Nothing but a foot under the floor (a heel spur to -0.1 is fine; the dives are exempt by design).
+- Thigh never far behind vertical in the hips' frame; knee 125 and ankle 120 at most in the air, about 130 for a
+  deep planted crouch.
+- Skin stretch under about 0.45 (the belly's own blended bending); anything over a stud is pieces tearing apart.
+- `clipcheck`: `{}` for every clip.
+- Fastest vertex per 0.1 s: no lone spike (a 2.8 in a run of 1.0s was a toe-off snapping in one frame; a 7.9 was a
+  knee flipping). Find it with the per-frame owner of the fastest vertex.
+
+### Exporting (done 2026-11-24)
+
+`anim/export.py` (headless, on a COPY: `blender -b <copy>/TRex.blend --python export.py -- <out>`) writes the rig and
+one FBX per action through `to_fbx.export` itself; `anim/verify.py` imports each back and compares both meshes by
+vertex (worst 0.00002 studs). Ids are in `fbx/ids.json` and `Assets/README.md`. What the round trip did, checked in a
+playtest:
+
+- **The importer builds its own rig**: a `RootPart` Part holding the bones, each MeshPart welded to it by a Motor6D,
+  and an `InitialPoses` folder of CFrameValues. Rebuilt into the contract by hand: `Root` moved under the `Bone`
+  MeshPart, RootPart, the Motor6Ds and InitialPoses deleted, an Animator added, both parts' `PivotOffset` cleared,
+  both moved down by half the extents so Root rests at the box's bottom centre, a fresh wrapper Model with `Bone` as
+  PrimaryPart. Every bone rest rotation came in identity, front +Z, its left +X: no flip.
+- **A second skinned MeshPart bends with another part's bones only through a joint.** With the Motor6Ds gone, `Neon`
+  drew stiff, lying on the floor away from the body, in the first playtest. A WeldConstraint `SkinJoint` (Bone to
+  Neon, under Neon) joins them (not yet seen in a playtest).
+- **Made bigger in the place, not re-exported**: `Model:ScaleTo(1.25)` (then Root re-centred at `(0, -8.113, 0)`).
+  The Animator scales every clip's translations by the Model's scale (measured: the intro's hips 1 s in moved 13.44
+  against 10.75, 1.25 exactly).
+- **Every clip keys Root, at rest.** `bake_anim_use_all_bones` writes an identity Pose for Root in every keyframe, and
+  the Animator writes it every frame. The renderer's own Root write lands after it, so a live body is right, but
+  anything else that owns Root while a clip plays (the Death clip's corpse) must write it every frame, or the body is
+  drawn at the origin.
+- **`Bone.WorldPosition` leaves out the bone's own Transform translation.** Read back that way the Death clip looked
+  wrong (it is the only clip translating bones below the Hips); FK by hand (`parent * CFrame * Transform`) matched
+  Blender to 0.01 studs. Track lengths matched `clips.json` exactly, and six clips' bone positions matched Blender to
+  0.002 studs.
+
+### Lessons
+
+- **A delivered place's KeyframeSequence plays its translations times the Model's scale.** The place had been
+  `ScaleTo`'d 2.2859 and its poses were authored unscaled: read that way the feet sit at exactly 0.0 through the whole
+  walk, read raw they float. Bake a rebuilt rig at its final size and upload it unscaled.
+- **Version 7 meshes are Draco.** `ror-mesh` decodes them with their skin (bones with bind CFrames, four weights a
+  vertex); Roblox's winding is counter-clockwise and survives a pure rotation into Blender unchanged.
+- **A bone's head is only its pivot.** Skinning reads its rest matrix, so a rig can be re-rooted (the delivered spine
+  hung from the chest; it now hangs from the hips, the legs with it) and a pivot moved without touching a weight.
+  The delivered `mouth` turned about the middle of the jaw; its hinge is the jaw's back-top corner. A delivered clip
+  carries over exactly by its deform matrices (posed world times rest inverse), whatever the new pivots. The
+  delivered bone names lie (`upper_leg_l` was an arm): read the mesh each bone owns.
+- **A digitigrade leg is solved from the toe slab up**: place the slab (flat, rolling on its tip, rocking on its back
+  end), which fixes the ball, then the metatarsus at its angle to the slab, then thigh and shin to the ankle. **The
+  knee's pole is the foot's heading leaned DOWN, never the slab's own forward**: at toe-off the toes pitch down and
+  the slab's forward flipped the knee up over the hip.
+- **As the heel lifts, the metatarsus turns WITH the toe roll** (0.3 of it walking, 0.9 running, so it stands up):
+  turning it against the roll folded the ankle and dragged the toes through the floor. Settled by sweeping the
+  factor and reading fold, slide and depth, after reasoning about the sign got it wrong twice: sweep, do not reason.
+- **A foot in the air gives way to the joints' limits**: the solver moves it, never into the floor, eased in with its
+  height so a foot leaving the ground is not shoved. A planted foot is never moved; a stance past the limits is the
+  clip's to fix.
+- **A gait is searched, not tuned by hand** (`gait_search.py`: stride centre, lift, roll, toe-off, duty, metatarsus
+  factor, the hips' height, how early the swing foot recovers), scored on planted and swinging folds, the thigh's
+  range and frames where the limit binds. The walk: 1.0 s, duty 0.6, lift 1.2. The charge: 0.6 s, duty 0.26, lift
+  1.4, the hips 1.4 above the launch crouch, the body levelled to 9 degrees nose-down so the big thigh blocks do not
+  tip into diamonds. A loop's period is a whole number of frames, or it does not seam.
+- **A swing foot leaves and lands moving with the ground** (the curve's end speeds), or it skates the last two frames
+  before touchdown; at a run, half of it, or the swing overshoots. **The heel roll needs frames**: at 50 studs/s the
+  stance is 9 frames and a roll over a fifth of it snapped the foot 24 degrees in one frame; half the stance is right.
+- **Legs off the ground are still solved**: carried in the hips' frame (trailing behind for a dive, hanging under
+  for a landing) and blended from where they pushed off, never posed by joint angles; a hand-picked tuck folded every
+  segment flat.
+- **Nothing but a foot goes into the floor, and a guard enforces it**: where the head, tail or arms would dip under,
+  the neck (tail root, shoulder) is raised by the least that clears, held and eased over neighbouring frames so it
+  reads as riding the ground. A loop's guard smooths round the circle, or it breaks the seam.
+- **A little arm hung against the ribs goes into them with almost any swing**, and the sign is easy to get wrong: on
+  the left arm, roll + swings the claw IN (every "arms flung out" in the first pass pushed them into the chest, and so
+  did the stance). `arm_guard` swings an arm out just enough wherever `clipcheck` finds one inside, eased like the
+  floor guard; the delivered intro needed it too. Run the floor guard after it: an arm swung out on the side a body
+  falls onto goes into the floor.
+- **A bite reaches by straightening the neck, not ducking it.** Pitching the neck down swung the snout down and BACK
+  (17.1 against 18.8 standing) and into the floor; a searched impact pose (neck root down, the upper neck up, the head
+  level) reaches 21.5 a stud off the floor. Search a pose numerically whenever a number (reach, height) decides it.
+- **A whip's tip lags its root**: the sweep's tail, on springs, peaked 0.15 s after the hips. The wind-up runs that
+  much faster so the tip is fastest on the impact frame. Check where the weapon is at impact too: the first sweep
+  passed 6.7 studs up, over a player's head.
+- **Strikes keep their peak**: the overlap springs lag what they touch, so a bite's head and jaw are left off them
+  (only tail and arms swing loose there).
+- **A body coming apart is a small rigid-body sim**: each bone a piece (bones whose skin is blended, here the pelvis,
+  belly and ribs, one), thrown apart, falling, and on the floor an impulse at the deepest corner with friction, which
+  topples a piece flat instead of leaving it balanced on an edge. Keep the fall before it off the floor and clear of
+  the body, or the pieces start under it and pop up.
+- **Show a clip the way the game plays it**: the turn's render yaws the rig as the game yaws Root, or a drift reads
+  as a spin back to the start.

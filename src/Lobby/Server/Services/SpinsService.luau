@@ -1,5 +1,6 @@
--- The daily spins (SpinsCore): how many each player has left, told to his screen (Spins.State), spinning one, and the
--- extra spin sold for Robux. The prize is drawn here and paid in the same write that uses the spin.
+-- The daily spins (SpinsCore): how many each player has left, told to their screen (Spins.State), spinning up to
+-- MAX_COUNT at once, and the extra spins sold for Robux. Each prize is drawn here and paid in the same write that uses
+-- its spin.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -11,7 +12,6 @@ local ShopService = require(ServerScriptService.GlobalServer.Services.ShopServic
 local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local DailyRewardsCore = require(ReplicatedStorage.Shared.Core.DailyRewardsCore)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
-local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
 
@@ -89,12 +89,14 @@ end
 SpinsService.OnStart = function()
 	task.delay(DailyRewardsCore.SecondsLeft(os.time()) + ROLLOVER_MARGIN, rollOver)
 
-	PurchasesService.Register(EProducts.ExtraSpin, function(player: Player, profile: TProfile.TProfile)
-		local spins = profile.Spins or { Day = 0, Used = 0, Bought = 0 }
-		spins.Bought += 1
-		profile.Spins = spins
-		return true
-	end)
+	for count, productId in SpinsCore.PRODUCTS do
+		PurchasesService.Register(productId, function(_player: Player, profile: TProfile.TProfile)
+			local spins = profile.Spins or { Day = 0, Used = 0, Bought = 0 }
+			spins.Bought += count
+			profile.Spins = spins
+			return true
+		end)
+	end
 end
 
 SpinsService.OnDataLoaded = function(player: Player)
@@ -105,22 +107,27 @@ end :: TPlayerEvents.OnDataLoaded
 -- A spin used, a purchase or a prize paid changes what the screen shows.
 DatabaseService.OnProfileChanged:Connect(send)
 
--- Needs no character: the spins are the player's own, spun from a menu whatever his body is doing. Every Spin is
--- answered with a Landed, a refused one too, so the reel waiting on it always stops. It is fired in the same frame as
--- the profile it changed, so the client hears both together and the HUD's hold puts its numbers back before drawing.
-ClientNetworkSpins.Spin.On(function(player: Player)
+-- Needs no character: the spins are the player's own, spun from a menu whatever their body is doing. Every Spin is
+-- answered with a Landed, a refused one too, so the reels waiting on it always stop. It spins one at a time and stops at
+-- the first spin there is not. It is fired in the same frame as the profile it changed, so the client hears both
+-- together and the HUD's hold puts its numbers back before drawing.
+ClientNetworkSpins.Spin.On(function(player: Player, count: number)
 	local today = DailyRewardsCore.Today(os.time())
-	local index = 0
-	local hasSpun = DatabaseService.Update(player, function(profile)
-		index = SpinsCore.Draw(random, ShopCore.Luck(profile, ShopService.IsRandomRestricted(player)))
-		if not useSpin(profile, today, perDay(player, profile)) then return false end
-		local prize = SpinsCore.PRIZES[index]
-		pay(profile, prize)
-		return true
+	local prizes: { number } = {}
+	DatabaseService.Update(player, function(profile)
+		local luck = ShopCore.Luck(profile, ShopService.IsRandomRestricted(player))
+		local free = perDay(player, profile)
+		for _ = 1, math.clamp(count, 0, SpinsCore.MAX_COUNT) do
+			if not useSpin(profile, today, free) then break end
+			local index = SpinsCore.Draw(random, luck)
+			pay(profile, SpinsCore.PRIZES[index])
+			table.insert(prizes, index)
+		end
+		return #prizes > 0
 	end)
 
-	ServerNetworkSpins.Landed.Fire(player, if hasSpun then index else 0)
-	if hasSpun then DatabaseService.SaveAsync(player) end
+	ServerNetworkSpins.Landed.Fire(player, prizes)
+	if #prizes > 0 then DatabaseService.SaveAsync(player) end
 end)
 
 return Ignis.Register(SpinsService)

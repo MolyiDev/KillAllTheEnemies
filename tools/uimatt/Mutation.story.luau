@@ -5,7 +5,7 @@
 --     --controls '{"Moment": "Rest"}' --dir <out>
 -- Moment: Rest (two souls picked, their recipe previewed), Empty (nothing picked, the boss's souls locked), Brew
 -- (BREW pressed 0.2 s in, answered 0.3 s later with the potion of `Rarity`: film it with `rur-native sequence`),
--- Batch (the same, five potions at once, the rarest `Rarity`, thrown into the POTIONS tab), Shown (a potion of
+-- Batch (the same, `Count` potions at once in the tray, the rarest `Rarity`, each thrown into the POTIONS tab), Shown (a potion of
 -- `Rarity` on the card at rest), Menu (the count menu open), Buy (out of brews: BREW sells one for Robux), Potions
 -- (the POTIONS page: two slots open, one filled, the pass's closed, nine potions held), Full (every slot open and
 -- filled), Dissolve (picking potions to dissolve, two picked). The group-owned images 403 offline, so they are swapped
@@ -22,6 +22,8 @@ local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 local Flight = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.MutationController.Flight)
 local Brew = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.MutationController.Brew)
 local Parts = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.MutationController.Parts)
+local Tray = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.MutationController.Tray)
+local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
 local Screen = require(StarterPlayer.StarterPlayerScripts.Client.Controllers.MutationController.Screen)
 
 local source = vide.source
@@ -63,10 +65,12 @@ return {
 	controls = {
 		Moment = { "Rest", "Empty", "Brew", "Batch", "Shown", "Menu", "Buy", "Potions", "Full", "Dissolve" },
 		Rarity = { "Epic", "Common", "Uncommon", "Rare", "Legendary", "Mythic" },
+		Count = { "5", "3", "10" },
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
 		local rarity = (ERarities :: any)[props.controls.Rarity()] :: number
+		local count = if moment == "Batch" then tonumber(props.controls.Count()) :: number else 1
 		local at = os.clock() + MOMENT_AT
 		local isPotions = moment == "Potions" or moment == "Full" or moment == "Dissolve"
 		local isBrewing = moment == "Brew" or moment == "Batch"
@@ -104,7 +108,7 @@ return {
 			[EEnemiesIds.Heavy] = true,
 			[EEnemiesIds.Slammer] = true,
 		}
-		if moment ~= "Empty" then discovered[EEnemiesIds.ZombieKing] = true end
+		if moment ~= "Empty" then discovered[EEnemiesIds.TRex] = true end
 
 		local state = {
 			Scale = source(1),
@@ -120,13 +124,13 @@ return {
 				[EEnemiesIds.Exploding] = 3,
 				[EEnemiesIds.Heavy] = 18,
 				[EEnemiesIds.Slammer] = 9,
-				[EEnemiesIds.ZombieKing] = if moment == "Empty" then 0 else 2,
+				[EEnemiesIds.TRex] = if moment == "Empty" then 0 else 2,
 			}),
 			CanBuyBrew = source(true),
 			Potions = source(potions),
 			Equipped = source(if moment == "Full" then { 2, 4, 1 } else { 2 }),
 			Slots = source(slots),
-			BrewsLeft = source(if moment == "Buy" then 0 elseif moment == "Batch" then 6 else 2),
+			BrewsLeft = source(if moment == "Buy" then 0 elseif moment == "Batch" then 12 else 2),
 			BrewsPerDay = source(2),
 			BrewsBackAt = source(os.time() + 3600 * 5),
 			Luck = source(1),
@@ -134,12 +138,15 @@ return {
 			Gems = source(48250),
 			Picks = source(picks),
 			PickedAt = source({}),
-			BrewCount = source(if moment == "Batch" or moment == "Menu" then 5 else 1),
+			BrewCount = source(
+				if moment == "Batch" then count elseif moment == "Menu" or moment == "Buy" then 5 else 1
+			),
 			IsMenuOpen = source(moment == "Menu"),
 			MenuAt = source(if moment == "Menu" then -1000 else -math.huge),
 			-- Rest: the light crosses BREW as it opens (render at 0.55 s to see it mid-way).
 			CalledAt = source(if moment == "Rest" then at else -math.huge),
 			BrewAt = source(if moment == "Shown" then -1000 elseif isBrewing then at else -math.huge),
+			Asked = source(count),
 			AnsweredAt = source(if moment == "Shown" then -1000 else math.huge),
 			BrewedId = source(0),
 			Shown = source(if moment == "Shown" then shownPotion else nil),
@@ -163,20 +170,29 @@ return {
 			SlottedAt = source(-math.huge),
 		}
 
-		-- The batch the Batch moment brews, the rarest last.
+		-- The batch the Batch moment brews: the rest rolled as a brew rolls them (none past `Rarity`), sorted, the rarest
+		-- last, as the controller sorts them.
 		local batch = { shownPotion }
 		if moment == "Batch" then
-			batch = {
-				{ Id = 11, Recipe = EPotionsIds.IronHide, Rarity = ERarities.Common, Matches = 1 },
-				{ Id = 12, Recipe = EPotionsIds.IronHide, Rarity = ERarities.Common, Matches = 1 },
-				{ Id = 13, Recipe = EPotionsIds.IronHide, Rarity = ERarities.Uncommon, Matches = 1 },
-				{ Id = 14, Recipe = EPotionsIds.IronHide, Rarity = ERarities.Rare, Matches = 1 },
-				shownPotion,
-			}
+			local rolls = Random.new(count)
+			local rarities = table.create(count - 1)
+			for index = 1, count - 1 do
+				rarities[index] = math.min(PotionsCore.RollRarity(rolls:NextNumber(), 1), rarity)
+			end
+			table.sort(rarities)
+			batch = table.create(count)
+			for index, rolled in rarities do
+				batch[index] = {
+					Id = 10 + index,
+					Recipe = EPotionsIds.IronHide,
+					Rarity = rolled,
+					Matches = if rolled == ERarities.Mythic then 2 else 1,
+				}
+			end
+			batch[count] = shownPotion
 		end
-		local looks = {}
-		for index, potion in batch do
-			looks[index] = {
+		local function lookOf(potion): any
+			return {
 				Picture = "PotionBottle",
 				Color = Parts.Rarity(potion.Rarity).Accent,
 				Size = 64,
@@ -196,9 +212,36 @@ return {
 			state.IsShownNew(true)
 			state.AnsweredAt(now)
 			local times = Brew.Times(state :: any) :: any
-			state.Flights(
-				Flight.Plan(looks, Vector2.new(1071, 421), Vector2.new(640, 224), times.FlyAt, Brew.FLY_STAGGER, random)
-			)
+			if #batch == 1 then
+				state.Flights(
+					Flight.Plan(
+						{ lookOf(shownPotion) },
+						Vector2.new(1071, 421),
+						Vector2.new(640, 224),
+						times.FlyAt,
+						0,
+						random
+					)
+				)
+				return
+			end
+			local flights = {}
+			for index, potion in batch do
+				local thrownAt = times.FlyAt + Brew.FLY_STAGGER * (index - 1)
+				for _, flight in
+					Flight.Plan(
+						{ lookOf(potion) },
+						Tray.CardAt(index, #batch),
+						Vector2.new(640, 224),
+						thrownAt,
+						0,
+						random
+					)
+				do
+					table.insert(flights, flight)
+				end
+			end
+			state.Flights(flights)
 		end)
 
 		local root = create("Frame")({

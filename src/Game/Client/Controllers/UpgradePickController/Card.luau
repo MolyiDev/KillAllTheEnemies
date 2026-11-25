@@ -27,8 +27,6 @@ Card.MARGIN = 60
 Card.CANVAS = Card.SIZE + Vector2.new(2 * Card.MARGIN, 2 * Card.MARGIN)
 
 local Layout = table.freeze({
-	KEY = Vector2.new(25, 24),
-	KEY_SIZE = 44,
 	-- NEW or the level, on a ribbon across the top right corner where he drew its tag.
 	RIBBON_ALONG = 100,
 	RIBBON_THICKNESS = 28,
@@ -57,7 +55,6 @@ local BACK_ACCENT = Color3.fromRGB(120, 108, 150)
 -- What a card is told (UpgradePickController writes them). Hover, Shade and Flash are 0 to 1; GlareAt is where the
 -- hand is across the card, -1 at its left edge to 1 at its right.
 export type TCardState = {
-	Key: Enum.KeyCode,
 	Id: vide.Source<number>,
 	Level: vide.Source<number>,
 	Rarity: vide.Source<number>,
@@ -160,10 +157,6 @@ local function front(state: TCardState): Frame
 		Position = UDim2.fromOffset(Card.MARGIN, Card.MARGIN),
 		Size = UDim2.fromOffset(Card.SIZE.X, Card.SIZE.Y),
 		Visible = state.IsFaceUp,
-		Components.KeyBadge(state.Key, Layout.KEY_SIZE, {
-			Position = UDim2.fromOffset(Layout.KEY.X, Layout.KEY.Y),
-			ZIndex = 3,
-		}),
 		Ribbon.Build({
 			Corner = "TopRight",
 			Text = function()

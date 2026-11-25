@@ -1,6 +1,6 @@
 -- The Mutation Lab in the lobby (PotionsCore): each player's lab told to their screen (Mutation.Sync), brewing potions
 -- from two kinds of souls (Energy in the data), dissolving them back, putting them in and out of the slots, the slot
--- sold for Gems, the brew sold for Robux, the index's potion reveals marked as played, and the `potions` console
+-- sold for Gems, brews sold for Robux, the index's potion reveals marked as played, and the `potions` console
 -- command. The energy is dropped and the potions drunk in the Game
 -- place (its MutationService). The rarity is rolled here and the potion written in the same write that spends the
 -- energy and the brew.
@@ -19,7 +19,6 @@ local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local DailyRewardsCore = require(ReplicatedStorage.Shared.Core.DailyRewardsCore)
 local CommandTypes = require(ReplicatedStorage.Types.CommandTypes)
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
-local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local EPotionsIds = require(ReplicatedStorage.Types.Enums.Data.EPotionsIds)
 local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -324,12 +323,15 @@ MutationService.OnStart = function()
 	registerPotions()
 	task.delay(DailyRewardsCore.SecondsLeft(os.time()) + ROLLOVER_MARGIN, rollOver)
 
-	PurchasesService.Register(EProducts.ExtraBrew, function(_player: Player, profile: TProfile.TProfile)
-		local mutation = profile.Mutation or PotionsCore.Empty()
-		mutation.BrewsBought = (mutation.BrewsBought or 0) + 1
-		profile.Mutation = mutation
-		return true
-	end)
+	-- Each product sells its count of brews (one not created yet is 0, which Register skips).
+	for count, productId in PotionsCore.BREW_PRODUCTS do
+		PurchasesService.Register(productId, function(_player: Player, profile: TProfile.TProfile)
+			local mutation = profile.Mutation or PotionsCore.Empty()
+			mutation.BrewsBought = (mutation.BrewsBought or 0) + count
+			profile.Mutation = mutation
+			return true
+		end)
+	end
 end
 
 MutationService.OnDataLoaded = function(player: Player)

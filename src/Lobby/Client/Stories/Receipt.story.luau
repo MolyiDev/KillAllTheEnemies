@@ -53,7 +53,7 @@ local OFFERS = {
 	{ Label = "Featured gun", Offer = "FeaturedLegendary", Giver = "", Refund = 0 },
 	{ Label = "VIP", Offer = "Vip", Giver = "", Refund = 0 },
 	{ Label = "Double Gems, gift received", Offer = "DoubleGems", Giver = "Builderman", Refund = 0 },
-	{ Label = "2x Luck", Offer = "Luck", Giver = "", Refund = 0 },
+	{ Label = "Double Luck", Offer = "Luck", Giver = "", Refund = 0 },
 	{ Label = "Gift sent", Offer = "GemsLarge", Giver = "", Receiver = "Builderman", Refund = 0 },
 	{
 		Label = "Friend invited",

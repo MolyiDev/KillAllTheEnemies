@@ -127,11 +127,6 @@ local function card(at: Vector2, picture: string, accent: Color3, chip: Frame): 
 			Size = Components.PictureBox(64),
 			ZIndex = 4,
 		}),
-		Components.KeyBadge(Enum.KeyCode.X, 32, {
-			Position = UDim2.fromOffset(78, 7),
-			Size = UDim2.fromOffset(33, 28),
-			ZIndex = 5,
-		}),
 		chip,
 	})
 end

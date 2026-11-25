@@ -41,6 +41,11 @@ Parts.Timing = table.freeze({
 -- Every gesture keyed off a stamp is over by then.
 Parts.STAMP_SECONDS = 1.2
 
+-- The featured offers the hero card turns through ("Featured" is the featured gun's product of the moment), and how long
+-- each is on show before it turns on by itself (paused while the hand is on the card).
+Parts.HERO = table.freeze({ "Featured", "SurvivorBundle" })
+Parts.PAGE_SECONDS = 7
+
 -- His thin rules, and the dark gold edge round a chip.
 Parts.RULE = Color3.fromRGB(72, 56, 112)
 Parts.RARITIES = Theme.Rarities
@@ -69,7 +74,7 @@ Parts.LOOKS = table.freeze({
 	DoubleXp = { Accent = Palette.Violet, Picture = EIcons.XpWings, Art = "Dots" },
 	ExtraSpin = { Accent = Palette.Green, Picture = EIcons.SpinPlus, Art = "Orbit" },
 	Luck = { Accent = Palette.Green, Picture = EIcons.Clover, Art = "Dots" },
-	PotionSlot = { Accent = Palette.Pink, Picture = EIcons.PotionRack, Art = "Rays" },
+	PotionSlot = { Accent = Palette.Pink, Picture = EIcons.PotionRack, Art = "Orbit" },
 	ExtraBrew = { Accent = Palette.Violet, Picture = EIcons.Cauldron, Art = "Orbit" },
 })
 
@@ -113,12 +118,21 @@ function Parts.Faded(state: Types.TShopState, elapsed: () -> number, delay: numb
 	end)
 end
 
--- Seconds since `stamps[name]`, held at STAMP_SECONDS once over (and for a name never stamped), so a tick of the clock
--- for something else works nothing out here.
-function Parts.Since(state: Types.TShopState, stamps: () -> { [string]: number }, name: string): () -> number
+-- Seconds since `stamps[name]` (the latest of several names), held at STAMP_SECONDS once over (and for a name never
+-- stamped), so a tick of the clock for something else works nothing out here.
+function Parts.Since(
+	state: Types.TShopState,
+	stamps: () -> { [string]: number },
+	name: string | { string }
+): () -> number
+	local names = if type(name) == "table" then name else { name }
 	return derive(function(): number
-		local at = stamps()[name]
-		if not at then return Parts.STAMP_SECONDS end
+		local stamped = stamps()
+		local at = -math.huge
+		for _, each in names do
+			at = math.max(at, stamped[each] or -math.huge)
+		end
+		if at == -math.huge then return Parts.STAMP_SECONDS end
 		return math.clamp(state.Now() - at, 0, Parts.STAMP_SECONDS)
 	end)
 end
@@ -275,9 +289,127 @@ function Parts.Chip(text: string, color: Color3, pop: () -> number, props: { [an
 	})
 end
 
--- A card's cheer, 0 to 1 as each part of it runs off the offer's granted stamp: Flash (white over the face, squared
--- and short), Ring (one outline growing out), Punch (a lift and back with no wobble).
-function Parts.Cheer(state: Types.TShopState, name: string)
+-- What an offer gives as his two tags joined: "+ SANDAN GUN" on a block of `color` (in ink on a bright one), then what
+-- it is ("LEGENDARY") in the colour on his dark outlined tag. `pop` (0 to 1 and back) punches it and whitens the block.
+-- `height` as a Tag's.
+function Parts.Pair(
+	text: string,
+	kind: string,
+	color: Color3,
+	isInk: boolean,
+	pop: () -> number,
+	props: { [any]: any }?,
+	height: number?
+): Frame
+	local tall = height or 30
+	local pad = UDim.new(0, math.round(tall * 0.42))
+	local textSize = math.round(tall / 2)
+	-- Each block is its word, padded: a frame sized from a scaled child never settles (UI.md, the Mutation Lab).
+	local function block(order: number, words: string, background: any, textColor: any, isOutlined: boolean): TextLabel
+		return Parts.Label({
+			Name = if isOutlined then "Kind" else "Item",
+			LayoutOrder = order,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, tall),
+			BackgroundColor3 = background,
+			BackgroundTransparency = if isOutlined then 0.15 else 0,
+			BorderSizePixel = 0,
+			TextSize = textSize,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextColor3 = textColor,
+			Text = words,
+			ZIndex = 5,
+			create("UIPadding")({ PaddingLeft = pad, PaddingRight = pad }),
+			if isOutlined
+				then create("UIStroke")({
+					Color = Parts.Darker(color, 0.7),
+					Thickness = 1.5,
+					ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				})
+				else nil,
+		})
+	end
+
+	return create("Frame")({
+		Name = "Pair",
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, tall),
+		BackgroundTransparency = 1,
+		ZIndex = 4,
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Horizontal,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		create("UIScale")({
+			Scale = function()
+				return 1 + 0.1 * pop()
+			end,
+		}),
+		block(1, text, function()
+			return color:Lerp(Palette.White, 0.6 * pop())
+		end, if isInk then Palette.Ink else Palette.White, false),
+		block(2, kind, Palette.Ink, color, true),
+		props or {},
+	})
+end
+
+-- A price struck through: what the offer would cost in the smallest Gem pack. The Robux glyph and the amount in
+-- lavender, and a pink line drawn across them from the left as `strike` goes 0 to 1.
+function Parts.Was(robux: number, size: number, strike: () -> number, props: { [any]: any }): Frame
+	return create("Frame")({
+		Name = "Was",
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, size),
+		BackgroundTransparency = 1,
+		ZIndex = 5,
+		create("Frame")({
+			Name = "Amount",
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, size),
+			BackgroundTransparency = 1,
+			create("UIListLayout")({
+				FillDirection = Enum.FillDirection.Horizontal,
+				VerticalAlignment = Enum.VerticalAlignment.Center,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Padding = UDim.new(0, math.round(size * 0.25)),
+			}),
+			Components.Icon("Robux", {
+				LayoutOrder = 1,
+				Size = Components.GlyphBox(math.round(size * 0.9)),
+				ImageColor3 = Palette.Lavender,
+				ZIndex = 5,
+			}),
+			Parts.Label({
+				LayoutOrder = 2,
+				AutomaticSize = Enum.AutomaticSize.X,
+				Size = UDim2.fromOffset(0, size),
+				TextSize = size,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				TextColor3 = Palette.Lavender,
+				Text = Components.Commas(robux),
+				ZIndex = 5,
+			}),
+		}),
+		create("Frame")({
+			Name = "Strike",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, -4, 0.5, 0),
+			Size = function()
+				local t = strike()
+				return UDim2.new(t, 8 * t, 0, 3)
+			end,
+			BackgroundColor3 = Palette.Pink,
+			BorderSizePixel = 0,
+			ZIndex = 6,
+		}),
+		props,
+	})
+end
+
+-- A card's cheer, 0 to 1 as each part of it runs off the offer's granted stamp (the latest of several offers'): Flash
+-- (white over the face, squared and short), Ring (one outline growing out), Punch (a lift and back with no wobble).
+function Parts.Cheer(state: Types.TShopState, name: string | { string })
 	local since = Parts.Since(state, state.GrantedAt, name)
 	local timing = Parts.Timing
 	return {
@@ -292,9 +424,9 @@ function Parts.Cheer(state: Types.TShopState, name: string)
 		Punch = derive(function(): number
 			return Motion.Bump(since() / timing.CHEER_PUNCH)
 		end),
-		-- A refusal's shake, -1 to 1.
+		-- A refusal's shake, -1 to 1. Only a price shakes, and a price is one offer's.
 		Shake = derive(function(): number
-			local at = state.RefusedAt()[name]
+			local at = if type(name) == "string" then state.RefusedAt()[name] else nil
 			if not at then return 0 end
 			return Motion.Shake(math.clamp((state.Now() - at) / timing.SHAKE, 0, 1), at)
 		end),
@@ -389,7 +521,8 @@ function Parts.Price(
 	offer: ShopCore.TOffer,
 	size: Vector2,
 	textSize: number,
-	props: { [any]: any }
+	props: { [any]: any },
+	call: (() -> number)?
 ): TextButton
 	local isOwned = derive(function(): boolean
 		return Parts.IsOwned(state, offer)
@@ -445,7 +578,15 @@ function Parts.Price(
 			end,
 			Size = UDim2.fromScale(1, 1),
 			Hand.WashLayer(hand, 3, 3),
-			Components.Sheen(hand.Glint, 3),
+			-- The hand's glint, and the screen's call crossing it while it waits to be bought.
+			Components.Sheen(
+				if call
+					then Hand.Sheen(hand, function(): number
+						return if isOwned() then 1 else call()
+					end)
+					else hand.Glint,
+				3
+			),
 			create("Frame")({
 				Name = "Word",
 				Size = UDim2.fromScale(1, 1),

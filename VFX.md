@@ -2759,3 +2759,92 @@ the six rarities.
   lookups at most four times a wave), and `Step` is one length check a frame while nothing is up.
 - **Not seen in game yet**: any of it (the templates are not in the place until `upgrade_effects.luau` is pasted);
   the hues under the place's bloom; first person, where only the floor ring, the column and the spout are in view.
+
+## 40. Kill All The Monsters: the Skeleton T-Rex (built 2026-11-24 from section 30, seen in ror on the real rig, unplayed)
+
+Every effect of the boss: `src/Game/Client/Utils/trexFx.luau`, said when and where by `BossController` (the fight)
+and `BossIntroController` (its intro), off the body's own bones. Templates `ReplicatedStorage.Effects.TRexFx`, sources,
+the table of what each move draws and every number in `Assets/effects/trex/` (its README). No sprite was drawn: the
+pistol kit's five. It replaced ForceField shells (the roar, the rise, the shield breaking, the fall), Neon slabs for the
+crack, plain Neon spines, and footsteps borrowed from `stepFx` and `telegraphFx`. **Watch:**
+`Assets/effects/trex/preview/trex_all.mp4`.
+
+- **A boss can be previewed on its real rig and clips.** Fetch the uploaded model, its meshes and its clips with
+  Tripwire's `download_asset`, point each MeshPart's `MeshContent` at its local file (a script cannot write `MeshId`,
+  so the file is rewritten), and register each KeyframeSequence in the harness. ree plays skinned meshes and their
+  clips, and `TransformedWorldCFrame` on the bones is what the game reads, so effects land on the jaw, the toes and the
+  tail tip where they will in play. The kit's README has the steps.
+- **`burstLayers` copies all run at the match's time scale, which the boss intro holds at 0**: an effect thrown through
+  `burstLayers.Clone` in the intro hangs frozen in the air. `trexFx` clones its own and runs on a clock BossController
+  keeps: the fight's (`EnemyClock`, so a freeze holds it), real time while `BossIntroController.IsPlaying()`. **Not
+  `TimeCore.IsCutscene`: only the server sets it.** Clients are sent the time scale (0), never the flag, so on a client
+  it is always false; the first build read it and the user saw every intro effect hang paused. A client asks what it
+  plays itself.
+- **A big ring facing the camera reads as a door frame**: the floor cuts its bottom off and what is left stands on
+  the ground like a gate (the shield's first halo and burst). **A ring standing across a bite reads as a pane of glass
+  in front of the face.** Rings lie flat: on the floor, or level at the jaws or the bubble's middle. The one standing
+  ring kept is the roar's, small, thin and see-through, so many of them in a row read as sound and not as a tunnel.
+- **Dust pulled toward white vanishes on sand.** The floor's dust is pulled toward an earth midtone instead (150, 135,
+  115) by 0.35: darker than sand, paler than grass, readable on both. Pixels and bricks keep the floor's own colour.
+- **Additive pools, blooms and a screen tint on one frame white out the view.** At the rise and the fall each was
+  right alone and together the frame went white. Pools and blooms start at 0.6 see-through in the glow green (not the
+  white-hot), blooms are 22 to 40 studs, and the screen tint is 0.2 to 0.4 at the biggest moments only.
+- **The body's moves carry its weight, not more light**: footfalls throw the floor (a ring of its light, dust rolled out
+  low, bricks), the run trails dust, the skid throws it ahead. Green light is kept for what the T-Rex does with its
+  power (the bite, the stamps, the spines, the dive, the roar, the shield, its soul).
+- **A wave rolling out along the floor is the hitbox drawn twice**: the Quake's finisher wave is thrown with the
+  attack's own `FinisherRadius` and `FinisherSpeed`, so it runs with the warning's ring. Its points are put on the floor
+  that is there by a ray each, at most 14 a frame.
+- **Not seen in game yet**: any of it (the templates are not in the place until `trex_effects.luau` is pasted); the
+  green on the real maps under the place's bloom; the shield's ForceField bubble with the new rim and hits (ror draws
+  ForceField faintly); the shake with the effects; a guard's beam motes from a player's distance.
+
+### Second round (2026-11-24): "almost all reusing things we already did"
+
+The user's asks: spines shaped like the ones on its back, debris like a crater of stud plates (Ballarc's
+`RockLibrary`, on Motor6D parts instead of bones), a shake by how near the player is, a 2D maw on the bite like
+Warwick's in League, Quake shocks that grow to the last, the intro's effects not paused.
+
+- **A move needs one shape of its own, not only the kit's.** Rings, pixels and dust on every move read as the same
+  effect recoloured. The bite got a maw, the spines a body (a neon pyramid on a bone root: four CornerWedgeParts, each
+  a quarter turn round the axis, since a CornerWedge's point stands over its +X +Y -Z corner), the floor a crater.
+- **The floor breaking is the weight.** `GlobalClient/Utils/brokenFloor` pushes stud plates of the floor up out of it,
+  stands them, then sinks them slowly. It is Ballarc's and Aeternum's RockLibrary Crater on `motorParts`: no bones, no
+  physics, nothing cloned per plate, one floor ray each, one pool (320), its own clock like `thrownPieces`. A crack
+  pushes one up either side of each step; a wave lifts one where it passes.
+- **A crater's pieces stand nearly upright, the inner ring the biggest** (Aeternum's `Crater`: each rock looks at a
+  point a third of the ring's radius over the middle, so it leans back about 18 degrees; three rings at 7, 14 and 21
+  studs for its biggest smash, 12, 18 and 21 rocks, each ring a little smaller; up in 0.25 s with a back-out, standing
+  2.5 to 4.5 s, a slow sine down). The first build tilted thin plates 12 to 57 degrees with their outer edge up: the
+  user saw them "almost full horizontal, their tilt too much inwards". Then chunky blocks half buried read flat again (a
+  brick and a half tall, most of it under the floor). Then one-brick-thick stud plates stood tall but read as slabs
+  beside Aeternum's rocks, and so did fixed chunks three quarters as deep as wide (the user, 2026-11-25): Aeternum's
+  thickness is not one proportion. Each of its rocks draws width, depth and height on their own (4-8, 3-6, 3-6 times its
+  size), so many come out as deep as wide, and 0 to 4 smaller ones (3-5, 2-3 tall, 2-4 deep) are welded on, off its
+  middle by -1, 0 or 1 plus 0.2 along each world axis, turned with it: a ring of fat clumps, not a fence. What works
+  here: the same draws, the nearest of a spread of stud chunk templates stood (six widths in four shapes: a Size write
+  rebuilds the scene, performance/07), the clump's pieces on the main one's rest and sinking with it, their studs turned
+  to that point (`lookAt` then a quarter turn about X, so +Y faces it), their middle 0.3 of their height over the floor
+  less 0.2 of their depth (leaning back lifts the front foot), the back smooth (inlets read as holes from outside the
+  ring), 6 + 0.85 a stud of radius a ring, one ring every 7 studs, each ring rising as the shock passes it (70 studs a
+  second).
+- **A maw is a 3D jaw in the biter's frame, not a sprite.** Two rows of fangs facing the camera lost where it bites
+  (the user); laid flat in the world a sprite vanishes edge-on. Ballarc's Greatshield Jaws are the model, made thinner
+  and in this kit's look: an upper and a lower jaw, each a U of flat fangs (two thin neon WedgeParts back to back, a
+  triangle given a little depth) round its hinge, pointing at the other jaw and interlocked shut, the canines biggest a
+  little back from the front. Hinged behind where the bite lands, turned the way the body faces, swung about the hinge
+  (the lower jaw 0.6 of the upper's 44 degrees): opening wider, drawn back 2.5 studs, thrown forward with a cubic snap
+  shut on the bite, white-hot for 0.07 s, bitten 5 degrees through and chewed back, then letting go as it fades. Held
+  still while the head swings down onto it, its front teeth at the snout's reach (19 studs out and 5 up in the fight,
+  12 and 7 in the intro, where the head is still raised when it opens). 38 parts taken once and kept; colour and
+  see-through written only when they change.
+- **A sequence's beats grow to the last.** The Quake's three stamps are 0.75, 1.05 and 1.5 of the Stomp: rings and
+  light grow by the size, everything thrown goes that much faster and the square root of it bigger, counts and craters
+  with it. A grown template is a second copy made once (`placeSized`), since an emitter's sequences apply to particles
+  already alive.
+- **A shake is felt by the player's body, not the camera, and falls off steeply**: in full within 14 studs, then the
+  square of what is left of the way to 120. The biggest moments also kick the view down and aside on a slow, heavy
+  recoil spring (frequency 14, damping 0.5), 0.22 to 0.8 studs at peak against the guns' 0.12 to 0.35; a spine sticking
+  near the player and a wave rolling under its feet each land one of their own.
+- **ror can draw a released `motorParts` piece for one frame where nothing is.** Logged both pools: nothing was placed
+  there, and a lone part jumping to the park spot draws cleanly. Ignore a single-frame stray in a video.

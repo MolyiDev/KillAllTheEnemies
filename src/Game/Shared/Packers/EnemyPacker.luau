@@ -25,12 +25,15 @@ local floor = math.floor
 local EnemyPacker = {}
 
 -- Single pass into the scratch buffer, then one copy into an exact-size result.
+-- views: each body's EnemiesCore.ViewSphere, so a body passes when any of it is in the cone, not only its feet.
 -- cam*: camera world position (cone origin). look*: unit camera forward. thresholdSq: cos^2(FOV/2), negative to
--- skip the cone. Returns nil when nothing passes, so the caller never fires an empty packet.
+-- skip the cone. apexShiftPerRadius: 1 / sin(FOV/2) (AOIService's isInView has the why). Returns nil when nothing
+-- passes, so the caller never fires an empty packet.
 function EnemyPacker.PackFiltered(
 	instanceIds: { number },
 	positions: { vector },
 	yaws: { number },
+	views: { vector },
 	count: number,
 	camX: number,
 	camY: number,
@@ -39,6 +42,7 @@ function EnemyPacker.PackFiltered(
 	lookY: number,
 	lookZ: number,
 	thresholdSq: number,
+	apexShiftPerRadius: number,
 	renderDistanceSq: number
 ): buffer?
 	local noFrustum = thresholdSq < 0
@@ -51,15 +55,21 @@ function EnemyPacker.PackFiltered(
 
 	for i = 1, count do
 		local pos = positions[i]
+		local view = views[i]
+		local radius = view.y
 		local vx = pos.x - camX
-		local vy = pos.y - camY
+		local vy = pos.y + view.x - camY
 		local vz = pos.z - camZ
 		local distSq = vx * vx + vy * vy + vz * vz
 		if distSq > renderDistanceSq then continue end
-		if not noFrustum and distSq >= 1 then
+		if not noFrustum and distSq >= radius * radius then
+			local shift = radius * apexShiftPerRadius
+			vx += lookX * shift
+			vy += lookY * shift
+			vz += lookZ * shift
 			local dot = vx * lookX + vy * lookY + vz * lookZ
 			if dot <= 0 then continue end
-			if dot * dot <= thresholdSq * distSq then continue end
+			if dot * dot <= thresholdSq * (vx * vx + vy * vy + vz * vz) then continue end
 		end
 
 		buffer.writeu16(scratchBuf, off, instanceIds[i])

@@ -19,6 +19,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local AbilityPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AbilityPicture)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
@@ -84,17 +85,11 @@ local Layout = table.freeze({
 	TAG = Vector2.new(285, 10),
 	TAG_SIZE = Vector2.new(95, 24),
 	TAG_TEXT = 13,
-	-- The ability cards, from the info panel's corner, and inside one its price tag, its name and its picture.
+	-- The ability cards, from the info panel's corner, and inside one its picture's box.
 	-- 117 wide and 21 apart rather than his 123 and 12, over the same span: two cards' brackets crossed at his.
 	ABILITY_LEFTS = { 23, 161, 299 },
 	ABILITY_TOP = 88,
 	ABILITY_SIZE = Vector2.new(117, 128),
-	ABILITY_TAG = Vector2.new(8, 8),
-	ABILITY_TAG_SIZE = Vector2.new(50, 21),
-	ABILITY_TAG_TEXT = 13,
-	ABILITY_LABEL_Y = 102,
-	ABILITY_LABEL_TEXT = 15,
-	PICTURE = Vector2.new(58, 56),
 	PICTURE_SIZE = 84,
 	-- The picked ability's name, ?, stars, stat rows and the two slabs, from the info panel's corner.
 	ABILITY_NAME = Vector2.new(24, 240),
@@ -151,15 +146,12 @@ local Colors = table.freeze({
 	STAT_EDGE = Color3.fromRGB(67, 53, 106),
 	STAT_FACE = Color3.fromRGB(29, 23, 52),
 	STAR_OFF = Color3.fromRGB(60, 55, 76),
-	PRICE_EDGE = Color3.fromRGB(33, 119, 80),
-	PRICE_FACE = Color3.fromRGB(13, 11, 29),
 	ULT = Color3.fromRGB(232, 176, 56),
 	-- His cards' edge is their accent this much darker, the glyph box's edge more; how far a card's face warms toward
 	-- its accent at the bottom.
 	CARD_EDGE = 0.77,
 	GLYPH_BOX_EDGE = 0.65,
 	CLASS_TINT = 0.12,
-	ABILITY_TINT = 0.3,
 	DIM_TRANSPARENCY = 0.7,
 })
 
@@ -238,11 +230,9 @@ local Timing = table.freeze({
 
 -- What a card and a picture do under the hand: the picture grows this share with the rise, and a pick swings it (deg) and pops it.
 local Gesture = table.freeze({
-	-- A card's glow at rest (the picked ability's brighter, the ?'s description as an ability's), and how much the
-	-- hand lights it.
+	-- A class card's glow at rest (the ?'s description's as the ability cards' was), and how much the hand lights it.
 	CARD_GLOW = 0.85,
 	ABILITY_GLOW = 0.8,
-	PICKED_GLOW = 0.55,
 	GLOW_LIT = 0.35,
 	-- His brackets at rest and how much the hand lights them.
 	BRACKETS_REST = 0.65,
@@ -365,8 +355,8 @@ local function rule(position: UDim2, width: number): Frame
 	})
 end
 
--- A dark side panel with its header: the glyph, the title, the count on the right and the rule under them.
-local function panel(name: string, phase: Vector2, glyph: Instance, title: string, info: string, props: { [any]: any })
+-- A dark side panel with its header: the glyph, the title, the count on the right (if any) and the rule under them.
+local function panel(name: string, phase: Vector2, glyph: Instance, title: string, info: string?, props: { [any]: any })
 	return Components.Panel({
 		Tall = true,
 		Brackets = true,
@@ -385,17 +375,19 @@ local function panel(name: string, phase: Vector2, glyph: Instance, title: strin
 			TextSize = Layout.HEADER_TEXT,
 			Text = title,
 		}),
-		label({
-			Name = "Info",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.fromOffset(Layout.HEADER_INFO_RIGHT, Layout.HEADER_INFO_Y),
-			Size = UDim2.fromOffset(200, Layout.HEADER_INFO_TEXT),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			FontFace = Font.DisplayBold,
-			TextSize = Layout.HEADER_INFO_TEXT,
-			TextColor3 = Palette.Gold,
-			Text = info,
-		}),
+		if info
+			then label({
+				Name = "Info",
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.fromOffset(Layout.HEADER_INFO_RIGHT, Layout.HEADER_INFO_Y),
+				Size = UDim2.fromOffset(200, Layout.HEADER_INFO_TEXT),
+				TextXAlignment = Enum.TextXAlignment.Right,
+				FontFace = Font.DisplayBold,
+				TextSize = Layout.HEADER_INFO_TEXT,
+				TextColor3 = Palette.Gold,
+				Text = info,
+			})
+			else nil,
 		rule(UDim2.fromOffset(Layout.RULE.X, Layout.RULE.Y), Layout.RULE_WIDTH),
 		props,
 	})
@@ -774,98 +766,42 @@ local function abilityCard(
 	end)
 	local size = Layout.ABILITY_SIZE
 
-	return Components.Button({
+	return ItemCard.Build({
 		Name = ability.Kind,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = size,
 		Position = UDim2.fromOffset(Layout.ABILITY_LEFTS[index] + size.X / 2, Layout.ABILITY_TOP + size.Y / 2),
-		Size = UDim2.fromOffset(size.X, size.Y),
-		BackgroundTransparency = 1,
 		ZIndex = 2,
+		Hand = hand,
+		Accent = accent,
+		Title = string.upper(ability.Name),
+		IsSelected = isPicked,
+		Grown = dealIn,
+		Sheen = landed,
+		Picture = AbilityPicture.Build(
+			ability.Kind,
+			{
+				Rotation = function(): number
+					return Gesture.PICK_SWING * Motion.Swing(picked())
+				end,
+				Scale = function(): number
+					return 1 + Gesture.PICK_POP * Motion.Bump(picked())
+				end,
+			},
+			state.Doll,
+			{
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(Layout.PICTURE_SIZE, Layout.PICTURE_SIZE),
+			}
+		),
+		Children = {
+			if isUltimate
+				then ItemCard.Chip("ULT", Colors.ULT, true)
+				else ItemCard.Chip(`${ability.Cost or 0}`, Palette.Green),
+		},
 		Activated = function()
-			hand.Commit()
 			actions.PickAbility(index)
 		end,
-		hand.Events,
-		create("UIScale")({
-			Scale = function()
-				return dealIn() * hand.Scale()
-			end,
-		}),
-		Components.Card({
-			Accent = shade(accent, Colors.CARD_EDGE),
-			Glow = accent,
-			GlowTransparency = function()
-				return if isPicked()
-					then Gesture.PICKED_GLOW - Gesture.GLOW_LIT * hand.Light()
-					else Gesture.ABILITY_GLOW - Gesture.GLOW_LIT * hand.Light()
-			end,
-			Tint = Colors.ABILITY_TINT,
-			-- His brackets stand round each card and close into one outline round the picked one.
-			Brackets = hand.Rise,
-			BracketTransparency = function()
-				return Gesture.BRACKETS_REST - Gesture.BRACKETS_LIT * hand.Light()
-			end,
-			BracketsClosed = isPicked,
-		}, {
-			Name = "Card",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(Hand.Sheen(hand, landed), 3),
-			AbilityPicture.Build(
-				ability.Kind,
-				{
-					Rotation = function(): number
-						return Gesture.PICK_SWING * Motion.Swing(picked())
-					end,
-					Scale = function(): number
-						return 1 + Gesture.PICTURE_RISE * hand.Rise() + Gesture.PICK_POP * Motion.Bump(picked())
-					end,
-				},
-				state.Doll,
-				{
-					Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
-					Size = UDim2.fromOffset(Layout.PICTURE_SIZE, Layout.PICTURE_SIZE),
-					ZIndex = 3,
-				}
-			),
-			create("Frame")({
-				Name = "Tag",
-				Position = UDim2.fromOffset(Layout.ABILITY_TAG.X, Layout.ABILITY_TAG.Y),
-				Size = UDim2.fromOffset(Layout.ABILITY_TAG_SIZE.X, Layout.ABILITY_TAG_SIZE.Y),
-				BackgroundColor3 = if isUltimate then Colors.ULT else Colors.PRICE_EDGE,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-				if isUltimate
-					then nil
-					else create("Frame")({
-						Name = "Face",
-						Position = UDim2.fromOffset(1, 1),
-						Size = UDim2.new(1, -2, 1, -2),
-						BackgroundColor3 = Colors.PRICE_FACE,
-						BorderSizePixel = 0,
-					}),
-				label({
-					Size = UDim2.fromScale(1, 1),
-					TextXAlignment = Enum.TextXAlignment.Center,
-					TextYAlignment = Enum.TextYAlignment.Center,
-					TextSize = Layout.ABILITY_TAG_TEXT,
-					TextColor3 = if isUltimate then Palette.Ink else Palette.Green,
-					Text = if isUltimate then "ULT" else `${ability.Cost or 0}`,
-					ZIndex = 2,
-				}),
-			}),
-			label({
-				Name = "Label",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(size.X / 2, Layout.ABILITY_LABEL_Y),
-				Size = UDim2.fromOffset(size.X - 12, Layout.ABILITY_LABEL_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextScaled = true,
-				Text = string.upper(ability.Name),
-				create("UITextSizeConstraint")({ MaxTextSize = Layout.ABILITY_LABEL_TEXT }),
-			}),
-		}),
 	})
 end
 
@@ -1436,7 +1372,7 @@ local function infoPanel(state: Types.TLobbyState, actions: Types.TLobbyActions,
 			ZIndex = 4,
 		}),
 		"ABILITIES",
-		`{#abilities} SKILLS`,
+		nil,
 		{
 			AnchorPoint = Vector2.new(1, 0),
 			Position = function()

@@ -10,24 +10,19 @@ local EquipmentService = require(ServerScriptService.GlobalServer.Services.Equip
 local EnemiesService = require(script.Parent.EnemiesService)
 local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
 local TData = require(ReplicatedStorage.Types.TData)
+local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkEquipment = NetworkMeta.Server.Equipment
 
 local EquipmentDropsService = {}
 
 local random = Random.new()
+-- os.clock each player's won pieces are shown until, one card after another.
+local shownUntil: { [Player]: number } = {}
 
--- Every piece some boss drops, by the boss's data Id.
-local dropsByEnemy: { [number]: { TData.TEquipment } } = {}
-for _, item in EquipmentCore.All do
-	local drop = item.Drop
-	if not drop then continue end
-	local list = dropsByEnemy[drop.Enemy]
-	if not list then
-		list = {}
-		dropsByEnemy[drop.Enemy] = list
-	end
-	table.insert(list, item)
+-- The os.clock the last piece `player` won is shown until on their screen (0 for none).
+function EquipmentDropsService.ShownUntil(player: Player): number
+	return shownUntil[player] or 0
 end
 
 -- Rolls each of `drops` for `player`. A piece they own already is won for nothing: there is no second copy.
@@ -35,15 +30,23 @@ local function roll(player: Player, drops: { TData.TEquipment })
 	for _, item in drops do
 		local drop = item.Drop
 		if not drop or random:NextNumber() >= drop.Chance then continue end
-		if EquipmentService.Grant(player, item) then ServerNetworkEquipment.Dropped.Fire(player, item.Id) end
+		if not EquipmentService.Grant(player, item) then continue end
+		ServerNetworkEquipment.Dropped.Fire(player, item.Id)
+		shownUntil[player] = math.max(shownUntil[player] or 0, os.clock()) + EquipmentCore.DROP_SHOW_SECONDS
 	end
 end
 
+EquipmentDropsService.OnPlayerDisconnected = function(player: Player)
+	shownUntil[player] = nil
+end :: TPlayerEvents.OnPlayerDisconnected
+
 EnemiesService.OnEnemyDied:Connect(function(_, enemyData: TData.TEnemy)
-	local drops = dropsByEnemy[enemyData.Id]
-	if not drops then return end
+	local drops = EquipmentCore.DropsOf(enemyData.Id)
+	if #drops == 0 then return end
+	-- Each player's on its own thread: a piece won is saved before it is told (Grant yields), and the boss bar shows
+	-- the rolls only for as long as its fall holds, so one player's save must not hold back the next one's result.
 	for _, player in Players:GetPlayers() do
-		roll(player, drops)
+		task.spawn(roll, player, drops)
 	end
 end)
 

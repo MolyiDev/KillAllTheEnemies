@@ -59,7 +59,6 @@ UpgradePickController.IsCovering = source(false)
 UpgradePickController.IsPicking = false
 
 local Tune = table.freeze({
-	KEYS = table.freeze({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three }),
 	-- Design px between two cards' middles, and how far under the screen's middle they stand (his rects).
 	SPACING = 396,
 	REST_Y = -30,
@@ -124,6 +123,11 @@ local Tune = table.freeze({
 	TOSS_VELOCITY = Vector3.new(520, 950, 0),
 	TOSS_SPIN = Vector3.new(2, 3, 7),
 	SHADE_RATE = 7,
+	-- A hand taken back (a boss coming, the run over) leaves the way it was dealt: each card, the last dealt first,
+	-- turns face down on its way back under the right of the screen, gathering speed as it goes.
+	UNDEAL_FREQUENCY = 1.8,
+	UNDEAL_TURN_FREQUENCY = 2,
+	UNDEAL_SECONDS = 0.6,
 	FOV_PUNCH = 3,
 	FOV_RETURN = 0.5,
 
@@ -163,7 +167,6 @@ type TCardSources = Card.TCardState & { IsShown: vide.Source<boolean>, Order: vi
 local cards: { TCardSources } = table.create(UpgradesCore.HAND_SIZE)
 for index = 1, UpgradesCore.HAND_SIZE do
 	cards[index] = {
-		Key = Tune.KEYS[index],
 		Id = source(0),
 		Level = source(1),
 		Rarity = source(1),
@@ -227,12 +230,12 @@ local touchAt: Vector2? = nil
 local rerollTo: THand? = nil
 local rerollAt = 0
 -- Each card's place in the flow: whether it has been dealt, how far it is through a redeal (0 not started, 1 turning
--- face down, 2 turning back), and how much of the hand's light and the losers' shade it has (0 to 1, before they are
--- rounded onto its sources).
-local slots: { { IsDealt: boolean, RerollStep: number, Hover: number, Shade: number } } =
+-- face down, 2 turning back), the os.clock it leaves at when the hand is taken back, and how much of the hand's light
+-- and the losers' shade it has (0 to 1, before they are rounded onto its sources).
+local slots: { { IsDealt: boolean, RerollStep: number, LeaveAt: number, Hover: number, Shade: number } } =
 	table.create(UpgradesCore.HAND_SIZE)
 for index = 1, UpgradesCore.HAND_SIZE do
-	slots[index] = { IsDealt = false, RerollStep = 0, Hover = 0, Shade = 0 }
+	slots[index] = { IsDealt = false, RerollStep = 0, LeaveAt = math.huge, Hover = 0, Shade = 0 }
 end
 -- os.clock until which the screen's clock runs (the last of its gestures to end), and the frame's dt for step, so
 -- the per-frame batch passes a function that captures nothing.
@@ -242,6 +245,8 @@ local pickClockUntil = -math.huge
 local frameDt = 0
 local pickedIndex = 0
 local isLeaving = false
+-- Seconds from a hand being taken back until its last card is gone.
+local undealSeconds = 0
 -- The rarest card taken since the screen opened (0 for none): shown on the body once it has closed.
 local takenRarity = 0
 
@@ -505,6 +510,20 @@ local function stepHover(count: number, now: number)
 	end
 end
 
+-- A card goes back the way it came: under the right of the screen, turning face down.
+local function undealBody(index: number)
+	local body = bodies[index]
+	slots[index].IsDealt = false
+	body.Sway = 0
+	body.PointTarget = Vector3.new(body.Rest.X + Tune.DEAL_FROM.X, Tune.DEAL_FROM.Y, Tune.DEAL_FROM.Z)
+	body.PointFrequency = Tune.UNDEAL_FREQUENCY
+	body.PointDamping = 1
+	body.TurnTarget = Tune.DEAL_TURN
+	body.TurnFrequency = Tune.UNDEAL_TURN_FREQUENCY
+	body.TurnDamping = 1
+	SoundsCore.PlayUINamed(SOUNDS, "Deal")
+end
+
 -- The cards once one is taken (`pickedIndex`, 0 when the hand was taken back): held up, then let go.
 local function stepPicked(now: number)
 	local since = now - phaseAt
@@ -512,17 +531,19 @@ local function stepPicked(now: number)
 	if chosen then
 		local flash = Motion.Fade(now, phaseAt, Tune.FLASH_SECONDS)
 		cards[pickedIndex].Flash(math.round(flash * flash * 30) / 30)
+		if not isLeaving and since >= Tune.HOLD_SECONDS then
+			isLeaving = true
+			chosen.PointFrequency = Tune.LEAVE_FREQUENCY
+			chosen.PointDamping = 1
+			chosen.PointTarget = Tune.LEAVE_TO
+			chosen.TurnTarget = Vector3.new(-0.7, 0, 0)
+		end
+	else
+		for index, slot in slots do
+			if slot.IsDealt and now >= slot.LeaveAt then undealBody(index) end
+		end
 	end
-
-	local hold = if chosen then Tune.HOLD_SECONDS else 0
-	if chosen and not isLeaving and since >= hold then
-		isLeaving = true
-		chosen.PointFrequency = Tune.LEAVE_FREQUENCY
-		chosen.PointDamping = 1
-		chosen.PointTarget = Tune.LEAVE_TO
-		chosen.TurnTarget = Vector3.new(-0.7, 0, 0)
-	end
-	if since < hold + Tune.LEAVE_SECONDS then return end
+	if since < (if chosen then Tune.HOLD_SECONDS + Tune.LEAVE_SECONDS else undealSeconds) then return end
 
 	local nextHand = queuedHand
 	queuedHand = nil
@@ -535,7 +556,7 @@ local function stepPicked(now: number)
 	end
 end
 
--- A card was taken (or, with `index` 0, the hand was taken back with the run).
+-- A card was taken (or, with `index` 0, the hand was taken back: with the run, or for a boss).
 local function showPicked(index: number, now: number)
 	phase = "Picked"
 	phaseAt = now
@@ -546,6 +567,20 @@ local function showPicked(index: number, now: number)
 	hoverIndex = if index > 0 then index else nil
 	screen.IsCatching(false)
 	setHeader(false, now)
+
+	-- Taken back: each card dealt leaves in turn, the last one first.
+	if index == 0 then
+		local leaving = 0
+		for bodyIndex = #bodies, 1, -1 do
+			local slot = slots[bodyIndex]
+			slot.LeaveAt = math.huge
+			if not bodies[bodyIndex].IsShown or not slot.IsDealt then continue end
+			slot.LeaveAt = now + leaving * Tune.DEAL_STAGGER
+			leaving += 1
+		end
+		undealSeconds = math.max(leaving - 1, 0) * Tune.DEAL_STAGGER + Tune.UNDEAL_SECONDS
+		return
+	end
 
 	for bodyIndex, body in bodies do
 		if not body.IsShown then continue end
@@ -621,7 +656,7 @@ local function step(dt: number)
 	for index, body in bodies do
 		local slot = slots[index]
 		local isHeld = body.IsShown and index == hoverIndex
-		local isShaded = phase == "Picked" and index ~= pickedIndex
+		local isShaded = phase == "Picked" and pickedIndex > 0 and index ~= pickedIndex
 		slot.Hover = math.clamp(slot.Hover + (if isHeld then dt else -dt) * Tune.HOVER_RATE, 0, 1)
 		slot.Shade = math.clamp(slot.Shade + (if isShaded then dt else -dt) * Tune.SHADE_RATE, 0, 1)
 		cards[index].Hover(math.round(slot.Hover * 20) / 20)
@@ -716,16 +751,12 @@ local function stepFrame()
 	step(frameDt)
 end
 
--- 1, 2 and 3 take a card; on a pad the d-pad walks the cards, A takes the one it is on and X asks for a new hand.
--- Bound only while a hand is up and above the hotbar's own keys, which it sinks.
+-- The d-pad walks the cards, A takes the one it is on and X asks for a new hand. Bound only while a hand is up.
 local function onAction(_, inputState: Enum.UserInputState, input: InputObject): Enum.ContextActionResult
 	if inputState ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
 	local keyCode = input.KeyCode
-	local index = table.find(Tune.KEYS, keyCode)
-	local count = if hand then #hand.Cards else 0
-	if index then
-		ask(index)
-	elseif keyCode == Enum.KeyCode.DPadLeft or keyCode == Enum.KeyCode.DPadRight then
+	if keyCode == Enum.KeyCode.DPadLeft or keyCode == Enum.KeyCode.DPadRight then
+		local count = if hand then #hand.Cards else 0
 		if count == 0 then return Enum.ContextActionResult.Sink end
 		local move = if keyCode == Enum.KeyCode.DPadLeft then -1 else 1
 		padIndex = math.clamp((padIndex or math.ceil(count / 2) - move) + move, 1, count)
@@ -754,9 +785,6 @@ local function open(newHand: THand)
 		onAction,
 		false,
 		Enum.ContextActionPriority.High.Value,
-		Tune.KEYS[1],
-		Tune.KEYS[2],
-		Tune.KEYS[3],
 		Enum.KeyCode.DPadLeft,
 		Enum.KeyCode.DPadRight,
 		Enum.KeyCode.ButtonA,
@@ -800,7 +828,8 @@ function UpgradePickController.Show(newHand: THand)
 	end
 end
 
--- The server closed the hand: card `index` of it was taken, or none (0) when it was taken back with the run.
+-- The server closed the hand: card `index` of it was taken, or none (0) when it was taken back (the run over, a boss
+-- coming).
 function UpgradePickController.Resolve(index: number)
 	local current = hand
 	local card = if current then current.Cards[index] else nil
@@ -813,6 +842,9 @@ function UpgradePickController.Resolve(index: number)
 		close(os.clock())
 	elseif phase == "Open" then
 		showPicked(index, os.clock())
+	elseif phase == "Picked" and index == 0 then
+		-- The hand taken back was the one waiting behind the pick still being shown.
+		queuedHand = nil
 	end
 end
 

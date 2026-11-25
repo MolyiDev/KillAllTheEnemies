@@ -197,9 +197,9 @@ function AbilityController.Cast(slot: number)
 	local isStanding = root ~= nil and humanoid ~= nil and humanoid.Health > 0 and selfId ~= 0
 	local isReady = if ability.Cooldown
 		then gameNow >= state.ReadyAt
-		else AbilityController.Charge >= (ability.ChargeKills or math.huge)
+		else gameNow >= AbilityController.BeamUntil and AbilityController.Charge >= (ability.ChargeKills or math.huge)
 	local canPay = MatchController.Gold >= (ability.Cost or 0)
-	if TimeCore.IsPaused or not isStanding or not isReady or not canPay or gameNow < AbilityController.BeamUntil then
+	if TimeCore.IsPaused or not isStanding or not isReady or not canPay then
 		state.DeniedAt = now
 		return
 	end
@@ -357,7 +357,8 @@ ServerNetworkAbilities.FoamSprayed.On(function(casterId: number, aim: Vector3)
 	playOnPart("FoamSpray", root)
 end)
 
--- Only the bodies this client holds a row for; the rest it was never shown.
+-- Only the bodies this client holds a row for; the rest it was never shown. A boss is only slowed, never held
+-- (Bosses.Move's Pace), so it wears the foam without going stiff.
 ServerNetworkAbilities.Foamed.On(function(instanceIds: { number }, seconds: number)
 	local untilAt = TimeCore.GameClock + seconds
 	local heardAt: Vector3? = nil
@@ -366,7 +367,7 @@ ServerNetworkAbilities.Foamed.On(function(instanceIds: { number }, seconds: numb
 		local enemyData = if entity then EnemyWorld:get(entity, Components.Data) else nil
 		if not enemyData then continue end
 		foamedUntil[instanceId] = untilAt
-		EnemiesController.SetStiff(instanceId, Tune.FOAM_COLOR)
+		if not enemyData.Boss then EnemiesController.SetStiff(instanceId, Tune.FOAM_COLOR) end
 		local ground = EnemiesController.GetCFrame(instanceId)
 		if not ground then continue end
 		foamFx.Encase(instanceId, ground, EnemiesCore.AimShape(enemyData))

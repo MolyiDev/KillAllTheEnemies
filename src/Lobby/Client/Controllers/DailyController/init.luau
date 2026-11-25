@@ -171,16 +171,23 @@ DailyController.OnStart = function()
 		end)
 
 		local morph = Shell.Morph(state)
-		local top = Shell.Top(morph)
+		local spinShape = SpinsController.BuildShape()
+		local spinPanel = vide.derive(function(): Vector2
+			local shape = spinShape()
+			return Vector2.new(shape.Top, shape.Height)
+		end)
+		local top = Shell.Top(morph, spinPanel)
 		local rewardsPage, rewardsFlights =
 			DailyRewardsController.BuildPage(Shell.Lift(top, DAILY, DailyRewardsController.IsShown))
-		local spinsPage, spinsFlights, shake = SpinsController.BuildPage(Shell.Lift(top, SPIN, SpinsController.IsShown))
+		local spinsPage, spinsFlights, shake =
+			SpinsController.BuildPage(Shell.Lift(top, SPIN, SpinsController.IsShown), spinShape)
 		local back, middle, front = Shell.Build(state, actions, {
 			Day = DailyRewardsController.Day,
 			FreePerDay = SpinsController.FreePerDay,
 			IsWaiting = isWaiting,
 			IsSpinning = SpinsController.IsSpinning,
 			Shake = shake,
+			SpinShape = spinPanel,
 		}, morph, top, { rewardsPage, spinsPage })
 		-- Drawn only while it is up, still leaving, or a reward's Gems are still in the air: shut, it costs nothing.
 		local isDrawn = vide.derive(function(): boolean

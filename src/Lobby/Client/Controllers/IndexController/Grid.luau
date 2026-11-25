@@ -12,6 +12,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Ribbon = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Ribbon)
 local Scrollbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Scrollbar)
@@ -58,18 +59,12 @@ local Layout = table.freeze({
 	FIRST = Vector2.new(26, 19),
 	STEP = Vector2.new(220, 217),
 	CARD = Vector2.new(198, 195),
-	-- Inside a card: the picture's middle and box, the padlock's longer side over a silhouette, the rule over the name
-	-- band, the name and the NEW ribbon (its middle line meets the edges NEW_ALONG from the corner).
-	PICTURE = Vector2.new(99, 84),
+	-- Inside a card: the picture's box, the padlock's longer side over a silhouette and the NEW ribbon (its middle line
+	-- meets the edges NEW_ALONG from the corner).
 	PICTURE_BOX = 158,
 	-- A recipe's bottle, its longer side.
 	BOTTLE = 124,
 	LOCK = 80,
-	BAND = 29,
-	CARD_RULE = Vector2.new(11, 161),
-	CARD_RULE_WIDTH = 176,
-	NAME_Y = 172,
-	NAME_TEXT = 16,
 	NEW_ALONG = 72,
 	NEW_THICKNESS = 22,
 	NEW_TEXT = 14,
@@ -91,14 +86,12 @@ local Timing = table.freeze({
 	TITLE_SLIDE = 14,
 	-- Under the hand a card's enemy turns to face you.
 	HOVER_TURN = 28,
-	HOVER_GROW = 0.08,
 	-- A reveal, from the moment the enemy starts coming through: the card pops, flashes and throws a ring.
 	POP_PERIOD = 0.28,
 	POP_DAMPING = 0.5,
 	POP = 0.18,
 	FLASH = 0.45,
 	BURST = 0.55,
-	BURST_REACH = 26,
 	-- Under the hand a locked card's padlock grows; pressed, it rattles on its spring (degrees).
 	LOCK_GROW = 0.1,
 	RATTLE_PERIOD = 0.11,
@@ -135,7 +128,7 @@ local function lock(unlocking: () -> number, rattle: () -> number, rise: () -> n
 		Grow = function(): number
 			return Timing.LOCK_GROW * rise()
 		end,
-		At = Layout.PICTURE,
+		At = ItemCard.PictureAt(Layout.CARD),
 		Longest = Layout.LOCK,
 		ZIndex = 5,
 	})
@@ -171,83 +164,37 @@ local function card(state: Types.TIndexState, spec, order: number, dealt: () -> 
 		end)
 	end)
 
-	local edge = function(): Color3
-		return Parts.EdgeOf(Parts.LOCKED:Lerp(accent, lit()))
+	local accentNow = function(): Color3
+		return Parts.LOCKED:Lerp(accent, lit())
 	end
 	local glow = function(): Color3
 		return Parts.LOCKED:Lerp(accent, lit()):Lerp(Palette.White, flash())
 	end
 	local at = placeOf(order)
 
-	return Components.Button({
+	return ItemCard.Build({
 		Name = spec.Name,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = Layout.CARD,
 		Position = UDim2.fromOffset(at.X, at.Y),
-		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = function()
-			hand.Commit()
-			if unlocking() == 0 then strikeRattle(Timing.RATTLE) end
-			spec.Select()
+		Hand = hand,
+		Accent = accentNow,
+		Glow = glow,
+		Title = function()
+			return if lit() > 0 then string.upper(spec.Name) else Parts.UNKNOWN
 		end,
-		hand.Events,
-		create("UIScale")({
-			Scale = function()
-				return Motion.Decelerate(dealt()) * (hand.Scale() + pop())
-			end,
-		}),
-		Parts.Burst(burst, Timing.BURST_REACH, accent, UDim.new(0, 4), {
-			Size = UDim2.fromScale(1, 1),
-		}),
-		Components.Card({
-			Accent = edge,
-			Glow = glow,
-			GlowTransparency = function()
-				return 0.7 - 0.35 * math.max(hand.Light(), flash())
-			end,
-			Tint = 0.35,
-			Band = Layout.BAND,
-			Marks = true,
-			Brackets = hand.Rise,
-			BracketLength = 20,
-			BracketTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
-			end,
-			BracketsClosed = isSelected,
-		}, {
-			Name = "Card",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(hand.Glint, 3),
-			spec.Picture(burned, lit, hand),
+		Lit = lit,
+		IsSelected = isSelected,
+		Grown = function()
+			return Motion.Decelerate(dealt())
+		end,
+		-- The light crosses it as it is dealt.
+		Sheen = dealt,
+		Pop = pop,
+		Flash = flash,
+		Ring = burst,
+		Picture = spec.Picture(burned, lit, hand),
+		Children = {
 			lock(unlocking, rattle, hand.Rise),
-			create("Frame")({
-				Name = "Rule",
-				Position = UDim2.fromOffset(Layout.CARD_RULE.X, Layout.CARD_RULE.Y),
-				Size = UDim2.fromOffset(Layout.CARD_RULE_WIDTH, 2),
-				BackgroundColor3 = function()
-					return Parts.LOCKED:Lerp(accent, lit())
-				end,
-				BackgroundTransparency = 0.6,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-			}),
-			Label({
-				Name = "Name",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.NAME_Y),
-				Size = UDim2.fromOffset(Layout.CARD.X - 16, Layout.NAME_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextScaled = true,
-				TextColor3 = function()
-					return Palette.Lavender:Lerp(Palette.White, lit())
-				end,
-				Text = function()
-					return if lit() > 0 then string.upper(spec.Name) else Parts.UNKNOWN
-				end,
-				create("UITextSizeConstraint")({ MaxTextSize = Layout.NAME_TEXT }),
-			}),
 			Ribbon.Build({
 				Corner = "TopRight",
 				Text = "NEW",
@@ -262,22 +209,12 @@ local function card(state: Types.TIndexState, spec, order: number, dealt: () -> 
 				CallOrder = order,
 				ZIndex = 6,
 			}),
-			create("Frame")({
-				Name = "Flash",
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Palette.White,
-				BorderSizePixel = 0,
-				ZIndex = 7,
-				Visible = function()
-					return flash() > 0.01
-				end,
-				BackgroundTransparency = function()
-					return 1 - 0.75 * flash()
-				end,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			}),
-		}),
-	}) :: TextButton
+		},
+		Activated = function()
+			if unlocking() == 0 then strikeRattle(Timing.RATTLE) end
+			spec.Select()
+		end,
+	})
 end
 
 local function enemyCard(
@@ -320,14 +257,8 @@ local function enemyCard(
 			}, {
 				Name = "Enemy",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
+				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(Layout.PICTURE_BOX, Layout.PICTURE_BOX),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + Timing.HOVER_GROW * hand.Rise()
-					end,
-				}),
 			})
 		end,
 	}, order, dealt)
@@ -362,21 +293,15 @@ local function potionCard(
 		Select = function()
 			actions.SelectPotion(id)
 		end,
-		Picture = function(burned: () -> number, lit: () -> number, hand)
+		Picture = function(burned: () -> number, lit: () -> number, _)
 			return Components.Picture(EIcons.PotionBottle, {
 				Name = "Bottle",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.PICTURE.X, Layout.PICTURE.Y),
+				Position = UDim2.fromScale(0.5, 0.5),
 				Size = Components.PictureBox(Layout.BOTTLE),
 				ImageColor3 = function()
 					return Parts.SILHOUETTE:Lerp(Palette.White, burned()):Lerp(color, lit())
 				end,
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + Timing.HOVER_GROW * hand.Rise()
-					end,
-				}),
 			})
 		end,
 	}, order, dealt)

@@ -157,8 +157,6 @@ export type TLobbyState = {
 	PlayAt: Source<number>,
 	PlayRefusedAt: Source<number>,
 	PlayCallAt: Source<number>,
-	-- The key held down that no text box took, for the HUD's keyed buttons.
-	HeldKey: Source<Enum.KeyCode?>,
 	-- A screen is up over the lobby (classes, weapons, the index, the daily, settings and codes screens), and when the
 	-- last one opened or shut: the HUD steps aside, as those screens stand over its pieces.
 	IsCovered: Source<boolean>,

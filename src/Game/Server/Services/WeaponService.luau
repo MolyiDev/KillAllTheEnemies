@@ -39,6 +39,10 @@ local ClientNetworkWeapons = Network.Client.Weapons
 local GUNS = DataCore.Guns.ById
 local GunsTune = GunsCore.Tune
 local EnemiesSpatialHash = EnemiesCore.EnemiesSpatialHash
+-- A long body's pieces reach far past its feet, where the spatial hash keeps it, so these are tested on every shot.
+-- Not while under the floor: nothing can hit it there.
+local PiecedQuery =
+	EnemyWorld:query(Components.Position, Components.Yaw, Components.AimPieces):without(Tags.Submerged):cached()
 
 local Tune = table.freeze({
 	-- A shot is accepted this much early against the gun's interval, for the jitter between two of the client's.
@@ -159,10 +163,17 @@ local function gatherBodies(origin: Vector3, direction: Vector3, range: number, 
 	for _, enemyEntity in reusableCandidates do
 		local position = EnemyWorld:get(enemyEntity, Components.Position)
 		local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
-		if not position or not enemyData then continue end
+		if not position or not enemyData or enemyData.AimPieces then continue end
 		local aim = EnemiesCore.AimShape(enemyData)
 		GunsCore.AddBody(bodies, position :: any, aim.z, aim.y)
 		bodyEntities[bodies.Count] = enemyEntity
+	end
+
+	for enemyEntity, position, yaw, pieces in PiecedQuery do
+		local first = GunsCore.AddPieces(bodies, position :: any, Vector3.new(math.sin(yaw), 0, math.cos(yaw)), pieces)
+		for index = first, bodies.Count do
+			bodyEntities[index] = enemyEntity
+		end
 	end
 end
 
@@ -230,16 +241,22 @@ local function shoot(
 		local index, distance = GunsCore.CastBodies(bodies, origin, unit, wallDistance, pad, -1)
 		-- The pellet hurts the first body in its way and the `pierce` behind it, each in full. It stops in the last of
 		-- those, or goes on to the arena when it runs out of bodies first (`distance` is then the wall's).
+		-- A long body's pieces come one after another along the ray: the body is hit once, and the next piece of it is
+		-- no new body to pierce.
 		local stoppedIn = nil
 		local piercesLeft = pierce
+		local lastHit = nil
 		while index > 0 do
 			local enemyEntity = bodyEntities[index]
-			hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + pelletDamage
-			if piercesLeft == 0 then
-				stoppedIn = enemyEntity
-				break
+			if enemyEntity ~= lastHit then
+				lastHit = enemyEntity
+				hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + pelletDamage
+				if piercesLeft == 0 then
+					stoppedIn = enemyEntity
+					break
+				end
+				piercesLeft -= 1
 			end
-			piercesLeft -= 1
 			index, distance = GunsCore.CastBodies(bodies, origin, unit, wallDistance, pad, distance)
 		end
 

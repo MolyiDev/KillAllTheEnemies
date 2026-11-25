@@ -86,6 +86,15 @@ export type TShopState = {
 	-- the screen is up).
 	FeaturedEndsAt: Source<number>,
 	Clock: Source<number>,
+	-- The hero card's page (an index in Parts.HERO), the one it turned from and which way (1 on, -1 back), when it
+	-- turned (os.clock), and the seconds it has been on show, which stand still while the hand is on the card
+	-- (IsHeroHeld) or anything is over the shop. That count is the shop's idle clock: the calls run off it too.
+	Page: Source<number>,
+	PagePrev: Source<number>,
+	PageStep: Source<number>,
+	PageAt: Source<number>,
+	PageShown: Source<number>,
+	IsHeroHeld: Source<boolean>,
 	-- The section the scroll is in: the lit tab.
 	Section: Source<ShopCore.TSection>,
 	SectionAt: Source<number>,
@@ -124,6 +133,9 @@ export type TReceiptActions = {
 export type TShopActions = {
 	Close: () -> (),
 	PickSection: (section: ShopCore.TSection) -> (),
+	-- The hero card: a step on or back (its arrows), or straight to a page (its pips).
+	TurnPage: (step: number) -> (),
+	PickPage: (page: number) -> (),
 	Buy: (name: string) -> (),
 	OpenGift: (name: string) -> (),
 	CloseGift: () -> (),

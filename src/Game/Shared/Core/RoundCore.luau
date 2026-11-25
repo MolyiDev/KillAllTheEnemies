@@ -2,6 +2,7 @@
 -- so RoundService and any client readout agree without being told, and the numbers can be checked in lune. Every
 -- number here is a first pass for playtesting, not the tuning sheet the GDD asks for.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local RoundCore = {}
@@ -12,6 +13,8 @@ local Tune = table.freeze({
 	-- Each extra player adds this share of a solo round (GDD 7: scale pressure for party size).
 	COUNT_PER_EXTRA_PLAYER = 0.5,
 	HEALTH_PER_ROUND = 0.08,
+	-- Each extra player adds this share of a solo boss's health.
+	BOSS_HEALTH_PER_EXTRA_PLAYER = 0.75,
 	DAMAGE_PER_ROUND = 0.04,
 	SPEED_PER_ROUND = 0.01,
 	MAX_SPEED_SCALE = 1.4,
@@ -36,8 +39,16 @@ RoundCore.LAST_SHOWN = 2
 -- frame (EnemiesController), so this never outruns it.
 RoundCore.SPAWNS_PER_SECOND = 20
 
+-- Game seconds between the kill that ends a boss's way and its arrival: the HUD's strip fills, charges, and lets it in.
+RoundCore.BOSS_ARRIVE_SECONDS = 1.6
+
 function RoundCore.IsBossRound(round: number): boolean
 	return round > 0 and round % RoundCore.BOSS_EVERY == 0
+end
+
+-- The boss round whose way `round` is on: its boss comes once the run's kills reach the bodies of every wave up to it.
+function RoundCore.BossRoundOf(round: number): number
+	return math.max(math.ceil(round / RoundCore.BOSS_EVERY), 1) * RoundCore.BOSS_EVERY
 end
 
 -- Seconds `round` must run before everyone's vote can skip it (no boss up); the next opens beside it (GDD 21). The
@@ -47,7 +58,7 @@ function RoundCore.GetSkipAfterSeconds(round: number): number
 	return if round <= Tune.FAST_START_ROUNDS then 0 else Tune.SKIP_AFTER_SECONDS
 end
 
--- Ordinary bodies in `round`. A boss round has these and its boss on top.
+-- Ordinary bodies in `round`, a boss round's too: its boss is brought on by the kills (RoundService), not counted.
 function RoundCore.GetCount(round: number, playerCount: number): number
 	local solo = Tune.BASE_COUNT + Tune.COUNT_PER_ROUND * (round - 1)
 	local party = 1 + Tune.COUNT_PER_EXTRA_PLAYER * math.max(playerCount - 1, 0)
@@ -63,7 +74,12 @@ function RoundCore.GetScales(round: number): (number, number, number)
 end
 
 function RoundCore.GetBossHealthScale(round: number, playerCount: number): number
-	return (1 + Tune.HEALTH_PER_ROUND * (round - 1)) * (1 + 0.75 * math.max(playerCount - 1, 0))
+	return (1 + Tune.HEALTH_PER_ROUND * (round - 1)) * RoundCore.GetBossPartyScale(playerCount)
+end
+
+-- How many times a solo boss's health a party of `playerCount` faces.
+function RoundCore.GetBossPartyScale(playerCount: number): number
+	return 1 + Tune.BOSS_HEALTH_PER_EXTRA_PLAYER * math.max(playerCount - 1, 0)
 end
 
 function RoundCore.GetKillGold(enemyData: TData.TEnemy, round: number): number
@@ -97,16 +113,25 @@ function RoundCore.GetPool(round: number, mapName: string, all: { TData.TEnemy }
 	return totalWeight
 end
 
--- The boss for `round` on `mapName`: the boss whose IntroRound is the highest at or under it, so a roster can rotate.
-function RoundCore.GetBoss(round: number, mapName: string, all: { TData.TEnemy }): TData.TEnemy?
-	local best: TData.TEnemy? = nil
-	for _, enemyData in all do
-		if not enemyData.IsBoss or enemyData.IntroRound > round then continue end
-		if not RoundCore.IsOnMap(enemyData, mapName) then continue end
-		if not best or enemyData.IntroRound > best.IntroRound then best = enemyData end
+-- The boss for boss round `round` on `mapName`: its bosses (MapsCore) take turns, the principal on the first, and one
+-- `isReady` refuses (its rig not in the place yet) is left out of the turn. nil on a map with none.
+function RoundCore.GetBoss(
+	round: number,
+	mapName: string,
+	byId: { [number]: TData.TEnemy },
+	isReady: ((TData.TEnemy) -> boolean)?
+): TData.TEnemy?
+	local map = MapsCore.MAPS[mapName]
+	local bosses = if map then map.Bosses elseif mapName == MapsCore.DEFAULT then MapsCore.DEFAULT_BOSSES else nil
+	if not bosses then return nil end
+	local ready: { TData.TEnemy } = {}
+	for _, id in bosses do
+		local enemyData = byId[id]
+		if enemyData and (not isReady or isReady(enemyData)) then ready[#ready + 1] = enemyData end
 	end
 
-	return best
+	if #ready == 0 then return nil end
+	return ready[(round // RoundCore.BOSS_EVERY - 1) % #ready + 1]
 end
 
 -- One weighted draw from a pool built by GetPool. `roll` is in [0, 1).

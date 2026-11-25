@@ -1,5 +1,5 @@
 -- What both sides need to agree on about enemies: the population cap, the spatial hash every positional
--- question goes through, where a body is aimed at, and which rig it wears.
+-- question goes through, where a body is aimed at, how much of the view it fills, and which rig it wears.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SpatialHash = require(ReplicatedStorage.GlobalShared.Utils.SpatialHash)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -56,8 +56,12 @@ local aimShapes: { [number]: vector } = {}
 export type TClips = {
 	Idle: Animation?,
 	Walk: Animation?,
+	-- Played on a kill instead of the ragdoll, held on its last frame (TEnemy.AnimationSet).
+	Death: Animation?,
 	-- By attack index.
 	Attacks: { [number]: Animation },
+	-- Every clip in the set, by name: a boss's moves play more than its attacks' (BossController).
+	Named: { [string]: Animation },
 }
 
 local clips: { [number]: TClips } = {}
@@ -80,12 +84,56 @@ end
 function EnemiesCore.AimShape(enemyData: TData.TEnemy): vector
 	local cached = aimShapes[enemyData.Id]
 	if cached then return cached end
+	-- A long body's extents are mostly head and tail, far off its feet: its first piece is its trunk.
+	local pieces = enemyData.AimPieces
+	if pieces then
+		local trunk = pieces[1]
+		local shape =
+			vector.create(trunk.Bottom + trunk.Height * AIM_CHEST_FRACTION, trunk.Bottom + trunk.Height, trunk.Radius)
+		aimShapes[enemyData.Id] = shape
+		return shape
+	end
+
 	local size = if EnemiesCore.HasModel(enemyData)
 		then EnemiesCore.GetModel(enemyData):GetExtentsSize()
 		else enemyData.CollisionSize
 	local shape = vector.create(size.Y * AIM_CHEST_FRACTION, size.Y, math.max(size.X, size.Z) * 0.5)
 	aimShapes[enemyData.Id] = shape
 	return shape
+end
+
+-- (height of its centre over the feet, radius): a ball holding the whole body, which is what the view culls test
+-- (AOIService, EnemyPacker, EnemiesController), since the feet alone hide a body whose head is on screen. Centred over
+-- the root and reaching the far corner of the rig's box, as the T-Rex's root sits well off the middle of a rig 41 studs
+-- long; grown for the clips, which reach past the rest pose (its bite, 26.9 ahead).
+local VIEW_POSE_MARGIN = 1.25
+
+local viewSpheres: { [number]: vector } = {}
+
+-- `rootOffset`: the root (the feet) in the frame of the upright box `size`.
+local function sphereOver(size: Vector3, rootOffset: Vector3): vector
+	local reachX = math.abs(rootOffset.X) + size.X * 0.5
+	local reachY = size.Y * 0.5
+	local reachZ = math.abs(rootOffset.Z) + size.Z * 0.5
+	local radius = math.sqrt(reachX * reachX + reachY * reachY + reachZ * reachZ) * VIEW_POSE_MARGIN
+	return vector.create(-rootOffset.Y, radius, 0)
+end
+
+function EnemiesCore.ViewSphere(enemyData: TData.TEnemy): vector
+	local cached = viewSpheres[enemyData.Id]
+	if cached then return cached end
+	local sphere
+	if EnemiesCore.HasModel(enemyData) then
+		local model = EnemiesCore.GetModel(enemyData)
+		local box, size = model:GetBoundingBox()
+		sphere = sphereOver(size, box:PointToObjectSpace(model.PrimaryPart.Root.WorldPosition))
+	else
+		local size = enemyData.CollisionSize
+		sphere = sphereOver(size, Vector3.new(0, -size.Y * 0.5, 0))
+	end
+
+	viewSpheres[enemyData.Id] = sphere
+	return sphere
 end
 
 function EnemiesCore.GetClips(enemyData: TData.TEnemy): TClips
@@ -106,7 +154,15 @@ function EnemiesCore.GetClips(enemyData: TData.TEnemy): TClips
 		if clip then attacks[i] = clip end
 	end
 
-	local result: TClips = { Idle = find("Idle"), Walk = find("Walk"), Attacks = attacks }
+	local named: { [string]: Animation } = {}
+	if set then
+		for _, clip in set:GetChildren() do
+			if clip:IsA("Animation") then named[clip.Name] = clip end
+		end
+	end
+
+	local result: TClips =
+		{ Idle = find("Idle"), Walk = find("Walk"), Death = find("Death"), Attacks = attacks, Named = named }
 	clips[enemyData.Id] = result
 	return result
 end

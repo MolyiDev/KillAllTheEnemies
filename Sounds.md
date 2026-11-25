@@ -361,6 +361,8 @@ The Aura review (`Review/Aura/make_review.py`, `make_round3.py`) is the template
 - A weapon's review script that imports the Aura's helpers (`from make_review import ...`) must not itself be named
   `make_review.py` for another script to import: Python finds the importer first and the import fails. Load it by
   path (`importlib.util.spec_from_file_location`), as `Review/YoYo/render_shipped.py` does.
+- A cue voicing something that moves (a boss's step, roar, swing) is judged on a ror video of the move with the cue
+  laid on, from the first round (section 8, "A boss or giant creature").
 - Downmix stereo with `pan=mono|c0=0.5*c0+0.5*c1`, as `balance.py` does. FFmpeg's `-ac 1` reads correlated stereo
   about 3 dB louder, which made two current cues look 3 dB hot in the first render.
 
@@ -668,18 +670,30 @@ failed, and change the rule/selection at its owner so the next session does not 
   rolls one per play. The file is not sorted: add lines without reordering it (a sort rewrites 1,100 lines).
 - **Uploads** go through `python3 tools/sounds/upload.py <files>` as group 34796361 (ids in
   `Assets/sounds/asset_ids.json`, keyed by file stem, so a stem must be unique). Every upload starts in moderation
-  "Reviewing" and is silent until Approved (`mcp__tripwire__get_asset`).
+  "Reviewing" and is silent until Approved (`mcp__tripwire__get_asset`). An uploaded audio asset cannot take a new
+  version (Open Cloud: "Updating Audio is not supported yet"): a replaced file ships under a new file name.
 - **Reviews** live in `Assets/sounds/Review/<Name>/`: `make_roundN.py`, `roundN/`, a README with the user's words
   and picks, and a `ship_picks.py` that copies the picks to `Assets/sounds/<Group>/`, writes `shipped.json` and the
   bank lines. The levels and shared gain come from `Review/Pistol/levels.py` (the body metric of section 3). This
   game's previews use **one shared gain of -8 dB**, and its in-game targets sit **2 dB under the section 3 table**
-  (`Review/Enemies/ship_picks.py MIX_SHIFT_DB`): pistol shot -17, enemy hit -16, kill -13, overkill -10.5, nuke -5.
+  (`Review/Enemies/ship_picks.py MIX_SHIFT_DB`): pistol shot -17, enemy hit -18 (-16 until the fight's mix pass),
+  kill -13, overkill -10.5, nuke -5. A gun's shot is capped further by its held trigger ("The fight's mix" below).
 - **Volume** puts the shipped file's body at its in-game target: `Volume = 10 ^ ((target - body) / 20)`, body
   measured on the file as shipped. A pack's authored parts (a loop, its start, its end) keep their balance: one gain
   for all three, set by the loop.
 - **A later round loads the earlier one's helpers by path** (`importlib.util.spec_from_file_location`) and carries
   its letters on (round 2's first fire is E), so "Fire H" names one candidate across rounds. Adding an option to a
   shared helper must leave the earlier round's files byte-identical.
+- **Every scene plays every pick made so far**, and a pick's challenger from a new pack sits beside it in its folder
+  (the pick first), so a later round is judged in the fight as it will ship.
+- **Name a file by what it is, not by its candidate**: a voice family's five moments all carry the family's name, and
+  written as `<Family>.wav` they overwrote each other (TRex round 3 kept only the death cry). One file per moment.
+- **A cue that builds into its beat ships with its lead.** The ship script bakes each pick again from its round's
+  definition (deterministic, the file as heard), which returns how long it plays before its beat; the caller starts it
+  that much early (`Client/Utils/trexSounds.Lead`). A bag shares one lead, so its takes are padded at the start to the
+  longest (`Review/TRex/ship_picks.py`).
+- **Packs the user buys mid-review land in `~/Downloads/sounds`**: look there at the start of every round, copy them into
+  the library (zip or rar beside the unpacked folder) and say which candidates use them.
 
 ### Where a one-shot is heard from (2026-11-22)
 
@@ -798,6 +812,119 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
 - **A take with its own rattle plays once.** A brick comes down twice about 0.2 s apart; with whole drops the second
   bounce is silent (`thrownPieces.BrickLanded`), unlike the casings' two contacts.
 
+### The Skeleton T-Rex (2026-11-25, `Assets/sounds/Review/TRex/`, 25 cues shipped)
+
+Thirteen rounds; the README has every pick in the user's words and the shipped table (cue, caller, lead). Round 12-13
+added the intro's neck (`Hunt`, one file from `Intro.Hunt`) and held the roar to the chomp (`TRex_HallRoar`).
+
+- **A boss sounds real and deep, not arcade.** Every candidate built on Pixel Combat was "too arcadeish"; steps and
+  stamps "should be deeper, something big is stepping". Deeper meant less above the body (a rock crash's crack made
+  the stomp "too acute"), not more sub: a body (a colossus step, a stone giant's thump, a body falling) with the crash
+  low-passed far under it.
+- **Deeper is slower, not duller.** The spines slowed 0.8 and low-passed at 1.5-2.5 kHz were "underwater clips": 0-0.5%
+  of their first 300 ms at 3-6.5 kHz, where the approved body cues keep 1.2-3.2% (the steps and stomp were slowed and
+  never low-passed). Slow the cue, keep its air under the 6.5 kHz ceiling, and turn a bright layer down under a heavy
+  body instead of filtering it; measure that share before offering a deeper take (`Review/TRex/make_round17.air`).
+  Muffled suits only what is muffled in the world: the crack running under the floor took it (round 16 E).
+- **A cue is as long as the motion it voices.** A whoosh layer holding two swings read as two tail swings; a 2.8 s
+  file under a 0.55 s whip, a skid and a reassemble longer than their clips were all sent back. Read the clip
+  (`Assets/models/Bosses/TRex/anim/trex_clips.py`) and envelope every layer of every take for a second event: a crack
+  take was rejected twice for a dirt hit's second bounce and its debris layer's late pebbles.
+- **The voice is one creature, picked as a family**, the full roar first: roar, short roar, idle, bite and death cry
+  from one animal's recordings (Fusehive records each creature in every mood). And a voice needs its build: takes that
+  reach their peak in 50-120 ms "start too fast like a snap"; pick by attack time, read from the first audible sound,
+  and start the cue early (`trexSounds.Lead`) so the voice ARRIVES on its beat.
+- **A death comes apart and lands**, not only a cry: the cry, a collapse (stone pieces dropping) and the fall.
+- **A boss's warnings land silent**: it voices its own blows on its moves, and the generic slam would stack on them.
+
+### A boss or giant creature: the order that saves rounds
+
+Rounds 7-11 went to "the boss feels quiet, the steps have no weight". What the user took, in the order to offer it
+next time:
+
+1. **Judge on the boss from round 1.** The user asked for it ("I need to check them exactly how they go with the
+   trex"): each candidate goes on the ror preview of the moves, not into an audio-only scene. The preview prints
+   `CUE <name>` where the game plays a sound (`Assets/effects/trex/preview_trex.luau`), ree keeps the line and its time
+   in `record/events.json`, and `Review/TRex/make_videos.py` lays each take there (its lead early) and muxes it on with
+   ffmpeg. A new boss copies that: its preview's beats call `cue`, at the game's own timing.
+2. **Time against the game's clock, not the clip's.** The intro slows for the roar (`BossesCore.IntroClock`), so the
+   jaws stay open 2.62 s after the roar's beat: the shipped roar, sized to the clip, was gone by 2.15 s ("doesn't
+   last the whole intro animation"). The preview runs the same clock now.
+3. **Scale is one decision for the whole creature.** The user took the roar played 0.8 as fast (lower and longer
+   together) and asked for the rest to follow: the short roar, idles, the bite's voice, the death cry and the snort 0.8,
+   the steps 0.8, the stomp 0.9. Pick the speed once, on the roar, and offer every voice and body cue at it together.
+   Check it by the hit's centre (`np.fft` over the first 200 ms): a bigger event lands lower than a smaller one; the
+   stomp at 149 Hz over 109-131 Hz steps read smaller than a step.
+4. **Size is the tail, not level or brightness.** Turned down, in order: harmonics of the low end for small speakers
+   (a louder "just a bass"), short steps with a foot's contact. Taken: the step as it was, slowed, with pebbles shaken
+   loose 0.12 s after the hit, 16 dB under (Gamemaster `rock_smashable_falling_debris`), and a dark reverb (round
+   10's H; the stomp the same). This matches a web search on giants: slow the source, small secondary sounds after
+   the big one ("rattling glass"), long tails, easy on the highs.
+5. **A wet layer swells in under the hit.** A reverb set by its tail's level reached the hit's own level 0.1 s after
+   it and was heard "two times". Ramp the impulse in over 150 ms and hold it 10 dB under the hit
+   (`make_round10.swelling_reverb`).
+6. **Level a cue with an added tail by its dry hit** (`ship_picks.py`'s third take field): the hit plays as loud as
+   before and the tail comes on top, as previewed. Levelled by the whole file, the tail would turn the hit down.
+7. **Clear the music for the set piece.** The Tension track plays at its peak on a boss wave; `MusicController.Duck`
+   takes it to 20% from a second before the intro's stamp to after its chomp (`BossIntroController`).
+8. **Reach the whole fight.** A boss's cues take Min = its longest reach plus the camera's distance behind the player
+   (the T-Rex: 90 + 12.5, so 100), or the cue loses Min/d exactly where it is fought. Its Min 45 cost 3-7 dB at 60-90
+   studs, and it lost to the guns even though each cue sat at its approved level ("The fight's mix" below).
+9. **Find the silent stretches by measuring the clip, not by watching it.** The intro's hunt (3.35-6.29 s: the head
+   rising, whipping to the camera, snapping back, the teeth shutting) had no sound and nobody had listed it. Turning
+   speed of a bone against its parent, every frame of the pose list, names each move with its start, peak and end
+   (`make_round12.neck_curve`: `intro.load()` and `trex_lib.fk_world`). The ror preview runs about 0.055 s behind
+   the clip's markers.
+10. **A big voice lasts until the next one.** The roar held 1.9 s against jaws open 2.62 s and the chomp's voice at
+    2.50 s: "falls short". Taken (round 12 E): the roar as picked to 0.4 s after its beat, the rest stretched 1.34
+    times by `rubberband -3 -F` (R3, formants kept: the same voice and pitch, unlike slowing), so it holds to the next
+    voice; a big hall under it (3.6 s decay, 60 ms pre-delay, 10 dB under the roar) and the stomp's earthquake rumble
+    stretched under the hold (14 dB under). A sustained voice takes its wet 10 dB under, not a hit's swell: there is
+    no second hit to hear twice.
+11. **Small moves are quiet, and voiced by the creature's own material.** Round 12's neck (body whooshes, a rope
+    creak 0.6 as fast, wood-block teeth clacks, a bright stone grind at 4.5 kHz) was "too cartoonish and doesn't go
+    with the theme of the sounds, also they are too loud for a little movement", its fastest turn 3 dB under a step's
+    peak. Taken (round 13 M), 13 dB under a step's peak: the boss's shipped slowed snort as the head rises, its idle
+    growl low and short while it stares, and the stone creature's body grinding 0.6 as fast and under 1.8 kHz on each
+    turn. For any small move, offer the bank's own breaths and growls and a low body texture first; no whoosh, rope or
+    wood.
+12. **Shape a texture by the move's speed, and level short layers by their peak.** A sustained texture times the
+    bone's speed curve swells once per turn and is silent between (`make_round12.shaped`). Levelled by body, a 0.3 s
+    whoosh came in 10 dB over the steps (its body is far under its peak): set short layers by their 10 ms peak.
+13. **Ship one cue without touching the rest.** `ship_picks.py copy <Cue ...>` bakes only those cues and keeps the
+    rest of `shipped.json`; a replaced cue gets a new file name (an audio asset takes no new version); then edit its
+    line in `tools/sounds/Sounds.txt` by hand and run `tools/sounds/build.luau`. Never `ship_picks.py lines` now: it
+    writes every T-Rex line back as baked and undoes the fight mix's rolloffs (Min 100, Max 1000) and its gains.
+14. **A cue shipped after the mix pass takes the mix's offset of what it was judged against.** `ship_picks.py`
+    prints Volume at the previewed level, but the mix raised most T-Rex lines (steps +3 dB, one-offs +1 to +2, the
+    roar 0: `Review/Mix/README.md`). The hunt, judged 13 dB under the steps, ships at their +3 (0.383 -> 0.541); the
+    held roar at the roar's 0.
+
+### The fight's mix (2026-11-25, `Assets/sounds/Review/Mix/`, shipped unheard)
+
+"The boss sounds cannot really be heard with all the bullets going on." Each cue had been levelled alone, in its own
+round, and nothing had checked them played together. `Review/Mix/mix.py` measures the bank as heard (`levels`), a
+held trigger of every gun with its hits and kills (`beds`), the boss's cues at the distances it is fought from
+(`boss`) and renders before / after fights to listen to (`render`); its README has every number.
+
+- **Level a gun by its held trigger, not its shot.** A stream of shots is louder than one: the Starter SMG's shots at
+  -12.5 to -15.6, 20 a second, held at -9 (400 ms window), louder than every T-Rex cue but the roar. No gun's held
+  trigger goes over -17.5 now; a slow gun keeps its heavy shot (Sniper -12) because its gaps keep the bed low. Check
+  `mix.py beds` before shipping a new gun or a new fire rate.
+- **Measure every line, including the ones no review shipped.** The non-starter guns came from the old place and had
+  never been measured: the Sniper (both AWPs and the Sandan Gun) played the Shotgun's asset at -7.3 with a 5 s ring,
+  the RPG -6.6, the Desert Eagle under the starter pistol, the bolt at -36 (inaudible). Look for two bank paths on one
+  asset id: they are the same sound whatever their names say.
+- **Hits are part of the gun's bed.** With a fast gun, a hit a shot adds 3-4 dB to it; Enemies.Hit went to -18.
+- **Judge a boss against the bed, never alone.** The T-Rex scenes played it with the Starter Pistol, a bed near -20; with
+  a fast gun the bed is 6-11 dB louder. Before a boss ships, run `mix.py boss` against `mix.py beds`: its attack voices
+  (bite, tail, stomp, spines) above the loudest bed, steps level with it.
+- **The music is not the masker**: Tension at its peak measures -30 or under.
+- **Tripwire `download_asset` fetches Roblox library audio here** (the old guns, the music; section 5 says otherwise
+  for Ballarc's key). Keep what it fetches in `Assets/sounds/Library/<asset id>.ogg`, which `mix.py` reads.
+- **Save a bank's lines before rewriting them.** The first before / after render read the already-written bank for
+  "before" and played the new mix twice; `Review/Mix/before.json` holds the old lines, `mix.py --before` reads them.
+
 ### Sources
 
 - The library at `/mnt/HDD/Assets/Sounds` gained the user's packs on 2026-11-21: `Balloon/`, `Rubber/`, `Plastic/`,
@@ -805,6 +932,9 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
   its unpacked folder, without `__MACOSX`. Packs the user buys land in `~/Downloads/Sounds`. On 2026-11-23:
   `Toy Blocks/` (zapsplat's toy building blocks and Stormwave's Lego Building Bricks), `Bricks/`, `Rocks/`, `Toys/`
   and a robot-tracks pack in `Mecha/`. Packs from before November keep their zips in `Zips/` instead.
+- On 2026-11-25, `Dinosaurs/`: KingBell's Dino Sounds, Ririsaurus' Dinosaurs, Smartsound's colossus steps (four to a
+  file) and Fusehive's Creatures, Monsters, Beasts, Dragons & Dinosaurs (every creature in every mood, plus body
+  falls, thumps, throws, bites, claws, breaths). The only real T-Rex is 344 Audio's (`Sonniss/`), 88% under 150 Hz.
 - BeACastleLord's shard burst ice is Gamemaster `ice_spell_impact_shatter` (01, 02, 03, 05, 06, 08, 10), in this
   library too.
 - Gamemaster's sustained sci-fi files and the glitchedtones Force Field, Drone and Hover fade in and out: none is a

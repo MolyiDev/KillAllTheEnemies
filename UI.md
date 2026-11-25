@@ -53,8 +53,9 @@ Notice's first round was sent back as "too childish when the UI is modern-lookin
 - **A mark on a piece is a tinted white-plastic picture or `Font.Display`**, in the accent on ink (or ink / white on a
   flat accent block). No chunky dark plastic marks, no ink stroke round small numbers.
 - **Motion is calm** (UI.md 5c and the memory on screen opens): fade and grow in from about 0.6 with at most a small
-  lift, one flash, ONE ring, a light sweep. No tilt or spin on arrival, no swinging, no bouncing past the mark, no
-  spray of sparks, no wind-up dip. Idle life is light (a sweep, a glow lift); the one motion allowed on idle is the
+  lift (a card with a picture in it grows in from nothing and never fades: "The boss's bar and its drops"), one
+  flash, ONE ring, a light sweep. No tilt or spin on arrival, no swinging, no bouncing past the mark, no spray of
+  sparks, no wind-up dip. Idle life is light (a sweep, a glow lift); the one motion allowed on idle is the
   one that says the meaning (the upgrade arrow rising through its chip).
 - **Place it on his geometry exactly.** A badge's middle on the button's corner, or a measured spot he uses; never "a
   few px in" so that it half-overlaps a stroke and looks misplaced. Size it against the piece beside it of the same
@@ -184,6 +185,31 @@ EQUIPMENT caption are not ribbons: one is a record stamped on a number, the othe
 - **What the upgrade pick turns over is not news.** The pick's spin and the way out turn the card over too, so the
   ribbon follows `IsRevealed` (written only while the hand is opening or open), not `IsFaceUp`: it slaps in once per
   hand and again on a redeal, never on the spin.
+
+### One card: what is picked from a grid, and the lobby rail (2026-11-24)
+
+`GlobalClient/UI/ItemCard` is the one card for a thing picked from a grid (the weapons list's guns, the equipment
+grid's pieces, the classes page's abilities, the index's enemies and recipes) and for the lobby HUD's rail. The four
+grids had drifted into four near-copies (a rule over the name on two, a dark band on one, nothing on the abilities,
+names at 13 to 16 px, price chips in two styles, a picked ability glowing brighter where nothing else did), which the
+user called "all different but really close": coherence means one component, not four matched by hand. The rail's
+words stood under its cards; they are on the card's band now, like every other card's, and the cards are 9 px taller
+for it (119 x 128, 32 px apart).
+
+- **One value each, whatever the card's size** (`Look` in the module): his card at tint 0.35 with his corner marks,
+  a 28 px dark band with the title in it (15 px, shrinking only to fit), an accent rule along the band's top, a 24 px
+  badge 8 px in from each top corner (`TopLeft` / `TopRight`), brackets 20 long. A price or ULT is `ItemCard.Chip`
+  (the accent's edge round ink, or a flat block of it). The picture is centred over the band (`PictureAt`).
+- **Corner meanings, the same on every screen:** top left says what it costs or that it can be raised (price chip,
+  ULT, the Notice's arrow); top right says whose it is (the green tick on the one equipped or worn, the small lock
+  on one not owned). The big padlock over the picture means not discovered yet (the index), and NEW is the ribbon.
+- **One feel.** Under the hand the picture rises 4 px and grows 10%, the rule stretches to the edge and lights, the
+  glow lifts; a press pops the picture. Picked: brackets close, the glow brightens, the band flares and settles warm
+  toward the accent, the rule burns at full. Dealt in, the light crosses the card (`Sheen`). A gain (bought, put on,
+  discovered) is the caller's `Flash`, `Ring` and `Pop`: a white flash, one ring of the accent and a pop of the card.
+- **A new grid of things uses it**, and a new state is a new badge in one of the two corners or a light the card
+  already has, never a fifth look. Bench: the screens' own stories (`Weapons`, `Equipment`, `Classes`, `Index`,
+  `LobbyHud`); previews in `Assets/ui/lobby/preview/cards`.
 
 ### Motion in this style
 
@@ -417,6 +443,38 @@ Previews in `Assets/ui/showcase/preview`.
 - **The prize is held, then paid in** (the hold Daily Rewards added): the server writes the profile and fires
   `Spins.Landed` in the same frame, so the HUD's hold is in place before it draws. XP has its own hold (`XpHeld`).
 
+### Several reels at once: SPIN's count (2026-11-24, rendered in rur, not playtested)
+
+SPIN turns x1, x3 or x5 reels (`SpinsCore.COUNTS`, the trigger right of SPIN is `Lobby/Client/Utils/countPicker`, the
+lab's BREW menu lifted out). Free spins go first: SPIN turns the count held to the spins left (`SpinsController`'s
+`Batch`); once none are left it sells the count picked (`SpinsCore.PRODUCTS`: 1 for 25 R$, 3 for 69, 5 for 109, cheaper
+a spin as the Gem packs give more a Robux) and the menu's rows show those prices. The server spins up to the count in
+one write and answers every prize (`Spins.Spin` u8, `Spins.Landed` u8[]). Story `tools/uimatt/Spins.story.luau` (Count
+1 / 3 / 5; Grow, Menu, Buy), previews in `Assets/ui/spins/preview/multi`.
+
+- **The page grows down to hold the reels, then up** (`SpinsController/Shape`): one reel is his render; two stack at his
+  size; three or more stack as slim reels whose card puts the glyph beside the value. The panel keeps its top until it
+  reaches the bottom every lobby panel ends at (940), then rises toward the daily panel's top. The shell takes the page's
+  shape (`TPagesInfo.SpinShape`) instead of a fixed SPIN rect.
+- **A count changing is one element changing shape**: every well, card and the row under the reels moves from where it
+  stands to the new shape on one decelerating 0.5 s curve, the first reel's cards reflow (his value and word trade
+  places with the slim value), wells open and close in place, and a new well's cards fall in from the middle out once
+  it is open, its ring coming with them. `ReelsAt` is written before `Reels`, or the shape reads a stale stamp and snaps.
+- **The reels throw together and land one after another down the page**, 0.32 s apart and the last 0.22 s later still
+  (`ReelMotion.PlanAfter`: a reel made to wait brakes later, tried in 0.01 s steps, since a later brake can land sooner
+  as the stop moves a lap). Simulated in lune: 0.32 to 0.34 s gaps, the last 0.54. Each reel lands with its own punch,
+  flash, ring, rays and pixels (a slim reel's reach is its card's height against his), and pays as it lands, so the
+  prizes stream into the HUD one after another; the HUD's hold is the sum still in the air. Ticks are shared across the
+  reels and no closer than 28 ms (cards passing) or 30 ms (pieces landing).
+- **One pointer for the stack** (round 2): a pointer over each reel read as clutter. The first reel's pointer hangs over
+  the stack and its gold line runs down through every reel and the gaps between them (`Reel.BuildLine`), so the gaps
+  shrank to 10 px.
+- **A slim card centres its glyph and value together** in the room over its bar (one row, a list layout), sized by the
+  card's height; left-aligned they read as off-centre, and at five reels the glyph sat on the bar.
+- **Bought spins and brews wait for Roblox's dialog** to close (its confirmation pressed), as the shop's receipt does:
+  they start once they have arrived and `PromptProductPurchaseFinished` has fired, or 10 s after they arrived if it never
+  does. Starting as the grant arrived turned the reels under the dialog.
+
 ### A party, its queue and its board (2026-11-23)
 
 `src/Lobby/Client/Controllers/LobbyController/Party` (init: the host's screen; Map, Picks; Queue; Board, the billboard
@@ -599,6 +657,30 @@ pattern and became `true`, and had to be restored from `git diff`.
   945 px Operate slab reaches 30 px at its press: hovered, it went over the box. Its replacement (the count trigger)
   stands 40 px off the now 1024 px BREW (reach 32).
 
+### The Mutation Lab's batches (2026-11-24, rendered in rur, not playtested)
+
+BREW's count menu (`Lobby/Client/Utils/countPicker`, shared with the daily SPIN) offers x1, x3, x5 and x10; MAX is
+gone, so the screen never has to lay out an open-ended batch. Free brews go first (the count held to the souls and the
+brews left); once they are used, BREW sells the count picked, held to the souls and down to a count that has a product
+(`PotionsCore.BREW_PRODUCTS`: 1 for 25 R$, 3 for 69, 5 for 109, 10 for 199, a pack cheaper a brew as the Gem packs give
+more a Robux), and a menu row says its price while the brews are out. A batch's results
+are `MutationController/Tray`: previews in `Assets/ui/mutation/preview/batch-tray` (3, 5 and 10, real time and quarter
+speed, sheets, Menu, Buy).
+
+- **A batch is shown inside the panel, in the souls' place.** The souls' section fades and sinks out through one
+  group as BREW is pressed (they cannot be picked while a brew runs anyway), the header turns into BREWING 5 POTIONS
+  with a count of the cards opened, and one card a potion deals into the row. They come back once the empty tray has
+  left. One element changes (the header), the rest swaps through a fade.
+- **Lowest first, the best last** (Brew.Times' `Cards`): sealed cards (lavender bottle, `?` tag) shake harder as the
+  flask brews; after the answer each climbs through the rarities (0.06 s a step) and lands a beat after the last
+  (shorter beats in a big batch), the best after a longer pause on a slower climb. The result card follows the best
+  landed so far and does its full landing with the last card, so the headline and the row agree.
+- **A landing is calm and graded**: a punch (6% to 13%, the bracket check at a 110 px card ten across, 18 apart), a
+  flash that never goes full white (0.45 to 0.75: a white card read as a blank one), one ring, the glow up, the tag
+  stamped from 1.55x; Epic and up get the Showcase rays behind the bottle, a Mythic's card shakes.
+- **Each potion flies out of its own card** (`Flight.Plan` per card, staggered), the bottle leaving the card as its
+  picture takes off.
+
 ### A page under another screen's tab: Equipment (2026-11-23)
 
 `src/Lobby/Client/Controllers/EquipmentController` (init: the sources, the network; Screen; Grid, the left panel;
@@ -691,6 +773,49 @@ Round 3 (2026-11-23):
   and screen coordinates mixed up). The cards went 16 px narrower (1776, two of 876) and the bar stands 8 px clear of
   a lit card's brackets.
 
+Round 4 (2026-11-24), after the reference shop (*Survive a Million Monkeys*) was set beside ours:
+
+- **A card shows ONE kind of thing: its own picture, or guns' models, never both.** The Survivor vest with the
+  Sandan's model leaning on it and the Starter crate with a Desert Eagle in front read as two pictures fighting. The
+  bundle's gun is a line of what it gives; the Arsenal shows its four guns and no case.
+- **The featured offers are one hero card that turns** (`Cards.Hero`, `Parts.HERO`): the reference's carousel in his
+  FEATURED card. Both pages slide on one decelerating curve (parked off the card, never hidden), the title a beat
+  behind, the edge warming from one accent to the next, the coming page's chips punched, worth counted and strike
+  drawn again, its ribbon slapping on as the last one is pulled. Arrows either side of pips under the thing on show;
+  the lit pip fills over `PAGE_SECONDS` (7) and the page turns by itself, paused while the hand is on the card or
+  anything is over the shop. That count (`PageShown`) is the shop's idle clock: the light crosses a waiting price
+  off it (the hero's, the biggest pack's), so nothing new ticks.
+- **What it gives is his two tags joined** (`Parts.Pair`): "+ SANDAN GUN" on the rarity's block, LEGENDARY on his
+  dark outlined tag; Gems on the gem blue.
+- **A deal shows its worth struck through** (`Parts.Was`, `ShopCore.WorthRobux`): the Robux its contents would cost in
+  the smallest pack, over the price on a card across the row, left of the gift on the rest, the pink line drawn across
+  once the card is first seen. Gem packs say their bonus in their own tag instead.
+- **A card is first seen once** (`spec.Seen`: its deal starting, or scrolled 120 px into the window): its strike is
+  drawn and its chips punched then. An effect that marks it keeps a plain flag: an effect writing a source it reads
+  runs again inside itself and fails ("attempt to call a boolean value").
+- **The Gem packs are the colour of what they give** (Tint 0.55 against the other cards' 0.4), and the 80,000 pile was
+  retaken: its prompt asked for "a flat bottom" and came back sliced straight across, which read as cut off.
+- Rendered in `Assets/ui/shop/preview/round4` (Rest, Page2, Bundles, Gems, Mega, Passes; `turn` and `enter`
+  sequences with their sheets). The gun models are empty offline: judge them in a playtest.
+
+Round 5 (2026-11-24):
+
+- **No count-up on amounts.** The Gems and the bundle's WORTH rolling up from 0 were sent back: a number on a card is
+  read, not watched.
+- **Anything that animates is anchored at its middle, or its left middle for a left-aligned piece**, never the top
+  left ("the top left gives the AI look"): the chips and VIP's perks punch from their left middle, the title lines
+  slide from it, the hero's pages and the arsenal's cells from their centres, a gift row grows inside its list slot
+  from the centre (a list places the slot; the row is a child anchored in it).
+- **`GunPicture` fits the model to its box's HEIGHT** (the span times 1.2 over the vertical field of view), so a gun in
+  a wide, short box comes out as long as the box is tall: the arsenal's cells drew 60 px guns in 330 x 74 boxes. A gun
+  drawn big gets a tall box (312 px for about 260 px of gun) standing past its cell, transparent and unclipped.
+- **A title that names something going away holds it while it leaves**: the gift list's GIVES line kept reading
+  `GiftOffer`, nil the instant it shut, so the name vanished before the list had faded.
+- **The store's names follow one convention**: EXTRA POTION SLOT (was 3RD), DOUBLE LUCK (was 2X), as DOUBLE GEMS /
+  DOUBLE XP / EXTRA DAILY SPIN; the Black Market product is Featured Mythic Gun. The products' and passes' names,
+  prices and icons on Roblox are set from `ShopCore` and `Assets/ui/store/make.py` with Tripwire's
+  `update_developer_product` / `update_game_pass` (`imagePath`): a change to an offer is a change there too.
+
 ### A Robux purchase's receipt (2026-11-23, rendered in rur, not playtested)
 
 Last Wave's `purchaseScreen` in this style: `ShopController/Receipt` (the drawing), `Receipts` (what an offer's receipt
@@ -725,6 +850,38 @@ Play / Hurry / Done / Leave, Offline); previews in `Assets/ui/shop/preview/recei
   receipt says both).
 - Not covered: the Extra Daily Spin and Extra Daily Brew products, bought from their own screens, which answer
   them there.
+
+### The boss's bar and its drops (2026-11-25, rendered in rur, not playtested)
+
+`HudController/BossBar` shows a boss's health, the damage share and what it drops with their chances, after Survive
+a Million Monkeys' boss bar in his style. Three rounds; what each taught:
+
+- **Copy the reference's composition before anything else.** The first take hung a DROPS panel under the bar's
+  right end, rows stacked under the damage share: "too much vertical space, use the horizontal space". SAMM's is a
+  full-width bar with DAMAGE SHARE on the left under it and DROPS on the right, side by side, and that is the layout
+  now. A request to add something to an element is a round on the whole element (variants), not an add-on.
+- **In the world, no panel won.** Seven looks were benched (his panel with a full-height portrait, a long banner, the
+  drops as cards; then three with no panel and no portrait). The pick is the bare one: the strip's panel fades out as
+  a group and its portrait shrinks to nothing as the boss comes on, so the bar stands on the world like SAMM's, and
+  its letters are inked (a stroke a tenth of the letter, at least 1 px, so a caption is not choked).
+  His brackets frame the bar alone. A pink rail under the name was taken off: nothing between the title and the bar.
+- **A card holding a picture is never see-through.** Not on arrival (it grows in from nothing, no fade), not when
+  missed (it darkens), not ever: "don't add transparency to them". This overrides "fade and grow in from about 0.6"
+  for anything with a picture in it. Letters may still fade.
+- **What goes under a picture is the card's own width.** The chance first sat on a chip across the card's bottom
+  edge, wider than the card; now the card is one piece, the picture's face on top and a band with the chance under
+  it (WON / OWNED there too), so the row of cards takes no more width than the cards.
+- **Judge a bare piece on bright ground.** The arena is sand and sea: render on `--background 232,212,158` as well
+  as the navy. Ink held; a soft dark scrim behind (one CanvasGroup faded top to bottom holding a frame faded side to
+  side, since one UIGradient fades one way) also held but was not picked.
+- **The fall is where drops feel won.** The rolls are the server's (`EquipmentDropsService`, each player's on its own
+  thread so a save does not hold the next result back); the bar shows them: a light runs over the cards twice and
+  slows, a piece won is struck white, punches, rings once and closes its brackets round itself as a pick does,
+  the rest darken when the rolls settle. A piece owned as the boss came on reads OWNED with a check on its corner,
+  since it cannot drop twice. Every segment emptied runs a light across the cards (the loot is nearer).
+- **A panel fading as a whole** is a CanvasGroup with room round it for the shade (`body`, `SHADE_ROOM`): the
+  shade is a UIShadow, which a group clips ("A `CanvasGroup` clips the shade off"), and the pieces laid on the panel stay outside the group so only
+  the panel is faded.
 
 ### Superseded here
 

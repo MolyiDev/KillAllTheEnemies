@@ -165,6 +165,9 @@ export type Server_Enemies_EnemyInstanceId_Type = number
 export type Server_Enemies_DataId_Type = number
 export type Server_Enemies_Vec_Type = Vector3
 export type Server_Enemies_Damage = number
+export type Server_Bosses_EnemyInstanceId_Type = number
+export type Server_Bosses_DataId_Type = number
+export type Server_Bosses_Vec_Type = Vector3
 export type Server_Economy_Vec_Type = Vector3
 export type Server_Defenses_DataId_Type = number
 export type Server_Defenses_EnemyInstanceId_Type = number
@@ -239,6 +242,14 @@ return {
 		Enemies = {
 			CharacterInstanceId = {
 			},
+			EnemyInstanceId = {
+			},
+			DataId = {
+			},
+			Vec = {
+			},
+		},
+		Bosses = {
 			EnemyInstanceId = {
 			},
 			DataId = {

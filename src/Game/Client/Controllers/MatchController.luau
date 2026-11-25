@@ -90,6 +90,11 @@ MatchController.BossFirstId = 0
 MatchController.BossFirstDamage = 0
 MatchController.BossSecondId = 0
 MatchController.BossSecondDamage = 0
+-- The way to the next boss (Rounds.BossWay): its boss round (0 before the server has said), bodies killed on it, and
+-- how many it takes.
+MatchController.BossWayRound = 0
+MatchController.BossWayKills = 0
+MatchController.BossWayNeeded = 0
 -- os.clock of the last wave done (MarkWaveDone), for the HUD's green edge.
 MatchController.WaveDoneAt = -math.huge
 -- The revive product on offer after a clear while down, or 0.
@@ -294,6 +299,15 @@ ServerNetworkRounds.Cleared.On(function(round: number)
 	MatchController.MarkWaveDone(round)
 	if round ~= MatchController.Round then return end
 	MatchController.Remaining = 0
+	changed()
+end)
+
+-- The way filled is the boss's wave done: no cards greet it (they wait for the boss to fall), the boss does.
+ServerNetworkRounds.BossWay.On(function(round: number, kills: number, needed: number)
+	MatchController.BossWayRound = round
+	MatchController.BossWayKills = kills
+	MatchController.BossWayNeeded = needed
+	if needed > 0 and kills >= needed then MatchController.MarkWaveDone(round) end
 	changed()
 end)
 

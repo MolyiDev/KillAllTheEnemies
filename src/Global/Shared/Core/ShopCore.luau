@@ -52,9 +52,6 @@ ShopCore.FEATURED_GUNS = table.freeze({
 	"Hacker Drum",
 })
 
--- Gems a Robux buys in the smallest pack: what a bundle's saving is measured against.
-local BASE_GEMS_PER_ROBUX = 1000 / 99
-
 -- What VIP adds to the Gems a run pays.
 ShopCore.VIP_GEMS = 0.1
 -- What the Luck pass multiplies a lucky prize's weight by (SpinsCore.PRIZES' IsLucky).
@@ -114,7 +111,7 @@ ShopCore.OFFERS = table.freeze({
 		Section = "Featured",
 		Title = "FEATURED",
 		Description = "The featured Legendary gun (it changes every 3 days), yours for good, plus 2,500 Gems.",
-		Robux = 799,
+		Robux = 449,
 		ProductId = EProducts.FeaturedLegendary,
 		GamePassId = 0,
 		GiftProductId = EProducts.GiftFeaturedLegendary,
@@ -126,7 +123,7 @@ ShopCore.OFFERS = table.freeze({
 		Section = "Featured",
 		Title = "FEATURED",
 		Description = "The featured Mythic gun (it changes every 3 days), yours for good, plus 5,000 Gems.",
-		Robux = 1499,
+		Robux = 899,
 		ProductId = EProducts.FeaturedMythic,
 		GamePassId = 0,
 		GiftProductId = EProducts.GiftFeaturedMythic,
@@ -139,7 +136,7 @@ ShopCore.OFFERS = table.freeze({
 		Title = "SURVIVOR",
 		Subtitle = "BUNDLE",
 		Description = "Grants the following:\n- Human class\n- Sandan Gun (Legendary sniper)\n- 15,000 Gems",
-		Robux = 899,
+		Robux = 499,
 		ProductId = 0,
 		GamePassId = EGamePasses.SurvivorBundle,
 		GiftProductId = EProducts.GiftSurvivorBundle,
@@ -161,40 +158,40 @@ ShopCore.OFFERS = table.freeze({
 		Section = "Bundles",
 		Title = "ARSENAL BUNDLE",
 		Description = "Grants the following:\n- AWP Printstream\n- AWP The Prince\n- RPG Bazooka\n- Hacker Drum",
-		Robux = 1199,
+		Robux = 599,
 		ProductId = 0,
 		GamePassId = EGamePasses.ArsenalBundle,
 		GiftProductId = EProducts.GiftArsenalBundle,
 		Contents = { gun("AWP Printstream"), gun("AWP The Prince"), gun("RPG Bazooka"), gun("Hacker Drum") },
 	},
-	gemPack("GemsSmall", 1000, 99),
-	gemPack("GemsMedium", 5500, 449),
-	gemPack("GemsLarge", 12000, 899),
-	gemPack("GemsHuge", 30000, 1999),
-	gemPack("GemsMega", 80000, 4499),
+	gemPack("GemsSmall", 2500, 99),
+	gemPack("GemsMedium", 7000, 249),
+	gemPack("GemsLarge", 15000, 499),
+	gemPack("GemsHuge", 33000, 999),
+	gemPack("GemsMega", 95000, 2499),
 	pass(
 		"Vip",
 		"VIP",
-		499,
+		349,
 		"A VIP tag over your head and in chat, 10% more Gems from every run, one more free daily spin and one more daily brew in the Mutation Lab."
 	),
-	pass("DoubleGems", "DOUBLE GEMS", 359, "Permanently double every Gem a run pays."),
-	pass("DoubleXp", "DOUBLE XP", 249, "Permanently double every XP a run pays, so you level up twice as fast."),
-	pass("ExtraSpin", "EXTRA DAILY SPIN", 149, "One more free daily spin, every day.", true),
+	pass("DoubleGems", "DOUBLE GEMS", 249, "Permanently double every Gem a run pays."),
+	pass("DoubleXp", "DOUBLE XP", 199, "Permanently double every XP a run pays, so you level up twice as fast."),
+	pass("ExtraSpin", "EXTRA DAILY SPIN", 99, "One more free daily spin, every day.", true),
 	pass(
 		"Luck",
-		"2X LUCK",
-		299,
+		"DOUBLE LUCK",
+		199,
 		"Twice the luck on the daily spins and in the Mutation Lab: the best prizes and potions come up twice as often.",
 		true
 	),
 	pass(
 		"PotionSlot",
-		"3RD POTION SLOT",
-		399,
+		"EXTRA POTION SLOT",
+		249,
 		"One more potion slot in the Mutation Lab: drink one more potion every match."
 	),
-	pass("ExtraBrew", "EXTRA DAILY BREW", 199, "One more free brew in the Mutation Lab, every day.", true),
+	pass("ExtraBrew", "EXTRA DAILY BREW", 129, "One more free brew in the Mutation Lab, every day.", true),
 } :: { TOffer })
 
 ShopCore.ByName = {} :: { [string]: TOffer }
@@ -210,6 +207,9 @@ end
 table.freeze(ShopCore.ByName)
 table.freeze(ShopCore.ByProduct)
 table.freeze(ShopCore.ByPass)
+
+-- Gems a Robux buys in the smallest pack: what a bundle's saving and a pack's bonus are measured against.
+local BASE_GEMS_PER_ROBUX = (ShopCore.ByName.GemsSmall.Contents[1].Amount :: number) / ShopCore.ByName.GemsSmall.Robux
 
 -- The gun on show at `now` (os.time), and the seconds until the next one.
 function ShopCore.FeaturedGun(now: number): string
@@ -259,10 +259,15 @@ function ShopCore.GemsWorth(offer: TOffer, now: number): number
 	return worth
 end
 
+-- What an offer's worth would cost in the smallest Gem pack, in Robux.
+function ShopCore.WorthRobux(offer: TOffer, now: number): number
+	return ShopCore.GemsWorth(offer, now) / BASE_GEMS_PER_ROBUX
+end
+
 -- How much cheaper an offer is than its worth in the smallest Gem pack, 0 to 1. A Gem pack's is its bonus over that
 -- pack instead (negative here, so the screen words it as a bonus).
 function ShopCore.Saving(offer: TOffer, now: number): number
-	local worthRobux = ShopCore.GemsWorth(offer, now) / BASE_GEMS_PER_ROBUX
+	local worthRobux = ShopCore.WorthRobux(offer, now)
 	if worthRobux <= 0 then return 0 end
 	return 1 - offer.Robux / worthRobux
 end

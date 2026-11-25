@@ -1,7 +1,8 @@
 --!nonstrict
--- The reel (UIMatt.md, Daily Spins): his well with the gold pointer over it, seven of his cards resting in it with
--- the white ring round the one under the pointer, and the spin turning them (where to, ReelMotion). Every card that
--- passes the pointer ticks it; the slow last ones flick it.
+-- One reel (UIMatt.md, Daily Spins): his well with the gold pointer over it, seven of his cards resting in it with
+-- the white ring round the one under the pointer, and its spin turning them (where to, ReelMotion). Every card that
+-- passes a pointer ticks; the slow last ones flick it. SPIN turns up to five reels at once, stacked down the page
+-- (Shape): his card for one or two, a slim card (the glyph beside the value) for more, reflowing as the count changes.
 --
 -- The landing is the card's: it punches, flashes white and throws one ring, light opens in rays behind it, glowing
 -- pixels leave its edge and the other cards step back. The prize then flies into the HUD (Payout).
@@ -19,31 +20,35 @@ local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local SpinsCore = require(ReplicatedStorage.Shared.Core.SpinsCore)
 local Parts = require(script.Parent.Parts)
 local ReelMotion = require(script.Parent.ReelMotion)
+local Shape = require(script.Parent.Shape)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
+local source = vide.source
 local Palette = Theme.Palette
 local Progress = Motion.Progress
 local Scatter = Parts.Scatter
 local PARKED = Parts.PARKED
 
--- His drawn rects in px at 1080, from the panel's top left.
+-- His drawn rects in px at 1080, from the panel's top left. A well's top and height, and the cards' height, are the
+-- page's shape (Shape).
 local Layout = table.freeze({
 	-- The well: its 1 px edge round the dark face.
-	WELL = Vector2.new(40, 159),
-	WELL_SIZE = Vector2.new(1220, 200),
-	-- In the well's face (inside its edge): the middle of the card under the pointer, and the step between cards.
-	CENTER = Vector2.new(609, 99),
+	WELL_X = 40,
+	WELL_WIDTH = 1220,
+	-- In the well's face (inside its edge): the middle of the card under the pointer across it, and the step between
+	-- cards.
+	CENTER_X = 609,
 	PITCH = 166,
-	CARD = Vector2.new(150, 164),
+	CARD_WIDTH = 150,
 	-- 6 out, so two cards 16 apart keep their corners apart (his 8 met).
 	CARD_BRACKET_LENGTH = 22,
 	-- The cards walked round, and how far from the pointer one is still one of his seven at rest, in slots.
 	POOL = 9,
 	SHOWN = 3.6,
-	-- Inside a card, from its top: the glyph's middle and longer side, the value, the word, the bar.
+	-- Inside his card, from its top: the glyph's middle and longer side, the value, the word, the bar.
 	GLYPH_Y = 37,
 	GLYPH = 36,
 	VALUE_Y = 72,
@@ -52,11 +57,21 @@ local Layout = table.freeze({
 	WORD_TEXT = 14,
 	BAR_Y = 143,
 	BAR = Vector2.new(90, 4),
+	-- Inside a slim card: the glyph and the value side by side, this far apart and at most this big, centred together
+	-- in the room over the bar, which stands this far over its bottom.
+	SLIM_GLYPH = 34,
+	SLIM_VALUE = 28,
+	SLIM_GAP = 2,
+	SLIM_BAR_UP = 10,
+	-- His value and word and the slim value trade places within the first and last 1 / SWAP of the reflow.
+	SWAP = 3,
 	-- The white ring round the card under the pointer: 6 px off the card, 2 px thick.
 	RING_OUTSET = 4,
 	RING_LINE = 2,
-	-- The pointer: its tip's top middle, its size, and the gold line under it through the well.
-	POINTER = Vector2.new(650, 137),
+	-- The pointer: its tip's top middle (across the panel, and over its well's top), its size, and the gold line under it
+	-- through the well.
+	POINTER_X = 650,
+	POINTER_UP = 22,
 	POINTER_SIZE = Vector2.new(18, 12),
 	LINE_WIDTH = 2,
 })
@@ -131,6 +146,8 @@ local Rays = table.freeze({
 	OPEN = 0.33,
 	HOLD = 0.62,
 	WHITE = 0.45,
+	-- The shortest a slim reel's rays get, as a share of his.
+	SLIM_SHARE = 0.7,
 })
 
 -- Glowing pixels thrown off the card's edge: born a step outside its glow, thrown out against drag, a little gravity,
@@ -163,26 +180,54 @@ local Deal = table.freeze({
 	POINTER_DELAY = 0.42,
 	POINTER_DROP = 22,
 	POINTER = 0.3,
+	-- A well just opened: its cards start falling this long after, and its edge and pointer are whole once it is
+	-- this many px tall.
+	OPENING = 0.12,
+	PRESENT = 40,
+	-- Past this the new well's last card and its ring are in.
+	ARRIVED = 0.8,
 })
+
+-- One reel as its pieces read it: its spin and rest, its well and cards off the page's shape, and its own deal (the
+-- cards falling into a well just opened, 0 to 1).
+type TReel = {
+	State: Types.TSpinsState,
+	Index: number,
+	Spin: () -> Types.TSpin?,
+	Rest: () -> number,
+	WellY: () -> number,
+	Face: () -> number,
+	CardHeight: () -> number,
+	Slim: () -> number,
+	Arrived: () -> number,
+}
 
 local Reel = {}
 
 -- How long a landing's light and the other cards' step back last: the controller keeps the clock ticking for them.
 Reel.LAND_SECONDS = Land.DIM_IN + Land.DIM_HOLD + Land.DIM_OUT
+-- How long a well just opened takes to deal its cards and ring in.
+Reel.DEAL_SECONDS = Deal.OPENING + Deal.ARRIVED
+Reel.Layout = Layout
+-- His one reel's bottom, from the panel's top: what stands under the reels is laid out from it (Shape's Below).
+Reel.WELL_BOTTOM = Shape.Layout.WELL_Y + Shape.Layout.WELL
 
--- The prize the spin turning now landed on, nil until it lands (or with none, or a refused one).
-local function landedPrize(state: Types.TSpinsState): () -> SpinsCore.TPrize?
+-- The last tick of any reel: five turning at once still tick no closer than TICK_GAP.
+local lastTickAt = -math.huge
+
+-- The prize the reel's spin landed on, nil until it lands (or with none, or a refused one).
+local function landedPrize(spinOf: () -> Types.TSpin?): () -> SpinsCore.TPrize?
 	return derive(function(): SpinsCore.TPrize?
-		local spin = state.Spin()
+		local spin = spinOf()
 		local index = if spin and spin.LandAt then spin.Prize else nil
 		return if index and index > 0 then SpinsCore.PRIZES[index] else nil
 	end)
 end
 
--- Seconds since the spin landed, nil before it lands or with none. Derived: past the landing's light it holds.
-local function landedFor(state: Types.TSpinsState): () -> number?
+-- Seconds since the reel's spin landed, nil before it lands or with none. Derived: past the landing's light it holds.
+local function landedFor(state: Types.TSpinsState, spinOf: () -> Types.TSpin?): () -> number?
 	return derive(function(): number?
-		local spin = state.Spin()
+		local spin = spinOf()
 		local at = if spin then spin.LandAt else nil
 		if not at or not spin.Prize or spin.Prize == 0 then return nil end
 		local since = state.Now() - at
@@ -192,9 +237,9 @@ local function landedFor(state: Types.TSpinsState): () -> number?
 end
 
 -- 0 at rest, 1 while the reel turns: up as it is thrown, down as it settles.
-local function turningOf(state: Types.TSpinsState): () -> number
+local function turningOf(state: Types.TSpinsState, spinOf: () -> Types.TSpin?): () -> number
 	return derive(function(): number
-		local spin = state.Spin()
+		local spin = spinOf()
 		if not spin then return 0 end
 		local now = state.Now()
 		local up = Progress(now, spin.StartAt, 0.3)
@@ -206,13 +251,14 @@ local function turningOf(state: Types.TSpinsState): () -> number
 end
 
 local function card(
-	state: Types.TSpinsState,
+	reel: TReel,
 	index: number,
 	reading: () -> Vector2,
 	turning: () -> number,
 	landed: () -> number?,
 	elapsed: () -> number
 ): Frame
+	local state = reel.State
 	local slot = derive(function(): number
 		local base = math.floor(reading().X + 0.5) - 4
 		return base + (index - base) % Layout.POOL
@@ -228,15 +274,35 @@ local function card(
 		return Color3.new(color.R * EDGE_SHARE, color.G * EDGE_SHARE, color.B * EDGE_SHARE)
 	end)
 	local isWon = derive(function(): boolean
-		local spin = state.Spin()
+		local spin = reel.Spin()
 		return landed() ~= nil and spin ~= nil and slot() == spin.Slot
 	end)
-	-- The open: from the middle out, by where it rests.
+	-- The open, and a well just opened: from the middle out, by where it rests.
 	local dealt = derive(function(): number
 		if not state.IsOpen() then return 1 end
 		-- Capped: mid-spin a card is tens of slots from the rest, and its fall must already be over.
-		local away = math.min(math.abs(slot() - state.Rest()), 4)
-		return Motion.Decelerate(Progress(elapsed(), Deal.DELAY + Deal.STAGGER * away, Deal.SECONDS))
+		local away = math.min(math.abs(slot() - reel.Rest()), 4)
+		local opened = Motion.Decelerate(Progress(elapsed(), Deal.DELAY + Deal.STAGGER * away, Deal.SECONDS))
+		local arrived = Motion.Decelerate(math.clamp((reel.Arrived() - Deal.STAGGER * away) / Deal.SECONDS, 0, 1))
+		return math.min(opened, arrived)
+	end)
+	-- His card's layout (0) or the slim one's (1), and the card's height.
+	local slim = reel.Slim
+	local height = reel.CardHeight
+	local glyph = derive(function(): string
+		local current = prize()
+		if current.Kind == "Xp" then return EIcons.Rank end
+		return if current.IsJackpot then EIcons.GemPile else EIcons.Gem
+	end)
+	local amount = derive(function(): string
+		return Components.Commas(prize().Amount)
+	end)
+	-- The slim row's glyph and value sizes, by the card's height.
+	local slimGlyph = derive(function(): number
+		return math.round(math.min(Layout.SLIM_GLYPH, height() * 0.42))
+	end)
+	local slimValue = derive(function(): number
+		return math.round(math.min(Layout.SLIM_VALUE, height() * 0.36))
 	end)
 	local scale = derive(function(): number
 		local dx = slot() - reading().X
@@ -302,54 +368,123 @@ local function card(
 			local dx = slot() - reading().X
 			if turning() == 0 and math.abs(dx) >= Layout.SHOWN then return PARKED end
 			return UDim2.fromOffset(
-				math.round(Layout.CENTER.X + Layout.PITCH * dx),
-				Layout.CENTER.Y - math.round(Deal.DROP * (1 - dealt()))
+				math.round(Layout.CENTER_X + Layout.PITCH * dx),
+				math.round(reel.Face() / 2) - math.round(Deal.DROP * (1 - dealt()))
 			)
 		end,
-		Size = UDim2.fromOffset(Layout.CARD.X, Layout.CARD.Y),
+		Size = function()
+			return UDim2.fromOffset(Layout.CARD_WIDTH, math.round(height()))
+		end,
 		ZIndex = 3,
 		create("UIScale")({ Scale = scale }),
-		Components.Picture(function()
-			local current = prize()
-			if current.Kind == "Xp" then return EIcons.Rank end
-			return if current.IsJackpot then EIcons.GemPile else EIcons.Gem
-		end, {
+		-- His glyph over his value and word, and the slim card's row (glyph and value, centred together over the bar):
+		-- they trade places as the card reflows.
+		Components.Picture(glyph, {
 			Name = "Glyph",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.GLYPH_Y),
+			Position = UDim2.fromOffset(Layout.CARD_WIDTH / 2, Layout.GLYPH_Y),
 			Size = Components.PictureBox(Layout.GLYPH),
-			ImageTransparency = smear,
+			ImageTransparency = function()
+				return math.min(smear() + slim() * Layout.SWAP, 1)
+			end,
+			Visible = function()
+				return slim() < 0.99
+			end,
 			ZIndex = 4,
 		}),
 		Parts.Label({
 			Name = "Value",
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.VALUE_Y),
-			Size = UDim2.fromOffset(Layout.CARD.X, Layout.VALUE_TEXT),
+			Position = UDim2.fromOffset(Layout.CARD_WIDTH / 2, Layout.VALUE_Y),
+			Size = UDim2.fromOffset(Layout.CARD_WIDTH, Layout.VALUE_TEXT),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextSize = Layout.VALUE_TEXT,
 			TextColor3 = accent,
-			TextTransparency = smear,
-			Text = function()
-				return Components.Commas(prize().Amount)
+			TextTransparency = function()
+				return math.min(smear() + slim() * Layout.SWAP, 1)
 			end,
+			Visible = function()
+				return slim() < 0.99
+			end,
+			Text = amount,
 		}),
 		Parts.Label({
 			Name = "Word",
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.WORD_Y),
-			Size = UDim2.fromOffset(Layout.CARD.X, Layout.WORD_TEXT),
+			Position = UDim2.fromOffset(Layout.CARD_WIDTH / 2, Layout.WORD_Y),
+			Size = UDim2.fromOffset(Layout.CARD_WIDTH, Layout.WORD_TEXT),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextSize = Layout.WORD_TEXT,
-			TextTransparency = smear,
+			TextTransparency = function()
+				return math.min(smear() + slim() * Layout.SWAP, 1)
+			end,
+			Visible = function()
+				return slim() < 0.99
+			end,
 			Text = function()
 				return if prize().Kind == "Xp" then "XP" else "GEMS"
 			end,
 		}),
 		create("Frame")({
+			Name = "SlimRow",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			-- In the middle of the room over the bar.
+			Position = function()
+				return UDim2.fromOffset(
+					Layout.CARD_WIDTH / 2,
+					math.round((height() - Layout.SLIM_BAR_UP - Layout.BAR.Y) / 2)
+				)
+			end,
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = function()
+				return UDim2.fromOffset(0, Components.PictureBox(slimGlyph()).Y.Offset)
+			end,
+			BackgroundTransparency = 1,
+			Visible = function()
+				return slim() > 0.01
+			end,
+			ZIndex = 4,
+			create("UIListLayout")({
+				FillDirection = Enum.FillDirection.Horizontal,
+				HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				VerticalAlignment = Enum.VerticalAlignment.Center,
+				Padding = UDim.new(0, Layout.SLIM_GAP),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+			Components.Picture(glyph, {
+				Name = "Glyph",
+				LayoutOrder = 1,
+				Size = function()
+					return Components.PictureBox(slimGlyph())
+				end,
+				ImageTransparency = function()
+					return math.min(smear() + (1 - slim()) * Layout.SWAP, 1)
+				end,
+				ZIndex = 4,
+			}),
+			Parts.Label({
+				Name = "Value",
+				LayoutOrder = 2,
+				AutomaticSize = Enum.AutomaticSize.X,
+				Size = function()
+					return UDim2.fromOffset(0, slimValue())
+				end,
+				TextSize = slimValue,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				TextColor3 = accent,
+				TextTransparency = function()
+					return math.min(smear() + (1 - slim()) * Layout.SWAP, 1)
+				end,
+				Text = amount,
+			}),
+		}),
+		create("Frame")({
 			Name = "Bar",
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.fromOffset(Layout.CARD.X / 2, Layout.BAR_Y),
+			Position = function()
+				local slimY = height() - Layout.SLIM_BAR_UP - Layout.BAR.Y
+				return UDim2.fromOffset(Layout.CARD_WIDTH / 2, math.round(Motion.Lerp(Layout.BAR_Y, slimY, slim())))
+			end,
 			Size = UDim2.fromOffset(Layout.BAR.X, Layout.BAR.Y),
 			BackgroundColor3 = accent,
 			BorderSizePixel = 0,
@@ -388,7 +523,8 @@ end
 
 -- The rays behind the landed card, in the well's face, under the cards. Turned, so the well does not clip them
 -- (ClipsDescendants skips a turned child): they open past the well over the panel, under its words.
-local function rays(prize: () -> SpinsCore.TPrize?, landed: () -> number?): { Instance }
+-- A slim reel's light reaches as far as its card is tall against his.
+local function rays(reel: TReel, prize: () -> SpinsCore.TPrize?, landed: () -> number?): { Instance }
 	local accent = derive(function(): Color3
 		local current = prize()
 		return if current then Parts.AccentOf(current):Lerp(Palette.White, Rays.WHITE) else Palette.White
@@ -422,14 +558,14 @@ local function rays(prize: () -> SpinsCore.TPrize?, landed: () -> number?): { In
 		local length = derive(function(): number
 			local short = if isJackpot() then Rays.JACKPOT_LENGTH_MIN else Rays.LENGTH_MIN
 			local long = if isJackpot() then Rays.JACKPOT_LENGTH_MAX else Rays.LENGTH_MAX
-			return short + (long - short) * reach
+			return (short + (long - short) * reach) * math.max(reel.CardHeight() / Shape.Layout.CARD, Rays.SLIM_SHARE)
 		end)
 
 		pieces[index] = create("Frame")({
 			Name = `Ray{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
-				return if age() then UDim2.fromOffset(Layout.CENTER.X, Layout.CENTER.Y) else PARKED
+				return if age() then UDim2.fromOffset(Layout.CENTER_X, math.round(reel.Face() / 2)) else PARKED
 			end,
 			Size = function()
 				return UDim2.fromOffset(math.round(2 * length() * open()), Rays.WIDTH)
@@ -482,23 +618,70 @@ local function shade(turning: () -> number, isRight: boolean): Frame
 	})
 end
 
+-- Reel `index` as its pieces read it, off the page's shape: built once per reel and handed to Build and BuildFx.
+function Reel.View(state: Types.TSpinsState, index: number, shape: () -> Shape.TShape): TReel
+	-- When its well last opened: its cards fall in as it does.
+	local arrivedAt = source(-math.huge)
+	local wasDrawn = index <= vide.untrack(state.Reels)
+	vide.effect(function()
+		local isDrawn = index <= state.Reels()
+		vide.untrack(function()
+			if isDrawn and not wasDrawn then arrivedAt(state.ReelsAt()) end
+			wasDrawn = isDrawn
+		end)
+	end)
+
+	return {
+		State = state,
+		Index = index,
+		Spin = derive(function(): Types.TSpin?
+			return state.Spins()[index]
+		end),
+		Rest = derive(function(): number
+			return state.Rests()[index]
+		end),
+		WellY = derive(function(): number
+			return math.round(shape().WellY[index])
+		end),
+		Face = derive(function(): number
+			return math.max(math.round(shape().WellHeight[index]) - 2, 0)
+		end),
+		CardHeight = derive(function(): number
+			return shape().Card
+		end),
+		Slim = derive(function(): number
+			return shape().Slim
+		end),
+		-- Held once its cards and ring are in, so a spin's clock does not redo every card's deal each frame.
+		Arrived = derive(function(): number
+			return math.min(state.Now() - arrivedAt() - Deal.OPENING, Deal.ARRIVED)
+		end),
+	}
+end
+
 -- The well, the cards in it, the ring, the rays and the pointer, among the panel's children. `reading` is where the
--- reel stands and how fast it turns (ReelMotion.At, as X and Y), shared with SPIN's die.
-function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: () -> number): { Instance }
-	local turning = turningOf(state)
-	local landed = landedFor(state)
+-- reel stands and how fast it turns (ReelMotion.At, as X and Y); the first reel's is shared with SPIN's die.
+function Reel.Build(reel: TReel, reading: () -> Vector2, elapsed: () -> number): { Instance }
+	local state = reel.State
+	local turning = turningOf(state, reel.Spin)
+	local landed = landedFor(state, reel.Spin)
+	-- 0 while its well is shut, 1 once it is open: its edge and pointer come with it.
+	local present = derive(function(): number
+		return math.clamp(reel.Face() / Deal.PRESENT, 0, 1)
+	end)
 
 	-- A tick as each card's edge passes the pointer, and the pointer flicked by the slow ones.
 	local flick, strikeFlick = Hand.Kick(Turn.FLICK_PERIOD, Turn.FLICK_DAMPING)
+	-- The first reel hangs the one pointer: only its cards flick it.
+	local isLead = reel.Index == 1
 	local under = derive(function(): number
 		return math.floor(reading().X + 0.5)
 	end)
 	local lastUnder: number? = nil
-	local lastTickAt = -math.huge
 	vide.effect(function()
 		local current = under()
 		vide.untrack(function()
-			local isSpinning = state.Spin() ~= nil
+			local isSpinning = reel.Spin() ~= nil
 			if isSpinning and lastUnder and current ~= lastUnder then
 				local now = os.clock()
 				if now - lastTickAt >= Turn.TICK_GAP then
@@ -506,13 +689,13 @@ function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: (
 					SoundsCore.PlayUINamed("UI.UpgradePick", "Tick")
 				end
 				local speed = math.abs(reading().Y)
-				if speed < Turn.FLICK_BELOW then strikeFlick(Turn.FLICK) end
+				if isLead and speed < Turn.FLICK_BELOW then strikeFlick(Turn.FLICK) end
 			end
 			lastUnder = current
 		end)
 	end)
 
-	local prize = landedPrize(state)
+	local prize = landedPrize(reel.Spin)
 	local wellFlash = derive(function(): number
 		local current = prize()
 		local since = landed()
@@ -523,56 +706,77 @@ function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: (
 
 	local cards = table.create(Layout.POOL)
 	for index = 1, Layout.POOL do
-		cards[index] = card(state, index, reading, turning, landed, elapsed)
+		cards[index] = card(reel, index, reading, turning, landed, elapsed)
 	end
 
 	local pointerDropped = derive(function(): number
 		if not state.IsOpen() then return 1 end
 		return Motion.Decelerate(Progress(elapsed(), Deal.POINTER_DELAY, Deal.POINTER))
 	end)
+	-- The ring comes with the pointer on the open, and once its cards have fallen in a well just opened.
+	local ringIn = derive(function(): number
+		local arrived = math.clamp((reel.Arrived() - Deal.POINTER_DELAY) / Deal.POINTER, 0, 1)
+		return pointerDropped() * Motion.Decelerate(arrived)
+	end)
 
 	return {
 		create("Frame")({
-			Name = "Well",
-			Position = UDim2.fromOffset(Layout.WELL.X, Layout.WELL.Y),
-			Size = UDim2.fromOffset(Layout.WELL_SIZE.X, Layout.WELL_SIZE.Y),
+			Name = `Well{reel.Index}`,
+			Position = function()
+				return UDim2.fromOffset(Layout.WELL_X, reel.WellY())
+			end,
+			Size = function()
+				return UDim2.fromOffset(Layout.WELL_WIDTH, reel.Face() + 2)
+			end,
 			BackgroundColor3 = WELL_EDGE,
+			BackgroundTransparency = function()
+				return 1 - present()
+			end,
 			BorderSizePixel = 0,
 			ZIndex = 2,
 			create("Frame")({
 				Name = "Face",
 				Position = UDim2.fromOffset(1, 1),
-				Size = UDim2.new(1, -2, 1, -2),
+				Size = function()
+					return UDim2.fromOffset(Layout.WELL_WIDTH - 2, reel.Face())
+				end,
 				BackgroundColor3 = WELL_FACE,
 				BorderSizePixel = 0,
 				ClipsDescendants = true,
+				Visible = function()
+					return reel.Face() > 0
+				end,
 				create("Frame")({
 					Name = "Line",
 					AnchorPoint = Vector2.new(0.5, 0),
-					Position = UDim2.fromOffset(Layout.CENTER.X, 0),
+					Position = UDim2.fromOffset(Layout.CENTER_X, 0),
 					Size = UDim2.new(0, Layout.LINE_WIDTH, 1, 0),
 					BackgroundColor3 = Palette.Gold,
 					BackgroundTransparency = LINE_TRANSPARENCY,
 					BorderSizePixel = 0,
 					ZIndex = 1,
 				}),
-				rays(prize, landed),
+				rays(reel, prize, landed),
 				cards,
 				shade(turning, false),
 				shade(turning, true),
 				create("Frame")({
 					Name = "Ring",
 					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromOffset(Layout.CENTER.X, Layout.CENTER.Y),
-					Size = UDim2.fromOffset(
-						Layout.CARD.X + 2 * Layout.RING_OUTSET,
-						Layout.CARD.Y + 2 * Layout.RING_OUTSET
-					),
+					Position = function()
+						return UDim2.fromOffset(Layout.CENTER_X, math.round(reel.Face() / 2))
+					end,
+					Size = function()
+						return UDim2.fromOffset(
+							Layout.CARD_WIDTH + 2 * Layout.RING_OUTSET,
+							math.round(reel.CardHeight()) + 2 * Layout.RING_OUTSET
+						)
+					end,
 					BackgroundTransparency = 1,
 					ZIndex = 6,
 					create("UIScale")({
 						Scale = function()
-							return Motion.Lerp(0.8, 1, pointerDropped())
+							return Motion.Lerp(0.8, 1, ringIn())
 						end,
 					}),
 					create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
@@ -580,7 +784,7 @@ function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: (
 						Color = Palette.White,
 						Thickness = Layout.RING_LINE,
 						Transparency = function()
-							return 1 - pointerDropped()
+							return 1 - ringIn()
 						end,
 					}),
 				}),
@@ -599,41 +803,74 @@ function Reel.Build(state: Types.TSpinsState, reading: () -> Vector2, elapsed: (
 				}),
 			}),
 		}),
-		-- Turned about its top, where it hangs: a frame turns about its middle, so the tip hangs off a point.
-		create("Frame")({
-			Name = "Pointer",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = function()
-				return UDim2.fromOffset(
-					Layout.POINTER.X,
-					Layout.POINTER.Y - math.round(Deal.POINTER_DROP * (1 - pointerDropped()))
-				)
-			end,
-			Size = UDim2.fromOffset(2, 2),
-			BackgroundTransparency = 1,
-			ZIndex = 5,
-			Rotation = function()
-				return Turn.LEAN * math.clamp(math.abs(reading().Y) / ReelMotion.TOP, 0, 1) + flick()
-			end,
-			-- Its cell is square: the picture's middle sits half its height under where it hangs.
-			Components.Picture(EIcons.Pointer, {
+		-- One pointer over the whole stack, the first reel's: turned about its top, where it hangs (a frame turns about
+		-- its middle, so the tip hangs off a point).
+		if isLead
+			then create("Frame")({
+				Name = "Pointer",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.new(0.5, 0, 0.5, Layout.POINTER_SIZE.Y / 2),
-				Size = Components.PictureBox(Layout.POINTER_SIZE.X),
-				ImageTransparency = function()
-					return 1 - pointerDropped()
+				Position = function()
+					return UDim2.fromOffset(
+						Layout.POINTER_X,
+						reel.WellY() - Layout.POINTER_UP - math.round(Deal.POINTER_DROP * (1 - pointerDropped()))
+					)
 				end,
-			}),
-		}),
+				Size = UDim2.fromOffset(2, 2),
+				BackgroundTransparency = 1,
+				ZIndex = 5,
+				Rotation = function()
+					return Turn.LEAN * math.clamp(math.abs(reading().Y) / ReelMotion.TOP, 0, 1) + flick()
+				end,
+				-- Its cell is square: the picture's middle sits half its height under where it hangs.
+				Components.Picture(EIcons.Pointer, {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.new(0.5, 0, 0.5, Layout.POINTER_SIZE.Y / 2),
+					Size = Components.PictureBox(Layout.POINTER_SIZE.X),
+					ImageTransparency = function()
+						return 1 - pointerDropped() * present()
+					end,
+				}),
+			})
+			else nil,
 	}
 end
 
--- Over the panel and unclipped: the ring thrown off the landed card and the pixels leaving its edge. Laid in the
+-- The pointer's gold line, down through every reel drawn and the gaps between them, under the wells (each well's face
+-- draws its own over the cards). `bottom` is where the last reel ends, in the panel's px.
+function Reel.BuildLine(state: Types.TSpinsState, shape: () -> Shape.TShape, bottom: () -> number): Frame
+	return create("Frame")({
+		Name = "Line",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = function()
+			return UDim2.fromOffset(Layout.WELL_X + 1 + Layout.CENTER_X, math.round(shape().WellY[1]))
+		end,
+		Size = function()
+			return UDim2.fromOffset(Layout.LINE_WIDTH, math.max(math.round(bottom() - shape().WellY[1]), 0))
+		end,
+		BackgroundColor3 = Palette.Gold,
+		BackgroundTransparency = function()
+			return if state.Reels() > 1 then LINE_TRANSPARENCY else 1
+		end,
+		BorderSizePixel = 0,
+		ZIndex = 1,
+	})
+end
+
+-- Over the panel and unclipped: the ring thrown off the reel's landed card and the pixels leaving its edge. Laid in the
 -- panel's own px, with the card resting at the pointer.
-function Reel.BuildFx(state: Types.TSpinsState): { Instance }
-	local landed = landedFor(state)
-	local prize = landedPrize(state)
-	local center = Layout.WELL + Vector2.new(1, 1) + Layout.CENTER
+function Reel.BuildFx(reel: TReel): { Instance }
+	local landed = landedFor(reel.State, reel.Spin)
+	local prize = landedPrize(reel.Spin)
+	-- Where the card rests and its half size, and how far a slim card's pixels fly against his.
+	local center = derive(function(): Vector2
+		return Vector2.new(Layout.WELL_X + 1 + Layout.CENTER_X, reel.WellY() + 1 + math.round(reel.Face() / 2))
+	end)
+	local cardSize = derive(function(): Vector2
+		return Vector2.new(Layout.CARD_WIDTH, math.round(reel.CardHeight()))
+	end)
+	local reachShare = derive(function(): number
+		return math.max(reel.CardHeight() / Shape.Layout.CARD, Rays.SLIM_SHARE)
+	end)
 	local accent = derive(function(): Color3
 		local current = prize()
 		return if current then Parts.AccentOf(current) else Palette.White
@@ -650,14 +887,19 @@ function Reel.BuildFx(state: Types.TSpinsState): { Instance }
 		return if t < 1 then t else nil
 	end)
 
-	local half = Layout.CARD / 2 + Vector2.new(Pixels.OUTSIDE, Pixels.OUTSIDE)
 	local pixels = table.create(Pixels.POOL)
 	for index = 1, Pixels.POOL do
 		local angle = (index - 1 + (Scatter(index, 6) - 0.5) * 0.8) / Pixels.COUNT * 2 * math.pi
 		local direction = Vector2.new(math.cos(angle), math.sin(angle))
 		-- Out of the card's own rectangle, a step past its glow.
-		local start = direction
-			* math.min(half.X / math.max(math.abs(direction.X), 1e-3), half.Y / math.max(math.abs(direction.Y), 1e-3))
+		local start = derive(function(): Vector2
+			local half = cardSize() / 2 + Vector2.new(Pixels.OUTSIDE, Pixels.OUTSIDE)
+			return direction
+				* math.min(
+					half.X / math.max(math.abs(direction.X), 1e-3),
+					half.Y / math.max(math.abs(direction.Y), 1e-3)
+				)
+		end)
 		local reach = Pixels.REACH_MIN + (Pixels.REACH_MAX - Pixels.REACH_MIN) * Scatter(index, 7)
 		local life = Pixels.LIFE_MIN + (Pixels.LIFE_MAX - Pixels.LIFE_MIN) * Scatter(index, 8)
 		local size = math.round(Pixels.SIZE_MIN + (Pixels.SIZE_MAX - Pixels.SIZE_MIN) * Scatter(index, 9))
@@ -675,9 +917,9 @@ function Reel.BuildFx(state: Types.TSpinsState): { Instance }
 			Position = function()
 				local t = age()
 				if not t then return PARKED end
-				local at = center
-					+ start
-					+ direction * reach * (1 - math.exp(-Pixels.DRAG * t))
+				local at = center()
+					+ start()
+					+ direction * reach * reachShare() * (1 - math.exp(-Pixels.DRAG * t))
 					+ Vector2.new(0, Pixels.GRAVITY * t * t)
 				return UDim2.fromOffset(math.round(at.X), math.round(at.Y))
 			end,
@@ -698,14 +940,17 @@ function Reel.BuildFx(state: Types.TSpinsState): { Instance }
 
 	return {
 		create("Frame")({
-			Name = "Burst",
+			Name = `Burst{reel.Index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
-				return if ring() then UDim2.fromOffset(center.X, center.Y) else PARKED
+				if not ring() then return PARKED end
+				local at = center()
+				return UDim2.fromOffset(at.X, at.Y)
 			end,
 			Size = function()
-				local grow = math.round(Land.RING_REACH * Motion.Out(ring() or 0))
-				return UDim2.fromOffset(Layout.CARD.X + 2 * grow, Layout.CARD.Y + 2 * grow)
+				local grow = math.round(Land.RING_REACH * reachShare() * Motion.Out(ring() or 0))
+				local size = cardSize()
+				return UDim2.fromOffset(size.X + 2 * grow, size.Y + 2 * grow)
 			end,
 			BackgroundTransparency = 1,
 			create("UICorner")({ CornerRadius = UDim.new(0, 4) }),

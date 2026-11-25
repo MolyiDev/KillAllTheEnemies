@@ -73,14 +73,14 @@ local data: TData.TClass = {
 		TargetSeconds = 1,
 		Speed = 16,
 		TickSeconds = 0.2,
-		BossShare = 0.012,
+		BossShare = 0.002,
 		Levels = {
 			{ { Stat = "Duration", Label = "LASTS", Value = 7.5 } },
 			{ { Stat = "Radius", Label = "BEAM SIZE", Value = 10 } },
 			{ { Stat = "ChargeKills", Label = "CHARGE", Value = 65 } },
 			{
 				{ Stat = "Duration", Label = "LASTS", Value = 9 },
-				{ Stat = "BossShare", Label = "BOSS DAMAGE", Value = 0.016 },
+				{ Stat = "BossShare", Label = "BOSS DAMAGE", Value = 0.003 },
 			},
 		},
 	},

@@ -8,16 +8,85 @@
 -- SquadKill opens it and scores on the second row a second later, SquadClose shuts it) start 0.2 s in, for
 -- `rur-native sequence`. The squad's four are his render's numbers; their faces cannot be fetched offline. The boss's
 -- bar: Boss (up mid-fight, still), BossArrive, BossFight (a stream of hits that empties a segment, then a big one),
--- BossFall; the player's: Hurt, Heal. They run through BossBar.Update and BarJuice.Step as the HUD does, off a scripted
+-- BossFall (the Knight Shoulders won half a second after it, the Hip Pack missed), BossOwned (still, the shoulders
+-- owned already), BossShield (its guards' shield up, one of four down), Way (kills streaming onto the way to the next boss,
+-- completing its second segment), WayFull (the last kills fill it, it charges, and the boss comes on); the player's:
+-- Hurt, Heal. They run through BossBar.Update and BarJuice.Step as the HUD does, off a scripted
 -- server.
 -- rur reads the project file as plain JSON, so strip its comments into a copy first. The HUD's group-owned images 403
--- offline, so they are swapped for the local PNGs they were made from.
+-- offline, so they are swapped for the local PNGs they were made from, and the Hip Pack's mesh (not public) is read from
+-- its downloaded source.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
+-- The ECS world's debugger (jabby) waits on a client for the remotes its server makes, and offline there is no server.
+-- The page reaches it (AbilityPicture, copyCharacter, BodyPoseController, the World), so they are made before it loads.
+-- The names are jabby 0.2.3's (its modules/remotes.luau).
+if not ReplicatedStorage:FindFirstChild("JABBY_REMOTES") then
+	local folder = Instance.new("Folder")
+	folder.Name = "JABBY_REMOTES"
+	for _, name in
+		{
+			"server_registered",
+			"ping",
+			"client_registered",
+			"update_server_data",
+			"send_mouse_pointer",
+			"send_mouse_entity",
+			"validate_query",
+			"validate_result",
+			"replicate_query",
+			"disconnect_query",
+			"advance_query_page",
+			"pause_query",
+			"refresh_query",
+			"update_query_result",
+			"count_total_entities",
+			"initiate_replicate_scheduler",
+			"disconnect_replicate_scheduler",
+			"scheduler_system_update_static",
+			"append_frame_system",
+			"scheduler_pause",
+			"validate_entity_component",
+			"validate_entity_component_result",
+			"inspect_entity",
+			"delete_entity",
+			"stop_inspect_entity",
+			"update_entity",
+			"inspect_entity_settings_update",
+			"inspect_entity_update",
+			"create_watch",
+			"remove_watch",
+			"request_watch_data",
+			"update_watch_data",
+			"start_record_watch",
+			"stop_watch",
+			"clear_watch",
+			"connect_to_watch",
+			"disconnect_watch",
+			"update_watch_overview",
+		}
+	do
+		local remote = Instance.new("RemoteEvent")
+		remote.Name = name
+		local actor = Instance.new("BindableEvent")
+		actor.Name = "actor"
+		actor.Parent = remote
+		local peer = Instance.new("RemoteEvent")
+		peer.Name = "peer"
+		peer.Parent = remote
+		remote.Parent = folder
+	end
+	folder.Parent = ReplicatedStorage
+end
+
 local vide = require(ReplicatedStorage.Packages.vide)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
+local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
+local EquipmentCore = require(ReplicatedStorage.GlobalShared.Core.EquipmentCore)
+local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
+local EEquipmentIds = require(ReplicatedStorage.Types.Enums.Data.EEquipmentIds)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local AvatarPose = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AvatarPose)
 
@@ -61,6 +130,16 @@ local function swapImages(root: Instance)
 		swap(instance)
 	end
 	root.DescendantAdded:Connect(swap)
+end
+
+local PRIVATE_MESHES = {
+	["rbxassetid://13656925925"] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/models/Equipment/sources/13656925925.mesh",
+	["rbxassetid://13656942660"] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/models/Equipment/sources/13656942660.png",
+}
+for _, mesh in ReplicatedStorage.Models.Equipment:GetDescendants() do
+	if not mesh:IsA("SpecialMesh") then continue end
+	mesh.MeshId = PRIVATE_MESHES[mesh.MeshId] or mesh.MeshId
+	mesh.TextureId = PRIVATE_MESHES[mesh.TextureId] or mesh.TextureId
 end
 
 local LADDER = GunsCore.STARTER_LADDER
@@ -274,12 +353,23 @@ local function state(phase: string, moment: string)
 			Broken = source(0),
 			BrokeAt = source(-math.huge),
 			DefeatedAt = source(-math.huge),
+			Guards = source(0),
+			GuardsTotal = source(0),
+			Way = BarJuice.NewTrack(),
+			Filled = source(0),
+			FilledAt = source(-math.huge),
+			FullAt = source(-math.huge),
+			Surge = source(0),
+			Drops = source({}),
+			DropWonAt = { source(-math.huge), source(-math.huge), source(-math.huge), source(-math.huge) },
 		},
 		NextBossName = source("The Cove King"),
 		NextBossRound = source(15),
 		Gold = source(60),
 		GoldShown = source(60),
 		GoldPulse = source(0),
+		GoldDenied = source(0),
+		GoldDeniedAt = source(-math.huge),
 		GoldDenied = source(0),
 		Health = source(82),
 		MaxHealth = source(100),
@@ -420,6 +510,10 @@ return {
 			"BossArrive",
 			"BossFight",
 			"BossFall",
+			"BossOwned",
+			"BossShield",
+			"Way",
+			"WayFull",
 			"Hurt",
 			"Heal",
 			"GoldPack",
@@ -518,11 +612,21 @@ return {
 
 		-- The scripted server: the boss's health and the local player's part in it, by seconds since the story began, and
 		-- the local player's health.
-		local bossAt = startedAt + (if moment == "BossArrive" then MOMENT_AT else -5)
+		-- In WayFull the way fills a second in, and the boss comes on as RoundService brings it.
+		local wayFullAt = MOMENT_AT + 1 + RoundCore.BOSS_ARRIVE_SECONDS
+		local bossAt = startedAt
+			+ (if moment == "BossArrive" then MOMENT_AT elseif moment == "WayFull" then wayFullAt else -5)
+		-- The way: 400 bodies, kills coming in batches ten times a second, as the server sends them.
+		local function wayKills(t: number): number
+			local batches = math.max(math.floor((t - MOMENT_AT) * 10), 0)
+			if moment == "Way" then return math.min(185 + 2 * batches, 230) end
+			if moment == "WayFull" then return math.min(380 + 2 * batches, 400) end
+			return 120
+		end
 		local isBossMoment = string.sub(moment, 1, 4) == "Boss"
 		local function bossShare(t: number): (number, number)
-			if moment == "Boss" then return 0.62, 0.18 end
-			if moment == "BossArrive" then return 1, 0 end
+			if moment == "Boss" or moment == "BossShield" or moment == "BossOwned" then return 0.62, 0.18 end
+			if moment == "BossArrive" or moment == "WayFull" then return 1, 0 end
 			if moment == "BossFight" then
 				-- Ten blows a second from 0.79 down past the first segment's end, then a heavy one.
 				local blows = math.clamp(math.floor((t - MOMENT_AT) * 10), 0, 14)
@@ -541,7 +645,12 @@ return {
 			return hudState.Health()
 		end
 
-		if moment == "Boss" or isBossMoment then
+		-- Its guards' shield up, one of four down.
+		if moment == "BossShield" then
+			hudState.Boss.Guards(3)
+			hudState.Boss.GuardsTotal(4)
+		end
+		if moment == "Boss" or isBossMoment or moment == "WayFull" then
 			hudState.Round(15)
 			hudState.IsBossRound(true)
 			hudState.NextBossRound(15)
@@ -560,14 +669,35 @@ return {
 			Top = { { UserId = 0, Name = "", Share = 0 }, { UserId = 0, Name = "", Share = 0 } },
 			SelfId = 1,
 			IsRunning = true,
+			WayKills = 0,
+			WayNeeded = 400,
+			Drops = {},
+			WonAt = {},
 		}
+		-- The T-Rex's real drops; the shoulders owned in BossOwned, and won half a second after the fall in BossFall.
+		for index, item in EquipmentCore.DropsOf(EEnemiesIds.TRex) do
+			local drop = item.Drop :: any
+			seen.Drops[index] = {
+				Id = item.Id,
+				Chance = drop.Chance,
+				IsOwned = moment == "BossOwned" and item.Id == EEquipmentIds.KnightShoulders,
+			}
+		end
+		-- A stand-in third piece, so the bench shows a list as long as the reference's.
+		table.insert(seen.Drops, { Id = EEquipmentIds.KnightHelmet, Chance = 0.3, IsOwned = false })
+		if moment == "BossFall" then
+			task.delay(MOMENT_AT + 1.1, function()
+				seen.WonAt[EEquipmentIds.KnightShoulders] = os.clock()
+			end)
+		end
 		local last = os.clock()
 		RunService.Heartbeat:Connect(function()
 			local now = os.clock()
 			local dt = now - last
 			last = now
 			local t = now - startedAt
-			local isUp = (moment == "Boss" or isBossMoment)
+			seen.WayKills = wayKills(t)
+			local isUp = (moment == "Boss" or isBossMoment or moment == "WayFull")
 				and now >= bossAt
 				and not (moment == "BossFall" and t >= MOMENT_AT + 0.6)
 			local share, mine = bossShare(t)

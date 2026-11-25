@@ -22,6 +22,9 @@ local Run = table.freeze({
 	SETTLE = 0.5,
 	-- A refused spin brakes onto the nearest slot this far on.
 	REFUSED_TRAVEL = 5,
+	-- A reel made to wait for the one above tries braking later in steps this far apart, this many at most.
+	WAIT_STEP = 0.01,
+	WAIT_STEPS = 200,
 })
 
 local ReelMotion = {}
@@ -90,6 +93,28 @@ function ReelMotion.Plan(spin: Types.TSpin, prize: number, now: number, jitter: 
 	planned.Prize = prize
 	planned.LandAt = brakeAt + brake + Run.SETTLE
 	return planned
+end
+
+-- A plan landing on `prize` no sooner than `notBefore` and as soon after it as it can, for a reel that must land after
+-- the one above it: it brakes later the longer it must wait, tried a fraction of a slot apart, since a later brake can
+-- land sooner (the stop moves on a lap).
+function ReelMotion.PlanAfter(
+	spin: Types.TSpin,
+	prize: number,
+	now: number,
+	jitter: number,
+	notBefore: number
+): Types.TSpin
+	local plan = ReelMotion.Plan(spin, prize, now, jitter)
+	if (plan.LandAt :: number) >= notBefore then return plan end
+	local chosen: Types.TSpin? = nil
+	for step = 1, Run.WAIT_STEPS do
+		local later = ReelMotion.Plan(spin, prize, now + step * Run.WAIT_STEP, jitter)
+		local landAt = later.LandAt :: number
+		if landAt >= notBefore and (not chosen or landAt < (chosen.LandAt :: number)) then chosen = later end
+	end
+
+	return chosen or plan
 end
 
 return table.freeze(ReelMotion)

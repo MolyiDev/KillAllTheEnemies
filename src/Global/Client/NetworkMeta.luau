@@ -482,10 +482,24 @@ function SerdesFunctions.Server_Spins_ReadEVENT_State(): (number, number, number
 	return Value1, Value2, Value3, Value4
 end
 
-function SerdesFunctions.Server_Spins_ReadEVENT_Landed(): (number)
-	-- Read BLOCK: 1 bytes
-	local BLOCK_START = Read(1)
-	local Value = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+function SerdesFunctions.Server_Spins_ReadEVENT_Landed(): ({ number })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	local Value = table.create(Length)
+		-- Read BLOCK: 1 bytes
+	local ARRAY_START_1 = Read(1 * Length)
+	for Index = 1, Length do
+		-- Read 1
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 1
+		local Item_1 = buffer.readu8(RecieveBuffer, OPERATION_OFFSET_0)
+		table.insert(Value, Item_1)
+	end
+	-- END ARRAY
 	return Value
 end
 
@@ -1318,10 +1332,11 @@ function SerdesFunctions.Client_DailyRewards_WriteEVENT_Claim(Value: nil): ()
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 51)
 end
 
-function SerdesFunctions.Client_Spins_WriteEVENT_Spin(Value: nil): ()
-	-- Allocate BLOCK: 1 bytes
-	local BLOCK_START = Allocate(1)
+function SerdesFunctions.Client_Spins_WriteEVENT_Spin(Value: number): ()
+	-- Allocate BLOCK: 2 bytes
+	local BLOCK_START = Allocate(2)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 52)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.Client_Results_WriteEVENT_Dismiss(Value: nil): ()
@@ -1981,7 +1996,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[16], {Value1, Value2, Value3, Value4} :: {any})
 			end
 		elseif Index == 17 then
-			local Value: number = SerdesFunctions.Server_Spins_ReadEVENT_Landed()
+			local Value: { number } = SerdesFunctions.Server_Spins_ReadEVENT_Landed()
 			if Events.Reliable[17] ~= nil then
 				task.spawn(Events.Reliable[17], Value)
 			else
@@ -2464,7 +2479,7 @@ local Returns = table.freeze({
 				end
 			},
 			Landed = {
-				On = function(Listener: (Value: number) -> ()): () -> ()
+				On = function(Listener: (Value: { number }) -> ()): () -> ()
 					Events.Reliable[17] = Listener
 					for Index, Arguments in Queue.Reliable[17] do
 						task.spawn(Listener, table.unpack(Arguments))
@@ -2857,7 +2872,7 @@ local Returns = table.freeze({
 		},
 		Spins = {
 			Spin = {
-				Fire = function(Value: nil): ()
+				Fire = function(Value: number): ()
 					SerdesFunctions.Client_Spins_WriteEVENT_Spin(Value)
 				end
 			},

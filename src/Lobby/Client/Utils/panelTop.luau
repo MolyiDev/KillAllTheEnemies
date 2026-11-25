@@ -18,6 +18,8 @@ local panelTop = {}
 
 -- The panels' top in design px.
 panelTop.Top = vide.source(0)
+-- Real px a design px is, the pages' UIScale: a 1 px rule is max(1, 1 / Scale) design px tall, or it vanishes under it.
+panelTop.Scale = vide.source(1)
 
 -- How far a panel his layout puts at `designTop` is raised (and grown, its bottom staying put).
 function panelTop.Lift(designTop: number): () -> number
@@ -35,6 +37,7 @@ local function update()
 	local rowBottom = Hud.TOP_ROW_BOTTOM * Hud.ScaleFor(viewport.Y, GuiService:GetGuiInset().Y)
 	local reach = math.max(GuiService.TopbarInset.Max.Y, rowBottom)
 	panelTop.Top(math.round((reach - pageTop) / scale + GAP))
+	panelTop.Scale(scale)
 end
 
 camera:GetPropertyChangedSignal("ViewportSize"):Connect(update)

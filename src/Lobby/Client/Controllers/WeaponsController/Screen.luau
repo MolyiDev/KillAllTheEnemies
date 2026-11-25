@@ -6,8 +6,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
-local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
+local ItemCard = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.ItemCard)
 local Notice = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Notice)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
@@ -27,19 +27,11 @@ local GUNS = DataCore.Guns.ById
 
 -- His drawn rects in px at 1080, from the screen's top left.
 local Layout = table.freeze({
-	-- The tabs: the first one's top left, the step between them and their size; inside one the gun's box and middle,
-	-- the rule, the word and the corner badges.
+	-- The tabs: the first one's top left, the step between them and their size, and the gun's box inside one.
 	TAB = Vector2.new(629, 40),
 	TAB_STEP = 174,
 	TAB_SIZE = Vector2.new(140, 112),
-	TAB_GUN = Vector2.new(70, 45),
 	TAB_GUN_BOX = 66,
-	TAB_RULE = Vector2.new(12, 78),
-	TAB_RULE_WIDTH = 116,
-	TAB_WORD_Y = 86,
-	TAB_WORD_TEXT = 16,
-	TAB_BADGE = 23,
-	TAB_BADGE_LEFT = Vector2.new(9, 8),
 	-- The chevrons between two tabs: their middle past a tab's right edge.
 	CHEVRON = Vector2.new(17, 56),
 	CHEVRON_TEXT = 22,
@@ -51,7 +43,14 @@ local Timing = table.freeze({
 	TABS_DELAY = 0.14,
 	TABS_STAGGER = 0.05,
 	TABS_DROP = 24,
+	-- The gun a tier holds changing pops its picture.
+	HELD_POP_PERIOD = 0.26,
+	HELD_POP_DAMPING = 0.58,
+	HELD_POP = 0.18,
 })
+
+-- The upgrade Notice's middle on a tab.
+local NOTICE = ItemCard.TopLeft()
 
 local Screen = {}
 
@@ -72,105 +71,60 @@ local function tab(state: Types.TWeaponsState, actions: Types.TWeaponsActions, e
 	local accent = derive(function(): Color3
 		return Parts.RARITIES[GUNS[held()].Rarity].Accent
 	end)
-	local edge = derive(function(): Color3
-		return Parts.EdgeOf(accent())
-	end)
 	local offer = derive(function(): boolean
 		return Parts.HasOffer(state, LoadoutCore.ByTier[tier])
 	end)
-	-- The gun a tier holds changing pops its picture.
-	local pop, strikePop = Hand.Kick(0.26, 0.58)
+	local pop, strikePop = Hand.Kick(Timing.HELD_POP_PERIOD, Timing.HELD_POP_DAMPING)
 	local last = nil
 	vide.effect(function()
 		local current = held()
 		vide.untrack(function()
-			if last and current ~= last then strikePop(0.18) end
+			if last and current ~= last then strikePop(Timing.HELD_POP) end
 			last = current
 		end)
 	end)
 	local left = Layout.TAB.X + Layout.TAB_STEP * (tier - 1)
 
-	return Components.Button({
+	-- It grows in from nothing rather than fading under a group: the hand moves its wash, sheen and brackets, and a
+	-- group redraws its whole canvas for every frame of that.
+	return ItemCard.Build({
 		Name = `Tier{tier}`,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = Layout.TAB_SIZE,
 		Position = function()
 			return UDim2.fromOffset(
 				left + Layout.TAB_SIZE.X / 2,
 				Layout.TAB.Y + Layout.TAB_SIZE.Y / 2 - math.round(Timing.TABS_DROP * away())
 			)
 		end,
-		Size = UDim2.fromOffset(Layout.TAB_SIZE.X, Layout.TAB_SIZE.Y),
-		BackgroundTransparency = 1,
-		ZIndex = 3,
-		Activated = function()
-			hand.Commit()
-			actions.PickTier(tier)
+		Hand = hand,
+		Accent = accent,
+		Title = `TIER {tier}`,
+		IsSelected = isPicked,
+		Grown = function()
+			return 1 - away()
 		end,
-		hand.Events,
-		-- It grows in from nothing rather than fading under a group: the hand moves its wash, sheen and brackets, and
-		-- a group redraws its whole canvas for every frame of that.
-		create("UIScale")({
-			Scale = function()
-				return (1 - away()) * hand.Scale()
-			end,
+		Picture = Parts.Gun(held, {}, {
+			Name = "Gun",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(Layout.TAB_GUN_BOX, Layout.TAB_GUN_BOX),
+			create("UIScale")({
+				Scale = function()
+					return 1 + pop()
+				end,
+			}),
 		}),
-		Components.Card({
-			Accent = edge,
-			Glow = accent,
-			GlowTransparency = function()
-				return 0.7 - 0.35 * hand.Light()
-			end,
-			Tint = 0.35,
-			Marks = true,
-			Brackets = hand.Rise,
-			BracketLength = 20,
-			BracketTransparency = function()
-				return 0.6 - 0.3 * hand.Light()
-			end,
-			BracketsClosed = isPicked,
-		}, {
-			Name = "Card",
-			Size = UDim2.fromScale(1, 1),
-			Hand.WashLayer(hand, 3, 2),
-			Components.Sheen(hand.Glint, 3),
-			Parts.Gun(held, {}, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(Layout.TAB_GUN.X, Layout.TAB_GUN.Y),
-				Size = UDim2.fromOffset(Layout.TAB_GUN_BOX, Layout.TAB_GUN_BOX),
-				ZIndex = 4,
-				create("UIScale")({
-					Scale = function()
-						return 1 + 0.1 * hand.Rise() + pop()
-					end,
-				}),
-			}),
-			create("Frame")({
-				Name = "Rule",
-				Position = UDim2.fromOffset(Layout.TAB_RULE.X, Layout.TAB_RULE.Y),
-				Size = UDim2.fromOffset(Layout.TAB_RULE_WIDTH, 2),
-				BackgroundColor3 = accent,
-				BackgroundTransparency = 0.6,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-			}),
-			Label({
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromOffset(Layout.TAB_SIZE.X / 2, Layout.TAB_WORD_Y),
-				Size = UDim2.fromOffset(Layout.TAB_SIZE.X, Layout.TAB_WORD_TEXT),
-				TextXAlignment = Enum.TextXAlignment.Center,
-				TextSize = Layout.TAB_WORD_TEXT,
-				Text = `TIER {tier}`,
-			}),
+		Children = {
 			-- Where his gold badge stood: placed by its middle.
-			Notice.Build({ Kind = "Upgrade", Size = Layout.TAB_BADGE, IsShown = offer }, {
-				Position = UDim2.fromOffset(
-					Layout.TAB_BADGE_LEFT.X + Layout.TAB_BADGE / 2,
-					Layout.TAB_BADGE_LEFT.Y + Layout.TAB_BADGE / 2
-				),
+			Notice.Build({ Kind = "Upgrade", Size = ItemCard.BADGE, IsShown = offer }, {
+				Position = UDim2.fromOffset(NOTICE.X, NOTICE.Y),
 				ZIndex = 5,
 			}),
-		}),
-	}) :: TextButton
+		},
+		Activated = function()
+			actions.PickTier(tier)
+		end,
+	})
 end
 
 local function tabs(state: Types.TWeaponsState, actions: Types.TWeaponsActions, elapsed: () -> number): { Instance }

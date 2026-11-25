@@ -7,7 +7,8 @@
 -- the game opens it), Granted (the class bundle bought 0.4 s in: the cheer and OWNED), Owned (it and the featured gun
 -- held),
 -- Gift (the gift list up over the shop), Restricted (Passes with paid random items restricted), Leave (shutting from
--- 0.2 s: render at --time 0.3 for 0.1 s into it), Mega (the biggest Gem pack), Bottom (the end of the scroll). The group-owned images
+-- 0.2 s: render at --time 0.3 for 0.1 s into it), Mega (the biggest Gem pack), Bottom (the end of the scroll), Page2
+-- (the hero on its second page), Turn (the hero turning to it 0.2 s in: film it with `rur-native sequence`). The group-owned images
 -- 403 offline, so they are swapped for the local PNGs they were made from. The gun models live in the places, so their
 -- pictures come out empty here: judge them in a playtest.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,7 +38,7 @@ local SWAPS = {
 local MOMENT_AT = 0.2
 -- The section each moment opens on, and a scroll past it for the moments about the class bundle.
 local SECTIONS = { Bundles = "Bundles", Gems = "Gems", Passes = "Passes", Restricted = "Passes", Mega = "Gems" }
-local SCROLLS = { Granted = 440, Owned = 440, Mega = 1900, Bottom = 99999 }
+local SCROLLS = { Mega = 1500, Bottom = 99999 }
 
 local function swapImages(root: Instance)
 	local function swap(instance: Instance)
@@ -71,6 +72,8 @@ return {
 			"Leave",
 			"Mega",
 			"Bottom",
+			"Page2",
+			"Turn",
 		},
 	},
 	story = function(props)
@@ -91,6 +94,12 @@ return {
 			HasFeatured = source(moment == "Owned"),
 			FeaturedEndsAt = source(os.time() + ShopCore.FeaturedSecondsLeft(os.time())),
 			Clock = source(os.time()),
+			Page = source(if moment == "Page2" or moment == "Turn" or moment == "Granted" then 2 else 1),
+			PagePrev = source(1),
+			PageStep = source(1),
+			PageAt = source(if moment == "Turn" then at else -math.huge),
+			PageShown = source(if moment == "Turn" then 0 else 2.4),
+			IsHeroHeld = source(false),
 			Section = source(SECTIONS[moment] or "Featured"),
 			SectionAt = source(-math.huge),
 			PressedAt = source({}),
@@ -129,6 +138,8 @@ return {
 			Screen.Build(state, {
 				Close = noop,
 				PickSection = noop,
+				TurnPage = noop,
+				PickPage = noop,
 				Buy = noop,
 				OpenGift = noop,
 				CloseGift = noop,

@@ -23,6 +23,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
+local Parts = require(script.Parts)
 local Receipt = require(script.Receipt)
 local Receipts = require(script.Receipts)
 local Screen = require(script.Screen)
@@ -47,6 +48,8 @@ local Tune = table.freeze({
 	MOTION_SECONDS = 2.2,
 	-- A tab's glide through the scroll.
 	GLIDE_SECONDS = 0.45,
+	-- A hero page's arrival (the slide, the chips, the strike) is over by then.
+	PAGE_SETTLE = 1.4,
 	-- A prompt nobody answered stops holding its price in and lifts its dim.
 	PROMPT_TIMEOUT = 120,
 	-- While Roblox's dialog is up the screen sinks under this much more black, so the dialog is what is looked at.
@@ -85,6 +88,12 @@ local state: Types.TShopState = {
 	HasFeatured = source(false),
 	FeaturedEndsAt = source(os.time() + ShopCore.FeaturedSecondsLeft(os.time())),
 	Clock = source(0),
+	Page = source(1),
+	PagePrev = source(1),
+	PageStep = source(1),
+	PageAt = source(-math.huge),
+	PageShown = source(0),
+	IsHeroHeld = source(false),
 	Section = source("Featured" :: ShopCore.TSection),
 	SectionAt = source(-math.huge),
 	PressedAt = source({} :: { [string]: number }),
@@ -105,8 +114,9 @@ local state: Types.TShopState = {
 	ReceiptCalledAt = source(-math.huge),
 }
 
--- os.clock until which Now keeps ticking.
+-- os.clock until which Now keeps ticking, and of the last frame stepped (the hero's page counts the time between).
 local motionUntil = -math.huge
+local lastStep = os.clock()
 -- The scroll and each section's top in it, and a glide in progress.
 local scroll: ScrollingFrame? = nil
 local sectionTops: { [string]: number } = {}
@@ -224,6 +234,11 @@ function ShopController.Open(section: ShopCore.TSection?)
 		state.ToggledAt(os.clock())
 		state.Section(section or "Featured")
 		state.Clock(os.time())
+		state.Page(1)
+		state.PagePrev(1)
+		state.PageAt(-math.huge)
+		state.PageShown(0)
+		state.IsHeroHeld(false)
 	end)
 	stir(Tune.MOTION_SECONDS)
 	SoundsCore.SetMuffled("Shop", true)
@@ -266,8 +281,31 @@ local function giftPlayers(): { Types.TGiftPlayer }
 	return list
 end
 
+-- The hero card turns to `page` (wrapped round its pages), sliding the way `step` says.
+local function turnTo(page: number, step: number)
+	page = (page - 1) % #Parts.HERO + 1
+	if page == state.Page() then return end
+	vide.batch(function()
+		state.PagePrev(state.Page())
+		state.Page(page)
+		state.PageStep(step)
+		state.PageAt(os.clock())
+		state.PageShown(0)
+	end)
+	stir(Tune.PAGE_SETTLE)
+end
+
 local actions: Types.TShopActions = {
 	Close = ShopController.Close,
+	TurnPage = function(step: number)
+		turnTo(state.Page() + step, step)
+		SoundsCore.PlayClick()
+	end,
+	PickPage = function(page: number)
+		if page == state.Page() then return end
+		turnTo(page, if page > state.Page() then 1 else -1)
+		SoundsCore.PlayClick()
+	end,
 	PickSection = function(section: ShopCore.TSection)
 		state.SectionAt(os.clock())
 		glideTo(section)
@@ -553,6 +591,19 @@ local function step(now: number)
 	if state.IsOpen() then
 		local second = os.time()
 		if second ~= state.Clock() then state.Clock(second) end
+	end
+
+	-- The hero's page counts on while it is looked at and nothing is over the shop, and turns on by itself.
+	local dt = now - lastStep
+	lastStep = now
+	local isPaused = state.IsHeroHeld() or state.IsPrompting() or state.GiftOffer() ~= nil or state.Receipt() ~= nil
+	if state.IsOpen() and not isPaused then
+		local shown = state.PageShown() + dt
+		if shown >= Parts.PAGE_SECONDS then
+			turnTo(state.Page() + 1, 1)
+		else
+			state.PageShown(shown)
+		end
 	end
 end
 

@@ -148,7 +148,7 @@ local function slot(state: Types.TLabState, actions: Types.TLabActions, index: n
 		local held = potion()
 		if held then return Parts.EffectLines(DataCore.Potions.ById[held.Recipe], held.Rarity)[1] or "" end
 		if isOpen() then return "Pick a potion below" end
-		return if kind() == 3 then "Bought once, yours for good" else "With the 3rd Potion Slot pass"
+		return if kind() == 3 then "Bought once, yours for good" else "With the Extra Potion Slot pass"
 	end)
 	local lineTwo = derive(function(): string
 		local held = potion()

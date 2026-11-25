@@ -1,6 +1,7 @@
 -- Who has been shown which enemy, and where each player's camera is. An enemy is subscribed to a player the first time
--- it comes within his render distance and camera cone, and from then on every event about it reaches only its
--- subscribers. That is what keeps a client's Highlight count under the engine's 255 (EnemiesCore.MAX_ALIVE).
+-- its view sphere (EnemiesCore.ViewSphere) comes within his render distance and camera cone, and from then on every
+-- event about it reaches only its subscribers. That is what keeps a client's Highlight count under the engine's 255
+-- (EnemiesCore.MAX_ALIVE).
 --
 -- The hot paths fill caller-owned or pooled lists, so a volley of damage allocates nothing per hit.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +27,8 @@ local NO_FRUSTUM = -1
 local MAX_CAM_COORD = 1e5
 -- How far a player is shown enemies. An arena fits well inside it; a settings menu can lower it per player.
 local RENDER_DISTANCE = 400
+-- Floors sin(FOV/2) for a cone squeezed to nothing (a malformed threshold), so the apex shift stays finite.
+local MIN_SIN_HALF_FOV = 0.05
 
 export type TPlayerAOIState = {
 	renderDistance: number,
@@ -38,6 +41,8 @@ export type TPlayerAOIState = {
 	lookZ: number,
 	-- cos^2(FOV/2), NO_FRUSTUM until the first CameraSync.
 	thresholdSq: number,
+	-- 1 / sin(FOV/2): how far back along the look a sphere's radius moves the cone's apex (inViewSphere).
+	apexShiftPerRadius: number,
 	knownEnemies: { [number]: boolean },
 }
 
@@ -67,16 +72,23 @@ local function takeList(): { number }
 	return list
 end
 
-local function isInView(state: TPlayerAOIState, x: number, y: number, z: number): boolean
+-- Does any of the ball of `radius` round (x, y, z) stand in the camera's cone? The ball touches the cone exactly when
+-- its centre is inside the cone with its apex moved back radius / sin(FOV/2) along the look; that grown cone also
+-- takes a little behind the apex, which only shows a body early.
+local function isInView(state: TPlayerAOIState, x: number, y: number, z: number, radius: number): boolean
 	local vx = x - state.camX
 	local vy = y - state.camY
 	local vz = z - state.camZ
 	local distSq = vx * vx + vy * vy + vz * vz
 	if distSq > state.renderDistanceSq then return false end
-	if state.thresholdSq < 0 or distSq < 1 then return true end
+	if state.thresholdSq < 0 or distSq < radius * radius then return true end
+	local shift = radius * state.apexShiftPerRadius
+	vx += state.lookX * shift
+	vy += state.lookY * shift
+	vz += state.lookZ * shift
 	local dot = vx * state.lookX + vy * state.lookY + vz * state.lookZ
 	if dot <= 0 then return false end
-	return dot * dot > state.thresholdSq * distSq
+	return dot * dot > state.thresholdSq * (vx * vx + vy * vy + vz * vz)
 end
 
 local function subscribe(player: Player, state: TPlayerAOIState, instanceId: number)
@@ -93,7 +105,10 @@ local function tickSpatialHashCallback(enemyEntity: any)
 	local instanceId = EnemyWorld:get(enemyEntity, Components.InstanceId)
 	if not instanceId or tickState.knownEnemies[instanceId] then return end
 	local position = EnemyWorld:get(enemyEntity, Components.Position)
-	if not position or not isInView(tickState, position.x, position.y, position.z) then return end
+	local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
+	if not position or not enemyData then return end
+	local view = EnemiesCore.ViewSphere(enemyData)
+	if not isInView(tickState, position.x, position.y + view.x, position.z, view.y) then return end
 	subscribe(tickPlayer, tickState, instanceId)
 	if tickOnNewlySubscribed then tickOnNewlySubscribed(tickPlayer, instanceId) end
 end
@@ -105,16 +120,17 @@ function AOIService.GetCameraLook(player: Player): Vector3?
 	return Vector3.new(state.lookX, state.lookY, state.lookZ)
 end
 
+-- Pulled back behind the head in first person (CameraSyncController), but still on the aim ray.
 function AOIService.GetCameraPosition(player: Player): Vector3?
 	local state = playerStates[player]
 	if not state or state.thresholdSq < 0 then return nil end
 	return Vector3.new(state.camX, state.camY, state.camZ)
 end
 
--- Every player who can see (x, y, z) now, into `out` (cleared by the caller).
-function AOIService.GetVisiblePlayersInto(x: number, y: number, z: number, out: { Player }): { Player }
+-- Every player who can see any of the ball of `radius` round (x, y, z) now, into `out` (cleared by the caller).
+function AOIService.GetVisiblePlayersInto(x: number, y: number, z: number, radius: number, out: { Player }): { Player }
 	for player, state in playerStates do
-		if isInView(state, x, y, z) then out[#out + 1] = player end
+		if isInView(state, x, y, z, radius) then out[#out + 1] = player end
 	end
 
 	return out
@@ -254,6 +270,7 @@ AOIService.OnPlayerConnected = function(player: Player)
 		lookY = 0,
 		lookZ = 1,
 		thresholdSq = NO_FRUSTUM,
+		apexShiftPerRadius = 0,
 		knownEnemies = {},
 	}
 end :: TPlayerEvents.OnPlayerConnected
@@ -292,6 +309,7 @@ Network.Client.PlayerSync.CameraSync.On(
 		state.lookZ = -cosPitch * cos(yaw)
 		local threshold = thresholdQ * INV_65535
 		state.thresholdSq = threshold * threshold
+		state.apexShiftPerRadius = 1 / math.max(math.sqrt(1 - threshold * threshold), MIN_SIN_HALF_FOV)
 	end
 )
 

@@ -537,6 +537,7 @@ MatchService.OnDataLoaded = function(player: Player)
 		ServerNetworkEnemies.TypesForMatch.Fire(player, getAllEnemyIds())
 		ServerNetworkGame.MatchStarted.Fire(player, MapsCore.INDEX[MatchService.MapName] or 0)
 		ServerNetworkRounds.Started.Fire(player, RoundService.Round, 0)
+		RoundService.SendWay(player)
 	end
 
 	tryStart()

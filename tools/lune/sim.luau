@@ -207,6 +207,7 @@ tick = {
 	OutIds = {},
 	OutPositions = {},
 	OutYaws = {},
+	OutViews = {},
 	OnAttackStarted = function(enemy, _, attack, center, target)
 		started[attack.Kind] = (started[attack.Kind] or 0) + 1
 		if attack.Kind == "Melee" then return end
@@ -388,7 +389,22 @@ print(
 
 -- Packer round trip on the last tick's output.
 local count = #tick.OutIds
-local pkt = EnemyPacker.PackFiltered(tick.OutIds, tick.OutPositions, tick.OutYaws, count, 0, 50, 0, 0, 0, 1, -1, 1e9)
+local pkt = EnemyPacker.PackFiltered(
+	tick.OutIds,
+	tick.OutPositions,
+	tick.OutYaws,
+	tick.OutViews,
+	count,
+	0,
+	50,
+	0,
+	0,
+	0,
+	1,
+	-1,
+	0,
+	1e9
+)
 local P, Y, M, L = {}, {}, {}, {}
 EnemyPacker.UnpackInto(pkt, P, Y, M, L, 1)
 local maxErr = 0
@@ -435,5 +451,190 @@ print(
 		tostring(inside(line, L, lineCenter, 0, 20, 4, 20, 13, 0)),
 		tostring(inside(line, L, lineCenter, 0, 20, 4, 20, 18, 0)),
 		tostring(TelegraphCore.FloorUnder(nav, underDeck, underCenter, vector.create(deckX, 8, deckZ)))
+	)
+)
+
+-- Bosses: the maps' turns, the intro's clock, the arcs, the skid, and a boss in the movement update (walked while free,
+-- held while busy, never handed an attack: its attacks are BossService's).
+local BossesCore = H.require("ReplicatedStorage/Shared/Core/BossesCore")
+local EEnemiesIds = H.require("ReplicatedStorage/Types/Enums/Data/EEnemiesIds")
+local byId = DataCore.Enemies.ById
+local turns = {}
+for _, round in { 15, 30, 45 } do
+	local boss = RoundCore.GetBoss(round, "PirateCove", byId)
+	turns[#turns + 1] = if boss then boss.Name else "none"
+end
+local onTest = RoundCore.GetBoss(15, "Baseplate", byId)
+local notReady = RoundCore.GetBoss(15, "PirateCove", byId, function()
+	return false
+end)
+
+local trex = byId[EEnemiesIds.TRex]
+local kit = trex.Boss
+local intro = kit.Intro
+local introSeconds = BossesCore.IntroSeconds(intro)
+local lastClock, lastClip, maxJump, heldAt = 0, 0, 0, nil
+for ms = 1, math.floor(introSeconds * 1000) do
+	local clock, clip, speed = BossesCore.IntroClock(intro, ms / 1000)
+	maxJump = math.max(maxJump, clock - lastClock, math.abs(clip - lastClip))
+	assert(clock >= lastClock and clip >= lastClip - 1e-9, "intro clock ran backwards")
+	if speed == 0 and not heldAt then heldAt = ms / 1000 end
+	lastClock, lastClip = clock, clip
+end
+local endClock = BossesCore.IntroClock(intro, introSeconds)
+
+local here, nose = vector.create(0, 0, 0), 0
+local function facingOf(x, z)
+	return BossesCore.Facing(kit, here, nose, vector.create(x, 0, z))
+end
+print(
+	string.format(
+		"bosses: Pirate Cove 15/30/45 %s, test map %s, none ready %s | intro %.2f s real, clock at the end %.3f (End %.1f), held from %.2f s, largest step %.4f | arcs front %s behind %s beside %s under %s | skid %.1f studs",
+		table.concat(turns, "/"),
+		if onTest then onTest.Name else "none",
+		if notReady then notReady.Name else "none",
+		introSeconds,
+		endClock,
+		intro.End,
+		heldAt or -1,
+		maxJump,
+		facingOf(0, 20),
+		facingOf(0, -20),
+		facingOf(20, 0),
+		facingOf(3, -3),
+		BossesCore.SkidDistance(50, kit.SkidStop, kit.SkidStop)
+	)
+)
+
+-- A boss in the crowd's own update, next to the ground player.
+local cs = trex.CollisionSize
+local bossHalf = vector.create(cs.X / 2, cs.Y / 2, cs.Z / 2)
+local bossStart = vector.create(groundX + 40, 0, groundZ)
+local bossEntity = EnemyWorld:entity()
+jecs.bulk_insert(EnemyWorld, bossEntity, {
+	Components.Position,
+	Components.Velocity,
+	Components.Force,
+	Components.Radius,
+	Components.HalfExtents,
+	Components.Mass,
+	Components.AttackWindup,
+	Components.AttackIndex,
+	Components.AttackCount,
+	Components.MovementSpeed,
+	Components.Yaw,
+	Components.InstanceId,
+	Components.Data,
+	Components.Damage,
+	Tags.Enemy,
+	Tags.Boss,
+}, {
+	bossStart,
+	vector.zero,
+	vector.zero,
+	math.max(cs.X, cs.Z),
+	bossHalf,
+	trex.Mass,
+	0,
+	1,
+	0,
+	trex.BaseMovementSpeed,
+	0,
+	999,
+	trex,
+	trex.BaseDamage,
+})
+EnemiesCore.EnemiesSpatialHash:AddAABB(bossEntity, bossStart, bossHalf)
+local bossStarts = 0
+local onStarted = tick.OnAttackStarted
+tick.OnAttackStarted = function(enemy, ...)
+	if enemy == bossEntity then
+		bossStarts += 1
+	end
+	onStarted(enemy, ...)
+end
+local function bossTicks(n)
+	for _ = 1, n do
+		table.clear(aggro)
+		expireWarnings()
+		enemiesUpdate(query, tick, aggro)
+	end
+	return EnemyWorld:get(bossEntity, Components.Position)
+end
+local afterWalk = bossTicks(20)
+-- It starts facing +Z with its target to its -X: a quarter turn at its TurnRate before it walks at full speed.
+local turnedTo = math.deg(EnemyWorld:get(bossEntity, Components.Yaw))
+EnemyWorld:set(bossEntity, Components.AttackWindup, 1)
+local heldFrom = afterWalk
+local afterHeld = bossTicks(20)
+print(
+	string.format(
+		"boss in the update: walked %.1f studs toward the ground player in 2 s (speed %d), turned 0 -> %.0f deg (TurnRate %d), held %.3f studs while busy, attacks it started itself %d, windup kept %s",
+		vector.magnitude(afterWalk - bossStart),
+		trex.BaseMovementSpeed,
+		turnedTo,
+		kit.TurnRate,
+		vector.magnitude(afterHeld - heldFrom),
+		bossStarts,
+		tostring(EnemyWorld:get(bossEntity, Components.AttackWindup) == 1)
+	)
+)
+
+-- A decoy off its flank: turned away from while it is not baited, turned to once it is (BossService's Tags.Baited).
+-- The turn, not the walk: the crowd here jams a body this long wherever it heads.
+EnemyWorld:set(bossEntity, Components.AttackWindup, 0)
+local lureId = 2001
+local lureFrom = EnemyWorld:get(bossEntity, Components.Position)
+local lureAt = lureFrom + vector.create(5, 0, -20)
+feet[lureId] = lureAt
+tick.Lures[lureId] = 32 * 32
+NavService.SetCharacterNode(lureId, ArenaCore.NodeAt(nav, lureAt.x, lureAt.y, lureAt.z, 0.75))
+NavService.Flood(nav, NavService.CharacterFields[lureId])
+local function offLure()
+	local at = EnemyWorld:get(bossEntity, Components.Position)
+	local yaw = EnemyWorld:get(bossEntity, Components.Yaw)
+	local to = vector.normalize(vector.create(lureAt.x - at.x, 0, lureAt.z - at.z))
+	return math.deg(math.acos(math.clamp(to.x * math.sin(yaw) + to.z * math.cos(yaw), -1, 1)))
+end
+local offStart = offLure()
+bossTicks(30)
+local offUnbaited = offLure()
+EnemyWorld:add(bossEntity, Tags.Baited)
+bossTicks(30)
+local offBaited = offLure()
+EnemyWorld:remove(bossEntity, Tags.Baited)
+feet[lureId] = nil
+tick.Lures[lureId] = nil
+print(
+	string.format(
+		"boss and a decoy in its reach: facing %.0f deg off it, %.0f after 3 s not baited, %.0f after 3 s baited",
+		offStart,
+		offUnbaited,
+		offBaited
+	)
+)
+
+-- Its pace by health, and what a gun hits on it: its pieces from under its belly, at its head and tail from the side,
+-- and the air beside it.
+local GunsCore = H.require("ReplicatedStorage/GlobalShared/Core/GunsCore")
+local Vector3 = require("@lune/roblox").Vector3
+local pieceBodies = GunsCore.NewBodies()
+GunsCore.AddPieces(pieceBodies, Vector3.new(0, 0, 0), Vector3.new(0, 0, 1), trex.AimPieces)
+local function hits(origin, toward)
+	local index = GunsCore.CastBodies(pieceBodies, origin, (toward - origin).Unit, 200, 0, -1)
+	return index > 0
+end
+print(
+	string.format(
+		"boss pace: tempo %.2f / %.2f / %.2f at 100/50/0%% health (Chomp warning %.2f -> %.2f s) | hits: up from under its belly %s, its head from the side %s, its tail tip from behind %s, the air beside its head %s",
+		BossesCore.Tempo(kit, 1),
+		BossesCore.Tempo(kit, 0.5),
+		BossesCore.Tempo(kit, 0),
+		0.9 * BossesCore.Tempo(kit, 1),
+		0.9 * BossesCore.Tempo(kit, 0.05),
+		tostring(hits(Vector3.new(1, 4.5, 4), Vector3.new(2, 12, 6))),
+		tostring(hits(Vector3.new(30, 6, 19), Vector3.new(0, 10, 19))),
+		tostring(hits(Vector3.new(0, 10, -40), Vector3.new(0, 10, -20))),
+		tostring(hits(Vector3.new(30, 6, 19), Vector3.new(0, 10, 32)))
 	)
 )

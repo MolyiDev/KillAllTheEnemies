@@ -30,8 +30,8 @@ event Offer {
 	data: Hand
 }
 
--- The hand is closed: (the card taken, 1 to 3, or 0 when it was taken back with the run; true when the server picked
--- as the time ran out).
+-- The hand is closed: (the card taken, 1 to 3, or 0 when it was taken back: with the run, or put away for a boss and
+-- offered again as it was once the boss falls; true when the server picked as the time ran out).
 event Picked {
 	from: Server,
 	type: Reliable,

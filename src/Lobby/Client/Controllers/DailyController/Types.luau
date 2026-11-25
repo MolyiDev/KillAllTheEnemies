@@ -38,6 +38,8 @@ export type TPagesInfo = {
 	IsSpinning: () -> boolean,
 	-- The jackpot's shake across the SPIN page in px, which the panel takes too.
 	Shake: () -> number,
+	-- The SPIN page's panel as its reels lay it out: its top and height in px at 1080.
+	SpinShape: () -> Vector2,
 }
 
 return nil

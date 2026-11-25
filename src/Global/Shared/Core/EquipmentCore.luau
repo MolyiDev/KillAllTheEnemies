@@ -25,6 +25,9 @@ local STAT_TEXT = table.freeze({
 
 local EquipmentCore = {}
 
+-- Seconds a dropped piece's card is up on its winner's screen (EquipmentDropController): the upgrade hands a boss held
+-- back wait for it (UpgradesService).
+EquipmentCore.DROP_SHOW_SECONDS = 4.6
 EquipmentCore.SLOTS = table.freeze({ "Head", "Torso", "Legs" } :: { TData.TEquipmentSlot })
 -- A save with nothing in it: what a profile holds before its first change.
 EquipmentCore.EMPTY = table.freeze({
@@ -57,6 +60,28 @@ for _, item in EquipmentCore.All do
 	table.insert(EquipmentCore.BySlot[item.Slot], item)
 	if item.EarlyUnlock and not EquipmentCore.Starters[item.Slot] then EquipmentCore.Starters[item.Slot] = item end
 end
+-- Every piece some boss drops, by the boss's data Id, the rarest first (the order the boss bar lists them).
+local dropsByEnemy: { [number]: { TEquipment } } = {}
+for _, item in EquipmentCore.All do
+	local drop = item.Drop
+	if not drop then continue end
+	local list = dropsByEnemy[drop.Enemy]
+	if not list then
+		list = {}
+		dropsByEnemy[drop.Enemy] = list
+	end
+	table.insert(list, item)
+end
+for _, list in dropsByEnemy do
+	table.sort(list, function(a: TEquipment, b: TEquipment): boolean
+		local chanceA, chanceB = (a.Drop :: TData.TEquipmentDrop).Chance, (b.Drop :: TData.TEquipmentDrop).Chance
+		if chanceA ~= chanceB then return chanceA < chanceB end
+		return a.Id < b.Id
+	end)
+	table.freeze(list)
+end
+local NO_DROPS: { TEquipment } = table.freeze({})
+
 table.freeze(EquipmentCore.All)
 table.freeze(EquipmentCore.ByName)
 table.freeze(EquipmentCore.BySlot)
@@ -119,6 +144,11 @@ end
 -- A bonus as a stat row writes it: the number, then its words.
 function EquipmentCore.StatText(bonus: TData.TEquipmentBonus): (string, string)
 	return STAT_TEXT[bonus.Stat](bonus.Value)
+end
+
+-- The pieces the enemy of data Id `enemyId` drops, the rarest first; empty for one that drops none.
+function EquipmentCore.DropsOf(enemyId: number): { TEquipment }
+	return dropsByEnemy[enemyId] or NO_DROPS
 end
 
 -- Who hands a piece out, in capitals: the boss that drops it, or nil for a piece everybody has.

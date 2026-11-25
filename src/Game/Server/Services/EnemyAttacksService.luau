@@ -1,5 +1,5 @@
--- Every enemy attack that is not a plain swing (GDD 11, 14). enemiesUpdate decides when one starts; this shows it and
--- resolves it.
+-- Every enemy attack that is not a plain swing (GDD 11, 14). enemiesUpdate decides when one starts (BossService for a
+-- boss); this shows it and resolves it. A Charge's line only warns: the run does the hitting (BossService).
 --
 -- THE WARNING IS THE HITBOX: what resolves is exactly the shape sent as the ground warning, same centre, same size,
 -- same floor (TelegraphCore's footprint), same moment. Once shown it resolves on schedule even if its caster is
@@ -73,17 +73,32 @@ function EnemyAttacksService.Start(entity: any, attackIndex: number, attack: TDa
 	EnemiesService.SignalAttackStarted(entity, attackIndex)
 	if attack.Kind == "Melee" then return end
 
-	local damage = (EnemyWorld:get(entity, Components.Damage) or 0) * attack.DamageScale
-	local id = newTelegraphId()
-	local kind, size, width = TelegraphCore.ShapeOf(attack)
-	local data = EnemyWorld:get(entity, Components.Data)
-	local isBoss = data ~= nil and data.IsBoss == true
-	local yaw = 0
 	-- enemiesUpdate has already turned the body to its target, so its yaw is the aim.
+	local kind = TelegraphCore.ShapeOf(attack)
 	if kind == ETelegraphs.Cone or kind == ETelegraphs.Line then
 		center = EnemyWorld:get(entity, Components.Position) or center
-		yaw = EnemyWorld:get(entity, Components.Yaw) or 0
 	end
+	EnemyAttacksService.Telegraph(entity, attack, center, EnemyWorld:get(entity, Components.Yaw) or 0, attack.Delay)
+end
+
+-- Shows `attack`'s warning at `center` turned to `yaw` and resolves it `delay` seconds later; `size` stands in for
+-- the shape's own (a charge's line, cut short by a wall) when given. A boss's moves come here directly (BossService), so one
+-- attack can land several times, behind the body, or after a run. Returns the warning's id.
+function EnemyAttacksService.Telegraph(
+	entity: any,
+	attack: TData.TEnemyAttack,
+	center: vector,
+	yaw: number,
+	delay: number,
+	sizeOverride: number?
+): number
+	local damage = (EnemyWorld:get(entity, Components.Damage) or 0) * attack.DamageScale
+	local id = newTelegraphId()
+	local kind, shapeSize, width = TelegraphCore.ShapeOf(attack)
+	local size = sizeOverride or shapeSize
+	local data = EnemyWorld:get(entity, Components.Data)
+	local isBoss = data ~= nil and data.IsBoss == true
+	if kind ~= ETelegraphs.Cone and kind ~= ETelegraphs.Line then yaw = 0 end
 
 	local footprint = {}
 	local floorY = TelegraphCore.Footprint(ArenaCore.Nav, kind, center, yaw, size, width, footprint)
@@ -97,7 +112,7 @@ function EnemyAttacksService.Start(entity: any, attackIndex: number, attack: TDa
 		yaw,
 		size,
 		width,
-		attack.Delay,
+		delay,
 		attack.Speed or 0,
 		isBoss,
 		attack.Kind == "Explode"
@@ -112,8 +127,9 @@ function EnemyAttacksService.Start(entity: any, attackIndex: number, attack: TDa
 		Warning = warning,
 		Footprint = if floorY then footprint else nil,
 		Damage = damage,
-		ResolveAt = TimeCore.EnemyClock + attack.Delay,
+		ResolveAt = TimeCore.EnemyClock + delay,
 	})
+	return id
 end
 
 -- The warnings still winding up, for enemiesUpdate to keep new ones off. Read only.
@@ -168,9 +184,9 @@ local function resolve(entry: TPending)
 		hitArea(entry)
 		-- It is gone with the blast, credited to nobody: a blast is not a kill a player earned.
 		EnemiesService.Kill(nil, entry.Entity, 0)
-	elseif kind == "Slam" then
+	elseif kind == "Slam" or kind == "Dive" then
 		hitArea(entry)
-	elseif kind == "Shockwave" then
+	elseif kind == "Shockwave" or kind == "Summon" then
 		table.insert(rings, {
 			TelegraphId = entry.TelegraphId,
 			Center = entry.Warning.Center,

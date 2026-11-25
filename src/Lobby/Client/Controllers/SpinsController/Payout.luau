@@ -1,6 +1,6 @@
 --!nonstrict
--- The prize flying out of the landed card into the HUD (UI.md 5j): Gems into the Gems pill, XP into the level plate's
--- bar at the head of its fill. Each piece is thrown out of the card against drag, hangs, and is pulled home on a curve
+-- A reel's prize flying out of its landed card into the HUD (UI.md 5j): Gems into the Gems pill, XP into the level
+-- plate's bar at the head of its fill. Each reel pays as it lands, so a batch streams in one prize after another. Each piece is thrown out of the card against drag, hangs, and is pulled home on a curve
 -- that keeps the way it was thrown; the landings are placed, not left to the flights, with the gaps closing, and each
 -- one pays its share (the controller lets the HUD's number through a slice at a time).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -46,9 +46,6 @@ local Tune = table.freeze({
 	JITTER = 8,
 })
 
--- The landed card's middle in his 1920 x 1080 (Screen's panel at 310, 251; the card under the pointer at 650, 259).
-local FROM = Vector2.new(960, 510)
-
 local Payout = {}
 
 -- How long from the pieces setting off to the last landing.
@@ -69,18 +66,22 @@ local function cubic(a: Vector2, b: Vector2, c: Vector2, d: Vector2, t: number):
 	return a * (u * u * u) + b * (3 * u * u * t) + c * (3 * u * t * t) + d * (t * t * t)
 end
 
-function Payout.Build(state: Types.TSpinsState): { Instance }
+-- Reel `reel`'s pieces; `from` is its landed card's middle in his 1920 x 1080, read as they fly.
+function Payout.Build(state: Types.TSpinsState, reel: number, from: () -> Vector2): { Instance }
+	local spinOf = derive(function(): Types.TSpin?
+		return state.Spins()[reel]
+	end)
 	local prize = derive(function(): SpinsCore.TPrize?
-		local spin = state.Spin()
+		local spin = spinOf()
 		local index = if spin and spin.PayAt then spin.Prize else nil
 		return if index and index > 0 then SpinsCore.PRIZES[index] else nil
 	end)
 	local count = derive(function(): number
-		local spin = state.Spin()
+		local spin = spinOf()
 		return if spin and spin.Pieces then spin.Pieces else 0
 	end)
 	local since = derive(function(): number?
-		local spin = state.Spin()
+		local spin = spinOf()
 		local at = if spin then spin.PayAt else nil
 		if not at then return nil end
 		local t = state.Now() - at
@@ -134,7 +135,7 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 				Heading = heading,
 				Reach = reach,
 				HangAt = hangAt,
-				Hang = FROM + heading * reach * (1 - math.exp(-Tune.DRAG * hangAt)),
+				Hang = from() + heading * reach * (1 - math.exp(-Tune.DRAG * hangAt)),
 				Bow = Tune.BOW_MIN + (Tune.BOW_MAX - Tune.BOW_MIN) * Scatter(index, 17),
 			}
 		end)
@@ -148,10 +149,10 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 		local target = function(): Vector2
 			local current = prize()
 			if current and current.Kind == "Xp" then
-				local spin = state.Spin()
-				local from = spin.BarFrom or 0
-				local to = spin.BarTo or from
-				local head = from + (to - from) * throw().Rank / math.max(count(), 1)
+				local spin = spinOf() :: Types.TSpin
+				local start = spin.BarFrom or 0
+				local finish = spin.BarTo or start
+				local head = start + (finish - start) * throw().Rank / math.max(count(), 1)
 				return state.BarAt() + Vector2.new(state.BarLength() * math.min(head, 1), Scatter(index, 13) * 6 - 3)
 			end
 
@@ -159,7 +160,7 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 		end
 
 		pieces[index] = Components.Picture(picture, {
-			Name = `Piece{index}`,
+			Name = `Piece{reel}_{index}`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = function()
 				local share = flight()
@@ -167,7 +168,7 @@ function Payout.Build(state: Types.TSpinsState): { Instance }
 				local thrown = throw()
 				local t = share * thrown.Arrive
 				if t < thrown.HangAt then
-					local at = FROM + thrown.Heading * thrown.Reach * (1 - math.exp(-Tune.DRAG * t))
+					local at = from() + thrown.Heading * thrown.Reach * (1 - math.exp(-Tune.DRAG * t))
 					return UDim2.fromOffset(at.X, at.Y)
 				end
 

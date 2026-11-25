@@ -27,6 +27,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkEnemies = Network.Server.Enemies
+local ServerNetworkBosses = Network.Server.Bosses
 
 local ENEMIES = DataCore.Enemies.ById
 local EnemiesSpatialHash = EnemiesCore.EnemiesSpatialHash
@@ -40,6 +41,8 @@ local BossQuery =
 local ENEMY_IMMUNITY_TIME = 0.35
 local AOI_TICK_SECONDS = 0.25
 local BOSS_BAR_SECONDS = 0.1
+-- A shield's spark goes out at most this often: a minigun on it is a stream of sparks, not a flood of events.
+local SHIELD_HIT_SECONDS = 0.08
 -- u16 on the wire; 0 is never handed out.
 local IdEntityGen = IdGenerator.new(EGenerator.EnemyEntities, 1, 65535)
 
@@ -53,6 +56,7 @@ local bossDamage: { [Player]: number } = {}
 local nukeOrigin: vector? = nil
 local nukeStartedAt = 0
 local nukeInflictor: jecs.Entity<any>? = nil
+local shieldHitAt = 0
 
 -- Scratch, reused so the batched paths allocate nothing per call.
 local reusableKilledEntities: { jecs.Entity<any> } = {}
@@ -98,6 +102,15 @@ local function stagger(enemyEntity: jecs.Entity<any>, enemyData: TData.TEnemy)
 	end
 
 	EnemyWorld:set(enemyEntity, Components.AttackWindup, math.min(windup, -stunTime))
+end
+
+-- A blow on a shielded boss lands on its shield: nothing is taken, everybody sees the shield take it.
+local function hitShield(enemyEntity: jecs.Entity<any>)
+	local now = os.clock()
+	if now - shieldHitAt < SHIELD_HIT_SECONDS then return end
+	shieldHitAt = now
+	local instanceId = EnemyWorld:get(enemyEntity, Components.InstanceId)
+	if instanceId then ServerNetworkBosses.ShieldHit.FireAll(instanceId) end
 end
 
 local function getInflictorId(inflictorEntity: jecs.Entity<any>?): number
@@ -200,11 +213,13 @@ function EnemiesService.Spawn(
 		isBossBarDirty = true
 		table.clear(bossDamage)
 	end
+	if enemyData.AimPieces then EnemyWorld:set(enemy, Components.AimPieces, enemyData.AimPieces) end
 
 	enemyCount += 1
 	EnemiesSpatialHash:AddAABB(enemy, position, halfExtents)
 	table.clear(reusablePlayers)
-	AOIService.GetVisiblePlayersInto(position.x, position.y, position.z, reusablePlayers)
+	local view = EnemiesCore.ViewSphere(enemyData)
+	AOIService.GetVisiblePlayersInto(position.x, position.y + view.x, position.z, view.y, reusablePlayers)
 	for _, player in reusablePlayers do
 		AOIService.Subscribe(player, instanceId)
 	end
@@ -244,6 +259,12 @@ local function onNewlySubscribed(player: Player, instanceId: number)
 	local dataId = EnemyWorld:get(entity, Components.DataId)
 	local position = EnemyWorld:get(entity, Components.Position)
 	if dataId and position then ServerNetworkEnemies.Added.Fire(player, instanceId, dataId, position :: any, false) end
+end
+
+-- Shows one body to every player who has not been shown it, wherever it is: a boss and its guards, which the whole
+-- party fights.
+function EnemiesService.ShowBodyToEveryone(instanceId: number)
+	AOIService.SubscribeEveryone(instanceId, onNewlySubscribed)
 end
 
 -- Shows every body to every player who has not been shown it, wherever it is. Only for a handful (RoundService's
@@ -373,6 +394,10 @@ function EnemiesService.Damage(
 ): number?
 	if not EnemyWorld:contains(enemyEntity) then return nil end
 	if EnemyWorld:has(enemyEntity, Components.Immunity) then return nil end
+	if EnemyWorld:has(enemyEntity, Tags.Shielded) then
+		hitShield(enemyEntity)
+		return nil
+	end
 	local currentHealth = EnemyWorld:get(enemyEntity, Components.CurrentHealth)
 	local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
 	if not currentHealth or not enemyData then return nil end
@@ -413,6 +438,10 @@ local function damageBatch(
 	for _, enemyEntity in enemyEntities do
 		if not EnemyWorld:contains(enemyEntity) then continue end
 		if EnemyWorld:has(enemyEntity, Components.Immunity) then continue end
+		if EnemyWorld:has(enemyEntity, Tags.Shielded) then
+			hitShield(enemyEntity)
+			continue
+		end
 		local currentHealth = EnemyWorld:get(enemyEntity, Components.CurrentHealth)
 		local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
 		if not currentHealth or not enemyData then continue end
