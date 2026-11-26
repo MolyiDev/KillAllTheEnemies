@@ -694,6 +694,13 @@ failed, and change the rule/selection at its owner so the next session does not 
   longest (`Review/TRex/ship_picks.py`).
 - **Packs the user buys mid-review land in `~/Downloads/sounds`**: look there at the start of every round, copy them into
   the library (zip or rar beside the unpacked folder) and say which candidates use them.
+- **A shipped move heard on its video plays the bank, not a review.** `Sounds.txt` holds the levels the game plays
+  after the fight's mix; a review's `shipped.json` is what was baked before it (the T-Rex's one-offs 1-2 dB under).
+  `Assets/effects/trex/mix_sounds.py` lays every sound a ror preview logged as SoundsCore plays it: a 3D one by its
+  RollOff from the camera with an equal-power pan, a pooled one (guns, hits, kills, coins) unpanned, fading linearly
+  to nothing at 150 studs from the camera, and dropped when the same cue played under 35 ms before (`SoundsCore`'s
+  `POOLED_MAX_DIST`, `MERGE_SECONDS`). Decode a take in its own channel count: ffmpeg's mono-to-stereo upmix halves the
+  power, which put every pooled mono take 3 dB low. How a preview logs them is VFX.md 25, "A clip to show".
 
 ### Where a one-shot is heard from (2026-11-22)
 
@@ -812,10 +819,12 @@ Four rounds for the Decoy, Foam Cannon and Orbital Cannon, 14 cues and 25 files 
 - **A take with its own rattle plays once.** A brick comes down twice about 0.2 s apart; with whole drops the second
   bounce is silent (`thrownPieces.BrickLanded`), unlike the casings' two contacts.
 
-### The Skeleton T-Rex (2026-11-25, `Assets/sounds/Review/TRex/`, 25 cues shipped)
+### The Skeleton T-Rex (2026-11-25, `Assets/sounds/Review/TRex/`, 37 cues shipped)
 
-Thirteen rounds; the README has every pick in the user's words and the shipped table (cue, caller, lead). Round 12-13
-added the intro's neck (`Hunt`, one file from `Intro.Hunt`) and held the roar to the chomp (`TRex_HallRoar`).
+Nineteen rounds; the README has every pick in the user's words and the shipped table (cue, caller, lead). Round 12-13
+added the intro's neck (`Hunt`, one file from `Intro.Hunt`) and held the roar to the chomp (`TRex_HallRoar`); round
+19 voiced every fight move it made in silence (`BossController`'s `Tune.MOVE_SOUNDS`) and held the summon's short roar
+to its jaws closing (`TRex_HeldRoarShort`).
 
 - **A boss sounds real and deep, not arcade.** Every candidate built on Pixel Combat was "too arcadeish"; steps and
   stamps "should be deeper, something big is stepping". Deeper meant less above the body (a rock crash's crack made
@@ -833,9 +842,14 @@ added the intro's neck (`Hunt`, one file from `Intro.Hunt`) and held the roar to
 - **The voice is one creature, picked as a family**, the full roar first: roar, short roar, idle, bite and death cry
   from one animal's recordings (Fusehive records each creature in every mood). And a voice needs its build: takes that
   reach their peak in 50-120 ms "start too fast like a snap"; pick by attack time, read from the first audible sound,
-  and start the cue early (`trexSounds.Lead`) so the voice ARRIVES on its beat.
+  and start the cue early (`trexSounds.Lead`) so the voice ARRIVES on its beat. The build never reaches back over a
+  different motion: the summon's short roar, led 0.36 s, was heard "before the actual roar" while the head was still
+  rearing; the rear takes its own sound (a breath in) and the roar starts with the jaws snapping open.
 - **A death comes apart and lands**, not only a cry: the cry, a collapse (stone pieces dropping) and the fall.
 - **A boss's warnings land silent**: it voices its own blows on its moves, and the generic slam would stack on them.
+- **A new moment of a move starts on the cue it grew out of** (2026-11-25): the dive's dart (the crack shooting ahead
+  of its target, VFX.md 40) plays the `Crack` it already had, throttled as the chase's steps are. A cue of its own
+  waits for a listening round on its video (`preview_dodge.sh dive`), never wired unheard.
 
 ### A boss or giant creature: the order that saves rounds
 
@@ -874,7 +888,11 @@ next time:
    rising, whipping to the camera, snapping back, the teeth shutting) had no sound and nobody had listed it. Turning
    speed of a bone against its parent, every frame of the pose list, names each move with its start, peak and end
    (`make_round12.neck_curve`: `intro.load()` and `trex_lib.fk_world`). The ror preview runs about 0.055 s behind
-   the clip's markers.
+   the clip's markers. Do it for **every** clip before calling a boss's sound done, not only the one asked about
+   ("if there is another time of dead silent that the trex is also moving ... make it have a sound"):
+   `Review/TRex/make_round19.py silences` lists each clip's stretches where a bone turns over 40 deg/s while the cues
+   sit under -45 dB, with the shipped bank and with a round's new cues. A move with no cue at all (the chained
+   charge's turn) only shows up this way.
 10. **A big voice lasts until the next one.** The roar held 1.9 s against jaws open 2.62 s and the chomp's voice at
     2.50 s: "falls short". Taken (round 12 E): the roar as picked to 0.4 s after its beat, the rest stretched 1.34
     times by `rubberband -3 -F` (R3, formants kept: the same voice and pitch, unlike slowing), so it holds to the next
@@ -899,6 +917,43 @@ next time:
     prints Volume at the previewed level, but the mix raised most T-Rex lines (steps +3 dB, one-offs +1 to +2, the
     roar 0: `Review/Mix/README.md`). The hunt, judged 13 dB under the steps, ships at their +3 (0.383 -> 0.541); the
     held roar at the roar's 0.
+15. **Before a cue is offered, check the game can start it there.** A cue voicing one outcome of a server decision
+    starts no sooner than the client hears of it. The skid's panting was built from 0.55 s, but the server decides at
+    SkidStop (0.6) whether a turn follows, from where the target stands then (`BossService.chainLine`), so a client
+    playing it at 0.55 pants through every chained turn. Found after upload, it was cut to start at 0.70 and uploaded
+    again under a new name (an audio asset takes no new version). For each new cue, read the server's phase code for
+    the move: what decides that the motion happens, and when that reaches the client.
+16. **Never end-fade a cue that ends on its loudest.** A breath in leading into a roar ends at its peak; `r9.end_faded`'s
+    300 ms fade took its swell away twice (round 14's inhale, round 19's first SummonRear). Trim where the track falls
+    55 dB under its peak instead (`ship_picks.trimmed`, `make_round19.cue_track`): each layer has its own fades.
+17. **The preview plays every cue the game plays, where and when it plays it.** Recordings made before a scene printed
+    `CUE` lines (the tail, the stomp) lay no sound at all, and a move no scene shows (the chained charge's turn) is
+    missing from both the review and the silence audit. Add the scene (`preview_trex.luau`'s `Turn`), put each cue's
+    `cue()` at BossController's time and under its conditions (no panting before a turn), re-render
+    (`preview.sh <scene>`, seconds each), and check `record/events.json` lists every cue before laying sounds on it.
+18. **A round's script builds from the file the round started from, never from the shipped bank.** Reading the
+    source through `r7.shipped_heard()`, round 18 broke the moment its own pick (round 19's F) replaced the short roar
+    in the bank. Load the source file by name (`make_round18.build`, `ship_picks.roar_short_f`).
+19. **A cue of layers each levelled by its peak ships at its own track's level**: target None in `ship_picks.PICKS`
+    (`moved`), so Volume only undoes the bake's normalising gain, then the mix offset of what it was judged against.
+
+### A boss's blows and its hurt cry (2026-11-25, `Assets/sounds/Review/BossHits/`, hit C shipped, cry open)
+
+A boss stopped flinching and flashing on every bullet (VFX.md 41), so the ear carries the stream: `Enemies.BossHit`
+plays on every bullet that lands on a boss, as it lands (`EnemyImpacts.EmitBossHit`, at most 15 a second), in place of
+the palette's hit that played once a body each 0.5 s. `Bosses.TRex.Hurt` voices each quarter of its health.
+
+- **A cue on every bullet is short and sits under the one-a-body hit**: 0.22 s takes with their last 0.1 s faded (a
+  stone's ring dies away instead of stopping), at -21 against an enemy hit's -18.
+- **Judged on the fight, not alone**: four sets on one ror film of the T-Rex under a minigun, a sniper and a shotgun
+  (`mix_sounds.py --extra` lays a review's takes over a recording without filming again, `inOrder` plays a set's
+  files one after another, so one film carries three cries at its three quarters).
+- **Picked: C Bone Knock** ("Go with C"), zapsplat single rock hits on dirt at 0.85 speed under 5 kHz, over the
+  enemies' own hit slowed, a real bullet into a body, and the hit over a bass thump. A skeleton boss took the dry
+  heavy knock of its own material, as its steps and stomps took stone. Shipped at the bag's Volume as the videos
+  played it (1.122 every take), not each take's own.
+- **A hurt cry comes from the creature's own family** (the Lizard's `HURT CRY SCREAM` at the family's 0.8 speed),
+  picked by how long it holds against the rear (about 1.1 s).
 
 ### The fight's mix (2026-11-25, `Assets/sounds/Review/Mix/`, shipped unheard)
 

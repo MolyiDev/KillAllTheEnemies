@@ -167,13 +167,24 @@ local Tune = table.freeze({
 	CRACK_SLAB_CHANCE = 0.75,
 	CRACK_SLAB_OUT = 1.3,
 	CRACK_SLAB_HOLD = 1.2,
-	-- Craters: as it sinks (times each heave's size), where it bursts out, where it falls.
+	-- The crack's head shouldering through the floor: green welling and dust, stud bricks thrown up and aside like a
+	-- bow wave (out this share along its way), a slab shoved up just ahead of it, and its light riding along.
+	BURROW_WELL = NumberRange.new(3, 5),
+	BURROW_DUST = NumberRange.new(2, 3),
+	BURROW_BRICKS = NumberRange.new(1, 3),
+	BURROW_FORWARD = NumberRange.new(0.2, 0.9),
+	BURROW_OUT = NumberRange.new(6, 14),
+	BURROW_LIFT = NumberRange.new(14, 26),
+	BURROW_AHEAD = 1.6,
+	BURROW_SLAB_HOLD = 0.5,
+	BURROW_LIGHT = 2.2,
+	BURROW_LIGHT_RANGE = 16,
+	BURROW_LIGHT_SECONDS = 0.3,
+	-- Craters: as it sinks (times each heave's size), where it bursts out.
 	SINK_CRATER = 10,
 	SINK_CRATER_HOLD = 1.2,
 	RISE_CRATER = 15,
 	RISE_CRATER_HOLD = 3,
-	FALL_CRATER = 16,
-	FALL_CRATER_HOLD = 4,
 	-- A foot landing this hard (running, catching itself) breaks a little of the floor round it.
 	CATCH_STRENGTH = 1.3,
 	CATCH_CRATER = 4.5,
@@ -860,6 +871,45 @@ function trexFx.Crack(floor: Vector3, normal: Vector3, color: Color3, along: Vec
 	end
 end
 
+-- The head of the crack shouldering through the floor at `floor`, running `along`: called every few steps of it.
+function trexFx.Burrow(floor: Vector3, normal: Vector3, color: Color3, along: Vector3)
+	if not ready() or not near(floor, Tune.RANGE) then return end
+	local found = place("Sink", floor + normal * Tune.LIFT, normal)
+	tint("Sink", found, color)
+	emit(found, "Well", roll(Tune.BURROW_WELL))
+	emit(found, "Dust", roll(Tune.BURROW_DUST))
+	flashLight(floor, Tune.BURROW_LIGHT, Tune.BURROW_LIGHT_RANGE, Tune.BURROW_LIGHT_SECONDS)
+
+	if #bricks > 0 then
+		local side = along:Cross(normal)
+		side = if side.Magnitude > 1e-3 then side.Unit else Vector3.xAxis
+		local count = thrownPieces.Allowed(pieces, roll(Tune.BURROW_BRICKS), (floor - cameraPosition).Magnitude)
+		for _ = 1, count do
+			local out = (side * (if random:NextNumber() < 0.5 then -1 else 1) + along * between(Tune.BURROW_FORWARD)).Unit
+			thrownPieces.Throw(
+				pieces,
+				bricks[random:NextInteger(1, #bricks)],
+				color,
+				floor + UP * 0.6,
+				out * between(Tune.BURROW_OUT) + UP * between(Tune.BURROW_LIFT),
+				floor.Y
+			)
+		end
+	end
+
+	-- Leaning back over the head, the floor it is pushing.
+	if #rubble == 0 or not near(floor, Tune.SLAB_RANGE) then return end
+	brokenFloor.Push(
+		slabs,
+		rubble[random:NextInteger(1, #rubble)],
+		color,
+		floor + along * Tune.BURROW_AHEAD,
+		floor + normal * 2,
+		0,
+		Tune.BURROW_SLAB_HOLD
+	)
+end
+
 -- Bursting up through `floor`.
 function trexFx.Rise(floor: Vector3, normal: Vector3, color: Color3)
 	if not ready() or not near(floor, Tune.RANGE) then return end
@@ -1130,7 +1180,6 @@ function trexFx.Fall(floor: Vector3, normal: Vector3, color: Color3, body: CFram
 	emit(found, "FloorPixels", roll(Tune.FALL_FLOOR_PIXELS))
 	throw(bricks, color, floor, floor.Y, roll(Tune.FALL_BRICKS), Tune.BRICK_OUT, Tune.BONE_LIFT, 10)
 	throw(boneBricks, nil, floor + UP * 2, floor.Y, roll(Tune.FALL_BONES), Tune.BONE_OUT, Tune.BONE_LIFT, 10)
-	crater(floor, color, Tune.FALL_CRATER, Tune.FALL_CRATER_HOLD)
 	flashLight(floor, 12, 70, 0.7)
 	flashScreen(floor, 0.4, 0.5)
 	trexFx.Wave(floor, 44, 50, 1.3)

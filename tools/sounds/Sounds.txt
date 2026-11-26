@@ -201,6 +201,10 @@ Enemies/Hit/Enemy_Hit_02|rbxassetid://138802288760025|0.452|1|Effects|RollOff=In
 Enemies/Hit/Enemy_Hit_03|rbxassetid://133792845442641|0.581|1|Effects|RollOff=Inverse
 Enemies/Hit/Enemy_Hit_04|rbxassetid://96999769066050|0.523|1|Effects|RollOff=Inverse
 Enemies/Hit/Enemy_Hit_05|rbxassetid://130924824371558|0.705|1|Effects|RollOff=Inverse
+Enemies/BossHit/Enemy_BossHit_01|rbxassetid://138105669908977|1.122|1|Effects|RollOff=Inverse
+Enemies/BossHit/Enemy_BossHit_02|rbxassetid://122676101712924|1.122|1|Effects|RollOff=Inverse
+Enemies/BossHit/Enemy_BossHit_03|rbxassetid://70612140680108|1.122|1|Effects|RollOff=Inverse
+Enemies/BossHit/Enemy_BossHit_04|rbxassetid://125498263354815|1.122|1|Effects|RollOff=Inverse
 Enemies/Kills/Kill/Enemy_Kill_01|rbxassetid://129398030282186|0.771|1|Effects|RollOff=Inverse
 Enemies/Kills/Kill/Enemy_Kill_02|rbxassetid://97024265347855|0.652|1|Effects|RollOff=Inverse
 Enemies/Kills/Kill/Enemy_Kill_03|rbxassetid://81720392663120|0.733|1|Effects|RollOff=Inverse
@@ -1257,7 +1261,7 @@ Debris/Land/Debris_Land_9|rbxassetid://107321411732175|0.578|1|Effects|RollOff=I
 Debris/Land/Debris_Land_10|rbxassetid://136210935909340|0.489|1|Effects|RollOff=Inverse,Max=120,Min=20
 Debris/Land/Debris_Land_11|rbxassetid://93953748877418|0.373|1|Effects|RollOff=Inverse,Max=120,Min=20
 Bosses/TRex/Roar|rbxassetid://85585405017269|1.935|1|Effects|RollOff=Inverse,Min=100,Max=1000
-Bosses/TRex/RoarShort|rbxassetid://74935249433372|2.11|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/RoarShort|rbxassetid://101171384839577|2.398|1|Effects|RollOff=Inverse,Min=100,Max=1000
 Bosses/TRex/Idle/TRex_DeepIdle_1|rbxassetid://119624798215608|0.715|1|Effects|RollOff=Inverse,Min=100,Max=1000
 Bosses/TRex/Idle/TRex_DeepIdle_2|rbxassetid://131015646375177|0.636|1|Effects|RollOff=Inverse,Min=100,Max=1000
 Bosses/TRex/Idle/TRex_DeepIdle_3|rbxassetid://83282292104031|0.822|1|Effects|RollOff=Inverse,Min=100,Max=1000
@@ -1301,3 +1305,13 @@ Bosses/TRex/Fall|rbxassetid://133140709589421|1.528|1|Effects|RollOff=Inverse,Mi
 Bosses/TRex/Hunt|rbxassetid://109806902528057|0.541|1|Effects|RollOff=Inverse,Min=100,Max=1000
 Bosses/TRex/Glare|rbxassetid://139484612330829|0.417|1|Effects|RollOff=Inverse,Min=100,Max=1000
 Bosses/TRex/Inhale|rbxassetid://90247422975200|0.457|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/SummonRear|rbxassetid://135676860661232|0.59|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/ChompDraw|rbxassetid://124240189530994|0.251|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/ChompHome|rbxassetid://81004457031846|0.575|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/TailWind|rbxassetid://119223061813711|0.264|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/TailSettle|rbxassetid://97620649902282|0.422|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/StompLift|rbxassetid://128643918878946|0.452|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/SkidPant|rbxassetid://139161633421307|0.48|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/ChargeTurn|rbxassetid://74131332375404|1.251|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/BarrageRear|rbxassetid://87611020937483|0.253|1|Effects|RollOff=Inverse,Min=100,Max=1000
+Bosses/TRex/DeathSettle|rbxassetid://137106213010018|0.237|1|Effects|RollOff=Inverse,Min=100,Max=1000

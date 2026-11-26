@@ -1953,6 +1953,51 @@ before them, section 2 was all there was. They read files; they never run Studio
   (greatshield, boots, shovel, revolver) that only lays out its scenes, `compile.luau` (the 200-local
   check). `planvfx.md` holds the next VFX passes.
 
+### A clip to show, and where ree and ror are not the engine (2026-11-25, the T-Rex's death and shield)
+
+Asked for "a video of X with its effects and sounds", the user wants one clip: **no label, no title card, every sound
+the game plays on it**, the moment and nothing round it. Where a player is part of the moment, film from where the
+player stands and leave the body out (a stand-in avatar was asked to go): shots come in from off screen, and enemies
+that chase the player come toward the camera.
+
+- **One command each for the T-Rex**: `sh Assets/effects/trex/preview.sh <move>` writes `preview/<move>/sound.mp4`;
+  `sh Assets/effects/trex/preview_shield.sh` writes `preview/shield/shield.mp4`. The kit's README has the files.
+- **The pattern, for any kit**: the scene runs the game's own modules with `GlobalShared/Core` mounted on
+  `Assets/effects/trex/preview_stubs` (its SoundsCore logs `SND <flat|3d>|<group>|<name>|<x,y,z>|<scale>` for every
+  sound asked for, so hits, kills, casings and debris landings come out without listing them); `fix_playback.py` holds
+  the pooled parts' jumps; ror films the corrected recording again; `mix_sounds.py` lays the sounds from the in-game
+  bank. A preview that needs several kits mounts one `Effects` built by `merge_effects.py`.
+- **Film again without running again**: `ror video <out>/record/scene.rbxm --playback <playback.json> --camera ...
+  --start ... --duration ...` takes seconds; trying cameras or a close look at one moment is a still from that
+  (`ror render ... --time 3.7`). A scene's `print`s are in `record/events.json` with their times: a script's debug
+  output, no Studio needed.
+- **Levels come from `tools/sounds/Sounds.txt`**, the bank as the game has it after the fight mix, never from a
+  review's `shipped.json` (1-2 dB under on the T-Rex's one-offs).
+- **ror: a pooled part flashes in the sky for a frame.** A motorParts piece waits 100,000 studs up; the recording keys
+  it once a frame with times rounded to 5 decimals, and the video blends between keys, so a frame a few microseconds
+  short of its key draws it ~20 studs over its place (a whole crater ring hung over the T-Rex). `fix_playback.py`
+  moves each such jump to the middle of its frame. In the engine nothing blends: not a game bug.
+- **ree: `GetExtentsSize` on a skinned enemy rig swaps Y and Z** (the Revenant: 5.79, 1.74, 7.39). EnemiesController's
+  lift (half the height) came out at 0.87, every guard stood 2.8 studs in the floor, and the ragdoll shot the
+  half-buried body 40 studs up. Read the rig's MeshPart `Size` in a preview.
+- **ree: the Animator writes every pose a clip has, every frame**, zero-Weight containers included (the R6 clips'
+  `Root`), which the engine leaves alone. A `PreRender` write of `Root.Transform` still draws, but a read anywhere else
+  (a kill handler starting a ragdoll) gets the clip's pose, near the origin: keep the placement in a variable.
+  `RunService.PreAnimation` never fires in ree.
+- **A `ror render` still runs the scene live; `ror video` plays its recording back.** Judge motion and placement on the
+  video: a still once looked right while the video did not.
+- **An enemy rig in ror**: its model id is in `Assets/models/Enemies/fbx/asset_ids.json`, its mesh id is its
+  MeshPart's `MeshContent`, its clips are `Assets/animations/MonsterR6/` plus the ZombieR6 Idle; fetch with Tripwire's
+  `download_asset`, strip the Tags (`../Ballarc/tools/vfx/striptags.luau`), point the mesh and texture at local files
+  (the T-Rex README, "The rig in ror"). It is placed as EnemiesController places it: `Root.Transform = cf * lift`.
+- **A ScreenGui in a ror film** (damage numbers, 2026-11-25): ror draws GUIs through rur only with `ROR_RUR` set to
+  the roblox-ui-renderer checkout and `--no-service` (the warm service started without it and skips every GUI with a
+  warning in summary.json). ree's viewport is 1920x1080 whatever ror films, and `WorldToViewportPoint` projects into
+  it, so film at 1920x1080. rur lays pixel offsets out on its own canvas (about 1470 wide: a label placed by offset
+  landed 30% off its point), so place by share of the screen, `UDim2.fromScale(x / 1920, y / 1080)`, which lands
+  exactly, and scale a label by 1 / 1.307 to stand as big as at 1080p.
+- **ree fires PreSimulation after the Animator**, as the engine does: a pose written there over a playing clip draws.
+
 ### What 27 open-source anime VFX packs do (4,778 emitters measured)
 
 The pack the user sent (`~/Downloads/VFX`: Marcid's, Jaxelos', KILOFUNCTIONS-style kits) is smooth anime VFX, not
@@ -2846,5 +2891,76 @@ Warwick's in League, Quake shocks that grow to the last, the intro's effects not
   square of what is left of the way to 120. The biggest moments also kick the view down and aside on a slow, heavy
   recoil spring (frequency 14, damping 0.5), 0.22 to 0.8 studs at peak against the guns' 0.12 to 0.35; a spine sticking
   near the player and a wave rolling under its feet each land one of their own.
-- **ror can draw a released `motorParts` piece for one frame where nothing is.** Logged both pools: nothing was placed
-  there, and a lone part jumping to the park spot draws cleanly. Ignore a single-frame stray in a video.
+- **ror draws a `motorParts` piece for one frame where nothing is**, about 20 studs over its place: the video blends
+  between the recording's rounded keys, park to place (section 25). The user saw them as "parts flying around snapping
+  in a lot of places". The game has none; `fix_playback.py` takes them out of a preview, and `preview.sh <move>`'s
+  `sound.mp4` comes out with it applied.
+- **The fall breaks no floor** (the user, 2026-11-25: "remove the debris that come out from the ground", asked which:
+  the crater ring only). The pile lands with its bricks, bones, flash and wave on a flat floor.
+- **The shield is judged with its guards** (`preview_shield.sh`): the real Fossil Guard rig dropping in, beams to the
+  T-Rex's chest, the pistol ringing off the bubble, each guard shot dead and ragdolled, the shatter. **The beam snap
+  is owed**: a guard's kill reaches the client before the boss's shorter guard list, so `setBeams` finds the guard's
+  row already gone and skips its burst and `BeamSnap`; every beam just goes dark. Taking the burst's place from the
+  beam's own start (`entry.From.WorldPosition`) would fix it.
+
+### The dodge pass (2026-11-25): the dive's dart, and previews that judge a hit
+
+The dive came up on its head, behind a strafing player, who ran out of it without looking; now it surfaces ahead of
+them (PlanBosses.md, "Every warning is a dodge"). That made a new moment, built from the kit's own pieces:
+
+- **A warning that appears away from its cause needs a line to it.** The circle now shows 20 studs ahead of where the
+  crack caught up. Shown alone it reads as random; the crack DARTS on to it in 0.2 s (`EBossMoves.Dart`,
+  `BossController.onDart`), heaving the floor every second step (`trexFx.Burrow`, against every third in the chase),
+  with a jolt where it lands. The floor under the circle only starts heaving (`onSurface`) once the dart arrives, so
+  the two read as one push, not two effects at once.
+- **A hit from under the floor throws the player** (up 48, out 26, `EnemyAttacksService`'s dive knock, through the
+  charge's `Bosses.Knocked`): a blow that leaves them standing reads as a miss.
+
+Previews that show whether a move hits (`Assets/effects/trex/preview_dodge.sh`, README):
+
+- **Judge a dodge with the warnings drawn by the real `TelegraphController`** (`Context.Warnings`: it bakes its own nav
+  grid from the preview's `Arena`, and the telegraph kit's stubs and turned PNGs carry over), and a stand-in player who
+  goes red and is thrown exactly when the server's rule says so: `TelegraphCore.Distance` for a slam, BossService's
+  ram mirrored for a charge. A before and after then shows the change itself, not a description of it.
+- **Read the after side from the data** (`Data/Enemies/TRex`, `BossesCore.WindupTempo`), and keep only the before
+  side's old numbers as named constants: a preview with its numbers typed in goes stale on the next tuning.
+- **A nav bake films an empty floor**: the bake takes about 0.4 s of the recording. Bake before anything is put up,
+  print a marker (`READY`) and cut the clip from its time in `record/events.json`.
+- **Requiring a Shared Core in a preview pulls its requires in**: `TelegraphCore` needs `ArenaCore`, which needs
+  `Packages`; every scene of `preview.sh` failed on it until the mount was added. Read `record/events.json` for an
+  error after any change to a preview's requires: a scene that fails still renders a video of an empty floor.
+- **A UI sound in a preview is logged at the camera** (`SND flat|UI|Hurt|<eye>`): `mix_sounds.py` fades a flat sound
+  by its distance to the camera, and the game plays UI sounds at full volume.
+
+## 41. Kill All The Monsters: a boss under fire (built 2026-11-25, seen in ror, played in Studio by script only)
+
+The user, on Survive a Million Monkeys' bosses: no white flash on hit (a faint one at most), no last-few outline, no
+body jolt on each shot; only a bright light where the bullets land, so the animations read and the giant feels
+heavy. What was built, all on a boss only (`EnemiesController.Bosses`):
+
+| Moment | What it shows | Where |
+| --- | --- | --- |
+| A bullet lands | a soft white bloom in a warm halo, a white-hot pixel, a faint square ring, sparks and skin pixels spat back toward the gun, a chip or two; sized by the bullet's damage, never the body | `EnemyImpacts.EmitBossHit`, called by gunFx and tracers as the bullet arrives; template `EnemyFx.BossHit` |
+| The server's word on a blow | a faint tint (fill 0.8), no flinch, no burst on the trunk; its number thrown within 3 studs of where the player's last bullet went in | `EnemiesController.onDamaged`, `WeaponController.BossContact`, `DamageNumbersController` |
+| A quarter of its health gone (the bar's segments) | the full white flash, bone bursting off at the hits (`trexFx.Shatter`), its cry, the view shaken, and the body rearing: hips, neck and head thrown up and away from the shots, jaws open, the tail lashing, legs untouched | `BossController.hurt`, `poseHurts` |
+| Its fall | everything it had (the full flash, the overkill burst, the bones, the death clip), now in slow motion for everybody: 0.25 speed, held 0.5 s, back over 0.6 s | `TimeService.SlowMotion` from `BossService` on `OnEnemyDied` |
+
+What it rests on:
+
+- **A giant moved by every bullet reads as weightless.** Its reaction is saved for milestones the players earn (the
+  quarters), where it is big: one full flash after a hundred faint ones hits harder than a hundred full ones.
+- **The light goes where the bullet went in, not on the body's middle.** A long body is shot far from its trunk (the
+  head, the neck): the old burst came off the trunk's chest whatever was hit. The client already has the contact
+  point (the tracer's end), so the light is on the bullet with no round trip.
+- **A light sized by the body is wrong on a giant**: the enemy burst scales with height (3x on the T-Rex, 6 to 9
+  bricks a bullet), which read as the boss being chipped apart. A boss's blow is sized by the bullet.
+- **A pose written over a clip is written after the Animator, every frame, from what the clip gave**: PreSimulation
+  (the Animator has posed the rig), base times the turn, and a bone no clip keys starts from the pose under the last
+  write, or the turn adds up frame on frame.
+- **Numbers on a body thrown across it**, not stacked on one point: within the body's width for an enemy, round the
+  hits for a boss (SAMM's look).
+
+- **Judge it before and after, side by side**: `Assets/effects/trex/preview_hits.sh` films the same fight both ways
+  (the controllers' numbers copied into the scene per mode), damage numbers included, and a sound review lays each
+  candidate on the After film through `mix_sounds.py --extra` without filming again (`Assets/sounds/Review/BossHits`).
+  How the numbers get into a ror film is section 25.

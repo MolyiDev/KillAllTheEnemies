@@ -15,6 +15,7 @@ local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Showcase = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Showcase)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local InertialBlend = require(game:GetService("Players").LocalPlayer.PlayerScripts.GlobalClient.Utils.inertialBlend)
 local avatarClips = require(script.Parent.avatarClips)
 
 local create = vide.create
@@ -40,7 +41,8 @@ local Turn = table.freeze({
 	HOP_PERIOD = 0.42,
 	HOP_DAMPING = 0.4,
 	TWIRL = 540,
-	CHEER_FADE = 0.1,
+	-- The cheer is blended in from the idle and out of its last frame back into it over this long (inertialBlend).
+	CHEER_BLEND = 0.3,
 	RING_PERIOD = 0.7,
 	RING_GROW = 0.45,
 	FLOOR_SEGMENTS = 96,
@@ -279,6 +281,7 @@ function avatarTurntable.Build(spec: TSpec): (Frame, () -> ())
 	local model: Model? = nil
 	local base = CFrame.identity
 	local cheer: AnimationTrack? = nil
+	local blend: InertialBlend.TInertialBlend? = nil
 	local yawDeg = 0
 	local spinDeg = Turn.IDLE_SPIN
 	local stepper: RBXScriptConnection? = nil
@@ -318,6 +321,7 @@ function avatarTurntable.Build(spec: TSpec): (Frame, () -> ())
 		local cheerTrack = load(animator, avatarClips.CHEER, false)
 		cheerTrack.Priority = Enum.AnimationPriority.Action
 		cheer = cheerTrack
+		blend = InertialBlend.new(InertialBlend.JointsOf(copy), false)
 	end
 
 	local function step(dt: number)
@@ -331,7 +335,7 @@ function avatarTurntable.Build(spec: TSpec): (Frame, () -> ())
 		strikeHop(Turn.HOP)
 		spinDeg += Turn.TWIRL
 		configureRing({ position = 0, velocity = 0 })
-		if cheer then cheer:Play(Turn.CHEER_FADE) end
+		if cheer and blend then blend:PlayOneShot(cheer, Turn.CHEER_BLEND) end
 	end
 
 	local function release()
@@ -393,6 +397,7 @@ function avatarTurntable.Build(spec: TSpec): (Frame, () -> ())
 		vide.untrack(function()
 			model = copy
 			cheer = nil
+			blend = nil
 			if not copy then return end
 			local root = copy:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then

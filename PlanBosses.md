@@ -193,20 +193,21 @@ Where the target stands around it decides most of what it does: in front, behind
 | --- | --- | --- | --- | --- |
 | **Chomp** | close punish, front | target in front, under 14 studs | Cone in front, 14 long, 60 degrees, 0.9 s wind-up; the head drops and snaps | step out of its face; 0.8 s recovery with its head low |
 | **Tail Sweep** | close punish, back | target in the rear arc, under 16 | Cone behind, 16 long, 120 degrees, 1.0 s | don't hang at its back |
-| **Stomp** | close punish, under it | target beside it or under its body (neither the front nor the rear arc), under 10 | stamps; a full circle round its feet, radius 11, 0.8 s, no direction to read | get out from under it, any way |
+| **Stomp** | close punish, all round | target inside its circle on any side, front and back included | stamps; a full circle round its feet, radius 11, 0.8 s, no direction to read | get out from under it, any way |
 | **Charge** | the way to the player | target over 25 studs away on its floor, or it has gone 6 s without reaching anyone | crouches and scrapes (1.2 s, a Line 8 wide to the target), then runs the line at about 50 a second, hitting whoever is on it, and skids to a stop | sidestep the line; the skid leaves it open about 2 s |
 | **Spine Barrage** | ranged, aimed at players | players over 20 studs, cooldown 8 s | rears up and shakes; one green spine lands on each player's spot, 3 times, 0.6 s apart, each with its own circle (radius 5, 1.0 s warning) | keep moving; each player dodges their own |
 | **Fossil Dive** | the way to a player it can't walk to | target on a floor it can't path to for 4 s; cooldown 15 s | sinks into the floor (it can't be hit), a green crack runs to the target, and it bursts up at the nearest floor it can stand on: circle radius 12, 1.4 s warning | run out of the circle; it then stands 1.5 s pulling its bones together |
-| **Raise the Guard** (once, at 60% health) | goal-changer | the health line is crossed | roars (a ring you jump, the intro's roar), four Fossil Guards rise around the arena, and a green shield takes every hit until all four are dead; a beam runs from each guard to it | split up and kill the guards; the boss bar shows them as four marks |
+| **Raise the Guard** (at 75%, 50% and 25% health) | goal-changer | a boss bar segment empties | roars (a ring you jump, the intro's roar), four Fossil Guards rise around the arena, and a green shield takes every hit until all four are dead; a beam runs from each guard to it | split up and kill the guards; the boss bar shows them as four marks |
 
 The Charge is the gap closer; the Dive only answers a player it can't walk to (a deck the nav grid does not link to
 it, or one it is stuck under), so the two never compete for the same moment.
 
 Escalation:
 
-- **Phase 1 (100% to 60%): the test.** Chomp, Tail Sweep, Stomp, Charge and Spine Barrage, plus the Dive when it's
+- **Phase 1 (100% to 50%): the test.** Chomp, Tail Sweep, Stomp, Charge and Spine Barrage, plus the Dive when it's
   needed. These teach every place to stand.
-- **Midpoint (60%): Raise the Guard.** The target switches and the party spreads out.
+- **Each quarter gone (75%, 50%, 25%): Raise the Guard.** The target switches and the party spreads out. It
+  first came once, at 60%, and the fight went flat after it.
 - **Phase 2 (under 50%): the same moves, expanded.** Each new version extends a move already learned, never a new
   instant hit:
   - The Stomp becomes the **Quake**: left, right, left, each a circle round its feet, and the third also sends a
@@ -232,9 +233,9 @@ Numbers are a first pass, to tune in a playtest, at the 0.875 scale and re-measu
 New in the code:
 
 - **`Behind`** on an attack: its Cone or Line points opposite to the way the body faces, and it is taken only when
-  the target stands in the rear arc. The telegraph is the same shape turned around.
-- **`Beside`** on an attack: taken only when the target is in neither the front nor the rear arc (the Stomp).
-- **Health phases** on a boss's attacks: taken only under a health fraction, or once when a line is crossed.
+  the target stands inside that shape. The telegraph is the same shape turned around.
+- **`Beside`** on an attack: a circle round the body, taken on a target inside it on any side (the Stomp).
+- **Health phases** on a boss's attacks: taken only under a health fraction, or at each of its `HealthLines`.
 - **A sequence:** one attack repeated a set number of times, apart in time, its last beat able to add a ring (the
   Quake). The same thing gives the volley: one Slam circle at each player in range, repeated.
 - **The `Charge` kind:** after the wind-up the body really runs the telegraphed line (EnemyMovementService owns the
@@ -246,6 +247,105 @@ New in the code:
 - **Summons with a shield:** spawns the guards (a guard type in `Data/Enemies`: an existing zombie rig in bone white
   and green), and holds the boss immune until they are dead or the cap runs out. The beam is drawn by the client.
 - `tools/lune/sim.luau` covers each one.
+
+### How a boss picks its move (learned on the T-Rex, 2026-11-25)
+
+The first T-Rex playtest showed four faults: a tail sweep at nobody, charges off to a side the player was not on or
+going to, the shield only once a fight, and the triple stomp once or twice in a whole fight with the player close.
+Each came from a rule that reads well on paper. The rules below fix them; every boss takes them.
+
+**A move is made only if it would land on its target where they stand now.** "Target behind, under 20 studs" is not
+that. A boss faces the way it walks, so walking round a wall, a player on the far side counted as behind it, and the
+tail swept the wall. The test is the ground warning's own one (`TelegraphCore`: inside the shape, on the floor it
+floods), so no wall, ledge or deck between. Checked with the shape alone first: the flood only runs for a target
+inside it. In code: `wouldHit` in `BossService`.
+
+- A cone in front is turned onto its target (the bite), but only within the front arc: the head never snaps round.
+- A charge is made only if its run gets as far as its target before a wall or a ledge stops it.
+- A chained charge turns onto its target only within 45 degrees of straight back, and only if that run reaches them.
+  Farther round, it stops after the first one. Turning onto a side the target is not on was the "charge on the
+  wrong side".
+- Nothing qualifies: it takes another move, or walks on. Never a move that does nothing.
+- A decoy is held to the same rule.
+
+**Lead a target off its smoothed run, never one frame.** One frame's velocity is a jump, a dodge's first step or a
+knockback, and a lead off it throws the charge far off. The run is averaged over about 0.35 s, and the charge's lead
+is capped off the straight line to its target. Unclamped, close in, the lead turned the charge almost sideways: the
+other half of the "wrong side" charges. The cap was 20 degrees until 2026-11-25; measured, a player strafing on at 22
+studs a second crosses a 20-degree line long before the run gets there, so the charge never caught anyone moving. It
+is 45 degrees now, with the full lead (Lead 1): the narrowest that catches a strafer (`CHARGE_LEAD_ARC`).
+
+**Every warning is a dodge for a player who looks, and a hit for one who doesn't** (2026-11-25). Measured against a
+22-stud-a-second player reacting in 0.2 to 0.4 s plus 0.1 s of ping, from the worst spot each move is made at: the
+wind-ups go no faster than `WindupTempoMin` (0.9), so near death the Chomp's worst spot needs 0.82 s at 300 ms against
+its 0.81 s warning; the faster pace late in the fight comes from cooldowns and rests (down to `TempoEnd`). A move that
+a player on autopilot (standing, or strafing on) always walks out of is no threat: the spines and the dive land Lead
+of the way to where their target is going, the charge leads them in full. And the warning is the hitbox: the charge's
+line is drawn as long and as wide as its front rams, through the skid.
+
+How a move is measured (do it for every new boss move, in lune, before tuning by feel):
+
+- **The player**: 22 studs a second (the Game place's `CharacterWalkSpeed`), turning at once, no dodge roll. Reaction
+  0.2 to 0.4 s (a simple reaction is about 0.25 s; reading an attack and choosing a way out, 0.4 to 0.5 s), plus 0.1 s
+  of ping (the warning reaches the client half a round trip late, the dodge reaches the server half a round trip late).
+- **What it needs**: reaction + ping + (the shortest run out of the shape from the worst spot the boss makes the move
+  at) / 22. The worst spot comes from the move's own rules (`think`, `BossesCore.Facing`, `wouldHit`): the Chomp is
+  turned onto its target, so its worst spot is on the axis 18.3 studs out (9.1 to run sideways); the tail's is on its
+  axis 11.4 out (9.8); a stamp's is under the belly (13.4), 5 from beside it. The hit tests the feet, a point.
+- **Against its warning**, at full health and near death (the tempo), and two players who do not look: one standing
+  (always hit if in it) and one strafing on (hit only if the move leads). A move both kinds walk out of is no threat;
+  one that the 0.3 s player cannot leave from most spots near death is unfair.
+- **Fair, not easy**: a 0.3 s player clears the worst spot near death with nothing to spare, a 0.4 s one clears most
+  spots; the move's ARE dodges, and the difficulty grows by density (cooldowns, more spines, chained charges), never
+  by a wind-up below a reaction. Dark Souls 3's floor for a reaction-only tell is about 0.34 s with a dodge roll that
+  is invulnerable for 0.43 s; with no roll, the run out is most of the time.
+
+What it measured (2026-11-25, before: tempo 1.35 to 0.7 for everything; after: the wind-up floor at 0.9):
+
+| Move | Warning before (full / near death) | Dodged at 0.4 s near death | Warning now | Dodged now |
+| --- | --- | --- | --- | --- |
+| Chomp | 1.22 / 0.63 s | 3% of spots | 1.03 / 0.81 s | 57% (95% at 0.3 s) |
+| Tail Sweep | 1.35 / 0.70 | 57% | 1.15 / 0.90 | 98% |
+| Quake's first beat | 0.77 / 0.52 | 7% | 0.77 / 0.68 | from beside, all at 0.3 s |
+| Spine | 1.35 / 0.70 | 0% (30 ms short) | 1.15 / 0.90 | all |
+| Dive | 1.89 / 0.98, on its head behind a runner | a runner never hit | 1.2 flat, 0.85 of the way ahead | runner hit; a turn back at 0.5 s gets out |
+| Charge | runner crosses a 20-degree line 0.8 s before the run | never hit | 45 degrees, full lead | runner hit late in the fight; any reaction gets out |
+
+The charge cannot catch a runner at full health with any lead: its wind-up and run last seconds, and only the full
+arc ever meets a strafer. It is the readable move of the set. The before and after are on video:
+`Assets/effects/trex/preview_dodge.sh` (`preview/dodge/dive.mp4`, `charge.mp4`, `chomp.mp4`). Ballarc's Meteor Shower does the same thing another way
+(`../Ballarc/src/Survivors/Server/Quests/MeteorShowerServer.luau`): its lead grows with the target's speed, and half
+its meteors fall where the player stands, which catches a player running in circles. The spine volley keeps that
+second idea: its first spine leads, the next ones land beside the player and on the spot they stand.
+
+**Draw among the moves that would land, by weight. A fixed order starves moves.** The first T-Rex took the first
+match: bite in front, else tail, else stamp. A boss turns to face whoever it chases, so a close player is nearly
+always in front, and the bite won every time. Now each move that would land weighs 1, plus up to 2 more as 20 s pass
+without it, and the move it just made counts a quarter. Right after a bite, the triple stomp comes about 63% of the
+time. Close moves are still drawn before far ones: the close punish comes first. Tuning: `FRESH_WEIGHT`,
+`FRESH_SECONDS`, `REPEAT_SHARE` in `BossService`'s `Tune`.
+
+**A circle reaches every side.** A stamp's circle round the body is taken on a target inside it, front and back
+included. Tied to "beside only", it almost never came up.
+
+**The goal-changer comes at each boss bar break.** The bar has four segments, so the shield goes up at 75%, 50% and
+25% (`TEnemyAttack.HealthLines`). A blow past two lines is one roar, and never while a shield is already up. Once a
+fight, the fight went flat after it.
+
+**What the web says** (2026-11-25):
+
+- Each attack has its own conditions (distance, angle, health), and the boss draws at random only among the ones that
+  pass. A Behaviour Tree or a weighted draw both work.
+  ([Game Developer](https://www.gamedeveloper.com/programming/using-behavior-trees-to-create-retro-boss-ai),
+  [weight-based battle AI](https://mpewsey.github.io/2021/10/01/weight-based-battle-ai.html),
+  [Unreal forums](https://forums.unrealengine.com/t/2d-platformer-boss-code-design-discussion/109933))
+- Weights can depend on distance and on how many players are near.
+  ([Unreal forums](https://forums.unrealengine.com/t/what-variables-do-you-most-commonly-use-for-ai-melee-combat/54130))
+- Leading a target assumes a steady velocity, and a player who changes direction beats it. One frame's reading is
+  unreliable: a stopped player reads as zero for a frame and the shot goes beside them.
+  ([Game Developer](https://gamedeveloper.com/programming/shooting-a-moving-target),
+  [Roblox DevForum](https://devforum.roblox.com/t/how-could-i-make-this-ai-hit-its-target-more-consistently/746985))
+- Nothing found covers smoothing a velocity or holding off a repeated move. Those numbers are ours, to tune in play.
 
 ## The intro cutscene
 
@@ -302,7 +402,8 @@ pieces) and start from Animations.md section 16's order of work.
 
 ## As built (code, 2026-11-24)
 
-- **Server.** `BossService` runs every boss's fight: it picks the move by where its target stands (`BossesCore.Facing`),
+- **Server.** `BossService` runs every boss's fight: it draws its move among those that would land on its target where
+  they stand ("How a boss picks its move" above),
   holds the body while busy (its `AttackWindup` > 0; `enemiesUpdate` never starts a boss's attack), moves it itself
   through a charge (run, skid, chained turn) and a dive (`Tags.Submerged`: out of the movement update and the spatial
   hash, immune), raises the guards and holds `Tags.Shielded` (EnemiesService refuses every blow and sends

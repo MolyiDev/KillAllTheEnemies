@@ -1,7 +1,7 @@
 -- The numbers over the fight: what a blow did to a body, and the Gold a kill paid. Screen-space labels projected from
 -- the world every frame, so they read at one size at any distance and are never hidden behind a body. Every blow is
--- its own number, left where it landed: a number that counted up stayed behind a body that had walked on. Purely a
--- picture.
+-- its own number, left where it landed: a number that counted up stayed behind a body that had walked on. Each is
+-- thrown somewhere over the body, not on one point, so a stream of blows spreads across it. Purely a picture.
 local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,8 +10,10 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local CharacterController = require(script.Parent.CharacterController)
+local WeaponController = require(script.Parent.WeaponController)
 local targetHits = require(script.Parent.Parent.Utils.targetHits)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -62,6 +64,12 @@ local Tune = table.freeze({
 	GOLD_LIFT = Vector3.new(0, 2.5, 0),
 	-- Above the chest the number was aimed at, so it starts clear of the head.
 	DAMAGE_LIFT = Vector3.new(0, 1.6, 0),
+	-- Where a number starts: anywhere across the view within this share of the body's half width round its anchor (a
+	-- body that says none counts as DEFAULT_HALF_WIDTH, an R6 body's), or within BOSS_SCATTER_STUDS of where the
+	-- player's bullet went into a boss, whose numbers stand where its shots land.
+	SCATTER_SHARE = 0.9,
+	DEFAULT_HALF_WIDTH = 1,
+	BOSS_SCATTER_STUDS = 3,
 })
 
 -- Top to bottom: a white-hot top melting into the hue, the anime highlight. The stroke is the hue's own dark, never
@@ -329,9 +337,24 @@ local function isOwn(attackerId: number): boolean
 	return attackerId ~= 0 and attackerId == selfCharacterId
 end
 
-local function showBlow(attackerId: number, damage: number, at: Vector3, style: TStyle)
+-- A point anywhere within `radius` of `center` across the view, spread evenly over the disc.
+local function scattered(center: Vector3, radius: number): Vector3
+	local view = Camera.CFrame
+	local turn = random:NextNumber(0, math.pi * 2)
+	local reach = radius * math.sqrt(random:NextNumber())
+	return center + view.RightVector * (math.cos(turn) * reach) + view.UpVector * (math.sin(turn) * reach)
+end
+
+-- Where a blow's number starts: over the chest within the body's width, or round the player's own bullet in a boss.
+local function anchorOf(bodyId: number, attackerId: number, at: Vector3, halfWidth: number?): Vector3
+	local contact = if isOwn(attackerId) then WeaponController.BossContact(bodyId) else nil
+	if contact then return scattered(contact, Tune.BOSS_SCATTER_STUDS) end
+
+	return scattered(at + Tune.DAMAGE_LIFT, (halfWidth or Tune.DEFAULT_HALF_WIDTH) * Tune.SCATTER_SHARE)
+end
+
+local function showBlow(attackerId: number, damage: number, anchor: Vector3, style: TStyle)
 	if damage < 0.5 then return end
-	local anchor = at + Tune.DAMAGE_LIFT
 
 	if not isOwn(attackerId) then
 		if allySpawns >= Tune.MAX_ALLY_SPAWNS_PER_FRAME or not isWorthShowing(anchor, Tune.ALLY_DISTANCE) then
@@ -393,6 +416,8 @@ local function update(dt: number)
 
 	local cameraPosition = Camera.CFrame.Position
 	local now = os.clock()
+	-- Faded with every screen's UI for a cutscene.
+	local shown = UiFade.Shown()
 	for _, popup in popups do
 		if not popup.IsLive then continue end
 		local style = popup.Style
@@ -440,20 +465,23 @@ local function update(dt: number)
 
 		local isWhite = popup.PunchAge < Tune.WHITE_SECONDS
 		if popup.Gradient.Enabled == isWhite then popup.Gradient.Enabled = not isWhite end
-		local transparency = style.BaseTransparency + (1 - style.BaseTransparency) * fade
+		local transparency = 1 - (1 - style.BaseTransparency) * (1 - fade) * shown
 		label.TextTransparency = transparency
 		popup.Stroke.Transparency = transparency
 		if not label.Visible then label.Visible = true end
 	end
 end
 
-targetHits.Damaged:Connect(function(_, attackerId: number, damage: number, at: Vector3)
-	showBlow(attackerId, damage, at, Styles.Hit)
+targetHits.Damaged:Connect(function(bodyId: number, attackerId: number, damage: number, at: Vector3, halfWidth: number?)
+	showBlow(attackerId, damage, anchorOf(bodyId, attackerId, at, halfWidth), Styles.Hit)
 end)
 
-targetHits.Killed:Connect(function(_, killerId: number, damage: number, isOverkill: boolean, at: Vector3)
-	showBlow(killerId, damage, at, if isOverkill then Styles.Overkill else Styles.Kill)
-end)
+targetHits.Killed:Connect(
+	function(bodyId: number, killerId: number, damage: number, isOverkill: boolean, at: Vector3, halfWidth: number?)
+		local style = if isOverkill then Styles.Overkill else Styles.Kill
+		showBlow(killerId, damage, anchorOf(bodyId, killerId, at, halfWidth), style)
+	end
+)
 
 DamageNumbersController.OnStart = function()
 	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")

@@ -6,9 +6,11 @@
 --
 -- The rigs are ReplicatedStorage.Models.Enemies, the clips ReplicatedStorage.Animations.Enemies, as in the Game place;
 -- a place without them draws nothing and holds still.
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
+local InertialBlend = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.inertialBlend)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -36,6 +38,8 @@ local SHADOW_TRANSPARENCY = GunPicture.SHADOW_TRANSPARENCY
 local SHOWN_FLOOR = 0.002
 -- How old a Poke stamp may be and still play the attack, in seconds.
 local POKE_WINDOW = 0.25
+-- The attack is blended in from the walk and out of its last frame back into it over this long (inertialBlend).
+local ATTACK_BLEND = 0.2
 -- The clip every body is posed and moved with: the walk, as a crowd is seen coming at you. The set's Idle moves none of
 -- these rigs' arms, so a body idling stands in its rest pose, arms straight out.
 local LOOP_CLIP = "Walk"
@@ -124,6 +128,7 @@ type TLayer = {
 	Rest: CFrame,
 	Loop: AnimationTrack?,
 	Attack: AnimationTrack?,
+	Blend: InertialBlend.TInertialBlend?,
 }
 
 -- A layer drawn `alpha()` solid (0 gone, 1 solid). The shadow is lit by nothing and multiplied to black on the way out,
@@ -235,6 +240,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 		each.Copy = nil
 		each.Loop = nil
 		each.Attack = nil
+		each.Blend = nil
 	end
 
 	-- Gives `each` its copy, walking in step with another layer's when one is held (the shadow's, a reveal crossing over).
@@ -271,6 +277,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 			track.Priority = Enum.AnimationPriority.Action
 			track.Looped = false
 			each.Attack = track
+			each.Blend = InertialBlend.new(InertialBlend.JointsOf(copy), false)
 		end
 	end
 
@@ -352,7 +359,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 			vide.untrack(function()
 				if os.clock() - at > POKE_WINDOW then return end
 				for _, each in layers do
-					if each.Attack then each.Attack:Play(0.08) end
+					if each.Attack and each.Blend then each.Blend:PlayOneShot(each.Attack, ATTACK_BLEND) end
 				end
 			end)
 		end)

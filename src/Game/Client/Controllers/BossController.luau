@@ -14,8 +14,10 @@ local Signal = require(ReplicatedStorage.Packages.Signal)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local BossIntroController = require(script.Parent.BossIntroController)
 local EnemiesController = require(script.Parent.EnemiesController)
+local MatchController = require(script.Parent.MatchController)
 -- Through PlayerScripts, the copy that runs (see HudController).
 local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CameraController)
+local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
 local EnemyImpacts = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.enemyImpacts)
 local trexFx = require(script.Parent.Parent.Utils.trexFx)
 local trexSounds = require(script.Parent.Parent.Utils.trexSounds)
@@ -91,18 +93,51 @@ local Tune = table.freeze({
 	SPINE_FROM = Vector3.new(0, 13.75, -2.5),
 	-- The volley's launch: this far over the chest bone.
 	LAUNCH_LIFT = 3,
-	-- The crack: a glowing step every CRACK_STEP studs, jittered this far to the sides.
+	-- The crack: a glowing step every CRACK_STEP studs, jittered this far to the sides. Every BURROW_EVERY step its head
+	-- shoulders the floor up (trexFx.Burrow), every CRACK_SHAKE_EVERY the ground under it is felt.
 	CRACK_STEP = 1.6,
 	CRACK_JITTER = 0.8,
-	-- A crack is heard about this often along the line (as it was picked), not on every step drawn: at the dive's
-	-- speed the steps come 28 a second.
+	BURROW_EVERY = 3,
+	CRACK_SHAKE_EVERY = 5,
+	-- A crack is heard at most this often, not on every step drawn: at the dive's speed the steps come 28 a second.
 	CRACK_SOUND_SECONDS = 0.39,
+	-- Its dart ahead of its target (EBossMoves.Dart): the floor shouldered up every DART_BURROW_EVERY step, so it
+	-- tears open as it goes rather than glows, and a jolt where it lands.
+	DART_BURROW_EVERY = 2,
+	DART = { 2.2, 0.35, 0.3 },
+	-- Stopped under its target: the floor heaves at these shares of the warning, each this big (trexFx.Sink's size),
+	-- and splits from the middle in SPLIT_SPOKES cracks crawling out from SPLIT_FROM of it to the circle's edge at
+	-- SPLIT_TO, ahead of the burst so they are seen, each bending up to SPLIT_BEND radians along its way.
+	HEAVES = { 0.05, 0.4, 0.7, 0.9 },
+	HEAVE_SIZES = { 0.45, 0.6, 0.8, 1 },
+	SPLIT_SPOKES = 5,
+	-- Each spoke is turned off an even spread by up to this share of the gap between two.
+	SPLIT_SPREAD = 0.25,
+	SPLIT_FROM = 0.1,
+	SPLIT_TO = 0.85,
+	SPLIT_BEND = 0.5,
 	-- The tail's arc is drawn from this long before the sweep's blow for this long (times the tempo).
 	SWEEP_LEAD = 0.45,
 	SWEEP_SECONDS = 0.85,
 	-- Its snort comes out this far ahead of the head bone and this far under it.
 	NOSE_AHEAD = 3,
 	NOSE_DOWN = 0.5,
+	-- What it does between its blows, so it never moves in silence, by clip: each cue at its clip seconds (times the
+	-- tempo), heard from a bone (Sounds.md, "A boss or giant creature", 9).
+	MOVE_SOUNDS = {
+		Summon = { { Cue = "SummonRear", At = 0, Bone = "Head" } },
+		Chomp = { { Cue = "ChompDraw", At = 0, Bone = "Head" }, { Cue = "ChompHome", At = 1.2, Bone = "Head" } },
+		TailSweep = { { Cue = "TailWind", At = 0, Bone = "Tail2" }, { Cue = "TailSettle", At = 1.3, Bone = "Tail3" } },
+		Stomp = { { Cue = "StompLift", At = 0, Bone = "ToeR" } },
+		Quake = { { Cue = "StompLift", At = 0, Bone = "ToeL" } },
+		Barrage = { { Cue = "BarrageRear", At = 0, Bone = "Chest" } },
+		Barrage4 = { { Cue = "BarrageRear", At = 0, Bone = "Chest" } },
+	},
+	-- An unchained skid's lurch and panting start this far in: the server decides at SkidStop (0.6) whether a turn
+	-- follows, so the turn's word has come by then and a turn never pants.
+	PANT_AT = 0.7,
+	-- Its pieces settling once the fall has rung out, this long after the killing blow.
+	SETTLE_AT = 2.4,
 	-- The roar's breath and rings pour out for this long, out of a mouth this far ahead of the jaw bone.
 	ROAR_SECONDS = 1.2,
 	MOUTH_AHEAD = 2,
@@ -111,9 +146,10 @@ local Tune = table.freeze({
 	-- Its soul leaves the pile for this long after the fall.
 	SOUL_SECONDS = 3.5,
 	-- The shield: a bubble round the body (its middle this high, this far forward of Root), breathing, swelling a little
-	-- on each blow it takes.
-	SHIELD_SIZE = 42.5,
-	SHIELD_CENTER = Vector3.new(0, 7.5, 2.5),
+	-- on each blow it takes. Measured on the rig's poses: the head and neck carry it forward of its legs, and this
+	-- holds the snout in through every move (the Chomp's lunge too), with only the tail's tip grazing the back.
+	SHIELD_SIZE = 47,
+	SHIELD_CENTER = Vector3.new(0, 8, 4.5),
 	SHIELD_TRANSPARENCY = 0.55,
 	SHIELD_BREATHE = 0.04,
 	SHIELD_HIT_SWELL = 0.06,
@@ -134,6 +170,32 @@ local Tune = table.freeze({
 	-- The roar's ground wave runs out this far; the Quake's is this much thicker than a plain wave.
 	ROAR_REACH = 30,
 	QUAKE_WAVE = 1.4,
+	-- A quarter of its health gone (the boss bar's segments): the one time a blow moves it. It flashes white, bone
+	-- bursts off where the shots go in, and its body rears away from them with its head thrown back, jaws open and
+	-- its tail lashing, over the clip it is playing, legs untouched so its feet hold. Its blows in between leave it
+	-- standing (EnemiesController). QUARTERS is the bar's segment count (HudController/BossBar's Layout.SEGMENTS), so
+	-- the body takes its blow as the bar breaks: change both together.
+	QUARTERS = 4,
+	HURT = { 2.2, 0.45, 0.35 },
+	-- The recoil: exp(-DAMPING t) sin(FREQUENCY t) on enemy time, times PEAK so it tops out at 1 about 0.15 s in, and
+	-- over by HURT_SECONDS.
+	HURT_FREQUENCY = 7,
+	HURT_DAMPING = 4.2,
+	HURT_PEAK = 2.164,
+	HURT_SECONDS = 1.1,
+	-- Each bone's turn at the recoil's peak (radians, in its own frame: Pitch + tips its front down, Yaw + turns it
+	-- away from the shots), and how far behind the hips it follows, so the head and the tail's tip whip.
+	HURT_POSE = {
+		{ Bone = "Belly", Pitch = -0.16, Yaw = 0.1, Lag = 0 },
+		{ Bone = "Neck1", Pitch = -0.1, Yaw = 0.06, Lag = 0.03 },
+		{ Bone = "Neck2", Pitch = -0.1, Yaw = 0.06, Lag = 0.05 },
+		{ Bone = "Neck3", Pitch = -0.08, Yaw = 0.08, Lag = 0.07 },
+		{ Bone = "Head", Pitch = -0.2, Yaw = 0.1, Lag = 0.09 },
+		{ Bone = "Jaw", Pitch = 0.35, Yaw = 0, Lag = 0.05 },
+		{ Bone = "Tail1", Pitch = 0.12, Yaw = -0.12, Lag = 0.05 },
+		{ Bone = "Tail2", Pitch = 0.12, Yaw = -0.16, Lag = 0.09 },
+		{ Bone = "Tail3", Pitch = 0.14, Yaw = -0.2, Lag = 0.13 },
+	},
 })
 
 type TBoss = {
@@ -156,6 +218,26 @@ type TBoss = {
 	Anchor: Attachment?,
 	Guards: { number },
 	LastCFrame: CFrame?,
+	-- The dive's crack, drawn leg by leg as the server steers it: studs to its next step, steps drawn, and when it was
+	-- last heard.
+	CrackOwed: number,
+	CrackSteps: number,
+	CrackHeardAt: number,
+	-- The enemy clock its last dart lands at: the floor under its circle heaves from then.
+	DartLandsAt: number,
+	-- Under the floor (its dive): nothing of it is seen, so nothing of it reacts.
+	IsBuried: boolean,
+	-- The enemy clock its last chained charge's turn began, to tell a skid that ends the run from one a turn cuts.
+	TurnedAt: number,
+	-- Quarters of its health still standing, 0 until the server has said; and its last recoil (Tune.HURT_*): the
+	-- enemy clock it started, which way it turns (1 its front toward its left, away from shots from its right; -1 the
+	-- other way), and per bone the pose its clip gave and what was written over it, to tell a clip's write from this
+	-- one's.
+	Quarters: number,
+	HurtAt: number,
+	HurtSide: number,
+	HurtBase: { [Bone]: CFrame },
+	HurtWritten: { [Bone]: CFrame },
 }
 
 local BossController = {}
@@ -307,6 +389,17 @@ local function track(instanceId: number): TBoss?
 		Anchor = nil,
 		Guards = {},
 		LastCFrame = nil,
+		CrackOwed = Tune.CRACK_STEP,
+		CrackSteps = 0,
+		CrackHeardAt = -math.huge,
+		DartLandsAt = -math.huge,
+		IsBuried = false,
+		TurnedAt = -math.huge,
+		Quarters = 0,
+		HurtAt = -math.huge,
+		HurtSide = 1,
+		HurtBase = {},
+		HurtWritten = {},
 	}
 	bosses[instanceId] = boss
 	return boss
@@ -357,10 +450,22 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 	local now = TimeCore.EnemyClock
 	local kit = boss.Kit
 	local kind = attack.Kind
-	EnemiesController.PlayClip(id, attack.AnimationName or "Attack", { Fade = 0.12, Speed = 1 / tempo })
+	local clip = attack.AnimationName or "Attack"
+	EnemiesController.PlayClip(id, clip, { Fade = 0.12, Speed = 1 / tempo })
 	aimAt(boss, yaw)
 
+	local moveSounds = Tune.MOVE_SOUNDS[clip]
+	if moveSounds then
+		for _, sound in moveSounds do
+			schedule(boss, now + sound.At * tempo, function()
+				trexSounds.Play(sound.Cue, bonePosition(boss, sound.Bone) or from)
+			end)
+		end
+	end
+
 	if kind == "Dive" then
+		boss.CrackOwed = Tune.CRACK_STEP
+		boss.CrackSteps = 0
 		-- Out of sight once it is under: the clip ends there, and its last frame is not held.
 		schedule(boss, now + kit.DiveUnder, function()
 			local here = EnemiesController.GetCFrame(id)
@@ -368,6 +473,8 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 			EnemiesController.Drive(id, function()
 				return under
 			end)
+			EnemiesController.SetBuried(id, true)
+			boss.IsBuried = true
 		end)
 		-- The floor heaving where it goes down into it, harder each time; under its feet if nothing is there.
 		local floor, normal, color = floorUnder(from + Vector3.new(math.sin(yaw), 0, math.cos(yaw)) * Tune.SINK_AHEAD)
@@ -408,6 +515,8 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 	end
 
 	if kind == "Charge" then
+		-- A line off its front is turned onto first, and the wind-up takes over as the turn ends.
+		EnemiesController.StopClip(id, "ChargeTurn", 0.1)
 		-- The wind-up: a foot pawing the floor back twice, a snort out of the nose each time.
 		for _, delay in { 0.35, 0.75 } do
 			schedule(boss, now + delay * tempo - trexSounds.Lead("Snort"), function()
@@ -537,10 +646,15 @@ local function onSkid(boss: TBoss, from: Vector3, to: Vector3, speed: number)
 	schedule(boss, startedAt + 0.9, function()
 		footfall(boss, "l", Tune.CATCH_STRENGTH, Tune.CATCH)
 	end)
+	schedule(boss, startedAt + Tune.PANT_AT, function()
+		if boss.TurnedAt >= startedAt then return end
+		trexSounds.Play("SkidPant", headOf(boss, to))
+	end)
 end
 
 -- The turn: braced on the spot, yawed at an even rate to its left onto the next line.
 local function onTurn(boss: TBoss, yaw: number)
+	boss.TurnedAt = TimeCore.EnemyClock
 	local id = boss.InstanceId
 	local here = EnemiesController.GetCFrame(id)
 	if not here then return end
@@ -550,8 +664,10 @@ local function onTurn(boss: TBoss, yaw: number)
 	local startedAt = TimeCore.EnemyClock
 	EnemiesController.StopClip(id, "Skid", 0.1)
 	EnemiesController.PlayClip(id, "ChargeTurn", { Fade = 0.1 })
-	-- To its left: the yaw only grows, so the turn never takes the short way round.
-	local delta = (yaw - startYaw) % (2 * math.pi)
+	-- Its feet scraping round, the tail swung out and whipped back: one cue as long as the turn.
+	trexSounds.Play("ChargeTurn", position)
+	-- The way the server turns it, so a chained charge's turn never takes the short way round.
+	local delta = BossesCore.TurnDelta(startYaw, yaw)
 	EnemiesController.Drive(id, function(now: number): CFrame?
 		local u = math.min((now - startedAt) / turnLength, 1)
 		return bodyFrame(position, startYaw + delta * u)
@@ -573,6 +689,8 @@ local function onRise(boss: TBoss, to: Vector3, yaw: number)
 	local startedAt = TimeCore.EnemyClock
 	local frame = bodyFrame(to, yaw)
 	EnemiesController.StopClip(id, "DiveSink", 0)
+	EnemiesController.SetBuried(id, false)
+	boss.IsBuried = false
 	EnemiesController.PlayClip(id, "DiveRise", { Fade = 0 })
 	EnemiesController.Drive(id, function(now: number): CFrame?
 		if now - startedAt >= kit.DiveRiseLength + kit.ReassembleLength then return nil end
@@ -604,26 +722,98 @@ local function onRise(boss: TBoss, to: Vector3, yaw: number)
 	end
 end
 
--- The crack it runs under the floor, glowing step by step from `from` to `to` over `seconds`.
-local function onCrack(boss: TBoss, from: Vector3, to: Vector3, seconds: number)
+-- One glowing step of the crack at `point`, running `along`; at its head (every BURROW_EVERY step of a run) the floor
+-- heaved up as well.
+local function crackStep(boss: TBoss, point: Vector3, along: Vector3, number: number, isHead: boolean)
+	local floor, normal, color = floorUnder(point)
+	if not floor then return end
+	trexFx.Crack(floor, normal, color, along)
+	if isHead then trexFx.Burrow(floor, normal, color, along) end
+	if number % Tune.CRACK_SHAKE_EVERY == 0 then shake(floor, Tune.STEP) end
+	local now = TimeCore.EnemyClock
+	if now - boss.CrackHeardAt < Tune.CRACK_SOUND_SECONDS then return end
+	boss.CrackHeardAt = now
+	trexSounds.Play("Crack", floor)
+end
+
+-- One leg of the crack it runs under the floor, glowing step by step from `from` to `to` over `seconds`, its head
+-- heaving the floor every `burrowEvery` step (BURROW_EVERY when nil): its steps carried on from the last leg, so they
+-- stay CRACK_STEP apart round its bends.
+local function onCrack(boss: TBoss, from: Vector3, to: Vector3, seconds: number, burrowEvery: number?)
 	local flat = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
 	local length = flat.Magnitude
-	if length < 1 then return end
+	if length < 1e-3 then return end
 	local direction = flat / length
 	local side = direction:Cross(UP)
-	local count = math.floor(length / Tune.CRACK_STEP)
 	local startedAt = TimeCore.EnemyClock
-	local soundEvery = math.max(math.round(Tune.CRACK_SOUND_SECONDS * count / math.max(seconds, 1e-3)), 1)
-	for i = 1, count do
-		local share = i / count
+
+	local at = boss.CrackOwed
+	while at <= length do
+		local share = at / length
+		local number = boss.CrackSteps + 1
+		boss.CrackSteps = number
+		local point = from:Lerp(to, share) + side * ((math.random() * 2 - 1) * Tune.CRACK_JITTER)
+		local isHead = number % (burrowEvery or Tune.BURROW_EVERY) == 0
 		schedule(boss, startedAt + seconds * share, function()
-			local point = from:Lerp(to, share) + side * ((math.random() * 2 - 1) * Tune.CRACK_JITTER)
-			local floor, normal, color = floorUnder(point)
-			if not floor then return end
-			trexFx.Crack(floor, normal, color, direction)
-			if (i - 1) % soundEvery == 0 then trexSounds.Play("Crack", floor) end
-			if i % 6 == 0 then shake(floor, Tune.STEP) end
+			crackStep(boss, point, direction, number, isHead)
 		end)
+		at += Tune.CRACK_STEP
+	end
+	boss.CrackOwed = at - length
+end
+
+-- Caught up with its target: the crack shoots on ahead of them to where it comes up, tearing the floor open as it goes,
+-- and lands with a jolt as their circle shows.
+local function onDart(boss: TBoss, from: Vector3, to: Vector3, seconds: number)
+	local landsAt = TimeCore.EnemyClock + seconds
+	boss.DartLandsAt = landsAt
+	onCrack(boss, from, to, seconds, Tune.DART_BURROW_EVERY)
+	schedule(boss, landsAt, function()
+		local floor = floorUnder(to)
+		if floor then shake(floor, Tune.DART) end
+	end)
+end
+
+-- The crack stopped under `to`, the warning's circle round it: the floor there heaving harder each time and splitting
+-- from the middle out to the circle's edge over `seconds`, until it bursts up. After a dart, from when it lands.
+local function onSurface(boss: TBoss, index: number, to: Vector3, seconds: number)
+	local attack = boss.Data.Attacks[index]
+	local radius = if attack then attack.Radius else nil
+	local floor, normal, color = floorUnder(to)
+	if not radius or not floor then return end
+	local now = TimeCore.EnemyClock
+	local startedAt = math.max(now, boss.DartLandsAt)
+	local left = seconds - (startedAt - now)
+
+	for i, share in Tune.HEAVES do
+		schedule(boss, startedAt + left * share, function()
+			local size = Tune.HEAVE_SIZES[i]
+			trexFx.Sink(floor, normal, color, size)
+			boss.CrackHeardAt = TimeCore.EnemyClock
+			trexSounds.Play("Crack", floor)
+			shake(floor, Tune.CATCH, size)
+		end)
+	end
+
+	local count = math.max(math.floor(radius / Tune.CRACK_STEP), 1)
+	local turn = math.random() * 2 * math.pi
+	for spoke = 1, Tune.SPLIT_SPOKES do
+		local spread = spoke + (math.random() * 2 - 1) * Tune.SPLIT_SPREAD
+		local angle = turn + spread / Tune.SPLIT_SPOKES * 2 * math.pi
+		local bend = (math.random() * 2 - 1) * Tune.SPLIT_BEND / count
+		local point = floor
+		for i = 1, count do
+			local along = Vector3.new(math.sin(angle), 0, math.cos(angle))
+			point += along * Tune.CRACK_STEP
+			angle += bend
+			local share = Tune.SPLIT_FROM + (Tune.SPLIT_TO - Tune.SPLIT_FROM) * i / count
+			local stepAt = point + along:Cross(UP) * ((math.random() * 2 - 1) * Tune.CRACK_JITTER * 0.5)
+			-- Numbered across the spokes, so their shakes take turns rather than land together.
+			local number = (i - 1) * Tune.SPLIT_SPOKES + spoke
+			schedule(boss, startedAt + left * share, function()
+				crackStep(boss, stepAt, along, number, false)
+			end)
+		end
 	end
 end
 
@@ -703,7 +893,8 @@ local function onShield(boss: TBoss, guardIds: { number }, total: number)
 		boss.Shield = bubble
 		if not here then return end
 		local center = here:PointToWorldSpace(Tune.SHIELD_CENTER)
-		boss.ShieldFloor = floorUnder(here.Position)
+		-- Round the bubble's middle, at the feet's height.
+		boss.ShieldFloor = floorUnder(Vector3.new(center.X, here.Position.Y, center.Z))
 		trexFx.ShieldUp(center)
 		trexSounds.Play("ShieldUp", center)
 		shake(center, Tune.SHAKE_LOOSE)
@@ -777,6 +968,42 @@ local function stepGait(boss: TBoss, clip: string, steps: { number }, strength: 
 	end
 end
 
+-- ============================== Its health ==============================
+
+-- A quarter of its health gone: the full flash, bone bursting off where the player's shots go in (its chest for
+-- anybody else's), the crunch and its cry, the view shaken, and the recoil (poseHurts) started.
+local function hurt(boss: TBoss)
+	local id = boss.InstanceId
+	local here = EnemiesController.GetCFrame(id)
+	if not here or boss.IsBuried or BossIntroController.IsPlaying() then return end
+
+	EnemiesController.Flash(id)
+	local at = WeaponController.BossContact(id) or bonePosition(boss, "Chest") or (here.Position + UP * Tune.BOSS_CHEST)
+	trexFx.Shatter(at)
+	trexSounds.Play("Shatter", at)
+	trexSounds.Play("Hurt", headOf(boss, here.Position))
+	shake(at, Tune.HURT)
+
+	-- The body's left is its frame's +X (it faces its model's +Z).
+	local root = selfRoot
+	local shooter = if root then root.Position else Workspace.CurrentCamera.CFrame.Position
+	boss.HurtSide = if (shooter - here.Position):Dot(here.XVector) > 0 then -1 else 1
+	boss.HurtAt = TimeCore.EnemyClock
+end
+
+-- Each quarter of its health the server says is gone, once; a blow taking several at once is one.
+local function stepQuarters(boss: TBoss)
+	if boss.Data.Id ~= MatchController.BossDataId then return end
+	local maxHealth = MatchController.BossMaxHealth
+	if maxHealth <= 0 then return end
+
+	local quarters = math.ceil(MatchController.BossHealth / maxHealth * Tune.QUARTERS - 1e-6)
+	local was = boss.Quarters
+	boss.Quarters = quarters
+	-- The last quarter going is its fall, which has its own.
+	if was > 0 and quarters < was and quarters > 0 then hurt(boss) end
+end
+
 local function forget(boss: TBoss)
 	if boss.Shield then boss.Shield:Destroy() end
 	for _, entry in boss.Beams do
@@ -797,6 +1024,7 @@ local function update(dt: number)
 		end
 
 		stepShield(boss, dt, clock)
+		stepQuarters(boss)
 		local kit = boss.Kit
 		stepGait(boss, "Walk", kit.WalkSteps, Tune.STEP_STRENGTH, Tune.STEP)
 		stepGait(boss, "Charge", kit.ChargeSteps, Tune.RUN_STRENGTH, Tune.RUN_STEP)
@@ -835,6 +1063,35 @@ local function update(dt: number)
 	end
 end
 
+-- The recoil written over each bone the clip has just posed, from PreSimulation: the Animator poses the rig before
+-- it, every frame, so the pose never adds up.
+local function poseHurts()
+	local now = TimeCore.EnemyClock
+	for _, boss in bosses do
+		local elapsed = now - boss.HurtAt
+		if elapsed > Tune.HURT_SECONDS then continue end
+		local model = EnemiesController.GetModel(boss.InstanceId)
+		if not model then continue end
+
+		local bases, written = boss.HurtBase, boss.HurtWritten
+		for _, turn in Tune.HURT_POSE do
+			local bone = boneOf(model, turn.Bone)
+			if not bone then continue end
+			local t = elapsed - turn.Lag
+			local amount = if t > 0
+				then math.exp(-Tune.HURT_DAMPING * t) * math.sin(Tune.HURT_FREQUENCY * t) * Tune.HURT_PEAK
+				else 0
+			-- A bone no clip keys keeps what was written last frame: start from what was under it then.
+			local current = bone.Transform
+			local base = if current == written[bone] then bases[bone] or current else current
+			local pose = base * CFrame.Angles(turn.Pitch * amount, turn.Yaw * amount * boss.HurtSide, 0)
+			bases[bone] = base
+			written[bone] = pose
+			bone.Transform = pose
+		end
+	end
+end
+
 -- ============================== Wiring ==============================
 
 ServerNetworkBosses.Move.On(
@@ -853,6 +1110,10 @@ ServerNetworkBosses.Move.On(
 			onRise(boss, to, value)
 		elseif move == EBossMoves.Crack then
 			onCrack(boss, from, to, value)
+		elseif move == EBossMoves.Dart then
+			onDart(boss, from, to, value)
+		elseif move == EBossMoves.Surface then
+			onSurface(boss, index, to, value)
 		elseif move == EBossMoves.Spine then
 			onSpine(boss, index, to, value)
 		elseif move == EBossMoves.Pace then
@@ -920,10 +1181,17 @@ EnemiesController.OnEnemyKilled:Connect(function(instanceId: number, _, _, _, ch
 			if floor then trexFx.Fall(floor, normal, color, last, Tune.SOUL_SECONDS) end
 		end,
 	})
+	table.insert(later, {
+		At = TimeCore.GameClock + Tune.SETTLE_AT,
+		Run = function()
+			trexSounds.Play("DeathSettle", last.Position)
+		end,
+	})
 end)
 
 BossController.OnStart = function()
 	RunService.PreRender:Connect(update)
+	RunService.PreSimulation:Connect(poseHurts)
 end
 
 BossController.OnSelfCharacterAdded = function(character: TCharacter.TCharacter)

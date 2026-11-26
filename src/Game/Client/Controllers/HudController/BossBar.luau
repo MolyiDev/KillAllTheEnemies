@@ -76,6 +76,8 @@ local Layout = table.freeze({
 	SHARE_RANK = 12,
 	SHARE_BAR = 8,
 	SHARE_PERCENT = 64,
+	-- How far from the left a line slides in from as its player comes onto it.
+	SHARE_ENTER = 14,
 	-- The cut at the fill's end.
 	CUT = 3,
 	-- What the boss drops, under the bar: its caption (the die over DROPS) in a column this wide, then a card a piece,
@@ -120,8 +122,9 @@ local Boss = table.freeze({
 	SHARES = Vector2.new(0, 98),
 	SHARES_WIDTH = 360,
 	SHARE_NAME = 160,
-	-- DROPS: the caption's corner, the cards after it.
-	DROPS = Vector2.new(440, 82),
+	-- DROPS: the row's right end (the bar's) and its top. The row stands against that end and reaches toward the middle
+	-- as the boss drops more: the caption, then the cards.
+	DROPS = Vector2.new(760, 82),
 	-- Wider than half the streak texture: where the strip's face looks into it as it grows.
 	TEXTURE_PHASE = Vector2.new(40, 160),
 })
@@ -159,8 +162,8 @@ local Timing = table.freeze({
 	FLASH = 0.55,
 	HOLD = 2,
 	TUCK_AFTER = 1.5,
-	-- A line's part growing, and the two lines trading places.
-	GREW = 0.3,
+	-- A line coming in as its player comes onto it, and the two lines trading places.
+	ENTER = 0.35,
 	SWAP = 0.4,
 	-- What the boss drops, dealt once the arrival's fill is most of the way (FILL_DELAY plus 0.7 of FILL), each after
 	-- the one before it, its chance counting up as it lands.
@@ -201,8 +204,25 @@ local Surge = table.freeze({
 	STEPS = 50,
 })
 
--- A line's part rolls toward what the server last said at this exponential rate.
-local SHARE_ROLL_RATE = 12
+-- A line's part. Its fill springs onto what the server last said, slow enough to carry through the tenth of a second
+-- between two sends (EnemiesService's BOSS_BAR_SECONDS) instead of stepping on each, and the lead ahead of it, quicker,
+-- shows at once how far a big blow is taking it. Periods in seconds, both critically damped.
+local ShareRoll = table.freeze({
+	FILL_PERIOD = 0.6,
+	LEAD_PERIOD = 0.15,
+	-- Each send that grows a line adds to its pressure, more for a bigger part, which drains and is eased onto its
+	-- light: a stream of hits holds it lit near half, a big blow lights it whole, a lull lets it go out (UI.md 5j, "A
+	-- reaction that fires per piece must survive the rate").
+	PER_SEND = 0.15,
+	PER_SHARE = 8,
+	DRAIN = 0.35,
+	EASE = 0.08,
+	-- The light and the part are written at these resolutions (the part's is its number's tenth of a percent, under a
+	-- pixel of its bar), so a line between two visible steps writes nothing; closer than SETTLE a spring is home.
+	GLOW_STEPS = 50,
+	PART_STEPS = 1000,
+	SETTLE = 1e-4,
+})
 -- How long a blow, a segment emptied or a line moving keeps the HUD's clock running: its longest gesture is the shards
 -- a segment throws.
 local GESTURE_SECONDS = 0.8
@@ -243,11 +263,17 @@ export type TBossSeen = {
 	WonAt: { [number]: number },
 }
 
--- A damage share line between frames: whose it is, its part as shown and as last sent.
+-- A damage share line between frames: whose it is, its part as last sent, its fill's and lead's springs, and the
+-- pressure of the hits coming in and how much of it is shown.
 type TShareMemory = {
 	UserId: number,
-	Shown: number,
 	Sent: number,
+	Shown: number,
+	Velocity: number,
+	Lead: number,
+	LeadVelocity: number,
+	Pressure: number,
+	Glow: number,
 }
 
 -- What the bar remembers between frames: the boss it is about, its chase, the segments still holding health, the two
@@ -268,12 +294,16 @@ export type TBossMemory = {
 	Surge: number,
 }
 
+local function newShareMemory(userId: number): TShareMemory
+	return { UserId = userId, Sent = 0, Shown = 0, Velocity = 0, Lead = 0, LeadVelocity = 0, Pressure = 0, Glow = 0 }
+end
+
 function BossBar.NewMemory(): TBossMemory
 	return {
 		DataId = 0,
 		Chase = BarJuice.NewChase(0),
 		Segments = 0,
-		Rows = { { UserId = 0, Shown = 0, Sent = 0 }, { UserId = 0, Shown = 0, Sent = 0 } },
+		Rows = { newShareMemory(0), newShareMemory(0) },
 		FallEndsAt = -math.huge,
 		Way = BarJuice.NewChase(0),
 		WayKills = 0,
@@ -284,8 +314,17 @@ function BossBar.NewMemory(): TBossMemory
 	}
 end
 
+-- One of a line's springs, one frame: put home once it is there, and left alone at rest.
+local function roll(x: number, v: number, goal: number, period: number, dt: number): (number, number)
+	if x == goal and v == 0 then return x, v end
+	x, v = BarJuice.Spring(x, v, goal, period, 1, dt)
+	if math.abs(goal - x) < ShareRoll.SETTLE and math.abs(v) < ShareRoll.SETTLE then return goal, 0 end
+	return x, v
+end
+
 -- The two lines from what the server last said. Two who trade places keep what their lines show, and slide past each
--- other. Returns whether anything moved that the HUD's clock must run for.
+-- other; someone new on a line comes in and counts up from nothing. Returns whether anything moved that the HUD's
+-- clock must run for.
 local function updateShares(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSeen, now: number, dt: number): boolean
 	local rows, top = memory.Rows, seen.Top
 	local isMoving = false
@@ -295,21 +334,35 @@ local function updateShares(bar: Types.TBossBar, memory: TBossMemory, seen: TBos
 		isMoving = true
 	end
 
-	for rank, row in rows do
-		local line, said = bar.Shares[rank], top[rank]
+	for rank, line in bar.Shares do
+		local said, row = top[rank], rows[rank]
+		local target = said.Share
 		if said.UserId ~= row.UserId then
-			row.UserId, row.Shown, row.Sent = said.UserId, said.Share, said.Share
+			row = newShareMemory(said.UserId)
+			rows[rank] = row
+			if said.UserId ~= 0 then line.EnteredAt(now) end
 		end
-		if said.Share > row.Sent then
-			line.GrewAt(now)
-			isMoving = true
+		if target > row.Sent then
+			row.Pressure = math.min(row.Pressure + ShareRoll.PER_SEND + (target - row.Sent) * ShareRoll.PER_SHARE, 1)
 		end
-		row.Sent = said.Share
-		row.Shown += (said.Share - row.Shown) * math.min(dt * SHARE_ROLL_RATE, 1)
-		if math.abs(said.Share - row.Shown) < 1e-4 then row.Shown = said.Share end
+		row.Sent = target
+
+		row.Shown, row.Velocity = roll(row.Shown, row.Velocity, target, ShareRoll.FILL_PERIOD, dt)
+		row.Lead, row.LeadVelocity = roll(row.Lead, row.LeadVelocity, target, ShareRoll.LEAD_PERIOD, dt)
+		if row.Pressure > 0 then
+			row.Pressure *= math.exp(-dt / ShareRoll.DRAIN)
+			row.Glow += (row.Pressure - row.Glow) * (1 - math.exp(-dt / ShareRoll.EASE))
+			if row.Pressure < 1e-3 and row.Glow < 1e-3 then
+				row.Pressure, row.Glow = 0, 0
+			end
+		end
+
 		line.Name(said.Name)
 		line.IsSelf(said.UserId ~= 0 and said.UserId == seen.SelfId)
-		line.Share(row.Shown)
+		line.Share(math.round(row.Shown * ShareRoll.PART_STEPS) / ShareRoll.PART_STEPS)
+		line.Lead(math.round(math.max(row.Lead, row.Shown) * ShareRoll.PART_STEPS) / ShareRoll.PART_STEPS)
+		line.Glow(math.round(row.Glow * ShareRoll.GLOW_STEPS) / ShareRoll.GLOW_STEPS)
+		if row.Shown ~= target or row.Lead ~= target or row.Pressure > 0 then isMoving = true end
 	end
 
 	return isMoving
@@ -388,9 +441,7 @@ function BossBar.Update(bar: Types.TBossBar, memory: TBossMemory, seen: TBossSee
 		memory.DataId = seen.DataId
 		memory.Chase = BarJuice.NewChase(share)
 		memory.Segments = math.ceil(share * Layout.SEGMENTS - 1e-6)
-		for _, row in memory.Rows do
-			row.UserId, row.Shown, row.Sent = 0, 0, 0
-		end
+		memory.Rows = { newShareMemory(0), newShareMemory(0) }
 		bar.Name(seen.Name)
 		bar.Drops(seen.Drops)
 		for _, wonAt in bar.DropWonAt do
@@ -675,32 +726,38 @@ end
 
 -- ============================== The damage share ==============================
 
--- The line for `rank` (1 the most damage), after its rank's number: the name ("YOU" for the local player, in green), a
--- bar for the part and the part as a number. Two who trade places slide past each other: the one going up is lit, the
--- one going down fades through the crossing so the two never print over each other.
+-- The line for `rank` (1 the most damage) and its rank's number: the name ("YOU" for the local player, in green), a
+-- bar for the part and the part as a number. A player coming onto it slides in from the left, number and all, as their
+-- part counts up from nothing. Hits coming in light it and its fill's head, and a big one runs a pale lead ahead of the
+-- fill. Two who trade places slide past each other while the numbers stay: the one going up is lit, the one going down
+-- fades through the crossing so the two never print over each other.
 local function shareLine(
 	state: Types.THudState,
 	rank: number,
 	shown: () -> number,
 	swapping: () -> number,
 	mix: () -> number
-): Frame
+): (Frame, TextLabel)
 	local line = state.Boss.Shares[rank]
-	local grew = derive(function(): number
-		local k = Motion.Fade(state.Now(), line.GrewAt(), Timing.GREW)
-		return k * k
+	-- 0 as its player comes onto it, 1 once they are in.
+	local entered = derive(function(): number
+		return Motion.Out(Progress(state.Now(), line.EnteredAt(), Timing.ENTER))
 	end)
 
 	-- How much of the line shows: none for nobody, and the one going down fades through the crossing.
+	local arrived = derive(function(): number
+		return if line.Name() == "" then 0 else shown() * entered()
+	end)
 	local seen = derive(function(): number
-		if line.Name() == "" then return 0 end
-		return if rank == 2 then shown() * (1 - Motion.Bump(1 - swapping())) else shown()
+		return if rank == 2 then arrived() * (1 - Motion.Bump(1 - swapping())) else arrived()
 	end)
 
-	-- Its colour, lit as its part grows and, going up, as it passes the other.
+	-- Its colour, lit by the hits coming in and, going up, as it passes the other.
+	local ink = derive(function(): Color3
+		return if line.IsSelf() then SELF_INK else OTHER_INK
+	end)
 	local lit = derive(function(): Color3
-		local ink = if line.IsSelf() then SELF_INK else OTHER_INK
-		return ink:Lerp(Palette.White, math.max(0.7 * grew(), if rank == 1 then swapping() else 0))
+		return ink():Lerp(Palette.White, math.max(0.7 * line.Glow(), if rank == 1 then swapping() else 0))
 	end)
 
 	local text = function(props: { [any]: any }): TextLabel
@@ -719,10 +776,28 @@ local function shareLine(
 	-- Where it came from: the other line's place.
 	local from = Boss.SHARES.Y + (2 - rank) * Layout.SHARE_STEP
 	local left = Boss.SHARES.X + Layout.SHARE_RANK + Layout.SHARE_GAP
+	local number = label({
+		Name = "Rank",
+		Position = function()
+			return UDim2.fromOffset(math.round(Boss.SHARES.X - Layout.SHARE_ENTER * (1 - entered())), top)
+		end,
+		Size = UDim2.fromOffset(Layout.SHARE_RANK, Layout.SHARE_HEIGHT),
+		FontFace = Font.DisplayBold,
+		TextSize = Layout.SHARE_TEXT,
+		TextColor3 = Palette.Lavender,
+		ZIndex = 3,
+		Text = tostring(rank),
+		TextTransparency = function()
+			return 1 - arrived()
+		end,
+		inked(mix, Layout.SHARE_TEXT, arrived),
+	})
+
 	return create("Frame")({
 		Name = "Share",
 		Position = function()
-			return UDim2.fromOffset(left, math.round(Lerp(top, from, swapping())))
+			local x = left - Layout.SHARE_ENTER * (1 - entered())
+			return UDim2.fromOffset(math.round(x), math.round(Lerp(top, from, swapping())))
 		end,
 		Size = UDim2.fromOffset(Boss.SHARES.X + Boss.SHARES_WIDTH - left, Layout.SHARE_HEIGHT),
 		BackgroundTransparency = 1,
@@ -757,8 +832,25 @@ local function shareLine(
 			end,
 			create("UIFlexItem")({ FlexMode = Enum.UIFlexMode.Fill }),
 			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+			-- Where the fill is going, ahead of it while it climbs.
+			create("Frame")({
+				Name = "Lead",
+				ZIndex = 1,
+				Size = function()
+					return UDim2.fromScale(math.clamp(line.Lead(), 0, 1), 1)
+				end,
+				BorderSizePixel = 0,
+				BackgroundColor3 = function()
+					return ink():Lerp(Palette.White, 0.55)
+				end,
+				BackgroundTransparency = function()
+					return if line.Lead() > line.Share() then 1 - 0.8 * seen() else 1
+				end,
+				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+			}),
 			create("Frame")({
 				Name = "Fill",
+				ZIndex = 2,
 				Size = function()
 					return UDim2.fromScale(math.clamp(line.Share(), 0, 1), 1)
 				end,
@@ -768,6 +860,19 @@ local function shareLine(
 					return if line.Share() > 0 then 1 - seen() else 1
 				end,
 				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+				-- Its head, white while the hits come in.
+				create("Frame")({
+					Name = "Head",
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.fromScale(1, 0),
+					Size = UDim2.new(0, Layout.CUT, 1, 0),
+					BorderSizePixel = 0,
+					BackgroundColor3 = Palette.White,
+					BackgroundTransparency = function()
+						return if line.Share() > 0 then 1 - line.Glow() * seen() else 1
+					end,
+					create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+				}),
 			}),
 		}),
 		text({
@@ -780,10 +885,11 @@ local function shareLine(
 				return string.format("%.1f%%", 100 * line.Share())
 			end,
 		}),
-	})
+	}),
+		number
 end
 
--- The two lines, and their ranks' numbers, which stay where they are while the lines trade places.
+-- The two lines and their ranks' numbers, and the caption over them.
 local function shares(state: Types.THudState, mix: () -> number): { Frame }
 	local boss = state.Boss
 	-- In once the strip has mostly grown, and first out as it shrinks.
@@ -797,24 +903,8 @@ local function shares(state: Types.THudState, mix: () -> number): { Frame }
 	end)
 
 	local frames = table.create(5)
-	for rank, line in boss.Shares do
-		frames[rank] = shareLine(state, rank, shown, swapping, mix)
-		frames[rank + 2] = label({
-			Name = "Rank",
-			Position = UDim2.fromOffset(Boss.SHARES.X, Boss.SHARES.Y + (rank - 1) * Layout.SHARE_STEP),
-			Size = UDim2.fromOffset(Layout.SHARE_RANK, Layout.SHARE_HEIGHT),
-			FontFace = Font.DisplayBold,
-			TextSize = Layout.SHARE_TEXT,
-			TextColor3 = Palette.Lavender,
-			ZIndex = 3,
-			Text = tostring(rank),
-			TextTransparency = function()
-				return if line.Name() ~= "" then 1 - shown() else 1
-			end,
-			inked(mix, Layout.SHARE_TEXT, function()
-				return if line.Name() ~= "" then shown() else 0
-			end),
-		})
+	for rank in boss.Shares do
+		frames[rank], frames[rank + 2] = shareLine(state, rank, shown, swapping, mix)
 	end
 
 	-- DAMAGE SHARE over the lines.
@@ -1084,11 +1174,11 @@ local function dropsCaption(state: Types.THudState, look: TDropsLook, shown: () 
 	})
 end
 
--- The drops as cards in a row after the caption. A card is an edge in the piece's rarity round its picture's face, and
--- under the face, as wide as the card, a band with its chance (OWNED on ink in green for a piece owned, which also
--- wears a check on its corner). Nothing on a card is ever see-through: it grows in from nothing one after another and
--- shrinks away with the strip, and a piece missed darkens. The roll's light runs along the row; a piece won punches, is
--- struck white and closes its brackets round itself as a pick does.
+-- The drops as cards in a row after the caption, the row against the bar's right end. A card is an edge in the piece's
+-- rarity round its picture's face, and under the face, as wide as the card, a band with its chance (OWNED on ink in
+-- green for a piece owned, which also wears a check on its corner). Nothing on a card is ever see-through: it grows in
+-- from nothing one after another and shrinks away with the strip, and a piece missed darkens. The roll's light runs
+-- along the row; a piece won punches, is struck white and closes its brackets round itself as a pick does.
 local function dropCards(state: Types.THudState, look: TDropsLook): { Instance }
 	local captionShown = derive(function(): number
 		return math.clamp((look.Mix() - 0.6) / 0.4, 0, 1)
@@ -1101,9 +1191,18 @@ local function dropCards(state: Types.THudState, look: TDropsLook): { Instance }
 
 	local card = Layout.DROP_CARD
 	local edge = Layout.DROP_CARD_EDGE
+	local face = card.X - 2 * edge
+	local pitch = card.X + Layout.DROP_CARD_GAP
+	-- The first card's left edge: the row is as long as the boss drops pieces, its right end the bar's.
+	local firstLeft = function(): number
+		return Boss.DROPS.X - count() * pitch + Layout.DROP_CARD_GAP
+	end
+
 	local frames: { Instance } = table.create(MOST_DROPS + 1)
 	frames[1] = dropsCaption(state, look, captionShown, {
-		Position = UDim2.fromOffset(Boss.DROPS.X, Boss.DROPS.Y),
+		Position = function()
+			return UDim2.fromOffset(firstLeft() - Layout.DROP_CARD_GAP - Layout.DROPS_CAPTION_WIDTH, Boss.DROPS.Y)
+		end,
 		Size = UDim2.fromOffset(Layout.DROPS_CAPTION_WIDTH, card.Y),
 	})
 
@@ -1114,14 +1213,12 @@ local function dropCards(state: Types.THudState, look: TDropsLook): { Instance }
 			return math.max(0.6 * piece.Rolling(), piece.Strike())
 		end)
 
-		local left = Boss.DROPS.X + Layout.DROPS_CAPTION_WIDTH + Layout.DROP_CARD_GAP
-		local middle =
-			Vector2.new(left + (index - 1) * (card.X + Layout.DROP_CARD_GAP) + card.X / 2, Boss.DROPS.Y + card.Y / 2)
-		local face = card.X - 2 * edge
 		frames[index + 1] = create("Frame")({
 			Name = "Drop",
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(middle.X, middle.Y),
+			Position = function()
+				return UDim2.fromOffset(firstLeft() + (index - 1) * pitch + card.X / 2, Boss.DROPS.Y + card.Y / 2)
+			end,
 			Size = UDim2.fromOffset(card.X, card.Y),
 			BackgroundColor3 = function()
 				return piece.Accent():Lerp(SEGMENT, 0.7 * piece.Missed())

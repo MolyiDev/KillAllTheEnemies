@@ -14,6 +14,11 @@ BossesCore.ROAR_SPEED = 0.3
 BossesCore.ROAR_SLOW = 0.7
 BossesCore.ROAR_RAMP = 0.6
 
+-- A turn on the spot goes to its left (the way its turn clip is authored) up to this far round, else the short way to
+-- its right. Past a chained charge's widest turn (180 + BossService's CHAIN_ARC of 45), so the client's drawn yaw
+-- being a little off never flips one.
+local TURN_LEFT_MOST = math.rad(240)
+
 -- The intro's camera keys, as delivered with the scene (its BossCutscene script): authored at the delivered body's
 -- scale 1, in the ground frame of the delivered RootPart (where the walk-in ends, a little ahead of the hips), x to
 -- the body's right, -z ahead of it. IntroFrame turns them into world space. Each shot is a run of keys (time on the intro's clock, eye, look, field of view, roll in degrees,
@@ -100,14 +105,27 @@ function BossesCore.Tempo(kit: TData.TEnemyBoss, share: number): number
 	return kit.TempoEnd + (kit.TempoStart - kit.TempoEnd) * u
 end
 
+-- Tempo for its wind-ups and clips: never under WindupTempoMin.
+function BossesCore.WindupTempo(kit: TData.TEnemyBoss, share: number): number
+	return math.max(BossesCore.Tempo(kit, share), kit.WindupTempoMin)
+end
+
 -- How far a skid has slid `seconds` in: `speed` bled off evenly over `stop` seconds.
 function BossesCore.SkidDistance(speed: number, stop: number, seconds: number): number
 	local t = math.clamp(seconds, 0, stop)
 	return speed * t - speed * t * t / (2 * stop)
 end
 
+-- How far round (radians, + to its left) a turn on the spot from `fromYaw` onto `toYaw` goes (TURN_LEFT_MOST). Both
+-- sides go by this, so the body is drawn turning the way the server turns it.
+function BossesCore.TurnDelta(fromYaw: number, toYaw: number): number
+	local left = (toYaw - fromYaw) % (2 * math.pi)
+	return if left <= TURN_LEFT_MOST then left else left - 2 * math.pi
+end
+
 -- The intro's clock after `seconds` of real time: (the cutscene's clock, the clip's time, the clip's speed now). The
--- clip runs at full speed, slows for the roar and ramps back, and holds on Hold while the clock runs on to End.
+-- clip runs at full speed, slows for the roar and ramps back, and stops at its end (speed 0, the cue to hand over to
+-- the idle) while the clock runs on to End.
 function BossesCore.IntroClock(intro: TData.TEnemyBossIntro, seconds: number): (number, number, number)
 	local roar = intro.Roar
 	if seconds <= roar then return seconds, seconds, 1 end
@@ -127,8 +145,8 @@ function BossesCore.IntroClock(intro: TData.TEnemyBossIntro, seconds: number): (
 		clip = roar + slow * speed + ramp * (1 + speed) / 2 + (after - slow - ramp)
 	end
 
-	if clip <= intro.Hold then return clip, clip, clipSpeed end
-	return clip, intro.Hold, 0
+	if clip <= intro.Length then return clip, clip, clipSpeed end
+	return clip, intro.Length, 0
 end
 
 -- The intro's length in real seconds: until its clock reaches End.

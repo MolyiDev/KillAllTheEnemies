@@ -19,6 +19,7 @@ local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local MatchController = require(script.Parent.MatchController)
 local EnemyImpacts = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.enemyImpacts)
 local targetHits = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.targetHits)
+local InertialBlend = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.inertialBlend)
 local Ragdoll = require(script.Parent.Parent.Utils.ragdoll)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
@@ -92,6 +93,10 @@ local Tune = table.freeze({
 	FLOOR_PROBE_DOWN = 80,
 	LOCOMOTION_FADE = 0.2,
 	ATTACK_FADE = 0.1,
+	-- A clip switch asked with a fade is cut and blended from the pose on screen over this long (inertialBlend); a
+	-- boss is big and held in view, so its body settles over longer.
+	BLEND = 0.2,
+	BOSS_BLEND = 0.35,
 	-- A fresh spawn drops in: drawn this high over its feet, settling and fading in over this long (enemy time).
 	ARRIVAL_HEIGHT = 6,
 	ARRIVAL_TIME = 0.5,
@@ -109,8 +114,10 @@ local Tune = table.freeze({
 	FLINCH_SHAKE_SPEED = 95,
 	FLINCH_SHAKE_STUDS = 0.45,
 	FLINCH_RETRIGGER = 0.22,
-	-- A boss flinches this share of it: a body that size rocking on every bullet reads as weightless.
-	BOSS_FLINCH = 0.15,
+	-- A boss's hit flash only tints it: a body that size flashing white on every bullet strobes over its clips and
+	-- reads as weightless, as a flinch does (a boss takes none). Its blows show where they land
+	-- (EnemyImpacts.EmitBossHit); a full flash is kept for its moments (Flash).
+	BOSS_FLASH_TRANSPARENCY = 0.8,
 	-- The engine renders this many Highlights in the whole DataModel (EnemiesCore.MAX_ALIVE).
 	MAX_HIGHLIGHTS = 255,
 	-- The last few of a wave (RoundCore.LAST_SHOWN) are outlined through walls on their own Flash. Magenta, measured
@@ -158,10 +165,11 @@ EnemiesController.Count = 0
 -- The bosses among them, by instance id (BossController follows each). Read only.
 EnemiesController.Bosses = {} :: { [number]: TData.TEnemy }
 
--- (instanceId, attackerCharacterId, damage, worldPosition): every surviving hit, for numbers and sounds. The shared
--- targetHits signals, so the crosshair and the damage numbers, which serve the lobby's range too, hear them.
+-- (instanceId, attackerCharacterId, damage, worldPosition, halfWidth?): every surviving hit, for numbers and sounds.
+-- The shared targetHits signals, so the crosshair and the damage numbers, which serve the lobby's range too, hear them.
 EnemiesController.OnEnemyDamaged = targetHits.Damaged
--- (instanceId, killerCharacterId, damage, isOverkill, worldPosition): the position is the chest, as a hit's is.
+-- (instanceId, killerCharacterId, damage, isOverkill, worldPosition, halfWidth?): the position is the chest, as a
+-- hit's is.
 EnemiesController.OnEnemyKilled = targetHits.Killed
 
 -- ============================== Per-id state ==============================
@@ -181,6 +189,8 @@ local isShown: { [number]: boolean } = {}
 -- Live hit flashes, only bodies hit in the last FLASH_TIME: a handful even in a full crowd.
 local flashTarget: { [number]: Highlight } = {}
 local flashEndsAt: { [number]: number } = {}
+-- The fill each live flash was struck at, 0 for a full one.
+local flashFrom: { [number]: number } = {}
 -- Bodies still reeling from a hit (Tune.FLINCH_*): os.clock it began, and the flat direction away from the shooter.
 local flinchStartedAt: { [number]: number } = {}
 local flinchAway: { [number]: Vector3 } = {}
@@ -225,6 +235,13 @@ local trackSpeeds: { [AnimationTrack]: number } = {}
 local unscaledTracks: { [AnimationTrack]: boolean } = {}
 -- The rate every clip plays at over its own speed: the match's clock times the enemies' (rescaleClips).
 local clipScale = 1
+-- The rig each track is on, each rig's inertial blend, the blends with work this frame (a boss's always: it keeps the
+-- speed its pose moves at), the ones started by an unscaled clip (they ease at real time), and the bosses' rigs.
+local trackModels: { [AnimationTrack]: TData.TEnemyModel } = {}
+local blends: { [Model]: InertialBlend.TInertialBlend } = {}
+local steppingBlends: { [InertialBlend.TInertialBlend]: boolean } = {}
+local unscaledBlends: { [InertialBlend.TInertialBlend]: boolean } = {}
+local bossRigs: { [Model]: boolean } = {}
 -- Each rigged body's Flash, so a hit reaches it with one read (a name lookup on the model costs 10x: measured
 -- 2026-11-20, 8 ns against 82 ns for model.Flash and 103 ns for FindFirstChild).
 local flashHighlights: { [number]: Highlight } = {}
@@ -290,6 +307,8 @@ type TClipCorpse = {
 	root: Bone,
 	track: AnimationTrack,
 	frame: CFrame,
+	-- The rate its clip runs at: the game clock's, which a pause (an upgrade pick) stops.
+	rate: number,
 	isHeld: boolean,
 	lingers: number,
 	sunk: number,
@@ -345,6 +364,13 @@ function EnemiesController.SetStiff(instanceId: number, color: Color3?)
 	end
 end
 
+-- Takes a body's Highlight off while it is out of sight under the floor (a boss's dive), or puts it back: the last
+-- few's outline is drawn through everything and would show it down there.
+function EnemiesController.SetBuried(instanceId: number, isBuried: boolean)
+	local highlight = flashHighlights[instanceId]
+	if highlight then highlight.Enabled = not isBuried end
+end
+
 -- A boss's walk clip speed: at the clip's own ground speed times its pace (SetWalkPace), so its planted feet hold.
 local function bossWalkSpeed(instanceId: number, enemyData: TData.TEnemy, boss: TData.TEnemyBoss): number
 	return enemyData.BaseMovementSpeed / boss.WalkSpeed * (walkPaces[instanceId] or 1)
@@ -367,6 +393,12 @@ end
 -- ground CFrame, or nil to let go (the body then glides on from there). nil takes a driver off. For a boss's runs,
 -- turns and dive (BossController), which the server moves faster than its packets can show.
 function EnemiesController.Drive(instanceId: number, driver: ((enemyClock: number) -> CFrame?)?)
+	-- Let go, it keeps facing the way it was driven until a packet turns it: a held match (an intro) or a dive streams
+	-- none, so the yaw it has is stale or missing, and it would swing round to it.
+	if not driver and drivers[instanceId] then
+		local cframe = EnemiesController.GetCFrame(instanceId)
+		if cframe then yaws[instanceId] = math.atan2(cframe.ZVector.X, cframe.ZVector.Z) end
+	end
 	drivers[instanceId] = driver
 end
 
@@ -520,11 +552,53 @@ local function getTrack(
 	track.Priority = priority
 	track.Looped = isLooped
 	tracks[animation] = track
+	trackModels[track] = model
 	return track
 end
 
+-- The rig's inertial blend, made on first use.
+local function blendOf(model: TData.TEnemyModel): InertialBlend.TInertialBlend
+	local blend = blends[model]
+	if blend then return blend end
+	local isBoss = bossRigs[model] == true
+	blend = InertialBlend.new(InertialBlend.JointsOf(model), isBoss)
+	blends[model] = blend
+	if isBoss then steppingBlends[blend] = true end
+	return blend
+end
+
+local function blendSeconds(model: TData.TEnemyModel): number
+	return if bossRigs[model] then Tune.BOSS_BLEND else Tune.BLEND
+end
+
+-- The rig cuts to its clips as they are about to be, blended from the pose on screen.
+local function blendFrom(model: TData.TEnemyModel, isUnscaled: boolean?)
+	local blend = blendOf(model)
+	blend:Start(blendSeconds(model))
+	unscaledBlends[blend] = if isUnscaled then true else nil
+	steppingBlends[blend] = true
+end
+
+-- One-shot `track` blends out of its last frame into whatever is under it, instead of dropping its pose.
+local function blendOut(track: AnimationTrack)
+	local model = trackModels[track]
+	if not model then return end
+	local blend = blendOf(model)
+	blend:Watch(track, blendSeconds(model))
+	steppingBlends[blend] = true
+end
+
+-- A fade asks for a blend: the engine's own fade is linear, the rig's blend eases (inertialBlend).
 local function play(track: AnimationTrack, fade: number?, speed: number?, isUnscaled: boolean?)
 	local baseSpeed = speed or 1
+	local model = trackModels[track]
+	if model and fade and fade > 0 then
+		blendFrom(model, isUnscaled)
+		fade = 0
+	elseif model and fade == 0 and blends[model] then
+		-- A cut asked for (up out of the floor, an intro's first frame): no blend carries on over it.
+		blends[model]:Cancel()
+	end
 	track:Play(fade, nil, if isUnscaled then baseSpeed else baseSpeed * clipScale)
 	trackSpeeds[track] = baseSpeed
 	playingTracks[track] = true
@@ -533,12 +607,23 @@ end
 
 local function stop(track: AnimationTrack, fade: number?)
 	if not playingTracks[track] then return end
+	local model = trackModels[track]
+	if model and fade and fade > 0 then
+		blendFrom(model, unscaledTracks[track])
+		fade = 0
+	end
 	track:Stop(fade)
 	playingTracks[track] = nil
 	unscaledTracks[track] = nil
 end
 
+-- Everything stopped at once (a park, a death), any blend let go with it.
 local function stopAll(model: TData.TEnemyModel)
+	local blend = blends[model]
+	if blend then
+		blend:Cancel()
+		if not blend:IsActive() then steppingBlends[blend] = nil end
+	end
 	local tracks = modelTracks[model]
 	if not tracks then return end
 	for _, track in tracks do
@@ -572,6 +657,7 @@ function EnemiesController.PlayClip(instanceId: number, name: string, options: T
 		if options then options.Speed else nil,
 		options ~= nil and options.IsUnscaled == true
 	)
+	if not track.Looped then blendOut(track) end
 	return track
 end
 
@@ -600,9 +686,18 @@ local function destroyRig(model: TData.TEnemyModel)
 			playingTracks[track] = nil
 			trackSpeeds[track] = nil
 			unscaledTracks[track] = nil
+			trackModels[track] = nil
 		end
 		modelTracks[model] = nil
 	end
+
+	local blend = blends[model]
+	if blend then
+		steppingBlends[blend] = nil
+		unscaledBlends[blend] = nil
+		blends[model] = nil
+	end
+	bossRigs[model] = nil
 
 	model:Destroy()
 end
@@ -622,7 +717,7 @@ local function attachRig(
 	local bone = model.PrimaryPart.Root
 	local highlight = (model :: TRig).Flash
 	flashHighlights[instanceId] = highlight
-	if isMarkingLast then setMarked(highlight, true) end
+	if isMarkingLast and not enemyData.Boss then setMarked(highlight, true) end
 	local glow = enemyData.Glow
 	if glow then
 		glowing[instanceId] = true
@@ -641,6 +736,7 @@ local function attachRig(
 	-- Loaded, not played: a playing track on a parked body walks its root back to the model origin. The loop starts
 	-- them the frame the body is first shown.
 	local clips = EnemiesCore.GetClips(enemyData)
+	if enemyData.IsBoss then bossRigs[model] = true end
 	if clips.Idle then getTrack(model, clips.Idle, IDLE_PRIORITY, true) end
 	if clips.Walk then getTrack(model, clips.Walk, WALK_PRIORITY, true) end
 	jecs.bulk_insert(EnemyWorld, entity, { Components.Bone, Components.Model }, { bone, model })
@@ -726,6 +822,7 @@ local function forgetId(instanceId: number)
 	isShown[instanceId] = nil
 	flashTarget[instanceId] = nil
 	flashEndsAt[instanceId] = nil
+	flashFrom[instanceId] = nil
 	flashHighlights[instanceId] = nil
 	flinchStartedAt[instanceId] = nil
 	flinchAway[instanceId] = nil
@@ -837,6 +934,7 @@ local function startDeathClip(model: TData.TEnemyModel, clip: Animation, cframe:
 		root = model.PrimaryPart.Root,
 		track = track,
 		frame = cframe * lift,
+		rate = clipScale,
 		isHeld = false,
 		lingers = Tune.DEATH_LINGER,
 		sunk = 0,
@@ -933,21 +1031,29 @@ local function removeEnemy(
 	return at
 end
 
--- Outlines every living rig, or takes the outline off them all.
+-- Outlines every living rig but a boss's, or takes the outline off them all. A boss is never lost: it has its bar,
+-- its size and its intro, and an outline round a giant reads over its effects.
 local function markLast(isMarked: boolean)
 	if isMarked == isMarkingLast then return end
 	isMarkingLast = isMarked
-	for _, highlight in flashHighlights do
-		setMarked(highlight, isMarked)
+	for instanceId, highlight in flashHighlights do
+		if not EnemiesController.Bosses[instanceId] then setMarked(highlight, isMarked) end
 	end
 end
 
-local function flash(instanceId: number)
+-- `from` is the fill it is struck at: 0 white, a boss's blow far fainter.
+local function flash(instanceId: number, from: number)
 	local highlight = flashHighlights[instanceId]
 	if not highlight then return end
-	highlight.FillTransparency = 0
+	highlight.FillTransparency = from
 	flashTarget[instanceId] = highlight
 	flashEndsAt[instanceId] = os.clock() + Tune.FLASH_TIME
+	flashFrom[instanceId] = from
+end
+
+-- A full white flash, for a boss's moment (a quarter of its health gone, BossController) over its faint blows.
+function EnemiesController.Flash(instanceId: number)
+	flash(instanceId, 0)
 end
 
 -- Where a hit lands: the chest of a drawn body, with its aim shape (EnemiesCore.AimShape), its ground CFrame and its
@@ -971,7 +1077,9 @@ local function addEnemy(instanceId: number, dataId: number, position: Vector3, i
 	-- Pre-filled so the first frame targets the right place before a packet arrives.
 	positions[instanceId] = position
 	lastUpdate[instanceId] = TimeCore.EnemyClock
-	moving[instanceId] = true
+	-- A boss stands for its intro, and the held match streams no packet to say so: walking, its Walk would sit
+	-- frozen under the Intro clip and show through it as a stride held still once the clip fades.
+	moving[instanceId] = not enemyData.IsBoss
 	-- A boss comes on through its intro, not dropping in.
 	if isArriving and not enemyData.IsBoss then arrivalEndsAt[instanceId] = TimeCore.EnemyClock + Tune.ARRIVAL_TIME end
 
@@ -1013,12 +1121,14 @@ end
 -- Flashes every hit, and bursts and jolts every one in view; the sound is the caller's, so a volley can play one for
 -- all of it.
 local function onDamaged(attackerId: number, attackerPosition: Vector3?, instanceId: number, damage: number): Vector3?
-	flash(instanceId)
+	local isBoss = EnemiesController.Bosses[instanceId] ~= nil
+	flash(instanceId, if isBoss then Tune.BOSS_FLASH_TRANSPARENCY else 0)
 	local at, aim, cframe, enemyData = hitPosition(instanceId)
 	if not at then return nil end
-	EnemiesController.OnEnemyDamaged:Fire(instanceId, attackerId, damage, at)
+	EnemiesController.OnEnemyDamaged:Fire(instanceId, attackerId, damage, at, if aim then aim.z else nil)
 
-	if not aim or not cframe or not enemyData then return at end
+	-- A boss's blow is drawn where its bullet lands (EnemyImpacts.EmitBossHit), and it stands its ground.
+	if not aim or not cframe or not enemyData or isBoss then return at end
 	EnemyImpacts.EmitHit(enemyData, at, aim, attackerPosition)
 	flinch(instanceId, at, cframe, attackerPosition)
 	return at
@@ -1033,6 +1143,8 @@ local function heardFrom(attackerId: number, at: Vector3): Vector3
 end
 
 local function playHitSound(instanceId: number, at: Vector3, from: Vector3)
+	-- A boss's blows are heard as their bullets land, each one (EnemyImpacts.EmitBossHit).
+	if EnemiesController.Bosses[instanceId] then return end
 	local now = os.clock()
 	local last = hitSoundAt[instanceId]
 	if last and now - last < Tune.HIT_SOUND_DEBOUNCE then return end
@@ -1071,9 +1183,18 @@ local function onKilled(
 ): (Vector3?, TData.TEnemy?)
 	-- Read before the row goes.
 	local enemyData = enemyDataOf(instanceId)
-	local chest = hitPosition(instanceId)
+	local chest, aim = hitPosition(instanceId)
 	local at = removeEnemy(instanceId, killerId, isOverkill, killerPosition)
-	if at then EnemiesController.OnEnemyKilled:Fire(instanceId, killerId, damage, isOverkill, chest or at) end
+	if at then
+		EnemiesController.OnEnemyKilled:Fire(
+			instanceId,
+			killerId,
+			damage,
+			isOverkill,
+			chest or at,
+			if aim then aim.z else nil
+		)
+	end
 	return at, enemyData
 end
 
@@ -1118,10 +1239,6 @@ local function flinched(instanceId: number, cf: CFrame, elapsed: number): CFrame
 	local shake = if elapsed < Tune.FLINCH_SHAKE_TIME
 		then sin(elapsed * Tune.FLINCH_SHAKE_SPEED) * (1 - elapsed / Tune.FLINCH_SHAKE_TIME) * Tune.FLINCH_SHAKE_STUDS
 		else 0
-	if EnemiesController.Bosses[instanceId] then
-		lean *= Tune.BOSS_FLINCH
-		shake *= Tune.BOSS_FLINCH
-	end
 	local away = flinchAway[instanceId]
 	-- The axis that tips the top toward `away`, and also the sideways the shake runs along.
 	local side = V3_YAXIS:Cross(away)
@@ -1163,8 +1280,10 @@ local function update(dt: number)
 			highlight.FillTransparency = rest
 			flashTarget[instanceId] = nil
 			flashEndsAt[instanceId] = nil
+			flashFrom[instanceId] = nil
 		else
-			highlight.FillTransparency = rest * (1 - remaining / Tune.FLASH_TIME)
+			local from = flashFrom[instanceId] or 0
+			highlight.FillTransparency = from + (rest - from) * (1 - remaining / Tune.FLASH_TIME)
 		end
 	end
 
@@ -1172,6 +1291,7 @@ local function update(dt: number)
 	-- the budget is spent by duration, not by how long the body takes to go under. The fall runs on game time, so a
 	-- pause holds it; an enemy freeze does not, since the body is no longer an enemy.
 	local gameDt = TimeCore.GetDeltaTime(dt)
+	local timeScale = TimeCore.TimeScale
 	local gravity = TimeCore.GRAVITY * Tune.RAGDOLL_GRAVITY_SCALE
 
 	for i = #clipCorpses, 1, -1 do
@@ -1190,8 +1310,14 @@ local function update(dt: number)
 
 		-- Every frame: the clip keys Root too (at rest), and its write lands before this one.
 		corpse.root.Transform = CFrame.new(0, -corpse.sunk, 0) * corpse.frame
-		if gameDt <= 0 then continue end
+		-- On the game clock, as its fall's thud is: a clip left running through a pause plays off its end and stands
+		-- the body back up.
 		local track = corpse.track
+		if not corpse.isHeld and corpse.rate ~= timeScale then
+			corpse.rate = timeScale
+			track:AdjustSpeed(timeScale)
+		end
+		if gameDt <= 0 then continue end
 		if not corpse.isHeld then
 			if track.Length > 0 and track.TimePosition >= track.Length - Tune.DEATH_HOLD_MARGIN then
 				track:AdjustSpeed(0)
@@ -1451,7 +1577,8 @@ ServerNetworkEnemies.DamagedMultiple.On(function(attackerId: number, instanceIds
 
 	for _, instanceId in instanceIds do
 		local at = onDamaged(attackerId, attackerPosition, instanceId, damage)
-		if at and isNearestInVolley(at) then
+		-- A boss is heard as its bullets land (playHitSound), so the volley's one sound goes to the nearest other body.
+		if at and not EnemiesController.Bosses[instanceId] and isNearestInVolley(at) then
 			nearestId = instanceId
 			nearestAt = at
 		end
@@ -1481,7 +1608,9 @@ ServerNetworkEnemies.AttackStarted.On(function(instanceId: number, attackIndex: 
 
 	-- Stretched so its blow lands as the server's wind-up ends.
 	local speed = EnemiesCore.ATTACK_CLIP_IMPACT / math.max(attack.Delay, 0.05)
-	play(getTrack(model, animation, ATTACK_PRIORITY, false), Tune.ATTACK_FADE, speed)
+	local track = getTrack(model, animation, ATTACK_PRIORITY, false)
+	play(track, Tune.ATTACK_FADE, speed)
+	blendOut(track)
 end)
 
 ServerNetworkEnemies.Positions.On(function(packet: buffer)
@@ -1532,6 +1661,14 @@ end
 TimeCore.OnEnemyTimeScaleChange:Connect(rescaleClips)
 TimeCore.OnTimeScaleChange:Connect(rescaleClips)
 
+-- After the Animator and the renderer's own writes: each blend reads the pose just made and writes over it.
+local function stepBlends(dt: number)
+	for blend in steppingBlends do
+		blend:Step(dt, if unscaledBlends[blend] then 1 else clipScale)
+		if not blend:IsActive() then steppingBlends[blend] = nil end
+	end
+end
+
 EnemiesController.OnStart = function()
 	-- PreSimulation runs after the Animator has posed the rigs for the frame, so these root writes land last.
 	RunService.PreSimulation:Connect(function(dt: number)
@@ -1539,6 +1676,7 @@ EnemiesController.OnStart = function()
 		local budget = drainRigQueue(Tune.MAX_CLONES_PER_FRAME)
 		refillReserves(budget)
 		update(dt)
+		stepBlends(dt)
 	end)
 end
 

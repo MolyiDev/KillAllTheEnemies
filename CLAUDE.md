@@ -224,10 +224,22 @@ This is the part that makes the game: keep its rules when the enemies change.
   at once, so every triangle is paid that many times**; enemies cast no shadow. Clips are a shared set
   (`TEnemy.AnimationSet`), rotations only so they play at any size; each attack clip lands its blow at
   `EnemiesCore.ATTACK_CLIP_IMPACT` and is sped to the attack's Delay.
+- **Clip switches are blended, never crossfaded or left to run out** (`GlobalClient.Utils.inertialBlend`, Animations.md
+  section 17): a one-shot that runs out drops its pose in one frame and the engine's fade is linear. A fade asked of
+  `EnemiesController` becomes a blend, every one-shot is watched to its end, and a hand-over the camera holds on (an
+  intro's end) is authored into the clip instead.
 - **A kill ragdolls** on the client (`Client/Utils/ragdoll`), colliding with the floor only (raycasts at
   `Workspace.Arena`), then sinks and is destroyed; `MAX_CORPSES` caps them. An **overkill** (a blow worth 4x max
   health, decided by `EnemiesService`) bursts instead. **Nothing may raycast or overlap-query an enemy**: ask
   `EnemiesCore.EnemiesSpatialHash`.
+- **A boss is a giant under fire**: no flinch, no last-few outline and only a faint tint a blow; each bullet's light
+  and sound land where it goes in (`EnemyImpacts.EmitBossHit`, from the client's own bullets), and the body reacts at
+  each quarter of its health (`BossController.hurt`) and falls in slow motion (`TimeService.SlowMotion`). VFX.md 41.
+- **Every boss warning is a dodge for a player who looks and a hit for one who doesn't**, measured, not felt: a 22
+  stud/s player reacting in 0.3 s with 0.1 s of ping clears the worst spot near death, and one standing or strafing
+  on is hit (a move that cannot catch either leads its target: `TEnemyAttack.Lead`). Wind-ups never go faster than
+  `TEnemyBoss.WindupTempoMin`; the late fight grows by cooldowns. A run's warning is drawn as far and wide as it hits.
+  PlanBosses.md, "Every warning is a dodge", has the method and the T-Rex's numbers.
 - **ArenaCore** bakes `Workspace.Arena` into a LAYERED nav grid (up to 4 floors per 2-stud cell: decks, bridges and the
   ground under them) by raycasting once per match, then links floors (step up 2.5, drop 8, no corner cutting). A floor
   too high to step onto below head height is a wall. `Blockers`, `Caps` and any part players cannot collide with are

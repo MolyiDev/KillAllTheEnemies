@@ -14,7 +14,6 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local AbilityController = require(script.Parent.AbilityController)
 local BossController = require(script.Parent.BossController)
-local BossIntroController = require(script.Parent.BossIntroController)
 local CoinsController = require(script.Parent.CoinsController)
 local DefensePlacementController = require(script.Parent.DefensePlacementController)
 local EnemiesController = require(script.Parent.EnemiesController)
@@ -57,6 +56,7 @@ local Results = require(script.Results)
 local Shop = require(script.Shop)
 local Squad = require(script.Squad)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local Upgrades = require(script.Upgrades)
 local Wave = require(script.Wave)
 local WeaponUpgrade = require(script.WeaponUpgrade)
@@ -172,8 +172,22 @@ local state: Types.THudState = {
 		Bar = BarJuice.NewTrack(),
 		Breaks = BarJuice.NewTrack(),
 		Shares = {
-			{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
-			{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
+			{
+				Name = source(""),
+				IsSelf = source(false),
+				Share = source(0),
+				Lead = source(0),
+				Glow = source(0),
+				EnteredAt = source(-math.huge),
+			},
+			{
+				Name = source(""),
+				IsSelf = source(false),
+				Share = source(0),
+				Lead = source(0),
+				Glow = source(0),
+				EnteredAt = source(-math.huge),
+			},
 		},
 		SwappedAt = source(-math.huge),
 		AppearedAt = source(-math.huge),
@@ -534,15 +548,15 @@ local function updateHealth(now: number, dt: number)
 		end
 	end
 
-	-- A bought level is on its way to the bar until it lands, then the bar grows into it. The max and the health are
-	-- held back by the same amount, so the fill never slides backwards on the one event that made it bigger, and a
+	-- A bought level is on its way to the bar until it lands, then the bar's max rises into it. The max and the health
+	-- are held back by the same amount, so the fill never slides backwards on the one event that made it bigger, and a
 	-- hit taken meanwhile still shows at once.
 	local grown = Motion.Decelerate(Motion.Progress(now, state.Vital.LandAt(), HealthUpgrade.Timing.GROW))
 	barMax = if maxHealth > barGrowsFrom and barGrowsFrom > 0
 		then barGrowsFrom + (maxHealth - barGrowsFrom) * grown
 		else maxHealth
 	local barHealth = math.max(health - (maxHealth - barMax), 0)
-	-- While the bar grows into a bought level its health rises with its length, which is not a heal.
+	-- While the bar grows into a bought level its health rises with its max, which is not a heal.
 	local bite = BarJuice.Step(healthChase, barHealth, barMax, dt, now, barMax ~= maxHealth)
 	if bite > 0 then motionUntil = now + Tune.MOTION_SECONDS end
 	BarJuice.Write(state.HealthTrack, healthChase, bite, if barMax > 0 then barHealth / barMax else 0, now)
@@ -947,6 +961,11 @@ local function holdMotion(settledAt: number)
 	motionUntil = math.max(motionUntil, settledAt)
 end
 
+-- The icons step aside while a cutscene hides every screen's UI.
+local function isUiShown(): boolean
+	return not UiFade.IsHidden()
+end
+
 -- The top bar's icons: SQUAD on the left with Roblox's own buttons, Settings in the right corner. Codes are the lobby's
 -- alone.
 local function createTopbarIcons()
@@ -970,6 +989,7 @@ local function createTopbarIcons()
 		HasBrackets = true,
 		Now = state.Now,
 		OnPress = holdMotion,
+		IsShown = isUiShown,
 	})
 
 	settingsIcon = TopbarPlus.new()
@@ -988,6 +1008,7 @@ local function createTopbarIcons()
 		HasBrackets = false,
 		Now = state.Now,
 		OnPress = holdMotion,
+		IsShown = isUiShown,
 	})
 end
 
@@ -1119,36 +1140,42 @@ HudController.OnStart = function()
 				Name = "Hud",
 				ResetOnSpawn = false,
 				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them. The
-				-- settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too.
+				-- settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too. A boss's
+				-- intro fades it out (UiFade).
 				Enabled = function()
-					return not UpgradePickController.IsCovering()
-						and not SettingsController.IsOpen()
-						and not BossIntroController.IsPlaying()
+					return not UpgradePickController.IsCovering() and not SettingsController.IsOpen() and UiFade.IsUp()
 				end,
 				IgnoreGuiInset = true,
 				ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
 				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				-- Scaled from a 1080-tall design: the root is sized 1 / scale so that after its UIScale it fills the
-				-- screen.
-				create("Frame")({
-					Name = "Root",
-					BackgroundTransparency = 1,
-					Size = function()
-						local scale = state.Scale()
-						return UDim2.fromScale(1 / scale, 1 / scale)
-					end,
-					create("UIScale")({ Scale = state.Scale }),
-					Wave.Build(state, actions),
-					Items.Build(state, actions),
-					Announce.Build(state),
-					Upgrades.Build(state, actions),
-					Shop.Abilities(state, actions),
-					Hotbar.Build(state),
-					WeaponUpgrade.Build(state, Upgrades.WEAPON_PICTURE, Upgrades.PICTURE_SIZE, Upgrades.PICTURE_TILT),
-					HealthUpgrade.Build(state, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE),
-					Squad.Build(state, actions),
-					Overlays.Down(state, actions),
-					Results.Build(state, actions),
+				UiFade.Group({
+					-- Scaled from a 1080-tall design: the root is sized 1 / scale so that after its UIScale it fills the
+					-- screen.
+					create("Frame")({
+						Name = "Root",
+						BackgroundTransparency = 1,
+						Size = function()
+							local scale = state.Scale()
+							return UDim2.fromScale(1 / scale, 1 / scale)
+						end,
+						create("UIScale")({ Scale = state.Scale }),
+						Wave.Build(state, actions),
+						Items.Build(state, actions),
+						Announce.Build(state),
+						Upgrades.Build(state, actions),
+						Shop.Abilities(state, actions),
+						Hotbar.Build(state),
+						WeaponUpgrade.Build(
+							state,
+							Upgrades.WEAPON_PICTURE,
+							Upgrades.PICTURE_SIZE,
+							Upgrades.PICTURE_TILT
+						),
+						HealthUpgrade.Build(state, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE),
+						Squad.Build(state, actions),
+						Overlays.Down(state, actions),
+						Results.Build(state, actions),
+					}),
 				}),
 			}),
 			Overlays.Vignette(state),

@@ -2,6 +2,7 @@
 -- BulkMoveTo. Purely a picture: hits are the server's (WeaponService), and the enemy's flash and numbers come from its
 -- damage events. Step is the owner's to call once a frame (WeaponController).
 local Workspace = game:GetService("Workspace")
+local EnemyImpacts = require(script.Parent.Parent.Parent.GlobalClient.Utils.enemyImpacts)
 
 local PARK = CFrame.new(0, -10000, 0)
 local MOVE_MODE = Enum.BulkMoveMode.FireCFrameChanged
@@ -44,6 +45,10 @@ type TShot = {
 	Length: number,
 	Half: number,
 	Born: number,
+	-- A boss it goes into: its light there as the tip passes BossAlong studs down the line (EnemyImpacts.EmitBossHit),
+	-- then nil.
+	BossHit: EnemyImpacts.TBossHit?,
+	BossAlong: number,
 }
 
 type TSpark = {
@@ -140,8 +145,9 @@ function tracers.Sparks(muzzle: CFrame, isClose: boolean)
 	end
 end
 
--- One tracer from `from` to `to`. Past the pool's limit the shot simply draws nothing.
-function tracers.Fire(from: Vector3, to: Vector3, isClose: boolean)
+-- One tracer from `from` to `to`, going into a boss for `bossHit`. Past the pool's limit the shot draws nothing but
+-- the boss's light.
+function tracers.Fire(from: Vector3, to: Vector3, isClose: boolean, bossHit: EnemyImpacts.TBossHit?)
 	local whole = to - from
 	if isClose and whole.Magnitude > Tune.CLOSE_SKIP + 0.5 then
 		from += whole.Unit * Tune.CLOSE_SKIP
@@ -151,7 +157,10 @@ function tracers.Fire(from: Vector3, to: Vector3, isClose: boolean)
 	local length = offset.Magnitude
 	if length < 0.5 then return end
 	local part = takeTracer()
-	if not part then return end
+	if not part then
+		if bossHit then EnemyImpacts.EmitBossHit(bossHit, -offset / length) end
+		return
+	end
 
 	local unit = offset / length
 	local size = math.min(Tune.LENGTH, length)
@@ -165,6 +174,9 @@ function tracers.Fire(from: Vector3, to: Vector3, isClose: boolean)
 		Length = length,
 		Half = size / 2,
 		Born = os.clock() - LEAD,
+		BossHit = bossHit,
+		-- Capped: a bullet stopping in the boss goes in where it ends, and rounding must not put that past the end.
+		BossAlong = if bossHit then math.min((bossHit.At - from):Dot(unit), length) else 0,
 	}
 end
 
@@ -204,6 +216,11 @@ function tracers.Step()
 		local tip = (now - shot.Born) * Tune.SPEED
 		count += 1
 		movedParts[count] = shot.Part
+		local bossHit = shot.BossHit
+		if bossHit and tip >= shot.BossAlong then
+			shot.BossHit = nil
+			EnemyImpacts.EmitBossHit(bossHit, -shot.Unit)
+		end
 		if tip >= shot.Length then
 			movedFrames[count] = PARK
 			pool[#pool + 1] = shot.Part

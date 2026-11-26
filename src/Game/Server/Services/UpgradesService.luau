@@ -63,9 +63,12 @@ type TRun = {
 }
 
 local Tune = table.freeze({
-	-- Real seconds after a boss falls before the hands it held back come, so its fall and DEFEATED are seen first; and
-	-- after the last piece it dropped has left a player's screen, which a card dealt over it would hide.
-	AFTER_BOSS_SECONDS = 2.5,
+	-- Real seconds after a boss falls before the hands it held back come, so its whole fall and DEFEATED are seen first
+	-- (the T-Rex's Death clip runs 4 s and its soul leaves the pile by 5.1 s of game time, which the fall's slow
+	-- motion puts about 0.7 s later in real time, TimeService.SlowMotion; a hand up holds the game clock, which stops
+	-- the fall where it is); and after the last piece it dropped has left a player's screen, which a card dealt over
+	-- it would hide.
+	AFTER_BOSS_SECONDS = 6.2,
 	AFTER_DROP_SECONDS = 0.4,
 })
 
@@ -95,6 +98,8 @@ local function dealNext(player: Player)
 	local run = runs[player]
 	if not run or run.Hand then return end
 	if RoundService.State == RoundService.ERoundState.Idle or RoundService.IsBossTime() or resumeAt > 0 then return end
+	-- A round finished by a kill on the boss's own frame comes before the Heartbeat sets resumeAt.
+	if wasBossTime then return end
 	local stashed = run.Stashed
 	if stashed then
 		run.Stashed = nil

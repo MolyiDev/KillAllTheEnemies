@@ -21,6 +21,7 @@ local ViewmodelController = require(script.Parent.ViewmodelController)
 local gunFx = require(script.Parent.Parent.Utils.gunFx)
 local gunSlide = require(script.Parent.Parent.Utils.gunSlide)
 local tracers = require(script.Parent.Parent.Utils.tracers)
+local EnemyImpacts = require(script.Parent.Parent.Utils.enemyImpacts)
 local CharacterCore = require(ReplicatedStorage.GlobalShared.Core.CharacterCore)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
@@ -107,6 +108,9 @@ local Tune = table.freeze({
 	SWAP_KICK_PEAK = 0.18,
 	SWAP_RECOIL_FREQUENCY = 14,
 	SWAP_RECOIL_DAMPING = 0.55,
+	-- Where the player's last bullet went into a boss stands for its blows' numbers this long: the server's word on
+	-- that blow comes a round trip after the shot.
+	BOSS_CONTACT_SECONDS = 0.6,
 })
 
 local RECOIL_PEAK_PER_IMPULSE = CameraController.RecoilPeakPerImpulse(Tune.RECOIL_FREQUENCY, Tune.RECOIL_DAMPING)
@@ -173,6 +177,9 @@ local assistCount = 0
 local assistEntities: { unknown } = table.create(Tune.ASSIST_CHECKS)
 local assistPoints: { Vector3 } = table.create(Tune.ASSIST_CHECKS)
 local assistScores: { number } = table.create(Tune.ASSIST_CHECKS)
+-- Where the player's last bullet went into each boss, and the os.clock it did (BossContact).
+local bossContacts: { [number]: Vector3 } = {}
+local bossContactAt: { [number]: number } = {}
 
 local function getPointer(): Vector2
 	local camera = Workspace.CurrentCamera
@@ -196,6 +203,15 @@ function WeaponController.PointerRay(): (Vector3, Vector3)
 	local focal = center.Y / math.tan(math.rad(camera.FieldOfView) * 0.5)
 	local toPointer = (getPointer() - center) / focal
 	return view.Position, (view.LookVector + view.RightVector * toPointer.X - view.UpVector * toPointer.Y).Unit
+end
+
+-- Where the player's own last bullet went into the boss `instanceId`, if it was just now: a body that long is hit far
+-- from its middle, and its numbers stand where the shots land (DamageNumbersController).
+function WeaponController.BossContact(instanceId: number): Vector3?
+	local at = bossContactAt[instanceId]
+	if not at or os.clock() - at > Tune.BOSS_CONTACT_SECONDS then return nil end
+
+	return bossContacts[instanceId]
 end
 
 -- Gathers the body if it is in front of `origin` along `direction` (or straddles it) within `rangeSq` (a parked body
@@ -237,19 +253,30 @@ local function gatherDrawnBodies(origin: Vector3, direction: Vector3, range: num
 	addPieced()
 end
 
+local function isBossBody(body: number): boolean
+	local enemyData = EnemyWorld:get(bodyEntities[body] :: any, Components.Data)
+	return enemyData ~= nil and enemyData.Boss ~= nil
+end
+
 -- Where a ray stops: in one of the gathered bodies (its index, 0 for none), on the arena (with what it hit), or at its
 -- full length. It goes through `pierce` bodies first (TGun.Pierce), so it stops in the one after them, or carries on
--- to the arena when there are no more in its way.
+-- to the arena when there are no more in its way. Also the first boss it goes into, stopping there or not (its index,
+-- 0 for none, and how far along): almost every gun pierces, so a bullet seldom stops in one.
 local function castLine(
 	origin: Vector3,
 	unit: Vector3,
 	range: number,
 	pierce: number
-): (Vector3, RaycastResult?, number)
+): (Vector3, RaycastResult?, number, number, number)
 	local wall, length = sightCast(origin, unit * range, WeaponController.SightParams)
 	local body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, -1)
+	local bossBody, bossDistance = 0, 0
 	local piercesLeft = pierce
-	while body > 0 and piercesLeft > 0 do
+	while body > 0 do
+		if bossBody == 0 and isBossBody(body) then
+			bossBody, bossDistance = body, distance
+		end
+		if piercesLeft == 0 then break end
 		local entity = bodyEntities[body]
 		body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, distance)
 		-- The next piece of the same long body is no new body to pierce.
@@ -257,9 +284,9 @@ local function castLine(
 			piercesLeft -= 1
 		end
 	end
-	if body > 0 then return origin + unit * distance, nil, body end
+	if body > 0 then return origin + unit * distance, nil, body, bossBody, bossDistance end
 
-	return origin + unit * length, wall, 0
+	return origin + unit * length, wall, 0, bossBody, bossDistance
 end
 
 -- Keeps the assist's ASSIST_CHECKS lowest scores, best first.
@@ -407,6 +434,23 @@ local function muzzleFlash(gun: TData.TGun, muzzle: Attachment, isClose: boolean
 	flash(muzzle, isClose)
 end
 
+-- A pellet going into the boss `entity` (castLine's) at `at`: what its light shows there. The player's own is kept as
+-- the boss's contact.
+local function bossHitOn(entity: unknown, at: Vector3, damage: number, isOwn: boolean): EnemyImpacts.TBossHit?
+	local enemyData = EnemyWorld:get(entity :: any, Components.Data)
+	if not enemyData then return nil end
+
+	if isOwn then
+		local instanceId = EnemyWorld:get(entity :: any, Components.InstanceId)
+		if instanceId then
+			bossContacts[instanceId] = at
+			bossContactAt[instanceId] = os.clock()
+		end
+	end
+
+	return { Data = enemyData, Damage = damage, IsOwn = isOwn, At = at }
+end
+
 -- The sound, the cycle after it, the shooter's release, and the pellets' tracers from `from` toward `target`.
 local function drawShot(gun: TData.TGun, shooter: Model, from: Vector3, target: Vector3, seed: number, isClose: boolean)
 	local isOwn = shooter == selfCharacter
@@ -435,10 +479,15 @@ local function drawShot(gun: TData.TGun, shooter: Model, from: Vector3, target: 
 	GunsCore.PelletDirections(direction, seed, gun.SpreadDeg, pellets, pelletDirections)
 	local kit = gun.Fx
 	local pierce = gun.Pierce or 0
+	local pelletDamage = gun.Damage / gun.Pellets
 	for pellet = 1, pellets do
-		local to, wall, body = castLine(from, pelletDirections[pellet], gun.Range, pierce)
-		if kit and gunFx.Shot(kit, from, to, wall, body > 0, isClose) then continue end
-		tracers.Fire(from, to, isClose)
+		local unit = pelletDirections[pellet]
+		local to, wall, body, bossBody, bossDistance = castLine(from, unit, gun.Range, pierce)
+		local bossHit = if bossBody > 0
+			then bossHitOn(bodyEntities[bossBody], from + unit * bossDistance, pelletDamage, isOwn)
+			else nil
+		if kit and gunFx.Shot(kit, from, to, wall, body > 0, isClose, bossHit) then continue end
+		tracers.Fire(from, to, isClose, bossHit)
 	end
 end
 

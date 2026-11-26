@@ -33,6 +33,8 @@ TimeCore.IsHeld = false
 -- Held by a boss's intro (BossIntroService): stopped at once, since an ease would let a blow land, and no blow lands
 -- on a character until it lets go (CharacterService).
 TimeCore.IsCutscene = false
+-- A share of the scale asked for, under 1 for a beat of slow motion (TimeService.SlowMotion).
+TimeCore.SlowScale = 1
 TimeCore.GameClock = 0
 TimeCore.EnemyClock = 0
 
@@ -77,7 +79,11 @@ end
 
 -- Where the server's scale is headed: what it was asked for, unless a pause or a hold keeps it at 0.
 function TimeCore.GetTargetTimeScale(): number
-	return if TimeCore.IsManualPaused or TimeCore.IsHeld or TimeCore.IsCutscene then 0 else underlyingTimeScale
+	return if TimeCore.IsManualPaused
+			or TimeCore.IsHeld
+			or TimeCore.IsCutscene
+		then 0
+		else underlyingTimeScale * TimeCore.SlowScale
 end
 
 function TimeCore.SetTimeScale(value: number)
@@ -92,6 +98,11 @@ end
 
 function TimeCore.SetHeld(isHeld: boolean, seconds: number)
 	TimeCore.IsHeld = isHeld
+	TimeCore.TweenTimeScale(TimeCore.GetTargetTimeScale(), seconds)
+end
+
+function TimeCore.SetSlowScale(share: number, seconds: number)
+	TimeCore.SlowScale = share
 	TimeCore.TweenTimeScale(TimeCore.GetTargetTimeScale(), seconds)
 end
 
@@ -128,6 +139,7 @@ end
 function TimeCore.Reset()
 	enemyFreezeRemaining = 0
 	TimeCore.IsCutscene = false
+	TimeCore.SlowScale = 1
 	TimeCore.GameClock = 0
 	TimeCore.EnemyClock = 0
 	TimeCore.SetEnemyTimeScale(if TimeCore.IsEnemiesManualPaused then 0 else 1)

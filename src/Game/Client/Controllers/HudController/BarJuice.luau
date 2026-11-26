@@ -113,7 +113,16 @@ function BarJuice.NewTrack(): Types.TBarTrack
 	}
 end
 
-local function spring(x: number, v: number, goal: number, period: number, damping: number, dt: number): (number, number)
+-- Steps a spring at `x` moving at `v` toward `goal` by `dt`, on the fixed step: `period` in seconds, 1 `damping` lands
+-- with no overshoot.
+function BarJuice.Spring(
+	x: number,
+	v: number,
+	goal: number,
+	period: number,
+	damping: number,
+	dt: number
+): (number, number)
 	local w = 2 * math.pi / period
 	local stiffness, friction = w * w, 2 * w * damping
 	while dt > 0 do
@@ -155,7 +164,7 @@ function BarJuice.Step(chase: TChase, target: number, full: number, dt: number, 
 
 	if target > chase.Ghost then chase.IsHealing = true end
 	local isGivenBack = chase.IsHealing and target > chase.Fill
-	chase.Fill, chase.FillVelocity = spring(
+	chase.Fill, chase.FillVelocity = BarJuice.Spring(
 		chase.Fill,
 		chase.FillVelocity,
 		target,
@@ -170,7 +179,8 @@ function BarJuice.Step(chase: TChase, target: number, full: number, dt: number, 
 	if chase.IsHealing then
 		chase.Ghost, chase.GhostVelocity = target, 0
 	elseif now >= chase.HoldUntil then
-		chase.Ghost, chase.GhostVelocity = spring(chase.Ghost, chase.GhostVelocity, chase.Fill, GHOST_PERIOD, 1, dt)
+		chase.Ghost, chase.GhostVelocity =
+			BarJuice.Spring(chase.Ghost, chase.GhostVelocity, chase.Fill, GHOST_PERIOD, 1, dt)
 	end
 
 	if chase.Ghost - chase.Fill < SETTLE * full then

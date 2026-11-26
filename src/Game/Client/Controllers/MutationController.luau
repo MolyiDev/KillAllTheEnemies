@@ -13,6 +13,7 @@ local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Netw
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
@@ -273,17 +274,20 @@ MutationController.OnStart = function()
 			ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 			DisplayOrder = 2,
-			create("Frame")({
-				Name = "Root",
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromScale(0.5, 0),
-				Size = function()
-					return UDim2.fromOffset(1920, Layout.DESIGN_HEIGHT)
-				end,
-				BackgroundTransparency = 1,
-				create("UIScale")({ Scale = scale }),
-				chip(),
-				banner(),
+			Enabled = UiFade.IsUp,
+			UiFade.Group({
+				create("Frame")({
+					Name = "Root",
+					AnchorPoint = Vector2.new(0.5, 0),
+					Position = UDim2.fromScale(0.5, 0),
+					Size = function()
+						return UDim2.fromOffset(1920, Layout.DESIGN_HEIGHT)
+					end,
+					BackgroundTransparency = 1,
+					create("UIScale")({ Scale = scale }),
+					chip(),
+					banner(),
+				}),
 			}),
 		})
 	end, LocalPlayer:WaitForChild("PlayerGui"))

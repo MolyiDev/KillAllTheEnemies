@@ -18,10 +18,12 @@ local EnemiesService = require(script.Parent.EnemiesService)
 local EnemyAttacksService = require(script.Parent.EnemyAttacksService)
 local EnemyMovementService = require(script.Parent.EnemyMovementService)
 local NavService = require(script.Parent.NavService)
+local TimeService = require(script.Parent.TimeService)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local BossesCore = require(ReplicatedStorage.Shared.Core.BossesCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
+local TelegraphCore = require(ReplicatedStorage.Shared.Core.TelegraphCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
@@ -31,6 +33,7 @@ local getCharacterFeet = require(ReplicatedStorage.GlobalShared.Utils.Functions.
 local getPlayerFromCharacterEntity =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getPlayerFromCharacterEntity)
 local EBossMoves = require(ReplicatedStorage.Types.Enums.EBossMoves)
+local ETelegraphs = require(ReplicatedStorage.Types.Enums.ETelegraphs)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local ServerNetworkBosses = Network.Server.Bosses
@@ -55,6 +58,19 @@ local Tune = table.freeze({
 	REST = 0.35,
 	-- How often a free boss looks for its next move.
 	THINK_SECONDS = 0.1,
+	-- Of the moves that would land, each is drawn by weight: 1, plus up to FRESH_WEIGHT as FRESH_SECONDS pass since
+	-- it was last made, and the move it just made at REPEAT_SHARE of that. Moves it has not shown in a while come up.
+	FRESH_WEIGHT = 2,
+	FRESH_SECONDS = 20,
+	REPEAT_SHARE = 0.25,
+	-- A player's run is read smoothed over about this many seconds: one frame's velocity is a jump, a dodge's first
+	-- step or a knockback, and a lead off it throws a charge or a spine to the wrong side.
+	VELOCITY_SMOOTHING = 0.35,
+	-- A charge leads its target at most this many degrees off the straight line to them: wide enough that a runner
+	-- who keeps running meets it, since its wind-up and run give them seconds to cross a narrower lead.
+	CHARGE_LEAD_ARC = 45,
+	-- A chained charge turns onto its target only within this many degrees of straight back; farther round, it stops.
+	CHAIN_ARC = 45,
 	-- A target this much higher or lower than the boss counts this many studs farther when picking whom to go for.
 	LEVEL_GAP = 6,
 	LEVEL_PENALTY = 25,
@@ -82,8 +98,9 @@ local Tune = table.freeze({
 	-- A charge's run is this many times as fast as authored: its tempo to this power, so it opens slower and ends
 	-- faster without its clip's feet sliding far.
 	RUN_TEMPO_POWER = 0.5,
-	-- How far a lead can carry an aim past where its target stands, and the speed under which a target is standing
-	-- still (studs a second): its spines then land round it on every side.
+	-- How far a lead can carry a spine or a dive past where its target stands (a charge's is held by
+	-- CHARGE_LEAD_ARC instead), and the speed under which a target is standing still (studs a second): its spines then
+	-- land round it on every side.
 	LEAD_MAX = 30,
 	STILL_SPEED = 4,
 	-- A volley's salvo: the leading spine where its target is running, the next on the side it would cut to, then
@@ -92,10 +109,9 @@ local Tune = table.freeze({
 	SPINE_FLICK = 10,
 	SPINE_SCATTER = table.freeze({ 6, 13 }),
 	SPINE_STAGGER = 0.08,
-	-- The run hits what its front meets: this far ahead of Root, this far either side past the line's half width, this
-	-- high above its floor.
+	-- The run hits what its front meets: this far ahead of Root, the line's width across, this high above its floor.
+	-- Its warning is drawn that long and wide (showLine): the warning is the hitbox.
 	RAM_REACH = 15,
-	RAM_SIDE = 1.5,
 	RAM_HEIGHT = 10,
 	-- Who it runs over is thrown along the run, up, and out to the side they stood on (studs a second).
 	KNOCK_ALONG = 55,
@@ -103,6 +119,22 @@ local Tune = table.freeze({
 	KNOCK_SIDE = 22,
 	-- A dive runs under the floor for at least this long, and lands on its target's floor or this close to it.
 	MIN_UNDER = 0.6,
+	-- Under the floor it steers after its target, turning at most DIVE_TURN degrees a second: a target who keeps
+	-- running is followed, one who cuts hard at the last moment makes it overshoot and come round. It leaves the hole
+	-- at DIVE_LAUNCH of its speed, up to full over DIVE_RAMP seconds, and lunges at DIVE_LUNGE times it over the last
+	-- DIVE_LUNGE_STUDS. It comes up once its head is DIVE_CATCH from them, or wherever it is after MAX_UNDER.
+	DIVE_TURN = 130,
+	DIVE_LAUNCH = 0.45,
+	DIVE_RAMP = 0.5,
+	DIVE_LUNGE = 1.35,
+	DIVE_LUNGE_STUDS = 22,
+	DIVE_CATCH = 4,
+	MAX_UNDER = 6,
+	-- Caught up, it darts on under the floor to where it comes up (TEnemyAttack.Lead ahead of its target) in this
+	-- long: the crack shoots out ahead of them as their circle shows.
+	DIVE_DART_SECONDS = 0.2,
+	-- Its crack is told to clients a leg at a time, this often: it is not known ahead.
+	CRACK_LEG_SECONDS = 0.1,
 	-- Guards rise this far from the boss, and closer when there is no floor out there.
 	GUARD_RADIUS = 28,
 	GUARD_RADIUS_NEAR = 16,
@@ -126,8 +158,11 @@ type TBait = { Id: number, Feet: vector }
 type TRun = {
 	Index: number,
 	Attack: TData.TEnemyAttack,
-	-- Studs a second, set by its tempo when it began (runSpeed).
+	-- Studs a second, set by its tempo when it began (runSpeed), and that wind-up tempo.
 	Speed: number,
+	Tempo: number,
+	-- Turning onto its first line, which it winds up for once round (beginCharge).
+	IsOpening: boolean,
 	Phase: "Run" | "Skid" | "Turn",
 	PhaseAt: number,
 	From: vector,
@@ -142,6 +177,22 @@ type TRun = {
 	ChainsLeft: number,
 	Hit: { [any]: boolean },
 	HitDefenses: { [number]: boolean },
+}
+
+-- A dive's tunnel under the floor (stepBurrow): its head and heading (a yaw), whom it is after and where they stood
+-- last, and the leg of its crack not yet sent.
+type TBurrow = {
+	Index: number,
+	Attack: TData.TEnemyAttack,
+	-- Its circle's seconds once it comes up.
+	Warning: number,
+	StartedAt: number,
+	Head: vector,
+	Heading: number,
+	Target: any,
+	TargetFeet: vector,
+	LegFrom: vector,
+	LegAt: number,
 }
 
 type TStep = { At: number, Run: () -> () }
@@ -159,11 +210,16 @@ type TBoss = {
 	StrandedSince: number?,
 	MovedFrom: vector,
 	MovedAt: number,
-	HasSummoned: boolean,
+	-- How many of its Summon's health lines it has roared at (summonsDue).
+	Summoned: number,
+	-- The enemy clock each attack was last made at, and the last one made: what the draw weighs (weightOf).
+	UsedAt: { [number]: number },
+	LastIndex: number,
 	Guards: { [any]: number },
 	GuardTotal: number,
 	ShieldEndsAt: number,
 	Run: TRun?,
+	Burrow: TBurrow?,
 	NextThinkAt: number,
 	-- The console's next move for it (ForceNext): an attack's clip name or kind, any range or cooldown.
 	Forced: string?,
@@ -183,6 +239,9 @@ local bosses: { [any]: TBoss } = {}
 -- What a boss attack lands besides itself, built once per attack: a Quake's last ring, a Summon's roar.
 local finishers: { [TData.TEnemyAttack]: TData.TEnemyAttack } = {}
 local reusableDefenses: { number } = {}
+local reusableFootprint: { [number]: boolean } = {}
+-- Each standing character's flat run, smoothed (trackVelocities).
+local smoothedVelocities: { [any]: vector } = {}
 
 -- ============================== Helpers ==============================
 
@@ -219,9 +278,24 @@ local function setFree(boss: TBoss)
 	EnemyWorld:set(boss.Entity, Components.AttackWindup, 0)
 end
 
-local function tempoOf(boss: TBoss, share: number): number
-	local tempo = BossesCore.Tempo(boss.Kit, share)
+local function markUsed(boss: TBoss, index: number, now: number)
+	boss.UsedAt[index] = now
+	boss.LastIndex = index
+end
+
+-- `tempo` made 1 / SLOW_PACE as long while it is slowed.
+local function paced(boss: TBoss, tempo: number): number
 	return if TimeCore.EnemyClock < boss.SlowUntil then tempo / Tune.SLOW_PACE else tempo
+end
+
+-- Its rests' and cooldowns' tempo now (BossesCore.Tempo).
+local function tempoOf(boss: TBoss, share: number): number
+	return paced(boss, BossesCore.Tempo(boss.Kit, share))
+end
+
+-- Its wind-ups' and clips' tempo now (BossesCore.WindupTempo).
+local function windupTempoOf(boss: TBoss, share: number): number
+	return paced(boss, BossesCore.WindupTempo(boss.Kit, share))
 end
 
 -- A charge's run at `tempo`: slower than authored at a slow pace, faster at a fast one.
@@ -315,10 +389,10 @@ local function traceBody(kit: TData.TEnemyBoss, from: vector, direction: vector,
 	return length
 end
 
--- Whether a body at `from` can turn round from `fromYaw` to `toYaw` (to its left) without its head or tail meeting a
--- wall on the way.
+-- Whether a body at `from` can turn round from `fromYaw` to `toYaw` (the way BossesCore.TurnDelta goes) without its
+-- head or tail meeting a wall on the way.
 local function hasRoomToTurn(kit: TData.TEnemyBoss, from: vector, fromYaw: number, toYaw: number): boolean
-	local delta = (toYaw - fromYaw) % (2 * math.pi)
+	local delta = BossesCore.TurnDelta(fromYaw, toYaw)
 	for i = 1, Tune.TURN_PROBES do
 		local yaw = fromYaw + delta * i / Tune.TURN_PROBES
 		local forward = vector.create(math.sin(yaw), 0, math.cos(yaw))
@@ -329,20 +403,39 @@ local function hasRoomToTurn(kit: TData.TEnemyBoss, from: vector, fromYaw: numbe
 	return true
 end
 
--- A character's run, flat (studs a second).
-local function flatVelocity(characterEntity: any): vector
-	local rootPart = if characterEntity then World:get(characterEntity, Components.HumanoidRootPart) else nil
-	if not rootPart then return vector.zero end
-	local velocity = rootPart.AssemblyLinearVelocity
-	return vector.create(velocity.X, 0, velocity.Z)
+-- Whether a line along `direction` lies beyond the front arc of a body facing `yaw`: a charge down it turns round onto
+-- it first (beginCharge).
+local function isOffFront(kit: TData.TEnemyBoss, yaw: number, direction: vector): boolean
+	local diff = yawOf(direction) - yaw
+	return math.abs(math.atan2(math.sin(diff), math.cos(diff))) > math.rad(kit.FrontArc)
 end
 
--- Where a target at `feet` running at `velocity` would be `seconds` on, `share` of the way: at most LEAD_MAX off.
-local function leadPoint(feet: vector, velocity: vector, seconds: number, share: number): vector
+-- Whether a charge along `direction` can be made from `from` facing `yaw`: ahead, or with room to turn onto it.
+local function canFaceLine(kit: TData.TEnemyBoss, from: vector, yaw: number, direction: vector): boolean
+	return not isOffFront(kit, yaw, direction) or hasRoomToTurn(kit, from, yaw, yawOf(direction))
+end
+
+-- A character's run, flat and smoothed (studs a second): zero for nobody, or before it has been seen.
+local function flatVelocity(characterEntity: any): vector
+	return smoothedVelocities[characterEntity] or vector.zero
+end
+
+-- `direction` turned back toward `base` until it is at most `maxAngle` radians off it (both flat and of length 1).
+local function clampTurn(base: vector, direction: vector, maxAngle: number): vector
+	local baseYaw = yawOf(base)
+	local diff = yawOf(direction) - baseYaw
+	local yaw = baseYaw + math.clamp(math.atan2(math.sin(diff), math.cos(diff)), -maxAngle, maxAngle)
+	return vector.create(math.sin(yaw), 0, math.cos(yaw))
+end
+
+-- Where a target at `feet` running at `velocity` would be `seconds` on, `share` of the way: at most `maxLead` off
+-- (LEAD_MAX when nil).
+local function leadPoint(feet: vector, velocity: vector, seconds: number, share: number, maxLead: number?): vector
 	local offset = velocity * (seconds * share)
 	local length = vector.magnitude(offset)
-	if length > Tune.LEAD_MAX then
-		offset *= Tune.LEAD_MAX / length
+	local limit = maxLead or Tune.LEAD_MAX
+	if length > limit then
+		offset *= limit / length
 	end
 
 	return feet + offset
@@ -529,7 +622,7 @@ local function ram(boss: TBoss, run: TRun, from: vector, to: vector)
 	local length = vector.magnitude(segment)
 	if length < 1e-3 then return end
 	local along = segment / length
-	local side = (run.Attack.Width or 8) / 2 + Tune.RAM_SIDE
+	local side = (run.Attack.Width or 8) / 2
 	local damage = (EnemyWorld:get(boss.Entity, Components.Damage) or 0) * run.Attack.DamageScale
 
 	local crushing = boss.Crushing
@@ -570,16 +663,35 @@ local function beginRun(boss: TBoss, run: TRun, now: number, from: vector)
 	fireMove(boss, EBossMoves.ChargeRun, run.Index, from, from + run.Direction * run.Length, run.Speed)
 end
 
--- A charge's line from where it stands: shown for `lead` seconds plus the run, so it is on the ground until the body
--- has passed its end.
+-- Faced along its line: the wind-up's clip, then the run.
+local function windUp(boss: TBoss, run: TRun, now: number, position: vector)
+	local yaw = yawOf(run.Direction)
+	EnemyWorld:set(boss.Entity, Components.Yaw, yaw)
+	fireMove(boss, EBossMoves.Attack, run.Index, position, position, yaw, run.Tempo)
+	schedule(boss, now + run.Attack.Delay * run.Tempo, function()
+		if not EnemyWorld:contains(boss.Entity) then return end
+		boss.Run = run
+		beginRun(boss, run, TimeCore.EnemyClock, EnemyWorld:get(boss.Entity, Components.Position) or position)
+	end)
+end
+
+-- A charge's line from where it stands, as far as its front reaches: the run, the skid's slide (stepRun rams through
+-- it) and RAM_REACH ahead of Root. Shown for `lead` seconds plus the run and the skid, so it is on the ground until
+-- the body has stopped.
 local function showLine(boss: TBoss, run: TRun, from: vector, lead: number)
+	local kit = boss.Kit
+	local direction = run.Direction
+	local endFlat = from + direction * run.Length
+	local runEnd = vector.create(endFlat.x, floorAt(endFlat.x, endFlat.z, from.y), endFlat.z)
+	local slide = BossesCore.SkidDistance(run.Speed, kit.SkidStop, kit.SkidStop)
+	local reach = run.Length + traceBody(kit, runEnd, direction, slide) + Tune.RAM_REACH
 	EnemyAttacksService.Telegraph(
 		boss.Entity,
 		run.Attack,
 		from,
-		yawOf(run.Direction),
-		lead + run.Length / run.Speed,
-		math.max(run.Length, 1)
+		yawOf(direction),
+		lead + run.Length / run.Speed + kit.SkidStop,
+		math.max(reach, 1)
 	)
 end
 
@@ -592,25 +704,33 @@ local function beginSkid(boss: TBoss, run: TRun, now: number, from: vector)
 	fireMove(boss, EBossMoves.Skid, run.Index, from, from + run.Direction * run.SkidRoom, run.Speed)
 end
 
--- The way back a chained charge turns onto: round to its left, aimed at its target within 45 degrees of it.
-local function chainYaw(run: TRun, from: vector): number
+-- The way back a chained charge turns onto (round to its left) and how far it runs: straight at its target, when they
+-- stand on its level within CHAIN_ARC of straight back and the run would reach them before a wall. nil otherwise: a
+-- chain aimed off them, or into a wall, would only run at nobody.
+local function chainLine(kit: TData.TEnemyBoss, run: TRun, from: vector): (number?, number)
+	local feet = nearestTarget(from)
+	local toTarget = if feet then flatDirection(from, feet) else nil
+	if not feet or not toTarget or math.abs(feet.y - from.y) > ArenaCore.MAX_STEP + 1 then return nil, 0 end
 	local back = yawOf(run.Direction) + math.pi
-	local target = nearestTarget(from)
-	local toTarget = if target then flatDirection(from, target) else nil
-	if not toTarget then return back end
 	local diff = yawOf(toTarget) - back
-	return back + math.clamp(math.atan2(math.sin(diff), math.cos(diff)), -math.pi / 4, math.pi / 4)
+	diff = math.atan2(math.sin(diff), math.cos(diff))
+	if math.abs(diff) > math.rad(Tune.CHAIN_ARC) then return nil, 0 end
+
+	local length = traceBody(kit, from, toTarget, run.Attack.Radius or 70)
+	local distance = vector.magnitude(vector.create(feet.x - from.x, 0, feet.z - from.z))
+	if length < Tune.MIN_CHARGE or length + Tune.RAM_REACH < distance then return nil, 0 end
+	return back + diff, length
 end
 
--- Turns round onto `turnTo` and shows the next line.
-local function beginTurn(boss: TBoss, run: TRun, now: number, from: vector, turnTo: number)
+-- Turns round onto `turnTo` and shows the next line, `length` long.
+local function beginTurn(boss: TBoss, run: TRun, now: number, from: vector, turnTo: number, length: number)
 	run.Phase = "Turn"
 	run.PhaseAt = now
 	run.ChainsLeft -= 1
 	run.TurnFrom = yawOf(run.Direction)
 	run.TurnTo = turnTo
 	run.Direction = vector.create(math.sin(run.TurnTo), 0, math.cos(run.TurnTo))
-	run.Length = traceBody(boss.Kit, from, run.Direction, run.Attack.Radius or 70)
+	run.Length = length
 	run.Hit = {}
 	run.HitDefenses = {}
 	showLine(boss, run, from, boss.Kit.TurnLength)
@@ -622,7 +742,12 @@ local function endRun(boss: TBoss, run: TRun, share: number)
 	boss.Crushing = nil
 	local untilTime = run.PhaseAt + boss.Kit.SkidLength
 	boss.BusyUntil = untilTime
-	boss.ReadyAt[run.Index] = untilTime + run.Attack.Cooldown * tempoOf(boss, share)
+	-- Every charge it has waits: one in another health phase, open at once, would set off again straight away with
+	-- its target behind it.
+	local readyAt = untilTime + run.Attack.Cooldown * tempoOf(boss, share)
+	for index, attack in boss.Data.Attacks do
+		if attack.Kind == "Charge" then boss.ReadyAt[index] = math.max(boss.ReadyAt[index] or 0, readyAt) end
+	end
 end
 
 local function stepRun(boss: TBoss, run: TRun, now: number, dt: number, position: vector, share: number)
@@ -651,9 +776,9 @@ local function stepRun(boss: TBoss, run: TRun, now: number, dt: number, position
 		if elapsed < kit.SkidStop then return end
 		-- Chained, unless its head or tail would meet a wall on the way round.
 		if run.ChainsLeft > 0 then
-			local turnTo = chainYaw(run, to)
-			if hasRoomToTurn(kit, to, yawOf(run.Direction), turnTo) then
-				beginTurn(boss, run, now, to, turnTo)
+			local turnTo, length = chainLine(kit, run, to)
+			if turnTo and hasRoomToTurn(kit, to, yawOf(run.Direction), turnTo) then
+				beginTurn(boss, run, now, to, turnTo, length)
 				return
 			end
 		end
@@ -661,13 +786,23 @@ local function stepRun(boss: TBoss, run: TRun, now: number, dt: number, position
 		return
 	end
 
-	-- The turn: yawed at an even rate, the body braced on the spot, then straight off along the new line.
+	-- The turn: yawed at an even rate, the body braced on the spot, then straight off along the new line, or into the
+	-- wind-up when it turned onto its first.
 	local u = math.min(elapsed / boss.Kit.TurnLength, 1)
 	place(boss, position, run.TurnFrom + (run.TurnTo - run.TurnFrom) * u)
-	if u >= 1 then beginRun(boss, run, now, position) end
+	if u < 1 then return end
+	if run.IsOpening then
+		run.IsOpening = false
+		boss.Run = nil
+		windUp(boss, run, now, position)
+		return
+	end
+	beginRun(boss, run, now, position)
 end
 
-local function startCharge(
+-- A line beyond its front arc is turned onto first (its ChargeTurn, the line already on the ground), then wound up
+-- for: a body this long never spins round under its wind-up.
+local function beginCharge(
 	boss: TBoss,
 	index: number,
 	attack: TData.TEnemyAttack,
@@ -677,11 +812,20 @@ local function startCharge(
 	length: number,
 	tempo: number
 )
+	boss.ReachedAt = now
+	markUsed(boss, index, now)
+
+	local kit = boss.Kit
+	local yaw = EnemyWorld:get(boss.Entity, Components.Yaw) or 0
+	local chargeYaw = yawOf(direction)
+	local isOpening = isOffFront(kit, yaw, direction)
 	local run: TRun = {
 		Index = index,
 		Attack = attack,
 		Speed = runSpeed(attack, tempo),
-		Phase = "Run",
+		Tempo = tempo,
+		IsOpening = isOpening,
+		Phase = if isOpening then "Turn" else "Run",
 		PhaseAt = now,
 		From = position,
 		Direction = direction,
@@ -689,36 +833,30 @@ local function startCharge(
 		Traveled = 0,
 		SkidFrom = position,
 		SkidRoom = 0,
-		TurnFrom = 0,
-		TurnTo = 0,
+		TurnFrom = yaw,
+		TurnTo = yaw + BossesCore.TurnDelta(yaw, chargeYaw),
 		ChainsLeft = attack.Chains or 0,
 		Hit = {},
 		HitDefenses = {},
 	}
+
 	local windup = attack.Delay * tempo
-	showLine(boss, run, position, windup)
 	setBusy(boss, index, math.huge)
-	schedule(boss, now + windup, function()
-		if not EnemyWorld:contains(boss.Entity) then return end
-		boss.Run = run
-		beginRun(boss, run, TimeCore.EnemyClock, EnemyWorld:get(boss.Entity, Components.Position) or position)
-	end)
+	showLine(boss, run, position, if isOpening then kit.TurnLength + windup else windup)
+	if not isOpening then
+		windUp(boss, run, now, position)
+		return
+	end
+
+	boss.Run = run
+	fireMove(boss, EBossMoves.ChargeTurn, index, position, position, chargeYaw)
 end
 
--- Down through the floor, along under it to its target, and up through theirs, its circle shown `tempo` times as
--- long as authored.
-local function startDive(
-	boss: TBoss,
-	index: number,
-	attack: TData.TEnemyAttack,
-	now: number,
-	targetFeet: vector,
-	tempo: number
-)
-	local kit = boss.Kit
-	local warning = attack.Delay * tempo
+-- Down through the floor where it stands, its circle shown for its Delay once it comes up, at any tempo: the sink and
+-- the run under already give its target seconds to see it coming. Under the floor stepBurrow steers it after them.
+local function startDive(boss: TBoss, index: number, attack: TData.TEnemyAttack, now: number, targetFeet: vector)
 	setBusy(boss, index, math.huge)
-	schedule(boss, now + kit.DiveUnder, function()
+	schedule(boss, now + boss.Kit.DiveUnder, function()
 		local entity = boss.Entity
 		if not EnemyWorld:contains(entity) then return end
 		local from = EnemyWorld:get(entity, Components.Position) :: vector
@@ -726,37 +864,137 @@ local function startDive(
 		EnemyWorld:add(entity, Tags.Submerged)
 		EnemiesSpatialHash:Remove(entity)
 
-		-- Where its target stands now, on the floor under them.
-		local target = nearestTarget(from) or targetFeet
-		local landing = vector.create(target.x, floorAt(target.x, target.z, target.y + 0.75), target.z)
-		local under = math.max(vector.magnitude(landing - from) / kit.DiveSpeed, Tune.MIN_UNDER)
-		fireMove(boss, EBossMoves.Crack, index, from, landing, under)
-
-		local surfaceAt = TimeCore.EnemyClock + under
-		schedule(boss, surfaceAt, function()
-			if not EnemyWorld:contains(entity) then return end
-			EnemyAttacksService.Telegraph(entity, attack, landing, 0, warning)
-		end)
-
-		local riseAt = surfaceAt + warning - kit.DiveRiseImpact
-		schedule(boss, riseAt, function()
-			if not EnemyWorld:contains(entity) then return end
-			local toward = nearestTarget(landing)
-			local direction = if toward then flatDirection(landing, toward) else nil
-			local yaw = if direction then yawOf(direction) else EnemyWorld:get(entity, Components.Yaw) or 0
-			EnemyWorld:remove(entity, Tags.Submerged)
-			local halfExtents = EnemyWorld:get(entity, Components.HalfExtents) :: vector
-			EnemiesSpatialHash:AddAABB(entity, landing, halfExtents)
-			place(boss, landing, yaw)
-			EnemyWorld:set(entity, Components.Velocity, vector.zero)
-			fireMove(boss, EBossMoves.DiveRise, index, landing, landing, yaw)
-			boss.BusyUntil = riseAt + kit.DiveRiseLength + kit.ReassembleLength
-		end)
-
-		schedule(boss, riseAt + kit.DiveRiseImpact, function()
-			if EnemyWorld:contains(entity) then EnemyWorld:set(entity, Components.Immunity, Tune.RISE_IMMUNITY) end
-		end)
+		-- Off the way it went down, curving onto whoever is nearest now.
+		local feet, characterEntity = nearestTarget(from)
+		local yaw = EnemyWorld:get(entity, Components.Yaw) or 0
+		local clock = TimeCore.EnemyClock
+		boss.Burrow = {
+			Index = index,
+			Attack = attack,
+			Warning = attack.Delay,
+			StartedAt = clock,
+			Head = from,
+			Heading = yaw,
+			Target = characterEntity,
+			TargetFeet = feet or targetFeet,
+			LegFrom = from,
+			LegAt = clock,
+		}
 	end)
+end
+
+-- Where a character a dive is after stands, while they are still a target (CharactersQuery's terms).
+local function feetOf(characterEntity: any): vector?
+	if not characterEntity or not World:contains(characterEntity) then return nil end
+	if not World:has(characterEntity, Tags.Alive) or World:has(characterEntity, Tags.Picking) then return nil end
+	local rootPart = World:get(characterEntity, Components.HumanoidRootPart)
+	local humanoid = World:get(characterEntity, Components.Humanoid)
+	if not rootPart or not humanoid then return nil end
+	return getCharacterFeet(rootPart, humanoid, 0)
+end
+
+local function sendLeg(boss: TBoss, burrow: TBurrow, now: number)
+	fireMove(boss, EBossMoves.Crack, burrow.Index, burrow.LegFrom, burrow.Head, now - burrow.LegAt)
+	burrow.LegFrom = burrow.Head
+	burrow.LegAt = now
+end
+
+-- Where a dive that caught its target comes up: Lead of the way to where they would be as its circle resolves if they
+-- kept running, along their floor up to a wall or a ledge; under their feet when they stand still. A runner who never
+-- looks down runs into it; one who stops or cuts away gets out.
+local function diveAim(burrow: TBurrow): vector
+	local feet = burrow.TargetFeet
+	local aim = leadPoint(feet, flatVelocity(burrow.Target), burrow.Warning, burrow.Attack.Lead or 0)
+	local direction = flatDirection(feet, aim)
+	if not direction then return feet end
+	local length, y = traceLine(feet, direction, vector.magnitude(aim - feet))
+	return vector.create(feet.x + direction.x * length, y, feet.z + direction.z * length)
+end
+
+-- Its head stops: caught up, it darts on to its aim (diveAim) on its target's floor; given up, it stays where it is
+-- (theirs off the grid). Its circle is shown there, and up through it as the circle resolves.
+local function surface(boss: TBoss, burrow: TBurrow, now: number, isCaught: boolean)
+	local entity = boss.Entity
+	local kit = boss.Kit
+	local index, attack, warning = burrow.Index, burrow.Attack, burrow.Warning
+	local head, target = burrow.Head, burrow.TargetFeet
+	boss.Burrow = nil
+
+	local spot = if isCaught then diveAim(burrow) else head
+	local fromY = if isCaught then spot.y + 0.75 else head.y
+	local landing = vector.create(spot.x, fromY, spot.z)
+	local nav = ArenaCore.Nav
+	if nav then
+		local node = ArenaCore.NodeAt(nav, spot.x, fromY, spot.z, ArenaCore.MAX_STEP)
+		landing = if node ~= NO_NODE
+			then vector.create(spot.x, ArenaCore.NodeHeight(nav, node), spot.z)
+			else vector.create(target.x, floorAt(target.x, target.z, target.y + 0.75), target.z)
+	end
+
+	-- Caught: the crack's last leg to its head, then the dart on; given up, its last leg to where it comes up.
+	if not isCaught then burrow.Head = landing end
+	sendLeg(boss, burrow, now)
+	if isCaught then fireMove(boss, EBossMoves.Dart, index, head, landing, Tune.DIVE_DART_SECONDS) end
+	fireMove(boss, EBossMoves.Surface, index, landing, landing, warning)
+	EnemyAttacksService.Telegraph(entity, attack, landing, 0, warning)
+
+	local riseAt = now + warning - kit.DiveRiseImpact
+	schedule(boss, riseAt, function()
+		if not EnemyWorld:contains(entity) then return end
+		local toward = nearestTarget(landing)
+		local direction = if toward then flatDirection(landing, toward) else nil
+		local yaw = if direction then yawOf(direction) else burrow.Heading
+		EnemyWorld:remove(entity, Tags.Submerged)
+		local halfExtents = EnemyWorld:get(entity, Components.HalfExtents) :: vector
+		EnemiesSpatialHash:AddAABB(entity, landing, halfExtents)
+		place(boss, landing, yaw)
+		EnemyWorld:set(entity, Components.Velocity, vector.zero)
+		fireMove(boss, EBossMoves.DiveRise, index, landing, landing, yaw)
+		boss.BusyUntil = riseAt + kit.DiveRiseLength + kit.ReassembleLength
+	end)
+
+	schedule(boss, riseAt + kit.DiveRiseImpact, function()
+		if EnemyWorld:contains(entity) then EnemyWorld:set(entity, Components.Immunity, Tune.RISE_IMMUNITY) end
+	end)
+end
+
+-- A frame of the tunnel: turned toward its target as far as its turn allows, then on along its heading.
+local function stepBurrow(boss: TBoss, burrow: TBurrow, now: number, dt: number)
+	-- Whom it went down for while they stand, then whoever is nearest its head.
+	local feet = feetOf(burrow.Target)
+	if not feet then
+		feet, burrow.Target = nearestTarget(burrow.Head)
+	end
+	if feet then burrow.TargetFeet = feet end
+
+	local head, target = burrow.Head, burrow.TargetFeet
+	local toTarget = vector.create(target.x - head.x, 0, target.z - head.z)
+	local distance = vector.magnitude(toTarget)
+	local under = now - burrow.StartedAt
+	if distance <= Tune.DIVE_CATCH and under >= Tune.MIN_UNDER then
+		surface(boss, burrow, now, true)
+		return
+	end
+	if under >= Tune.MAX_UNDER then
+		surface(boss, burrow, now, false)
+		return
+	end
+
+	local heading = burrow.Heading
+	if distance > 1e-3 then
+		local wanted = yawOf(toTarget)
+		local diff = math.atan2(math.sin(wanted - heading), math.cos(wanted - heading))
+		local turn = math.rad(Tune.DIVE_TURN) * dt
+		heading += math.clamp(diff, -turn, turn)
+		burrow.Heading = heading
+	end
+
+	local launch = Tune.DIVE_LAUNCH + (1 - Tune.DIVE_LAUNCH) * math.min(under / Tune.DIVE_RAMP, 1)
+	local lunge = if distance < Tune.DIVE_LUNGE_STUDS then Tune.DIVE_LUNGE else 1
+	local speed = boss.Kit.DiveSpeed * launch * lunge
+	local flat = head + vector.create(math.sin(heading), 0, math.cos(heading)) * (speed * dt)
+	burrow.Head = vector.create(flat.x, floorAt(flat.x, flat.z, head.y), flat.z)
+	if now - burrow.LegAt >= Tune.CRACK_LEG_SECONDS then sendLeg(boss, burrow, now) end
 end
 
 local function guardSpot(center: vector, yaw: number, i: number, count: number): vector?
@@ -792,8 +1030,31 @@ local function dropShield(boss: TBoss)
 end
 
 -- The roar: a ring to jump, then its guards rise round the arena and its shield goes up until they are dead.
-local function startSummon(boss: TBoss, attack: TData.TEnemyAttack, now: number, position: vector, yaw: number)
-	boss.HasSummoned = true
+-- How many of a Summon's health lines (TEnemyAttack.HealthLines) health share `share` is under; without lines, the one
+-- its phase opens.
+local function linesPassed(attack: TData.TEnemyAttack, share: number): number
+	local lines = attack.HealthLines
+	if not lines then return 1 end
+	local count = 0
+	for _, line in lines do
+		if share < line then
+			count += 1
+		end
+	end
+
+	return count
+end
+
+local function startSummon(
+	boss: TBoss,
+	attack: TData.TEnemyAttack,
+	now: number,
+	position: vector,
+	yaw: number,
+	share: number
+)
+	-- A blow past two lines at once is one roar.
+	boss.Summoned = math.max(boss.Summoned, linesPassed(attack, share))
 	EnemyAttacksService.Telegraph(boss.Entity, finisherOf(attack), position, 0, attack.Delay)
 	schedule(boss, now + attack.Delay, function()
 		local entity = boss.Entity
@@ -953,12 +1214,14 @@ local function start(boss: TBoss, index: number, now: number, position: vector, 
 	local kind = attack.Kind
 	local bossTempo = tempoOf(boss, share)
 	-- The roar comes once, at its line, as authored.
-	local tempo = if kind == "Summon" then 1 else bossTempo
+	local tempo = if kind == "Summon" then 1 else windupTempoOf(boss, share)
 	local length = (attack.Length or attack.Delay) * tempo
+	EnemyWorld:set(boss.Entity, Components.Yaw, yaw)
 	fireMove(boss, EBossMoves.Attack, index, position, position, yaw, tempo)
 	boss.ReadyAt[index] = now + length + attack.Cooldown * bossTempo
+	markUsed(boss, index, now)
 	if kind == "Summon" then
-		startSummon(boss, attack, now, position, yaw)
+		startSummon(boss, attack, now, position, yaw, share)
 	elseif attack.IsVolley then
 		startVolley(boss, index, attack, now, position, tempo)
 	else
@@ -967,7 +1230,8 @@ local function start(boss: TBoss, index: number, now: number, position: vector, 
 	setBusy(boss, index, now + length)
 end
 
--- A charge at its target, aimed where they are running (TEnemyAttack.Lead): the way it goes and how far it can.
+-- A charge at its target, aimed where they are running (TEnemyAttack.Lead) but never more than CHARGE_LEAD_ARC off
+-- them: the way it goes, how far it can, and whether its front gets as far as them before a wall or a ledge stops it.
 local function chargeLine(
 	boss: TBoss,
 	attack: TData.TEnemyAttack,
@@ -975,29 +1239,15 @@ local function chargeLine(
 	feet: vector,
 	characterEntity: any,
 	tempo: number
-): (vector?, number)
+): (vector?, number, boolean)
+	local toFeet = flatDirection(position, feet)
+	if not toFeet then return nil, 0, false end
 	local arrives = attack.Delay * tempo + vector.magnitude(feet - position) / runSpeed(attack, tempo)
-	local aim = leadPoint(feet, flatVelocity(characterEntity), arrives, attack.Lead or 0)
-	local direction = flatDirection(position, aim) or flatDirection(position, feet)
-	if not direction then return nil, 0 end
-	return direction, traceBody(boss.Kit, position, direction, attack.Radius or 70)
-end
-
-local function beginCharge(
-	boss: TBoss,
-	index: number,
-	attack: TData.TEnemyAttack,
-	now: number,
-	position: vector,
-	direction: vector,
-	length: number,
-	tempo: number
-)
-	local chargeYaw = yawOf(direction)
-	EnemyWorld:set(boss.Entity, Components.Yaw, chargeYaw)
-	fireMove(boss, EBossMoves.Attack, index, position, position, chargeYaw, tempo)
-	boss.ReachedAt = now
-	startCharge(boss, index, attack, now, position, direction, length, tempo)
+	local aim = leadPoint(feet, flatVelocity(characterEntity), arrives, attack.Lead or 0, math.huge)
+	local direction = clampTurn(toFeet, flatDirection(position, aim) or toFeet, math.rad(Tune.CHARGE_LEAD_ARC))
+	local length = traceBody(boss.Kit, position, direction, attack.Radius or 70)
+	local along = vector.dot(vector.create(feet.x - position.x, 0, feet.z - position.z), direction)
+	return direction, length, length + Tune.RAM_REACH >= along
 end
 
 local function beginDive(
@@ -1014,39 +1264,88 @@ local function beginDive(
 	boss.StrandedSince = nil
 	fireMove(boss, EBossMoves.Attack, index, position, position, yaw)
 	boss.ReadyAt[index] = now + attack.Cooldown * tempo
-	startDive(boss, index, attack, now, feet, tempo)
+	markUsed(boss, index, now)
+	startDive(boss, index, attack, now, feet)
 end
 
--- The yaw a close punish on the `facing` side of a target at `feet` is made at: a bite turns the head onto them first.
-local function aimSlam(
-	boss: TBoss,
-	facing: TData.TEnemyAttackFacing,
+-- The yaw a close slam on a target at `feet` would be made at: a bite turns its head onto them while they are in its
+-- front arc (nil when they are not), everything else is made the way it faces.
+local function slamYaw(
+	kit: TData.TEnemyBoss,
+	attack: TData.TEnemyAttack,
 	position: vector,
 	yaw: number,
 	feet: vector
-): number
+): number?
+	if attack.Facing ~= "Front" then return yaw end
+	if BossesCore.Facing(kit, position, yaw, feet) ~= "Front" then return nil end
 	local toTarget = flatDirection(position, feet)
-	if facing ~= "Front" or not toTarget then return yaw end
-	local aimYaw = yawOf(toTarget)
-	EnemyWorld:set(boss.Entity, Components.Yaw, aimYaw)
-	return aimYaw
+	return if toTarget then yawOf(toTarget) else yaw
 end
 
--- Its next move at the decoy it took (baitOf): the close punish for the side the doll stands on, cooling down or not,
--- else a charge at it from far enough off; the blow pops the doll, whose blast the boss takes. Neither in reach, it
--- walks on to it (Tags.Baited).
+-- Whether feet at `feet` are in `attack`'s shape made from `position` turned to `yaw`, on the floor its warning
+-- floods (EnemyAttacksService's own test, so no wall, ledge or deck between).
+local function isInArea(attack: TData.TEnemyAttack, position: vector, yaw: number, feet: vector): boolean
+	local nav = ArenaCore.Nav
+	local kind, size, width = TelegraphCore.ShapeOf(attack)
+	local shapeYaw = if kind == ETelegraphs.Cone or kind == ETelegraphs.Line then yaw else 0
+	-- The shape alone first: the flood is the costly part, and only someone inside the shape needs it.
+	local x, z = TelegraphCore.ToLocal(position, shapeYaw, feet)
+	if TelegraphCore.Distance(kind, size, width, x, z) > 0 then return false end
+	table.clear(reusableFootprint)
+	local floorY = TelegraphCore.Footprint(nav, kind, position, shapeYaw, size, width, reusableFootprint)
+	local footprint = if floorY then reusableFootprint else nil
+	return TelegraphCore.IsInside(nav, footprint, kind, position, shapeYaw, size, width, feet)
+end
+
+-- Whether a close slam made at `yaw` (slamYaw) would catch feet at `feet` where they stand now: in its shape (turned
+-- back for the tail) or in the ring its last beat rolls out. A move that would land on nothing is not made.
+local function wouldHit(attack: TData.TEnemyAttack, position: vector, yaw: number, feet: vector): boolean
+	local shapeYaw = if attack.Facing == "Behind" then yaw + math.pi else yaw
+	if isInArea(attack, position, shapeYaw, feet) then return true end
+	return attack.FinisherRadius ~= nil and isInArea(finisherOf(attack), position, 0, feet)
+end
+
+-- Its weight in a draw (Tune.FRESH_WEIGHT): more the longer since it was made, less if it was the last.
+local function weightOf(boss: TBoss, index: number, now: number): number
+	local since = now - (boss.UsedAt[index] or -math.huge)
+	local weight = 1 + Tune.FRESH_WEIGHT * math.min(since / Tune.FRESH_SECONDS, 1)
+	return if index == boss.LastIndex then weight * Tune.REPEAT_SHARE else weight
+end
+
+-- Runs one of `options`, drawn by `weights` (same order); nothing when there are none.
+local function draw(options: { () -> () }, weights: { number })
+	local total = 0
+	for _, weight in weights do
+		total += weight
+	end
+	if total <= 0 then return end
+
+	local roll = math.random() * total
+	for i, weight in weights do
+		roll -= weight
+		if roll > 0 then continue end
+		options[i]()
+		return
+	end
+end
+
+-- Its next move at the decoy it took (baitOf): a close slam that would catch the doll, cooling down or not, else a
+-- charge at it from far enough off; the blow pops the doll, whose blast the boss takes. Neither in reach, it walks on
+-- to it (Tags.Baited).
 local function goForBait(boss: TBoss, now: number, position: vector, yaw: number, share: number, bait: TBait)
 	local feet = bait.Feet
 	if math.abs(feet.y - position.y) > ArenaCore.MAX_STEP + 1 then return end
 	local distance = vector.magnitude(vector.create(feet.x - position.x, 0, feet.z - position.z))
-	local tempo = tempoOf(boss, share)
+	local tempo = windupTempoOf(boss, share)
 	local attacks = boss.Data.Attacks
-	local facing = BossesCore.Facing(boss.Kit, position, yaw, feet)
 	for index, attack in attacks do
-		if attack.Kind ~= "Slam" or attack.IsVolley or attack.Facing ~= facing then continue end
+		if attack.Kind ~= "Slam" or attack.IsVolley then continue end
 		if distance > attack.Range or not isInPhase(attack, share) then continue end
+		local aimYaw = slamYaw(boss.Kit, attack, position, yaw, feet)
+		if not aimYaw or not wouldHit(attack, position, aimYaw, feet) then continue end
 		dropBait(boss)
-		start(boss, index, now, position, aimSlam(boss, facing, position, yaw, feet), share)
+		start(boss, index, now, position, aimYaw, share)
 		local beats = attack.Beats
 		schedule(boss, now + (if beats then beats[1] else attack.Delay) * tempo, function()
 			if EnemyWorld:contains(boss.Entity) then EnemyMovementService.CrushLure(bait.Id, boss.Entity) end
@@ -1057,9 +1356,10 @@ local function goForBait(boss: TBoss, now: number, position: vector, yaw: number
 	for index, attack in attacks do
 		if attack.Kind ~= "Charge" or distance < (attack.MinRange or 0) or distance > attack.Range then continue end
 		if not isInPhase(attack, share) then continue end
-		local direction, length = chargeLine(boss, attack, position, feet, nil, tempo)
-		-- A wall short of the doll: it walks round instead.
-		if not direction or length < Tune.MIN_CHARGE or length + Tune.RAM_REACH < distance then continue end
+		local direction, length, isReaching = chargeLine(boss, attack, position, feet, nil, tempo)
+		-- A wall short of the doll, or no room to turn onto it: it walks round instead.
+		if not direction or length < Tune.MIN_CHARGE or not isReaching then continue end
+		if not canFaceLine(boss.Kit, position, yaw, direction) then continue end
 		dropBait(boss)
 		boss.Crushing = bait
 		beginCharge(boss, index, attack, now, position, direction :: vector, length, tempo)
@@ -1067,8 +1367,7 @@ local function goForBait(boss: TBoss, now: number, position: vector, yaw: number
 	end
 end
 
--- The move for this moment, by where its target stands: the shield at its health line, a dive at someone it cannot
--- reach, the close punish for the side they are on, then a charge at a runner or spines on the far ones.
+-- The console's move (ForceNext), made at its target whatever its range, cooldown or phase.
 local function forced(
 	boss: TBoss,
 	now: number,
@@ -1086,22 +1385,22 @@ local function forced(
 		local toTarget = flatDirection(position, feet)
 		local aimYaw = if toTarget then yawOf(toTarget) else yaw
 		if attack.Kind == "Charge" then
-			local tempo = tempoOf(boss, share)
+			local tempo = windupTempoOf(boss, share)
 			local direction, length = chargeLine(boss, attack, position, feet, characterEntity, tempo)
 			direction = direction or vector.create(math.sin(yaw), 0, math.cos(yaw))
 			beginCharge(boss, index, attack, now, position, direction :: vector, length, tempo)
 		elseif attack.Kind == "Dive" then
 			beginDive(boss, index, attack, now, position, yaw, feet, share)
 		else
-			if attack.Kind == "Summon" then boss.HasSummoned = false end
-			local facingYaw = if attack.Facing == "Front" then aimYaw else yaw
-			EnemyWorld:set(boss.Entity, Components.Yaw, facingYaw)
-			start(boss, index, now, position, facingYaw, share)
+			start(boss, index, now, position, if attack.Facing == "Front" then aimYaw else yaw, share)
 		end
 		return
 	end
 end
 
+-- The move for this moment, by where its target stands: the shield at each health line, a dive at someone it cannot
+-- reach, a close slam that would catch them where they stand, then a charge at a runner or spines on the far ones.
+-- Of the close ones, and of the far ones, any that would land is drawn by weight (weightOf); none, and it walks on.
 local function think(boss: TBoss, now: number, position: vector, yaw: number, share: number)
 	local feet, characterEntity, targetId, distance = nearestTarget(position)
 	if not feet then return end
@@ -1115,9 +1414,10 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 	local isStranded = updateStranded(boss, now, position, targetId, distance)
 	local isSameLevel = math.abs(feet.y - position.y) <= ArenaCore.MAX_STEP + 1
 
+	-- Never over a shield already up: its guards are still to kill.
 	for index, attack in attacks do
-		if attack.Kind ~= "Summon" or boss.HasSummoned then continue end
-		if not isOpen(boss, index, attack, share, now) then continue end
+		if attack.Kind ~= "Summon" or next(boss.Guards) ~= nil then continue end
+		if linesPassed(attack, share) <= boss.Summoned or not isOpen(boss, index, attack, share, now) then continue end
 		start(boss, index, now, position, yaw, share)
 		return
 	end
@@ -1136,42 +1436,56 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 		end
 	end
 
-	-- The close punish for the side its target stands on.
-	local facing = BossesCore.Facing(kit, position, yaw, feet)
-	for index, attack in attacks do
-		if attack.Kind ~= "Slam" or attack.IsVolley or attack.Facing ~= facing then continue end
-		if not isSameLevel or distance > attack.Range or not isOpen(boss, index, attack, share, now) then continue end
-		start(boss, index, now, position, aimSlam(boss, facing, position, yaw, feet), share)
+	-- Close: the bite turned onto its target in front, the tail behind, a stamp's circle on any side.
+	local options: { () -> () } = {}
+	local weights: { number } = {}
+	if isSameLevel then
+		for index, attack in attacks do
+			if attack.Kind ~= "Slam" or attack.IsVolley or distance > attack.Range then continue end
+			if not isOpen(boss, index, attack, share, now) then continue end
+			local aimYaw = slamYaw(kit, attack, position, yaw, feet)
+			if not aimYaw or not wouldHit(attack, position, aimYaw, feet) then continue end
+			table.insert(options, function()
+				start(boss, index, now, position, aimYaw, share)
+			end)
+			table.insert(weights, weightOf(boss, index, now))
+		end
+	end
+	if #options > 0 then
+		draw(options, weights)
 		return
 	end
 
-	-- At range: a charge down a clear line at where its target is running, a dive up under them, or spines on
-	-- everybody far off. Any of them that is open.
+	-- At range: a charge down a clear line that reaches its target, a dive up under them, or spines on everybody far
+	-- off.
 	local isChasing = now - boss.ReachedAt >= kit.ChaseSeconds
-	local tempo = tempoOf(boss, share)
-	local options: { () -> () } = {}
+	local tempo = windupTempoOf(boss, share)
 	for index, attack in attacks do
 		if not isOpen(boss, index, attack, share, now) then continue end
+		local move: (() -> ())? = nil
 		if attack.Kind == "Charge" and isSameLevel and distance <= attack.Range then
 			if distance < (attack.MinRange or 0) and not isChasing then continue end
-			local direction, length = chargeLine(boss, attack, position, feet, characterEntity, tempo)
-			if not direction or length < Tune.MIN_CHARGE then continue end
-			table.insert(options, function()
+			local direction, length, isReaching = chargeLine(boss, attack, position, feet, characterEntity, tempo)
+			if not direction or length < Tune.MIN_CHARGE or not isReaching then continue end
+			if not canFaceLine(kit, position, yaw, direction) then continue end
+			move = function()
 				beginCharge(boss, index, attack, now, position, direction :: vector, length, tempo)
-			end)
+			end
 		elseif attack.Kind == "Dive" and distance >= (attack.MinRange or math.huge) then
-			table.insert(options, function()
+			move = function()
 				beginDive(boss, index, attack, now, position, yaw, feet, share)
-			end)
+			end
 		elseif attack.IsVolley and isAnyoneBetween(position, attack.MinRange or 0, attack.Range) then
-			table.insert(options, function()
+			move = function()
 				start(boss, index, now, position, yaw, share)
-			end)
+			end
 		end
+		if not move then continue end
+		table.insert(options, move)
+		table.insert(weights, weightOf(boss, index, now))
 	end
 
-	if #options == 0 then return end
-	options[math.random(1, #options)]()
+	draw(options, weights)
 end
 
 -- ============================== Lifecycle ==============================
@@ -1193,11 +1507,14 @@ local function adopt(entity: any, data: TData.TEnemy, position: vector): TBoss?
 		StrandedSince = nil,
 		MovedFrom = position,
 		MovedAt = now,
-		HasSummoned = false,
+		Summoned = 0,
+		UsedAt = {},
+		LastIndex = 0,
 		Guards = {},
 		GuardTotal = 0,
 		ShieldEndsAt = 0,
 		Run = nil,
+		Burrow = nil,
 		-- Adopted on the first frame the match runs after its intro.
 		NextThinkAt = now + kit.OpeningSeconds,
 		Forced = nil,
@@ -1235,6 +1552,27 @@ local function runSteps(boss: TBoss, now: number)
 	end
 end
 
+-- Eases each standing character's smoothed run toward its velocity now, over `dt` real seconds
+-- (Tune.VELOCITY_SMOOTHING), and forgets the ones gone.
+local function trackVelocities(dt: number)
+	local blend = 1 - math.exp(-dt / Tune.VELOCITY_SMOOTHING)
+	for characterEntity, rootPart in CharactersQuery do
+		local velocity = rootPart.AssemblyLinearVelocity
+		local flat = vector.create(velocity.X, 0, velocity.Z)
+		local last = smoothedVelocities[characterEntity]
+		smoothedVelocities[characterEntity] = if last then last + (flat - last) * blend else flat
+	end
+
+	for characterEntity in smoothedVelocities do
+		if not World:contains(characterEntity) then smoothedVelocities[characterEntity] = nil end
+	end
+end
+
+-- Put down by a player: the whole match drops into slow motion for its fall.
+EnemiesService.OnEnemyDied:Connect(function(_, enemyData: TData.TEnemy)
+	if enemyData.IsBoss then TimeService.SlowMotion() end
+end)
+
 -- Gone (killed, cleared): its guards crumble and its shield's marks go with it.
 EnemiesService.OnEnemyRemoving:Connect(function(entity)
 	local boss = bosses[entity]
@@ -1257,6 +1595,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 	local enemyDt = TimeCore.GetEnemyDeltaTime(dt)
 	if enemyDt <= 0 then return end
 	local now = TimeCore.EnemyClock
+	if next(bosses) == nil then
+		table.clear(smoothedVelocities)
+	else
+		trackVelocities(dt)
+	end
 
 	for entity, position, yaw, health, maxHealth, data in BossQuery do
 		local boss = bosses[entity] or adopt(entity, data, position)
@@ -1270,6 +1613,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 		local run = boss.Run
 		if run then
 			stepRun(boss, run, now, enemyDt, EnemyWorld:get(entity, Components.Position) :: vector, share)
+			continue
+		end
+		local burrow = boss.Burrow
+		if burrow then
+			stepBurrow(boss, burrow, now, enemyDt)
 			continue
 		end
 

@@ -11,7 +11,7 @@ local GROUP = "Bosses.TRex"
 -- Seconds each cue plays before its beat, as baked (Review/TRex/ship_picks.py prints them); one not here starts on it.
 local LEAD: { [string]: number } = table.freeze({
 	Roar = 0.725,
-	RoarShort = 0.36,
+	RoarShort = 0.15,
 	Bite = 0.415,
 	TailSweep = 0.36,
 	Snort = 0.312,

@@ -32,7 +32,7 @@ HealthUpgrade.Timing = table.freeze({
 	-- are on the same beat: move one and move them all.
 	THROW = 0.16,
 	LAND = 0.5,
-	-- From the landing the bar is struck (HealthBar) and grows to its new length over this long.
+	-- From the landing the bar is struck (HealthBar) and its cells narrow to fit the new ones over this long.
 	GROW = 0.34,
 	-- The next level deals up into the card, and its price counts up from nothing.
 	DEAL_AT = 0.3,

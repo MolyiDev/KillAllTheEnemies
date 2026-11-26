@@ -8,6 +8,7 @@
 -- is projected to the screen for its tag (TMember.HeadAt).
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local InertialBlend = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.inertialBlend)
 local avatarClips = require(script.Parent.Parent.Parent.Utils.avatarClips)
 local Types = require(script.Parent.Types)
 
@@ -38,6 +39,8 @@ local Tune = table.freeze({
 	-- How far a squad member's head stands over their feet before their avatar has loaded (studs).
 	DEFAULT_HEAD = 5.2,
 	CHEER_DELAY = 0.3,
+	-- The cheer is blended in from the idle and out of its last frame back into it over this long (inertialBlend).
+	CHEER_BLEND = 0.3,
 	-- The car's moving parts: the hoist turns as fast as the cables run (RADIUS), the arrow's neon and the shaft's warning
 	-- lights pulse (LOW is how far they dim), the panel's buttons light one after another, now and then a lamp dips.
 	RADIUS = 3,
@@ -64,7 +67,14 @@ local ELEVATOR_PATH = { "Lobby", "Map", "ResultsElevator" }
 
 type TGlow = { Part: BasePart, Transparency: number, Lights: { [Light]: number } }
 -- A body on the stage: where it stands and how far its pivot is over its feet, and its clips once it is in.
-type TBody = { Spot: CFrame, Lift: number, IsIn: boolean, HasLanded: boolean, Cheer: AnimationTrack? }
+type TBody = {
+	Spot: CFrame,
+	Lift: number,
+	IsIn: boolean,
+	HasLanded: boolean,
+	Cheer: AnimationTrack?,
+	Blend: InertialBlend.TInertialBlend?,
+}
 
 local Stage = {}
 
@@ -224,6 +234,7 @@ local function bodyOf(model: Model, slot: number): TBody
 		IsIn = false,
 		HasLanded = false,
 		Cheer = nil,
+		Blend = nil,
 	}
 	bodies[model] = body
 	local root = model:FindFirstChild("HumanoidRootPart")
@@ -245,6 +256,7 @@ local function bringIn(model: Model, body: TBody, member: Types.TMember)
 		local cheer = load(animator, avatarClips.CHEER, false)
 		cheer.Priority = Enum.AnimationPriority.Action
 		body.Cheer = cheer
+		body.Blend = InertialBlend.new(InertialBlend.JointsOf(model), false)
 	end
 end
 
@@ -275,7 +287,8 @@ local function placeBody(
 				kick = math.max(kick, if member.IsMvp then Tune.MVP_KICK else Tune.LAND_KICK)
 			end
 			if body.Cheer and body.HasLanded and times.Elapsed() >= arriveAt + Tune.DROP + Tune.CHEER_DELAY then
-				body.Cheer:Play(0.1)
+				local blend = body.Blend
+				if blend then blend:PlayOneShot(body.Cheer, Tune.CHEER_BLEND) end
 				body.Cheer = nil
 			end
 			local headPart = model:FindFirstChild("Head")

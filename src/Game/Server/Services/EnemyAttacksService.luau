@@ -21,16 +21,23 @@ local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local getCharacterFeet = require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterFeet)
+local getPlayerFromCharacterEntity =
+	require(ReplicatedStorage.GlobalShared.Utils.Functions.getPlayerFromCharacterEntity)
 local ETelegraphs = require(ReplicatedStorage.Types.Enums.ETelegraphs)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local ServerNetworkEnemies = Network.Server.Enemies
+local ServerNetworkBosses = Network.Server.Bosses
 
 local CharactersQuery =
 	World:query(Components.HumanoidRootPart, Components.Humanoid):with(Tags.Character, Tags.Alive):cached()
 
 -- A defense is in a cone or a line when its centre is this close to it (a circle measures its footprint instead).
 local DEFENSE_REACH = 1.5
+-- A dive bursting up under a player throws them (studs a second): up, and out from its middle. A blow from under the
+-- floor that leaves them standing reads as a miss.
+local DIVE_KNOCK_UP = 48
+local DIVE_KNOCK_OUT = 26
 
 type TPending = {
 	TelegraphId: number,
@@ -156,10 +163,17 @@ local function hitArea(entry: TPending)
 	local nav = ArenaCore.Nav
 	local warning = entry.Warning
 	local kind, center, yaw, size, width = warning.Kind, warning.Center, warning.Yaw, warning.Size, warning.Width
+	local isDive = entry.Attack.Kind == "Dive"
 	for characterEntity, rootPart, humanoid in CharactersQuery do
 		local feet = getCharacterFeet(rootPart, humanoid, 0)
 		if not TelegraphCore.IsInside(nav, entry.Footprint, kind, center, yaw, size, width, feet) then continue end
 		CharacterService.Damage(characterEntity, entry.Damage)
+		if not isDive then continue end
+		local player = getPlayerFromCharacterEntity(characterEntity)
+		if not player then continue end
+		local out = vector.create(feet.x - center.x, 0, feet.z - center.z)
+		local away = if vector.magnitude(out) > 1e-3 then vector.normalize(out) else vector.zero
+		ServerNetworkBosses.Knocked.Fire(player, (away * DIVE_KNOCK_OUT + vector.create(0, DIVE_KNOCK_UP, 0)) :: any)
 	end
 
 	local reach = if kind == ETelegraphs.Line then math.sqrt(size * size + width * width / 4) else size

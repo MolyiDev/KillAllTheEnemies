@@ -2,7 +2,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
--- The Skeleton T-Rex's guards (its Summon): four rise round the arena at 60% and hold its shield up until they fall.
+-- The Skeleton T-Rex's guards (its Summon): four rise round the arena at each quarter of its
+-- health gone and hold its shield up until they fall.
 -- Never drawn into a wave. Tough enough that killing them is the party's job for a while, never a chore.
 local data: TData.TEnemy = {
 	Id = EEnemiesIds.FossilGuard,

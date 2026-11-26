@@ -5,10 +5,10 @@ local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
 -- The Skeleton T-Rex (PlanBosses.md): Pirate Cove's and Grass Lands' principal boss. What it does is decided by where
--- its target stands round it: a bite in front, the tail behind, a stamp beside or under it, a charge at a runner, a
--- volley of spines at the back line, a dive at anyone it cannot walk to or keeps away. At 60% it raises four guards
--- and shields itself; under 50% its moves grow, and the lower its health the faster it all comes (Tempo). Every time
--- below is read off its clips (Assets/models/Bosses/TRex/anim/clips.json) and every reach off its poses at impact:
+-- its target stands round it: a bite in front, the tail behind, a stamp on any side close in, a charge at a runner, a
+-- volley of spines at the back line, a dive at anyone it cannot walk to or keeps away. At each quarter of its health
+-- gone it raises four guards and shields itself; under 50% its moves grow, and the lower its health the faster it all
+-- comes (Tempo). Every time below is read off its clips (Assets/models/Bosses/TRex/anim/clips.json) and every reach off its poses at impact:
 -- the snout bites 26.9 studs ahead of Root, the tail sweeps 18.3 behind it (the rig at 0.875 of delivered:
 -- ReplicatedStorage.Models.Enemies.TRex is ScaleTo'd 1.25 over the 0.7 it was built at). No hit is worth a full
 -- health bar at wave 45 (30 x 2.76 = 83 at most).
@@ -97,12 +97,12 @@ local data: TData.TEnemy = {
 		{
 			Kind = "Charge",
 			Radius = 70,
-			Width = 10,
+			Width = 13,
 			Speed = 50,
 			Range = 90,
 			MinRange = 25,
 			Delay = 1.2,
-			Lead = 0.5,
+			Lead = 1,
 			Cooldown = 7,
 			DamageScale = 1,
 			HealthAbove = 0.5,
@@ -111,12 +111,12 @@ local data: TData.TEnemy = {
 		{
 			Kind = "Charge",
 			Radius = 70,
-			Width = 10,
+			Width = 13,
 			Speed = 50,
 			Range = 90,
 			MinRange = 25,
 			Delay = 1.2,
-			Lead = 0.5,
+			Lead = 1,
 			Chains = 1,
 			Cooldown = 7,
 			DamageScale = 1,
@@ -162,7 +162,9 @@ local data: TData.TEnemy = {
 			Radius = 15,
 			Range = 400,
 			MinRange = 35,
-			Delay = 1.4,
+			-- Its circle's seconds as it comes up, the same at any health: no clip is timed to it.
+			Delay = 1.2,
+			Lead = 0.85,
 			Cooldown = 12,
 			DamageScale = 0.9,
 			AnimationName = "DiveSink",
@@ -176,7 +178,8 @@ local data: TData.TEnemy = {
 			Length = 2.5,
 			Cooldown = 0,
 			DamageScale = 0.5,
-			HealthBelow = 0.6,
+			-- The boss bar's segments: it roars at each quarter of its health gone.
+			HealthLines = { 0.75, 0.5, 0.25 },
 			Summons = EEnemiesIds.FossilGuard,
 			Count = 4,
 			ShieldSeconds = 25,
@@ -192,8 +195,9 @@ local data: TData.TEnemy = {
 		Title = "SKELETON T-REX",
 		Subtitle = "THE BONE TYRANT",
 		Icon = EIcons.ZombieKing,
-		TempoStart = 1.35,
+		TempoStart = 1.15,
 		TempoEnd = 0.7,
+		WindupTempoMin = 0.9,
 		OpeningSeconds = 2.5,
 		TurnRate = 90,
 		BodyFront = 24,
@@ -219,7 +223,7 @@ local data: TData.TEnemy = {
 		DeathDown = 1.6,
 		DeathLength = 4,
 		Intro = {
-			Length = 11.0833,
+			Length = 12.6167,
 			ShotsAhead = 2.39,
 			Steps = {
 				{ Time = 0.917, Side = "r" },
@@ -233,7 +237,7 @@ local data: TData.TEnemy = {
 			StompSide = "r",
 			Roar = 7.3333,
 			Chomp = 9.5417,
-			Hold = 10.9167,
+			IdleAt = 1.7,
 			End = 12.9,
 		},
 	},

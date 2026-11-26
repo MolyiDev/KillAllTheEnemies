@@ -24,14 +24,15 @@ export type TEnemyModel = Model & {
 -- A boss's own (BossService runs them; enemiesUpdate never starts one):
 --   Charge  a Line of Width from the body Radius long: after the wind-up the body runs it at Speed, hitting whoever it
 --           passes, and skids to a stop. A wall or a ledge on the line ends it early.
---   Dive    sinks into the floor (nothing can hit it), runs under it to its target and bursts up in a circle of Radius.
+--   Dive    sinks into the floor (nothing can hit it), runs under it, steering after its target, and bursts up
+--           under them in a circle of Radius.
 --   Summon  roars (a ring of Radius at Speed to jump) and raises Count bodies of Summons, shielded until they fall.
 export type TEnemyAttackKind = "Melee" | "Explode" | "Slam" | "Shockwave" | "Charge" | "Dive" | "Summon"
 
--- Where a boss's target has to stand round its body for it to take an attack (BossesCore's arcs).
---   Front   in the front arc.
---   Behind  in the rear arc; its Cone or Line is turned to point back.
---   Beside  in neither, or under the body.
+-- Where a boss's close attack reaches round its body; it is taken only on a target it would catch (BossService).
+--   Front   whoever is in the front arc (BossesCore's arcs), its head turned onto them.
+--   Behind  its Cone or Line turned to point back.
+--   Beside  anywhere its circle reaches round the body (a stamp), front and back included.
 export type TEnemyAttackFacing = "Front" | "Behind" | "Beside"
 
 -- A Slam's area (TEnemyAttack.Shape). A Cone or a Line starts at the body and points where it faces (at its target),
@@ -85,7 +86,7 @@ export type TEnemyAttack = {
 	-- the Beats, a few at once, so one salvo covers where they run and where they would cut to. nil: one a beat.
 	SpineCount: { number }?,
 	-- Aimed this share of the way to where its target would be when it lands, if they kept running (a Volley's
-	-- spines, a Charge's line). nil: at where they stand.
+	-- spines, a Charge's line, where a Dive comes up). nil: at where they stand.
 	Lead: number?,
 	-- Charge: how many more charges it chains after the first (a skid, a turn, and off again).
 	Chains: number?,
@@ -93,6 +94,8 @@ export type TEnemyAttack = {
 	Summons: number?,
 	Count: number?,
 	ShieldSeconds: number?,
+	-- Summon: made each time its health share falls under one of these (a blow past two is one roar). nil: once.
+	HealthLines: { number }?,
 }
 
 export type TEnemy = {
@@ -173,6 +176,10 @@ export type TEnemyBoss = {
 	-- TempoEnd times at none, straight in between (BossesCore.Tempo), so it opens slow to read and ends fast.
 	TempoStart: number,
 	TempoEnd: number,
+	-- Its wind-ups and clips never go faster than this (BossesCore.WindupTempo): a warning shorter than a reaction
+	-- and the run out of it is no longer a dodge. Cooldowns and rests still go down to TempoEnd, so the end of the
+	-- fight is harder by coming more often, not by coming faster than anyone can answer.
+	WindupTempoMin: number,
 	-- Seconds after it comes on (the intro over) before its first attack: room to see it and spread out.
 	OpeningSeconds: number,
 	-- Degrees a second it turns while it walks, slowing until it faces the way it goes: a body this long cannot spin
@@ -195,7 +202,7 @@ export type TEnemyBoss = {
 	SkidStop: number,
 	SkidLength: number,
 	TurnLength: number,
-	-- Dive: under the floor from DiveUnder into DiveSink's clip (DiveSinkLength long); it runs under at DiveSpeed;
+	-- Dive: under the floor from DiveUnder into DiveSink's clip (DiveSinkLength long); it runs under at about DiveSpeed;
 	-- DiveRise's clip bursts through the floor at DiveRiseImpact and lasts DiveRiseLength; then ReassembleLength.
 	DiveUnder: number,
 	DiveSinkLength: number,
@@ -232,8 +239,10 @@ export type TEnemyBossIntro = {
 	StompSide: string,
 	Roar: number,
 	Chomp: number,
-	Hold: number,
-	-- The cutscene's clock when the view is handed back: clip seconds, running on past Hold while the pose is held.
+	-- The clip ends settled into the Idle: its last frame is the Idle clip's frame at this time, where the Idle takes
+	-- over with nothing left to blend.
+	IdleAt: number,
+	-- The cutscene's clock when the view is handed back: clip seconds, running on past Length while the body idles.
 	-- BossesCore.IntroSeconds turns it into real time (the roar's slow motion included).
 	End: number,
 }

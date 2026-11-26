@@ -238,8 +238,8 @@ Most of these rigs are missing something. Work with it rather than around it.
   and threw at it from out of range. **No throw ever goes past FireRange**: at the release, a target further than
   that is thrown at the ground at FireRange on the line to it (enemiesUpdateServer's release). A downed lord and a
   wall between still hand it back to the Core, as for every enemy.
-- **Blend targets.** A one-shot over locomotion should end at or near the pose the idle starts from, or
-  the fade out is a visible snap.
+- **Blend targets.** A one-shot over locomotion should end at or near the pose the idle starts from. The
+  switch is blended either way, never crossfaded and never left to run out (section 17).
 
 ---
 
@@ -1553,6 +1553,7 @@ Everything is under `Assets/models/Bosses/TRex/` (gitignored, like all of `Asset
 | `anim/rest.json` | the built rig dumped once (bone heads, vertices, weights, triangles); redo it after any rebuild |
 | `anim/trex_lib.py` | numpy FK and skinning (matches Blender's own deform to 0.000005 studs), the leg solver, `assemble`, springs |
 | `anim/intro.py` | the delivered clip carried onto the rebuilt rig by deform matrices |
+| `anim/settle.py` | the Intro's settle into the Idle after the bite: the held pose read back into controls, stepped and eased onto the Idle's frame at `IdleAt` (section 17) |
 | `anim/trex_clips.py` | every clip as a function of time; `measure` checks them; `run_name="bake"` bakes them into Blender |
 | `anim/clipcheck.py` | arms (and claws) inside the chest, belly or neck, every frame |
 | `anim/gait_search.py` | grid search of a gait's numbers against the leg's limits |
@@ -1599,8 +1600,11 @@ python3 gait_search.py walk|charge         # gait numbers against the leg's limi
 - **A turn at speed drifts, it does not hop**: braced feet scraping round, a lean into the turn, the tail swinging out.
 - **A death has no roar and nothing robotic**: a recoil, a stagger with a catching step, the knees giving, catching
   and giving, the topple, all on the loose-part springs. Its falling-apart ending was liked as it was.
+- **The Intro's hand-over to the Idle was robotic** (2026-11-25, twice): a frozen Walk under it showed through as a
+  held stride, then a 0.6 s crossfade slid the head 2.2 studs and both feet at one even speed and stopped dead. The
+  clip now ends settled into the Idle (`anim/settle.py`, section 17).
 - **The rest held up**: Idle, Walk, Chomp, TailSweep, Stomp, Quake, the charge windup and skid, Barrage, Summon,
-  Reassemble and the Intro were not corrected.
+  Reassemble and the delivered part of the Intro were not corrected.
 
 ### Before showing: what `measure` and `clipcheck` must read
 
@@ -1695,3 +1699,116 @@ playtest:
   the body, or the pieces start under it and pop up.
 - **Show a clip the way the game plays it**: the turn's render yaws the rig as the game yaws Root, or a drift reads
   as a spin back to the start.
+- **A boss's clips play at 1 / its tempo, and the tempo has a floor** (2026-11-25): every attack clip is authored at
+  its real timing and sped up or slowed to land its blow on the warning (`BossController.onAttack`), so a clip's speed
+  IS the player's dodge window. Near death the T-Rex's clips once played at 1 / 0.7 (1.43x): the bite's 0.9 s became
+  0.63 s, faster than a reaction and the run out of the cone. `TEnemyBoss.WindupTempoMin` (0.9) caps them at 1.11x;
+  cooldowns and rests still speed up. A new boss's clips are authored knowing they play at most that much faster,
+  and a wind-up's tell is judged at that speed too (PlanBosses.md, "Every warning is a dodge").
+
+### A reaction laid over any clip, in code (the hurt, 2026-11-25)
+
+A quarter of the T-Rex's health gone rears it whatever move it is in (`BossController.poseHurts`, VFX.md 41): no clip,
+a turn per bone written over the Animator's pose.
+
+- **Upper body and tail only.** `Belly` is the hips' child that carries the chest, neck and arms, so turning it rears
+  the body on planted legs; the legs hang off `Hips` and never move, so no foot slides. Rest rotations are identity
+  (front +Z, left +X): pitch - lifts a front (the belly, neck, head), pitch + drops one (the jaw opens) and lifts the
+  tail, which points back.
+- **Written from PreSimulation**, after the Animator has posed the rig, as `base * CFrame.Angles(...)` from this
+  frame's pose. A bone no playing clip keys keeps the last write, so the turn starts from the pose under that write
+  (kept beside it), or it adds up frame on frame.
+- **One envelope, lagged down the chain**: `exp(-4.2 t) sin(7 t) * 2.164` (peak 1 at 0.15 s, over by 1.1 s), each bone
+  starting a few hundredths after its parent (neck 0.03-0.07, head 0.09, tail tip 0.13) so the head and tail whip.
+- **Away from the shots**: the yaw's sign from which side of its frame the player stands on.
+
+---
+
+## 17. Clip switches and endings: blended, never crossfaded or left to run out (2026-11-25)
+
+The user, twice, on the T-Rex intro's hand-over to its idle: "too robotic", with the camera and the letterbox holding
+the eye on it. The cause was not the intro: it was how the engine switches clips, and every enemy, boss and lobby
+avatar switched the same way. This is the treatment every clip now gets.
+
+### Engine facts (measured in playtests)
+
+- **A one-shot track that runs out drops its pose in one frame**: whatever is under it snaps in. Every attack ending
+  did it (the crowd's back into the walk, the T-Rex's into idle or walk), and so did the lobby's cheers and the index
+  picture's attack.
+- **The engine's fade is a linear crossfade, and its curve cannot be changed**: every joint slides at one even rate
+  and stops dead. The T-Rex's attacks start and end in the plain stance, 0.7 to 1.7 studs (worst vertex) from the
+  idle's phases and 1.8 to 3.6 from the walk's, crossed in a 0.12 s fade: feet jumping from mid-stride in 7 frames.
+  Its charge chain (windup, charge, skid, turn) switched over gaps of 3.5 to 6.4 studs in 0.08 to 0.1 s.
+- **A track keeps advancing while it fades out.** `Stop(0.1)` on a track already sitting on its last frame took
+  0.28 s to reach weight 0, the frozen frame dragging on what played under it.
+- **The Animator poses rigs between `PreAnimation` and `PreSimulation`.** A write to `Bone.Transform` or
+  `Motor6D.Transform` from PreSimulation lands over it. A switch asked INSIDE a PreSimulation handler (a renderer
+  stepping, like `EnemiesController.update` starting a walk) is not posed until the next frame's Animator pass.
+- **A clip under an Action clip keeps playing.** A body the client believes is walking walks under it; in a held match
+  its clock is 0, so the walk sat frozen mid-stride under the intro and showed through the moment the intro faded.
+  A boss now arrives standing (`addEnemy`), since no packet comes while the match is held.
+
+### The rule: inertialization (`GlobalClient.Utils.inertialBlend`)
+
+Bollo, "Inertialization: High-Performance Animation Transitions in Gears of War" (GDC 2018). A switch is CUT; what
+the joints showed before it becomes an offset over the new pose that dies away on a quintic leaving with the old
+motion's speed. A motion heading away from the new pose is not carried on (it would overshoot); one heading toward
+it fast shortens the span (`-5 x0 / v0`). Checked headless: the switch frame shows the old pose, the speed carries
+through, it lands on the new pose with no speed left.
+
+- **Every switch asked with a fade is blended.** `EnemiesController`'s `play` and `stop` turn a fade into a cut plus a
+  blend (crowd 0.2 s, boss 0.35 s): attacks, walk and idle, a boss's moves and charge chain, a death. Pass `Fade = 0`
+  only for a deliberate cut (up out of the floor, an intro's first frame); it cancels any blend running.
+- **A one-shot is never left to run out**: `blend:Watch(track, seconds)` cuts it a frame and a half before its end
+  and blends out into what is under it. `EnemiesController.PlayClip` does it for every one-shot, the crowd's attack
+  handler for its attacks. Elsewhere (the lobby) `blend:PlayOneShot(track, seconds)` does in, out and the stepping.
+- **Step after the Animator, on the clips' clock**: `EnemiesController` steps its blends in PreSimulation after
+  `update`, at `clipScale` (a slow motion slows the blend with the clips) or at real time for a blend an unscaled clip
+  started (the intro's). `InertialBlend.Run` steps at real time for bodies nothing else steps.
+- **A blend asked inside PreSimulation waits one Animator pass** (a counter on PreAnimation) before it measures, or
+  it measures against the old pose: the T-Rex's walk starts jumped 3.7 to 5.9 studs at the toes until it did.
+- **A boss's blend keeps the last two poses shown every frame**, so a switch carries its speed; a crowd body's leaves
+  from rest and costs nothing between switches.
+- **A joint no playing clip keys keeps the last write**: the blend remembers what it wrote and the fresh pose under
+  it, and puts the fresh one back when it ends or is cancelled, or the offset would stay on or pile up.
+- Lengths in use: crowd 0.2, boss 0.35, lobby avatars' cheer 0.3, the index picture's attack 0.2.
+
+### A held moment the camera watches gets an authored transition
+
+A blend hides a switch in play. A hand-over the camera frames for seconds (an intro's end, a cutscene) is authored
+instead, the way the T-Rex's Intro settles into its Idle (`Assets/models/Bosses/TRex/anim/settle.py`):
+
+1. **Read the held pose back into the clip tool's controls** (`from_pose`: hips offset and turn, each spine and arm
+   bone's turn as a matrix, each foot's slab with the shank angle and knee lean fitted to put knee and ankle back).
+   Check the read-back by worst vertex; a delivered bone that also translates (the T-Rex's jaw, 0.24 studs) is carried
+   in separately and eased out.
+2. **Dead-blend the join**: each bone's turn and the hips' shift at the end of the delivered moves carried on and
+   dying away (0.15 s), or the tail and claws, still moving at 2.8 studs/s, stop dead on the first settle frame.
+3. **Feet step, never slide**: each foot peels its heel up rolling on its toe tip (8 degrees over half the step: 18
+   over a quarter swung the whole leg 0.6 studs a frame), arcs over and lands flat on its new spot, one after the
+   other. The leg re-angles only while its foot is in the air. The hips lean over the planted foot (0.2 studs: 0.35
+   twisted the planted heel spur 0.14 under the floor) and dip as each lands.
+4. **Ease the body staggered down the chain** (hips first, chest, neck, head last and longest: the T-Rex's head turned
+   24 degrees from the bite, eased over 0.35 to 1.6 s), with the overlap springs for follow-through.
+5. **Target the next clip PLAYING**, and end exactly on its baked frame at a known time (`IdleAt`). The game starts it
+   that far back a little early (`SETTLE_FADE`) so both play one motion through the switch.
+6. **Sweep the numbers, do not guess them**: peel, step timing, lean and spans against the fastest vertex a frame
+   (legs near the walk's 0.2 studs a frame), the biggest change of a vertex's speed (jerk), the lowest vertex and the
+   planted slide (0.0000). Render before and after side by side for the user (`preview/IntroSettle_*.mp4`).
+
+### Measuring a transition
+
+- **Offline**: the worst vertex between a clip's first and last frames and what it blends with, the best and the mean
+  over the neighbour's phases. A gap of a stud or more in under 0.2 s is a snap.
+- **Live**: a throwaway LocalScript on PostSimulation logging, every frame, the biggest bone step in the body's own
+  Root frame and the clips playing. A snap is a one-frame spike over its neighbours; values alternating x and 2x are
+  frame pacing, not a snap. Bring the T-Rex with `BossIntroService.Arrive(101, health)` and play its moves with
+  `BossService.ForceNext(name)` from `run_luau_live`.
+- **Not yet seen live**: whether a blend's writes land on a body in a ViewportFrame's WorldModel (the turntable avatar,
+  the index picture). The lobby probe's lines were pushed out of the log by asset warnings; check it first.
+
+### A body let go by a driver keeps its facing
+
+`EnemiesController.Drive(id, nil)` keeps the yaw the driver left it at until a packet turns it. A held match (an
+intro) and a dive stream no packets, so the yaw on record was stale or missing (0 for a fresh boss), and the T-Rex
+swung 50 degrees toward it as the intro handed back.

@@ -41,9 +41,9 @@ local Layout = table.freeze({
 	-- top right, the slot's longest line, so a long gun is drawn bigger than it could be lying flat.
 	GUN_SHARE = 0.95,
 	GUN_TILT = -30,
-	-- The overhead bar's shape (HealthBar), drawn bigger: this long a point of max health, and this far over the
-	-- money block.
-	HEALTH_PER_HEALTH = 3,
+	-- The overhead bar's shape (HealthBar), drawn bigger, at one length whatever the max health, and this far over
+	-- the money block.
+	HEALTH_WIDTH = 300,
 	HEALTH_HEIGHT = 30,
 	HEALTH_GAP = 14,
 })
@@ -172,9 +172,7 @@ local function healthBar(state: Types.THudState): Frame
 		Name = "Health",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = Hotbar.HEALTH,
-		Size = function()
-			return UDim2.fromOffset(math.round(Layout.HEALTH_PER_HEALTH * state.BarMax()), Layout.HEALTH_HEIGHT)
-		end,
+		Size = UDim2.fromOffset(Layout.HEALTH_WIDTH, Layout.HEALTH_HEIGHT),
 		Visible = state.IsFirstPerson,
 	})
 end

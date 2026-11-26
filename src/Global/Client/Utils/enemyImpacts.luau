@@ -42,6 +42,18 @@ local Tune = table.freeze({
 	MAX_KILL_BURSTS_PER_FRAME = 4,
 	MAX_END_BURSTS_PER_FRAME = 6,
 	BURST_RANGE = 250,
+	-- A boss's blows a frame: a shotgun's pellets each land their own light on a body that big.
+	MAX_BOSS_BURSTS_PER_FRAME = 8,
+	-- A boss's blow is heard at most this often: one a bullet up to about 15 a second, so a fast gun's stream reads
+	-- in the ear where the body no longer moves.
+	BOSS_HIT_SOUND_GAP = 1 / 15,
+	-- A boss's blow's light is sized by the bullet, never the body (a hole is as big as what made it): the starter
+	-- pistol's 12 is scale 1, a bullet twice as hard 2 ^ EXPONENT as big (the minigun's 10 is 1, the AK's 34 1.5, a
+	-- sniper's 90 2.25), in SCALE_STEPs between LEAST and MOST.
+	BOSS_REFERENCE_DAMAGE = 12,
+	BOSS_DAMAGE_EXPONENT = 0.4,
+	BOSS_LEAST_SCALE = 0.75,
+	BOSS_MOST_SCALE = 2.25,
 	-- Stud pieces in the air at once, over the whole crowd. A burst throws fewer as this fills
 	-- (thrownPieces.Allowed), so a wave dying together keeps the pieces it has instead of churning them.
 	PIECE_PARTS = 96,
@@ -135,6 +147,25 @@ local TIERS: { [string]: TTier } = table.freeze({
 		Lift = NumberRange.new(2, 9),
 		IsWhole = true,
 	}),
+	-- A bullet on a boss, where it went in: a bright bloom and sparks, and a chip or two of it. The body itself takes
+	-- no flinch and almost no flash (EnemiesController), so a giant shrugs a stream of fire off while the light says
+	-- every shot landed. Pieces are not scaled by the body's size.
+	BossHit = table.freeze({
+		Burst = "BossHit",
+		Layers = table.freeze({
+			Halo = ONE,
+			Bloom = ONE,
+			Core = ONE,
+			Frame = ONE,
+			Sparks = NumberRange.new(4, 6),
+			Pixels = NumberRange.new(4, 6),
+		}),
+		Pieces = NumberRange.new(0, 2),
+		Side = 6,
+		Out = NumberRange.new(4, 10),
+		Lift = NumberRange.new(8, 14),
+		IsWhole = false,
+	}),
 })
 
 -- One copy of a template under Workspace.Terrain (where an attachment's CFrame is its world CFrame, so there is no
@@ -177,18 +208,25 @@ type TBodyLook = {
 
 local EnemyImpacts = {}
 
+-- A bullet on its way to a boss (WeaponController): what it hits, how hard, whether the player shot it, and where it
+-- goes in (a piercing bullet flies on past that point).
+export type TBossHit = { Data: TData.TEnemy, Damage: number, IsOwn: boolean, At: Vector3 }
+
 -- Levels are baked onto each Sound at the gain its take was mixed at, so the balance inside a tier lives in the tree.
 local hitPools = SoundsCore.CreateVariantPools(HIT_GROUP, "Hit", HIT_VOICES_EACH)
 local killPools = SoundsCore.CreateVariantPools(KILL_GROUP, "Kill", KILL_VOICES_EACH)
 local overkillPools = SoundsCore.CreateVariantPools(KILL_GROUP, "Overkill", MASS_VOICES_EACH)
 local killBigPools = SoundsCore.CreateVariantPools(KILL_GROUP, "KillBig", MASS_VOICES_EACH)
 local killHugePools = SoundsCore.CreateVariantPools(KILL_GROUP, "KillHuge", MASS_VOICES_EACH)
+local bossHitPools = SoundsCore.CreateVariantPools(HIT_GROUP, "BossHit", HIT_VOICES_EACH)
 
 local killsThisFrame = 0
 local massKillTier = 0
 local hitBursts = 0
 local killBursts = 0
 local endBursts = 0
+local bossBursts = 0
+local bossHitHeardAt = -math.huge
 
 local random = Random.new()
 local pieces = thrownPieces.NewPool("EnemyPieces", Tune.PIECE_PARTS)
@@ -198,6 +236,8 @@ local cameraPosition = Vector3.zero
 local kit: TKit? = nil
 local hasWarned = false
 local looks: { [number]: TBodyLook } = {}
+-- A boss's look at each bullet's scale: its colours, sized by the shot.
+local bossLooks: { [number]: { [number]: TBodyLook } } = {}
 
 -- What the stud pieces bounce on; nil is Workspace.Arena. The lobby's range names its own hall.
 function EnemyImpacts.SetFloorParams(params: RaycastParams?)
@@ -302,15 +342,11 @@ local function kitOf(): TKit?
 	return found
 end
 
--- `height` is the body's (its aim shape's): a type's is the same every time, so its scale is worked out once.
-local function lookOf(enemyData: TData.TEnemy, height: number): TBodyLook
-	local known = looks[enemyData.Id]
-	if known then return known end
-
+local function newLook(enemyData: TData.TEnemy, scale: number): TBodyLook
 	local colors = enemyData.Colors
 	local skin = if colors then colors.Skin else Tune.NO_COLORS
 	local lit = skin:Lerp(WHITE, Tune.PIXEL_LIGHTEN)
-	local look = {
+	return {
 		Pixels = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Tune.HOT),
 			ColorSequenceKeypoint.new(Tune.HOT_SHARE, lit),
@@ -320,9 +356,36 @@ local function lookOf(enemyData: TData.TEnemy, height: number): TBodyLook
 		Skin = skin,
 		Top = if colors then colors.Top else Tune.NO_COLORS,
 		Legs = if colors then colors.Legs else Tune.NO_COLORS,
-		Scale = math.max(math.round(height / Tune.REFERENCE_HEIGHT / Tune.SCALE_STEP), 1) * Tune.SCALE_STEP,
+		Scale = scale,
 	}
+end
+
+-- `height` is the body's (its aim shape's): a type's is the same every time, so its scale is worked out once.
+local function lookOf(enemyData: TData.TEnemy, height: number): TBodyLook
+	local known = looks[enemyData.Id]
+	if known then return known end
+
+	local look =
+		newLook(enemyData, math.max(math.round(height / Tune.REFERENCE_HEIGHT / Tune.SCALE_STEP), 1) * Tune.SCALE_STEP)
 	looks[enemyData.Id] = look
+	return look
+end
+
+-- A boss's look for a bullet of `damage`: its light grows with the shot, never with the body.
+local function bossLookOf(enemyData: TData.TEnemy, damage: number): TBodyLook
+	local share = (damage / Tune.BOSS_REFERENCE_DAMAGE) ^ Tune.BOSS_DAMAGE_EXPONENT
+	local step = Tune.SCALE_STEP
+	local scale = math.clamp(math.round(share / step) * step, Tune.BOSS_LEAST_SCALE, Tune.BOSS_MOST_SCALE)
+	local byScale = bossLooks[enemyData.Id]
+	if not byScale then
+		byScale = {}
+		bossLooks[enemyData.Id] = byScale
+	end
+	local known = byScale[scale]
+	if known then return known end
+
+	local look = newLook(enemyData, scale)
+	byScale[scale] = look
 	return look
 end
 
@@ -499,6 +562,47 @@ function EnemyImpacts.EmitVanish(enemyData: TData.TEnemy, chest: Vector3, aim: v
 	burstOn(TIERS.Vanish, enemyData, chest, aim, nil)
 end
 
+-- A bullet going into a boss (`hit`) at hit.At, `out` the way back to the gun: its light, a chip or two, and its
+-- sound (heard from the camera for the player's own, from the body for anybody else's). Called as the bullet passes
+-- that point (gunFx, tracers), not on the server's word, so the light is on the bullet.
+function EnemyImpacts.EmitBossHit(hit: TBossHit, out: Vector3)
+	local at = hit.At
+	-- Not held to the bursts' cap: a frame past it still hears its blow.
+	local now = os.clock()
+	if now - bossHitHeardAt >= Tune.BOSS_HIT_SOUND_GAP then
+		bossHitHeardAt = now
+		SoundsCore.PlayPooledRandom(bossHitPools, if hit.IsOwn then cameraPosition else at)
+	end
+
+	if bossBursts >= Tune.MAX_BOSS_BURSTS_PER_FRAME then return end
+	local found = kitOf()
+	if not found then return end
+	local distance = (cameraPosition - at).Magnitude
+	if distance > Tune.BURST_RANGE then return end
+	bossBursts += 1
+
+	local tier = TIERS.BossHit
+	local look = bossLookOf(hit.Data, hit.Damage)
+	local pool = found.Pools[tier.Burst]
+	if pool then fire(pool, look, facing(at, out)) end
+
+	local bricks = found.Bricks
+	local count = thrownPieces.Allowed(pieces, random:NextInteger(tier.Pieces.Min, tier.Pieces.Max), distance)
+	if count == 0 or #bricks == 0 then return end
+
+	local floorY = thrownPieces.FloorUnder(at)
+	local flat = Vector3.new(out.X, 0, out.Z)
+	local away = if flat.Magnitude > 0.1 then flat.Unit else Vector3.zero
+	for _ = 1, count do
+		local turn = random:NextNumber(0, math.pi * 2)
+		local velocity = Vector3.new(math.cos(turn), 0, math.sin(turn)) * random:NextNumber(0, tier.Side)
+			+ away * random:NextNumber(tier.Out.Min, tier.Out.Max)
+			+ Vector3.new(0, random:NextNumber(tier.Lift.Min, tier.Lift.Max), 0)
+		local position = at + random:NextUnitVector() * Tune.PIECE_JITTER
+		thrownPieces.Throw(pieces, bricks[random:NextInteger(1, #bricks)], look.Skin, position, velocity, floorY)
+	end
+end
+
 -- At the top of the frame, so a kill arriving between steps counts toward the frame it is drawn in. Moves the
 -- pieces in the air too.
 function EnemyImpacts.BeginFrame()
@@ -507,6 +611,7 @@ function EnemyImpacts.BeginFrame()
 	hitBursts = 0
 	killBursts = 0
 	endBursts = 0
+	bossBursts = 0
 	cameraPosition = Workspace.CurrentCamera.CFrame.Position
 	thrownPieces.Step(pieces)
 end

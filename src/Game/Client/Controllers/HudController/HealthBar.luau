@@ -4,9 +4,9 @@
 -- px are design px at 1080 (his art is drawn at twice that). It moves as the boss's bar does (BarJuice): a blow
 -- flashes the fill, lights its cut and throws chips off it, and health given back runs ahead of the fill in pale
 -- green.
--- A cell is CELL health, so his ten are the base 100 and a bought HEALTH level adds cells: the caller sizes the bar
--- by state.BarMax, and the length is the max. As a bought level lands (state.Vital.LandAt) the bar is struck white,
--- thumps, throws a ring and its new cells cool from white.
+-- A cell is CELL health, so his ten are the base 100 and a bought HEALTH level adds cells: the bar keeps its length
+-- and its cells narrow to make room (state.BarMax). As a bought level lands (state.Vital.LandAt) the bar is struck
+-- white, thumps, throws a ring and its new cells cool from white.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)

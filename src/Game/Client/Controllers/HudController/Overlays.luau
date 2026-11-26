@@ -8,6 +8,7 @@ local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Co
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Hotbar = require(script.Parent.Hotbar)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -51,18 +52,21 @@ function Overlays.Vignette(state: Types.THudState): ScreenGui
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
 		DisplayOrder = VIGNETTE_DISPLAY_ORDER,
-		edge(state, 0, { Size = UDim2.fromScale(0.16, 1) }),
-		edge(
-			state,
-			180,
-			{ AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.16, 1) }
-		),
-		edge(state, 90, { Size = UDim2.fromScale(1, 0.2) }),
-		edge(
-			state,
-			270,
-			{ AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.2) }
-		),
+		Enabled = UiFade.IsUp,
+		UiFade.Group({
+			edge(state, 0, { Size = UDim2.fromScale(0.16, 1) }),
+			edge(
+				state,
+				180,
+				{ AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromScale(0.16, 1) }
+			),
+			edge(state, 90, { Size = UDim2.fromScale(1, 0.2) }),
+			edge(
+				state,
+				270,
+				{ AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.2) }
+			),
+		}),
 	})
 end
 

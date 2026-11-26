@@ -186,12 +186,15 @@ export type TBarTrack = {
 }
 
 -- One line of the boss's damage share: who ("" for nobody), whether it is the local player, the health they took off
--- as a share of its max (rolled toward the truth), and the os.clock it last grew.
+-- as a share of its max (sprung toward the truth) and the lead ahead of it (sprung quicker), how lit it is by the hits
+-- coming in (0 to 1), and the os.clock its player came onto it.
 export type TShareRow = {
 	Name: Source<string>,
 	IsSelf: Source<boolean>,
 	Share: Source<number>,
-	GrewAt: Source<number>,
+	Lead: Source<number>,
+	Glow: Source<number>,
+	EnteredAt: Source<number>,
 }
 
 -- One piece the boss on the bar drops: its equipment Id, the chance each player has of it, and whether the local

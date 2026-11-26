@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
@@ -13,6 +14,7 @@ local CharacterController = require(script.Parent.CharacterController)
 local WeaponController = require(script.Parent.WeaponController)
 local targetHits = require(script.Parent.Parent.Utils.targetHits)
 local GunsCore = require(ReplicatedStorage.GlobalShared.Core.GunsCore)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local Crosshair = require(script.Crosshair)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -206,7 +208,8 @@ CrosshairController.OnStart = function()
 			ResetOnSpawn = false,
 			DisplayOrder = 1000,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-			Crosshair.Build(state),
+			Enabled = UiFade.IsUp,
+			UiFade.Group({ Crosshair.Build(state) }),
 		})
 	end, LocalPlayer:WaitForChild("PlayerGui"))
 

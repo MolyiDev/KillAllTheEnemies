@@ -3,16 +3,17 @@
 -- and 16 forbid numeric HP over heads. In first person the head is the camera, so this hides and Hotbar shows the bar
 -- instead.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local HealthBar = require(script.Parent.HealthBar)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
 
 -- His bar over the character, in px at a 1080-tall screen; the billboard draws in screen pixels, so it takes the HUD's
--- scale by hand. His 200 px are the base 100 health: the bar is this long a point of max health, so a bought HEALTH
--- level makes it longer.
-local WIDTH_PER_HEALTH = 2
+-- scale by hand. His 200 px, whatever the max health: a bought HEALTH level adds cells, not length.
+local WIDTH = 200
 local HEIGHT = 22
 -- Round the bar inside the billboard, which clips: for the bar's thump, the ring it throws as a level lands and the
 -- chips a blow throws off it (the ones thrown down fly about 40).
@@ -33,25 +34,31 @@ function Overhead.Build(state: Types.THudState): BillboardGui
 		Adornee = state.Head,
 		Size = function()
 			local scale = state.Scale()
-			local width = WIDTH_PER_HEALTH * state.BarMax() + 2 * ROOM
+			local width = WIDTH + 2 * ROOM
 			return UDim2.fromOffset(math.round(width * scale), math.round((HEIGHT + 2 * ROOM) * scale))
 		end,
 		Enabled = function()
-			return state.Head() ~= nil and not state.IsFirstPerson() and not state.IsDown() and state.Phase() ~= "Ended"
+			return state.Head() ~= nil
+				and not state.IsFirstPerson()
+				and not state.IsDown()
+				and state.Phase() ~= "Ended"
+				and UiFade.IsUp()
 		end,
-		-- Sized 1 / scale so that after its UIScale it fills the billboard, with the bar's px in design px.
-		create("Frame")({
-			Name = "Root",
-			BackgroundTransparency = 1,
-			Size = function()
-				local scale = state.Scale()
-				return UDim2.fromScale(1 / scale, 1 / scale)
-			end,
-			create("UIScale")({ Scale = state.Scale }),
-			HealthBar.Build(state, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.new(1, -2 * ROOM, 1, -2 * ROOM),
+		UiFade.Group({
+			-- Sized 1 / scale so that after its UIScale it fills the billboard, with the bar's px in design px.
+			create("Frame")({
+				Name = "Root",
+				BackgroundTransparency = 1,
+				Size = function()
+					local scale = state.Scale()
+					return UDim2.fromScale(1 / scale, 1 / scale)
+				end,
+				create("UIScale")({ Scale = state.Scale }),
+				HealthBar.Build(state, {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.new(1, -2 * ROOM, 1, -2 * ROOM),
+				}),
 			}),
 		}),
 	})

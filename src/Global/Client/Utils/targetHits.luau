@@ -6,8 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Signal = require(ReplicatedStorage.Packages.Signal)
 
 return table.freeze({
-	-- (bodyId, attackerId, damage, chest)
+	-- (bodyId, attackerId, damage, chest, halfWidth?): the body's half width, which its number is thrown within.
 	Damaged = Signal.new(),
-	-- (bodyId, killerId, damage, isOverkill, chest)
+	-- (bodyId, killerId, damage, isOverkill, chest, halfWidth?)
 	Killed = Signal.new(),
 })

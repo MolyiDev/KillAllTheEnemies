@@ -8,6 +8,8 @@
 -- SquadKill opens it and scores on the second row a second later, SquadClose shuts it) start 0.2 s in, for
 -- `rur-native sequence`. The squad's four are his render's numbers; their faces cannot be fetched offline. The boss's
 -- bar: Boss (up mid-fight, still), BossArrive, BossFight (a stream of hits that empties a segment, then a big one),
+-- BossShare (the damage share from nobody: a squadmate comes onto it, then the local player, who streams hits past
+-- them, then lands a big one, 0.2 s in),
 -- BossFall (the Knight Shoulders won half a second after it, the Hip Pack missed), BossOwned (still, the shoulders
 -- owned already), BossShield (its guards' shield up, one of four down), Way (kills streaming onto the way to the next boss,
 -- completing its second segment), WayFull (the last kills fill it, it charges, and the boss comes on); the player's:
@@ -345,8 +347,22 @@ local function state(phase: string, moment: string)
 			Bar = BarJuice.NewTrack(),
 			Breaks = BarJuice.NewTrack(),
 			Shares = {
-				{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
-				{ Name = source(""), IsSelf = source(false), Share = source(0), GrewAt = source(-math.huge) },
+				{
+					Name = source(""),
+					IsSelf = source(false),
+					Share = source(0),
+					Lead = source(0),
+					Glow = source(0),
+					EnteredAt = source(-math.huge),
+				},
+				{
+					Name = source(""),
+					IsSelf = source(false),
+					Share = source(0),
+					Lead = source(0),
+					Glow = source(0),
+					EnteredAt = source(-math.huge),
+				},
 			},
 			SwappedAt = source(-math.huge),
 			AppearedAt = source(-math.huge),
@@ -509,6 +525,7 @@ return {
 			"Boss",
 			"BossArrive",
 			"BossFight",
+			"BossShare",
 			"BossFall",
 			"BossOwned",
 			"BossShield",
@@ -625,7 +642,9 @@ return {
 		end
 		local isBossMoment = string.sub(moment, 1, 4) == "Boss"
 		local function bossShare(t: number): (number, number)
-			if moment == "Boss" or moment == "BossShield" or moment == "BossOwned" then return 0.62, 0.18 end
+			if moment == "Boss" or moment == "BossShield" or moment == "BossOwned" or moment == "BossShare" then
+				return 0.62, 0.18
+			end
 			if moment == "BossArrive" or moment == "WayFull" then return 1, 0 end
 			if moment == "BossFight" then
 				-- Ten blows a second from 0.79 down past the first segment's end, then a heavy one.
@@ -704,16 +723,25 @@ return {
 			seen.DataId = if isUp then 1 else 0
 			seen.Name = if isUp then "The Cove King" else ""
 			seen.Share = if isUp then share else 0
-			-- A squadmate leads until the local player's part passes theirs.
-			local theirs = if moment == "BossFight" then 0.15 + 0.05 * math.clamp(t - MOMENT_AT, 0, 1) else 0.2
+			-- A squadmate leads until the local player's part passes theirs. The parts come ten times a second, as the
+			-- server sends them.
+			local sent = math.floor(math.max(t - MOMENT_AT, 0) * 10) / 10
+			local theirs = if moment == "BossFight" then 0.15 + 0.05 * math.min(sent, 1) else 0.2
+			if moment == "BossShare" then
+				-- They come on first, the local player 0.6 s later streaming faster, passing them at 2.3 s, and a big blow
+				-- at 3 s.
+				theirs = if t >= MOMENT_AT then 0.04 + 0.006 * sent else 0
+				mine = if sent >= 0.6 then 0.02 + 0.02 * (sent - 0.6) + (if sent >= 3 then 0.1 else 0) else 0
+			end
 			local isAhead = mine > theirs
 			local me = { 1, "Molyi", mine }
 			local them = { 2, "Dragonslayer99", theirs }
 			for rank, who in (if isAhead then { me, them } else { them, me }) do
 				local line = seen.Top[rank]
-				line.UserId = if isUp then who[1] else 0
-				line.Name = if isUp then who[2] else ""
-				line.Share = if isUp then who[3] else 0
+				local isOn = isUp and who[3] > 0
+				line.UserId = if isOn then who[1] else 0
+				line.Name = if isOn then who[2] else ""
+				line.Share = if isOn then who[3] else 0
 			end
 			BossBar.Update(hudState.Boss, memory, seen, now, dt)
 			-- Up before the story began: its arrival is long over.
@@ -755,9 +783,7 @@ return {
 			HealthBar.Build(hudState, {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromOffset(1241, 505),
-				Size = function()
-					return UDim2.fromOffset(math.round(2 * hudState.BarMax()), 22)
-				end,
+				Size = UDim2.fromOffset(200, 22),
 			}),
 			Squad.Build(hudState, ACTIONS),
 		})

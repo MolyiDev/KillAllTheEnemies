@@ -21,6 +21,7 @@ local trexSounds = require(script.Parent.Parent.Utils.trexSounds)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local BossesCore = require(ReplicatedStorage.Shared.Core.BossesCore)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local UiFade = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.UiFade)
 local TData = require(ReplicatedStorage.Types.TData)
 
 local ServerNetworkBosses = Network.Server.Bosses
@@ -124,6 +125,9 @@ local Tune = table.freeze({
 	INHALE_UNTIL = 7.12,
 	-- The hand back looks at the boss this high.
 	LOOK_HEIGHT = 7.5,
+	-- Seconds before its end the Intro clip gives way to the idle. Its last frame is the Idle's at IdleAt, so with the
+	-- Idle started that far back the two are one motion and the switch (blended, EnemiesController) has nothing to hide.
+	SETTLE_FADE = 0.3,
 	-- The music clears room for the stomp, the roar and the chomp, since a sound is heard against the second before
 	-- it: down to this share from this long before the stomp, back this long after the chomp (clock seconds).
 	MUSIC_DUCK = 0.2,
@@ -157,7 +161,7 @@ type TPlaying = {
 
 local BossIntroController = {}
 
--- An intro is on screen: the HUD gives way to it.
+-- An intro is on screen.
 BossIntroController.IsPlaying = source(false)
 
 local playing: TPlaying? = nil
@@ -430,11 +434,15 @@ local function finish(intro: TPlaying)
 	playing = nil
 	EnemiesController.Drive(intro.InstanceId, nil)
 	EnemiesController.StopClip(intro.InstanceId, "Intro", 0.25)
+	-- Its idle back on the match's clock, under the black (a restart there is never seen).
+	if intro.Done.Settle then EnemiesController.PlayClip(intro.InstanceId, "Idle", { Fade = 0, IsLooped = true }) end
 	intro.Grade:Destroy()
 	intro.Focus:Destroy()
 	if intro.Done.MusicDown and not intro.Done.MusicUp then MusicController.Duck(1, Tune.MUSIC_UP_SECONDS) end
 	CameraController.Script(nil, intro.Stage.Position + UP * Tune.LOOK_HEIGHT)
 	BossIntroController.IsPlaying(false)
+	-- Back in while the black lifts off the player's own view.
+	UiFade.SetHidden(false)
 	titleAge(-1)
 	endedAt = os.clock()
 	isOverlayUp(true)
@@ -447,9 +455,21 @@ local function cameraStep(dt: number): (CFrame, number)
 	local clock, clip, speed = BossesCore.IntroClock(intro.Intro, elapsed)
 	intro.Clock = clock
 
-	-- The clip follows the clock: slowed for the roar, held on its last pose.
+	-- The clip follows the clock: slowed for the roar, then, past the bite, stepping and easing itself into the idle, so
+	-- the Idle takes over from the very frame the clip ends on. The match is held, so the idle plays unscaled.
 	local track = intro.Track
-	if track then
+	local left = intro.Intro.Length - clip
+	if track and left <= Tune.SETTLE_FADE then
+		intro.Track = nil
+		intro.Done.Settle = true
+		EnemiesController.StopClip(intro.InstanceId, "Intro", Tune.SETTLE_FADE)
+		local idle = EnemiesController.PlayClip(
+			intro.InstanceId,
+			"Idle",
+			{ Fade = Tune.SETTLE_FADE, IsLooped = true, IsUnscaled = true }
+		)
+		if idle then idle.TimePosition = intro.Intro.IdleAt - math.max(left, 0) end
+	elseif track then
 		if speed ~= intro.Speed then
 			intro.Speed = speed
 			track:AdjustSpeed(speed)
@@ -545,6 +565,8 @@ local function begin(instanceId: number, enemyData: TData.TEnemy, stage: CFrame,
 		{ Fade = 0, IsUnscaled = true, Priority = Enum.AnimationPriority.Action4 }
 	)
 	BossIntroController.IsPlaying(true)
+	-- Every screen's UI fades out as the bars slide in.
+	UiFade.SetHidden(true)
 	CameraController.Script(cameraStep)
 end
 

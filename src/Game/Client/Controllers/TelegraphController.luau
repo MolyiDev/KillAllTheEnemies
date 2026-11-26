@@ -634,9 +634,15 @@ end
 
 -- ============================== Juice ==============================
 
+-- The middle of the warning, to judge its distance from the camera by: a line's frame sits on its start.
+local function middleOf(telegraph: TTelegraph): Vector3
+	if telegraph.Kind ~= ETelegraphs.Line then return telegraph.Frame.Position end
+	return telegraph.Frame * Vector3.new(0, 0, telegraph.Size / 2)
+end
+
 -- A warning appears: its rim's pixels pop up all round, and a round one opens a square ring from its centre.
 local function appear(telegraph: TTelegraph)
-	local center = telegraph.Frame.Position
+	local center = middleOf(telegraph)
 	local share = telegraphFx.Share(center)
 	if share <= 0 then return end
 
@@ -651,7 +657,7 @@ end
 
 -- One wind-up frame's pixels: off the rim, faster as the hit nears, and off the fill's front.
 local function charge(telegraph: TTelegraph, progress: number, dt: number)
-	local share = telegraphFx.Share(telegraph.Frame.Position)
+	local share = telegraphFx.Share(middleOf(telegraph))
 	if share <= 0 then return end
 
 	local kind, size = telegraph.Kind, telegraph.Size
@@ -677,14 +683,23 @@ local function charge(telegraph: TTelegraph, progress: number, dt: number)
 	end
 end
 
+-- Where the blow lands: the shape's centre, or a line's far end (its frame sits on its start), where a charge stops.
+local function landingOf(telegraph: TTelegraph): Vector3
+	if telegraph.Kind ~= ETelegraphs.Line then return telegraph.Frame.Position end
+	return telegraph.Frame * Vector3.new(0, 0, telegraph.Size)
+end
+
 -- The blow lands: the floor lit, a square shock on a round one, an explosion's heart, pixels shooting out of the
 -- whole area and the floor's own bricks knocked loose. A shockwave slams only where it starts; its front does the
 -- rest as it rolls (roll).
 local function burst(telegraph: TTelegraph)
-	local center = telegraph.Frame.Position
+	local center = landingOf(telegraph)
 	local kind = telegraph.Kind
 	local isRing = kind == ETelegraphs.Ring
-	local radius = if isRing then math.min(telegraph.Size, Tune.RING_SLAM_RADIUS) else telegraph.Size
+	local radius = if isRing
+		then math.min(telegraph.Size, Tune.RING_SLAM_RADIUS)
+		elseif kind == ETelegraphs.Line then telegraph.Width
+		else telegraph.Size
 	local hasShock = isRing or kind == ETelegraphs.Circle
 	telegraph.Dust = floorColorAt(center)
 	if not telegraphFx.Land(telegraph.Palette, center, radius, hasShock, telegraph.IsExplosion) then return end
@@ -695,7 +710,9 @@ local function burst(telegraph: TTelegraph)
 	local sprays = math.ceil(math.clamp(area * Tune.SPRAY_PER_AREA, Tune.SPRAY_MIN, Tune.SPRAY_MAX) * share)
 	local bricks = math.ceil(math.clamp(area * Tune.BRICKS_PER_AREA, Tune.BRICKS_MIN, Tune.BRICKS_MAX) * share)
 	local found = gatherArea(telegraph, math.max(sprays, bricks), bricks)
-	telegraphFx.Bricks(reusablePoints, reusableFloors, reusableColors, math.min(bricks, found), center)
+	-- Out from where the blow came from: a line's start, not where it lands.
+	local from = telegraph.Frame.Position
+	telegraphFx.Bricks(reusablePoints, reusableFloors, reusableColors, math.min(bricks, found), from)
 	telegraphFx.Spray(telegraph.Palette, reusablePoints, math.min(sprays, found), telegraph.Dust)
 end
 
@@ -721,7 +738,7 @@ end
 
 -- A warning taken back: its rim's pixels go grey and sink.
 local function fizzle(telegraph: TTelegraph)
-	local share = telegraphFx.Share(telegraph.Frame.Position)
+	local share = telegraphFx.Share(middleOf(telegraph))
 	if share <= 0 then return end
 
 	local count = math.ceil(math.min(telegraph.Perimeter * Tune.FIZZLE_PER_STUD, Tune.FIZZLE_MAX) * share)
@@ -791,7 +808,7 @@ end
 local function shakeForBlast(telegraph: TTelegraph)
 	local root = selfRoot
 	if not root then return end
-	local distance = (root.Position - telegraph.Frame.Position).Magnitude
+	local distance = (root.Position - landingOf(telegraph)).Magnitude
 	local felt = 1 - distance / (telegraph.Size * Tune.FELT_RADII)
 	if felt <= 0 then return end
 	CameraController.Shake(Tune.SHAKE * felt * felt, Tune.SHAKE_ROUGHNESS, Tune.SHAKE_SECONDS)

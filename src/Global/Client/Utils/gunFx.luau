@@ -15,6 +15,7 @@ local Workspace = game:GetService("Workspace")
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local motorParts = require(script.Parent.Parent.Parent.GlobalClient.Utils.motorParts)
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
+local EnemyImpacts = require(script.Parent.Parent.Parent.GlobalClient.Utils.enemyImpacts)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")
 
@@ -345,6 +346,10 @@ type TFlight = {
 	-- What it lands on, read when it gets there (gunFx.Shot's `wall`).
 	Wall: RaycastResult?,
 	IsBody: boolean,
+	-- A boss it goes into: its light there (EnemyImpacts.EmitBossHit) as the tip passes BossAlong studs down the line,
+	-- then nil.
+	BossHit: EnemyImpacts.TBossHit?,
+	BossAlong: number,
 	HasLanded: boolean,
 	FloorParams: RaycastParams?,
 }
@@ -793,15 +798,16 @@ local function takeMovers(shape: TBullet): { motorParts.TMover }?
 end
 
 -- One bullet from `from` to `to`: its parts and streak, and when it gets there, an impact on `wall` (the ray's result
--- on the arena; nil when it ends on a body or at the end of its range), a burst on a body, or nothing. False when the
--- kit's templates are not in the place.
+-- on the arena; nil when it ends on a body or at the end of its range), a burst on a body (and a boss's own light for
+-- `bossHit`), or nothing. False when the kit's templates are not in the place.
 function gunFx.Shot(
 	kitName: string,
 	from: Vector3,
 	to: Vector3,
 	wall: RaycastResult?,
 	isBody: boolean,
-	isClose: boolean
+	isClose: boolean,
+	bossHit: EnemyImpacts.TBossHit?
 ): boolean
 	local kit = kitOf(kitName)
 	if not kit then return false end
@@ -834,6 +840,9 @@ function gunFx.Shot(
 		Born = os.clock() - LEAD,
 		Wall = wall,
 		IsBody = isBody,
+		BossHit = bossHit,
+		-- Capped: a bullet stopping in the boss goes in where it lands, and rounding must not put that past the landing.
+		BossAlong = if bossHit then math.min((bossHit.At - from):Dot(unit), length) else 0,
 		HasLanded = false,
 		FloorParams = gunFx.FloorParams,
 	}
@@ -873,6 +882,11 @@ local function stepFlights(now: number)
 		local from, unit = flight.From, flight.Unit
 		local head = math.min(tip, length)
 		dropTrail(flight, shape, head)
+		local bossHit = flight.BossHit
+		if bossHit and tip >= flight.BossAlong then
+			flight.BossHit = nil
+			EnemyImpacts.EmitBossHit(bossHit, -unit)
+		end
 		if not flight.HasLanded and tip >= length then
 			flight.HasLanded = true
 			local movers = flight.Movers
