@@ -1,13 +1,15 @@
 --!nonstrict
--- The settings screen (UIMatt.md, Settings), in both places: the audio sliders and the camera switches, each row
--- ending in its own reset, and RESET ALL behind a confirm (Confirm.luau). The world dims, the panel
+-- The settings screen (UIMatt.md, Settings), in both places: the audio sliders, the camera, interface and debug
+-- switches, each row ending in its own reset, and RESET ALL behind a confirm (Confirm.luau). The world dims, the panel
 -- rises into place, the rules draw themselves out and the rows are dealt in one after another, each slider running up
--- to its value as it lands, and EXIT rises in under the panel. Closed by EXIT or by a click on the dim.
+-- to its value as it lands, and EXIT rises in under the panel. The rows scroll between the header and the footer, which
+-- stay put; the panel keeps clear of the top of the screen. Closed by EXIT or by a click on the dim.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(script.Parent.Components)
 local Motion = require(script.Parent.Motion)
 local Theme = require(script.Parent.Theme)
+local Scrollbar = require(script.Parent.Scrollbar)
 local Confirm = require(script.Confirm)
 local Controls = require(script.Controls)
 local Types = require(script.Types)
@@ -21,10 +23,17 @@ local Font = Theme.Font
 local Progress = Motion.Progress
 local Lerp = Motion.Lerp
 
--- His drawn rects in px at 1080, from the panel's top left corner unless said otherwise.
+-- His drawn rects in px at 1080, from the panel's top left corner unless said otherwise. The rows and section headers
+-- are placed as he drew them down the panel; in the scroll they stand LIST_TOP higher.
 local Layout = table.freeze({
-	-- His panel without its PROFILE section: everything under CAMERA is 146 px higher than he drew it.
-	SIZE = Vector2.new(1040, 774),
+	-- His panel, INTERFACE standing where he drew PROFILE, at its tallest. He drew it with a close button; centred, it
+	-- runs into EXIT, so its bottom stands BOTTOM under the screen's middle, at 944 on 1080, where his shop ends. Its
+	-- top stays TOP_GAP under the top of the screen's strip (the Gems counter's row, Roblox's top bar), as the lobby's
+	-- screens' do, so it is shorter than his and the rows scroll.
+	SIZE = Vector2.new(1040, 920),
+	BOTTOM = 404,
+	TOP_GAP = 32,
+	MIN_HEIGHT = 560,
 	-- The header: the glyph's middle and longer side, the title's corner and letter height, the rule under it.
 	HEADER_ICON = Vector2.new(49, 48),
 	HEADER_ICON_SIZE = 30,
@@ -52,11 +61,24 @@ local Layout = table.freeze({
 	SLIDER_X = 654,
 	SWITCH_X = 823,
 	RESET_X = 912,
-	FOOTER_RULE_Y = 659,
-	HINT = Vector2.new(40, 701.5),
+	-- The footer, up from the panel's bottom: the rule, the hint's top, RESET ALL's middle.
+	FOOTER_RULE_UP = 115,
+	HINT_X = 40,
+	HINT_UP = 72.5,
 	HINT_SIZE = 16,
-	RESET_ALL = Vector2.new(699, 677),
+	RESET_ALL_X = 850,
+	RESET_ALL_UP = 64,
 	RESET_ALL_SIZE = Vector2.new(302, 66),
+	-- The scroll runs from under the header's rule to the footer's. Its canvas ends as far under the last row as his
+	-- footer rule stood under his last.
+	LIST_TOP = 97,
+	LIST_END = 25,
+	-- Rows scrolled under an edge fade out over this many px, only on a side with more to see.
+	EDGE_FADE = 40,
+	-- The bar's middle, in the panel's right margin (the rows end at 999, their brackets open to 1005), and how far in
+	-- from the scroll's ends it runs.
+	SCROLLBAR_X = 1020,
+	SCROLLBAR_PAD = 10,
 	-- The room round the panel and round a row inside the group that fades it, for the glow and the brackets (a
 	-- CanvasGroup clips).
 	MARGIN = 48,
@@ -67,9 +89,12 @@ local Layout = table.freeze({
 local SECTIONS = table.freeze({
 	table.freeze({ Text = "AUDIO", Icon = EIcons.Music, IconSize = 18, Y = 119 }),
 	table.freeze({ Text = "CAMERA", Icon = EIcons.Camera, IconSize = 18, Y = 429 }),
+	table.freeze({ Text = "INTERFACE", Icon = EIcons.HudScreen, IconSize = 18, Y = 657 }),
+	table.freeze({ Text = "DEBUG", Icon = EIcons.Chart, IconSize = 18, Y = 803 }),
 })
 local VOLUME_YS = table.freeze({ 173, 255, 337 })
-local TOGGLE_YS = table.freeze({ 483, 565 })
+local TOGGLE_YS = table.freeze({ 483, 565, 711, 857 })
+local CANVAS_HEIGHT = TOGGLE_YS[#TOGGLE_YS] + Layout.ROW_SIZE.Y + Layout.LIST_END - Layout.LIST_TOP
 
 local Timing = table.freeze({
 	-- The panel decelerates up into place and accelerates down out of it, the exit the faster. Its fade runs on the
@@ -121,6 +146,13 @@ local RULE_COLOR = Color3.fromRGB(140, 111, 210)
 local RULE_TRANSPARENCY = 0.55
 
 local SettingsUI = {}
+
+-- The panel's height in design px on a root `rootHeight` tall whose top `clear` px are kept free: from TOP_GAP under
+-- them down to its bottom over EXIT, never taller than his.
+function SettingsUI.HeightFor(rootHeight: number, clear: number): number
+	local room = rootHeight / 2 + Layout.BOTTOM - clear - Layout.TOP_GAP
+	return math.clamp(math.floor(room), Layout.MIN_HEIGHT, Layout.SIZE.Y)
+end
 
 local function label(props: { [any]: any }): TextLabel
 	return create("TextLabel")({
@@ -190,7 +222,7 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 
 		return create("Frame")({
 			Name = data.Text,
-			Position = UDim2.fromOffset(Layout.SECTION_X, data.Y),
+			Position = UDim2.fromOffset(Layout.SECTION_X, data.Y - Layout.LIST_TOP),
 			Size = UDim2.fromOffset(Layout.SECTION_WIDTH, Layout.SECTION_RULE_Y + 1),
 			BackgroundTransparency = 1,
 			ZIndex = 2,
@@ -242,7 +274,7 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 				local slide = Timing.ROW_SLIDE * (1 - Motion.Decelerate(since(delay, Timing.ROW)))
 				return UDim2.fromOffset(
 					Layout.ROW_X + math.round(slide) - Layout.ROW_MARGIN,
-					spec.Y - Layout.ROW_MARGIN
+					spec.Y - Layout.LIST_TOP - Layout.ROW_MARGIN
 				)
 			end,
 			Size = UDim2.fromOffset(
@@ -251,8 +283,8 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 			),
 			BackgroundTransparency = 1,
 			ZIndex = 2,
+			-- Shutting, the scroll fades it with everything in it.
 			GroupTransparency = function()
-				if not state.IsOpen() then return 1 - shown() end
 				return 1 - Motion.Out(since(delay, Timing.ROW_FADE))
 			end,
 			Components.Card({
@@ -366,6 +398,66 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 		})
 	end
 
+	-- The scroll between the header's rule and the footer's, as tall as the panel leaves it.
+	local listHeight = derive(function(): number
+		return state.Height() - Layout.LIST_TOP - Layout.FOOTER_RULE_UP
+	end)
+	local scrolled = source(0)
+	local range = derive(function(): number
+		return math.max(CANVAS_HEIGHT - listHeight(), 0)
+	end)
+	-- A slider under the hand holds the scroll, or a finger dragging it sideways scrolls the page as well.
+	local isSliding = derive(function(): boolean
+		for _, volume in state.Volumes do
+			if volume.IsDragging() then return true end
+		end
+
+		return false
+	end)
+	-- Each end fades the rows under it as far as there is more past it, so a page at its top shows its first header
+	-- whole and a row half under the footer reads as going on.
+	local edges = derive(function(): NumberSequence
+		local fade = math.min(Layout.EDGE_FADE / math.max(listHeight(), 1), 0.45)
+		local y = scrolled()
+		return NumberSequence.new({
+			NumberSequenceKeypoint.new(0, math.clamp(y / Layout.EDGE_FADE, 0, 1)),
+			NumberSequenceKeypoint.new(fade, 0),
+			NumberSequenceKeypoint.new(1 - fade, 0),
+			NumberSequenceKeypoint.new(1, math.clamp((range() - y) / Layout.EDGE_FADE, 0, 1)),
+		})
+	end)
+	local sections = table.create(#SECTIONS)
+	for index in SECTIONS do
+		sections[index] = section(index)
+	end
+	local list = create("ScrollingFrame")({
+		Name = "List",
+		Size = function()
+			return UDim2.new(1, 0, 0, listHeight())
+		end,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.fromOffset(0, CANVAS_HEIGHT),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarThickness = 0,
+		ElasticBehavior = Enum.ElasticBehavior.Never,
+		ScrollingEnabled = function()
+			return not isSliding()
+		end,
+		vide.changed("CanvasPosition", function(position: Vector2)
+			scrolled(position.Y)
+		end),
+		sections,
+		rows,
+	}) :: ScrollingFrame
+	-- Every open starts at the top, dealt in from there; set as it opens, so it never draws a frame where it was left.
+	vide.effect(function()
+		if not state.IsOpen() then return end
+		vide.untrack(function()
+			list.CanvasPosition = Vector2.zero
+		end)
+	end)
+
 	-- 1 to 0 as the header's words arrive; 0 while the screen shuts.
 	local away = function(): number
 		return 1 - Motion.Decelerate(since(Timing.TITLE_DELAY, Timing.TITLE))
@@ -406,11 +498,13 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 		}),
 		create("Frame")({
 			Name = "Window",
-			AnchorPoint = Vector2.new(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 1),
 			Position = function()
-				return UDim2.new(0.5, 0, 0.5, math.round(drop()))
+				return UDim2.new(0.5, 0, 0.5, Layout.BOTTOM + math.round(drop()))
 			end,
-			Size = UDim2.fromOffset(Layout.SIZE.X, Layout.SIZE.Y),
+			Size = function()
+				return UDim2.fromOffset(Layout.SIZE.X, state.Height())
+			end,
 			BackgroundTransparency = 1,
 			ZIndex = 2,
 			-- A press on the panel stops here. A Frame lets it through to the dim, which would shut the screen.
@@ -470,14 +564,12 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 							return since(Timing.RULE_DELAY, Timing.RULE)
 						end
 					),
-					section(1),
-					section(2),
-					rule(UDim2.fromOffset(Layout.SECTION_X, Layout.FOOTER_RULE_Y), Layout.SECTION_WIDTH, function()
+					rule(UDim2.new(0, Layout.SECTION_X, 1, -Layout.FOOTER_RULE_UP), Layout.SECTION_WIDTH, function()
 						return since(Timing.FOOTER_DELAY - 0.1, Timing.RULE)
 					end),
 					label({
 						Name = "Hint",
-						Position = UDim2.fromOffset(Layout.HINT.X, Layout.HINT.Y),
+						Position = UDim2.new(0, Layout.HINT_X, 1, -Layout.HINT_UP),
 						Size = UDim2.fromOffset(400, Layout.HINT_SIZE),
 						FontFace = Font.DisplayBold,
 						TextSize = Layout.HINT_SIZE,
@@ -489,16 +581,40 @@ function SettingsUI.Build(state: Types.TSettingsState, actions: Types.TActions):
 						end,
 					}),
 					Controls.ResetSlab("RESET ALL", hasChanges, actions.AskResetAll, {
-						Position = UDim2.fromOffset(
-							Layout.RESET_ALL.X + Layout.RESET_ALL_SIZE.X / 2,
-							Layout.RESET_ALL.Y + Layout.RESET_ALL_SIZE.Y / 2
-						),
+						Position = UDim2.new(0, Layout.RESET_ALL_X, 1, -Layout.RESET_ALL_UP),
 						Size = UDim2.fromOffset(Layout.RESET_ALL_SIZE.X, Layout.RESET_ALL_SIZE.Y),
 						ZIndex = 3,
 					}),
 				}),
 			}),
-			rows,
+			-- A group, so the rows fade at its ends: the scroll's own clip would cut them off hard.
+			create("CanvasGroup")({
+				Name = "Scroll",
+				Position = UDim2.fromOffset(0, Layout.LIST_TOP),
+				Size = function()
+					return UDim2.new(1, 0, 0, listHeight())
+				end,
+				BackgroundTransparency = 1,
+				ZIndex = 2,
+				GroupTransparency = function()
+					return 1 - shown()
+				end,
+				create("UIGradient")({
+					Rotation = 90,
+					Transparency = edges,
+				}),
+				list,
+			}),
+			Scrollbar.Build(list, {
+				Length = function(): number
+					return listHeight() - 2 * Layout.SCROLLBAR_PAD
+				end,
+				Shown = shown,
+			}, {
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.fromOffset(Layout.SCROLLBAR_X, Layout.LIST_TOP + Layout.SCROLLBAR_PAD),
+				ZIndex = 4,
+			}),
 		}),
 		-- His 1920 x 1080 round the screen's middle, where EXIT has its place.
 		create("Frame")({

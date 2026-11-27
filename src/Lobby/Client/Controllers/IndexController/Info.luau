@@ -353,6 +353,10 @@ local function stage(
 	local floorRing = derive(function(): number
 		return Progress(state.Now(), state.PokedAt(), Timing.FLOOR_RING)
 	end)
+	-- Read every frame by the turn's spring, so worked out once a pick.
+	local swayShare = derive(function(): number
+		return Picture.SwayShare(enemy())
+	end)
 
 	-- The turn: written every frame while the screen is up, read by the picture. It starts facing you; the pick's swing
 	-- below turns it away to come in, the first one included.
@@ -373,7 +377,7 @@ local function stage(
 		clock += dt
 		if dragX then return end
 		local seconds = math.min(dt, Turn.MAX_STEP)
-		local sway = Turn.SWAY * math.sin(2 * math.pi * clock / Turn.SWAY_PERIOD)
+		local sway = Turn.SWAY * swayShare() * math.sin(2 * math.pi * clock / Turn.SWAY_PERIOD)
 		local home = math.round((yawDeg - sway) / 360) * 360 + sway
 		velocity += (HOME_STIFFNESS * (home - yawDeg) - HOME_FRICTION * velocity) * seconds
 		yawDeg += velocity * seconds
@@ -490,6 +494,15 @@ local function stage(
 		end,
 		IsActive = state.IsOpen,
 	}, { Position = at }, { Position = at })
+	-- The enemy's picture, in boxes: centred on its box, it reaches the card's face's farthest edge however far the
+	-- panel is lifted, and on past it by as far as the rise and the hop move it.
+	local room = derive(function(): Vector2
+		local middleY = Layout.ENEMY.Y + lowered()
+		local halfWidth = math.max(Layout.ENEMY.X, Layout.STAGE_SIZE.X - Layout.ENEMY.X) - Layout.EDGE
+		local halfHeight = math.max(middleY, Layout.STAGE_SIZE.Y + lift() - middleY) - Layout.EDGE
+		local reach = Timing.RISE_FROM - Timing.HOP
+		return Vector2.new(2 * halfWidth, 2 * (halfHeight + reach)) / Layout.ENEMY_BOX
+	end)
 	local function clipped(name: string, child: Frame?, zIndex: number): Frame?
 		if not child then return nil end
 		return create("Frame")({
@@ -600,32 +613,41 @@ local function stage(
 				end,
 			}),
 		}),
-		Picture.Build(shownEnemy, {
-			Burned = burned,
-			Lit = lit,
-			Yaw = yaw,
-			Poke = function()
-				-- An unknown enemy shakes its head rather than showing its attack.
-				return if lit() >= 1 then state.PokedAt() else -math.huge
-			end,
-			Transparency = function()
-				return math.max(stageFade(), 1 - Motion.Out(risen()))
-			end,
-		}, {
-			Name = "Enemy",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = function()
-				local rise = Timing.RISE_FROM * (1 - Motion.Decelerate(risen()))
-				return UDim2.fromOffset(Layout.ENEMY.X, Layout.ENEMY.Y + lowered() + math.round(rise + hop()))
-			end,
-			Size = UDim2.fromOffset(Layout.ENEMY_BOX, Layout.ENEMY_BOX),
-			ZIndex = 3,
-			create("UIScale")({
-				Scale = function()
-					return Motion.Lerp(Timing.GROW_FROM, 1, Motion.Decelerate(risen()))
+		-- Drawn across the whole card's face and clipped to it, so a long body turning has the card to turn in.
+		clipped(
+			"EnemyRoom",
+			Picture.Build(shownEnemy, {
+				Burned = burned,
+				Lit = lit,
+				Yaw = yaw,
+				Poke = function()
+					-- An unknown enemy shakes its head rather than showing its attack.
+					return if lit() >= 1 then state.PokedAt() else -math.huge
 				end,
+				Transparency = function()
+					return math.max(stageFade(), 1 - Motion.Out(risen()))
+				end,
+				Room = room,
+			}, {
+				Name = "Enemy",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = function()
+					local rise = Timing.RISE_FROM * (1 - Motion.Decelerate(risen()))
+					return UDim2.fromOffset(
+						Layout.ENEMY.X - Layout.EDGE,
+						Layout.ENEMY.Y - Layout.EDGE + lowered() + math.round(rise + hop())
+					)
+				end,
+				Size = UDim2.fromOffset(Layout.ENEMY_BOX, Layout.ENEMY_BOX),
+				ZIndex = 3,
+				create("UIScale")({
+					Scale = function()
+						return Motion.Lerp(Timing.GROW_FROM, 1, Motion.Decelerate(risen()))
+					end,
+				}),
 			}),
-		}),
+			3
+		),
 		Components.Picture(EIcons.PotionBottle, {
 			Name = "Bottle",
 			Visible = function()

@@ -74,8 +74,8 @@ export type TAbilitySlot = {
 	Kind: string,
 	Key: Enum.KeyCode,
 	Accent: Color3,
-	-- Gold a use costs.
-	Cost: number,
+	-- Gold a use costs, after Discount.
+	Cost: Source<number>,
 	-- How much of its cooldown is left, 1 to 0 in the slot's own pixels, and in whole seconds.
 	Cooling: Source<number>,
 	Seconds: Source<number>,
@@ -101,6 +101,11 @@ export type TUltimate = {
 	ChargedAt: Source<number>,
 	UsedAt: Source<number>,
 	DeniedAt: Source<number>,
+	-- CHARGE NOW under it: whether the product exists, the moment a bought fill arrived (its bolts thrown) and the last
+	-- bolt landing in the bar.
+	CanBuy: boolean,
+	BoughtAt: Source<number>,
+	LandedAt: Source<number>,
 }
 
 -- One player's row on the squad screen.
@@ -239,11 +244,30 @@ export type TBossBar = {
 	DropWonAt: { Source<number> },
 }
 
+-- Being down (DownedController): the title, the plate with the player's own REVIVE, the spectate card.
+export type TDown = {
+	-- os.clock, written every frame only while down or just back up: the down's pieces read it instead of Now.
+	Clock: Source<number>,
+	-- os.clock the player went down, the squadmate switch, the body starting to be built back, and it showing.
+	At: Source<number>,
+	SwitchedAt: Source<number>,
+	RebuildAt: Source<number>,
+	StoodAt: Source<number>,
+	IsRebuilding: Source<boolean>,
+	-- The squadmate watched ("" for none) and their health.
+	Watched: Source<string>,
+	WatchedHealth: Source<number>,
+	WatchedMax: Source<number>,
+}
+
 export type THudState = {
 	Scale: Source<number>,
 	-- os.clock, written only in frames where something is moving (init's motion window), so a quiet HUD redraws
 	-- nothing. Every timed gesture reads it against one of the *At stamps below.
 	Now: Source<number>,
+	-- os.clock, written every frame only while a prompted item or a full ultimate breathes. Their breathing reads it
+	-- instead of Now, so the fifty-odd gestures on Now do not rerun every frame of a long prompt.
+	Breath: Source<number>,
 
 	Phase: Source<TPhase>,
 	Round: Source<number>,
@@ -293,6 +317,8 @@ export type THudState = {
 	-- The screen edge (GDD 9): a hit flashes it red, low health holds a little red, a wave done flashes it green.
 	Vignette: Source<number>,
 	VignetteColor: Source<Color3>,
+	-- The shock of going down, 0 to 1 (DownedController.Shock): the screen dimmed under the HUD.
+	Shock: Source<number>,
 
 	Defenses: { TDefenseCard },
 	-- Everyone in the run, the local player first.
@@ -324,6 +350,16 @@ export type THudState = {
 		At: Source<number>,
 	},
 
+	-- The quest on the notice card (QuestToast): its Id (0 while none is up) and board (QuestsCore.BoardIndex), the
+	-- os.clock it came up, how long it stays past its stamp, and its own clock, written only while it is up.
+	Quest: {
+		Id: Source<number>,
+		Board: Source<number>,
+		At: Source<number>,
+		Hold: Source<number>,
+		Clock: Source<number>,
+	},
+
 	-- The gun in hand and the model of the Tool holding it, for its slot's picture.
 	Gun: Source<TData.TGun?>,
 	GunModel: Source<Model?>,
@@ -336,8 +372,13 @@ export type THudState = {
 	Abilities: { TAbilitySlot },
 	Ultimate: TUltimate,
 
-	IsReviveOffered: Source<boolean>,
+	-- The results' revive (EProducts.Revive) and the one during a run, own or a squadmate's (EProducts.QuickRevive), are
+	-- on sale.
 	CanRevive: boolean,
+	CanQuickRevive: boolean,
+	Down: TDown,
+	-- The squadmates down, for a player standing to buy their revive (the chips by the boss strip).
+	Downed: Source<{ Player }>,
 	-- The fixed bindings the HUD draws caps for (the defenses' keys live on their own entries).
 	Keys: { Skip: Enum.KeyCode, Turn: Enum.KeyCode, Upgrade: Enum.KeyCode, Health: Enum.KeyCode },
 
@@ -352,6 +393,10 @@ export type TActions = {
 	UpgradeHealth: () -> (),
 	CastAbility: (slot: number) -> (),
 	Revive: () -> (),
+	-- While down: watch the next squadmate (1) or the one before (-1). During a run: buy a downed player's revive, the
+	-- player's own (nil) or a squadmate's.
+	Spectate: (step: number) -> (),
+	QuickRevive: (player: Player?) -> (),
 	BuyProduct: (productId: number) -> (),
 	CloseSquad: () -> (),
 	-- The results' buttons: vote to start over, leave now, buy the doubling, or watch an ad for it.

@@ -6,6 +6,7 @@
 -- instance, not Rojo, made by Assets/effects/health (its README.md). One body a purchase: each gets copies of its
 -- own, destroyed when they are spent.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local healthUpFx = {}
 
@@ -75,7 +76,7 @@ end
 
 local function emit(attachment: Attachment, layer: string, count: number)
 	local emitter = attachment:FindFirstChild(layer)
-	if emitter and emitter:IsA("ParticleEmitter") then emitter:Emit(count) end
+	if emitter and emitter:IsA("ParticleEmitter") then fxBudget.Emit(emitter, count) end
 end
 
 -- The body whose root is `root` took a HEALTH level: the burst rides it.

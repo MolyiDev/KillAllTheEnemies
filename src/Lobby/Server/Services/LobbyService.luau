@@ -54,6 +54,9 @@ local Tune = table.freeze({
 	INVITE_SLACK_SECONDS = 1.5,
 	-- How soon the same player may invite the same player again: a press held down is one invite.
 	INVITE_COOLDOWN_SECONDS = 3,
+	-- A member still here this long after the party's teleport went out is released anyway: a teleport that neither
+	-- completes nor fails must not hold a body anchored and the pad taken.
+	TELEPORT_TIMEOUT_SECONDS = 30,
 })
 
 local NO_COUNTDOWN = -1
@@ -78,6 +81,8 @@ type TPad = {
 	-- cost nothing until used, so a cancelled countdown keeps its code for the next one.
 	ReservedCode: string?,
 	IsReserving: boolean,
+	-- os.clock() whoever is still on the pad is released at, set only once the party's teleport went out.
+	ReleaseAt: number?,
 	-- Counts the parties the pad has held: an invite names the party it came from, not a later one on the same pad.
 	Run: number,
 }
@@ -157,6 +162,7 @@ local function resetPad(pad: TPad)
 	pad.Difficulty = MapsCore.DIFFICULTIES[1]
 	pad.IsFriendsOnly = false
 	pad.EndsAt = nil
+	pad.ReleaseAt = nil
 end
 
 local function prefetchReservedServer(pad: TPad)
@@ -438,8 +444,9 @@ local function startTeleport(pad: TPad)
 
 	if ok then
 		-- The code is spent on this party; the next one reserves its own. The members stay on the pad, shown as
-		-- teleporting, until they leave the server.
+		-- teleporting, until they leave the server or TELEPORT_TIMEOUT_SECONDS runs out.
 		pad.ReservedCode = nil
+		pad.ReleaseAt = os.clock() + Tune.TELEPORT_TIMEOUT_SECONDS
 		return
 	end
 
@@ -502,6 +509,15 @@ local function poll()
 	end
 
 	for _, pad in pads do
+		local releaseAt = pad.ReleaseAt
+		if releaseAt and now >= releaseAt then
+			-- Leave takes each off the members list, and the last one resets the pad.
+			for _, member in table.clone(pad.Members) do
+				LobbyService.Leave(member)
+			end
+			continue
+		end
+
 		local endsAt = pad.EndsAt
 		if not endsAt or now < endsAt then continue end
 		if pad.Phase == EPhase.Open then
@@ -531,6 +547,7 @@ LobbyService.OnStart = function()
 			EndsAt = nil,
 			ReservedCode = nil,
 			IsReserving = false,
+			ReleaseAt = nil,
 			Run = 0,
 		}
 		pads[index] = pad

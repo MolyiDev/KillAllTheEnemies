@@ -407,7 +407,7 @@ function Screen.Build(state: TScreenState, actions: TActions): ScreenGui
 		}),
 		-- An active button over the whole screen: a click on a card (which is in the world, under it) is a click on
 		-- this, so the gun's trigger sees it as the UI's. Modal: in first person the engine holds the mouse at the centre
-		-- unless a visible button says otherwise (CameraController.IsMouseFreed covers the Shift lock).
+		-- unless a visible button says otherwise (CameraController.SetMouseFreed covers the Shift lock).
 		create("TextButton")({
 			Name = "Catch",
 			Size = UDim2.fromScale(1, 1),

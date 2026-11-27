@@ -21,32 +21,20 @@ export type TMap = {
 
 local MapsCore = {}
 
--- The Game place's Studio test map, played when nobody came from the lobby. Kept out of LIST, so no pad offers it and
--- a teleport naming it is ignored.
-MapsCore.DEFAULT = "Baseplate"
--- The test map's bosses, as a LIST map's Bosses, so a boss wave can be played in Studio.
-MapsCore.DEFAULT_BOSSES = table.freeze({ EEnemiesIds.TRex })
 -- The difficulties a host can pick for a party, in the order the lobby offers them. The index is the difficulty's
 -- number on the network (append, never reorder); the name is what travels to the match and is saved.
 MapsCore.DIFFICULTIES = table.freeze({ "Normal", "Hard", "Nightmare", "Hell" })
 MapsCore.LIST = table.freeze({
-	-- The Giant Spider (the filler on both) and the Pumpkin Head (Grass Lands' principal) are not built yet: the T-Rex
-	-- stands in for them (PlanBosses.md).
 	table.freeze({
-		Name = "PirateCove",
-		DisplayName = "Pirate Cove",
+		Name = "Baseplate",
+		DisplayName = "Baseplate",
 		UnlockLevel = 0,
 		UnlockBossKills = 0,
-		Bosses = table.freeze({ EEnemiesIds.TRex }),
-	}),
-	table.freeze({
-		Name = "GrassLands",
-		DisplayName = "Grass Lands",
-		UnlockLevel = 10,
-		UnlockBossKills = 3,
-		Bosses = table.freeze({ EEnemiesIds.TRex }),
+		Bosses = table.freeze({ EEnemiesIds.TRex, EEnemiesIds.GiantSpider }),
 	}),
 }) :: { TMap }
+-- The map played when nobody came from the lobby (Studio).
+MapsCore.DEFAULT = MapsCore.LIST[1].Name
 
 local maps: { [string]: TMap } = {}
 local indexes: { [string]: number } = {}

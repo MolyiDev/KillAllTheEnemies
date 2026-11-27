@@ -1,4 +1,4 @@
--- The client finished loading the place and its listeners are up. MatchService waits for this from every
+-- The client's loading screen has its assets in and its listeners are up. MatchService waits for this from every
 -- expected player (or a timeout) before the first wave.
 event GameLoaded {
 	from: Client,

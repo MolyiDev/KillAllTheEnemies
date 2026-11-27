@@ -1,11 +1,11 @@
--- The lobby's top bar Daily button (Topbar.Dress with a count and a call) beside Codes and Settings, on a stand-in for
+-- The lobby's top bar Daily button (Topbar.Dress with a count, worn as "!", and a call) beside Codes and Settings, on a stand-in for
 -- the TopbarPlus icon (the instances and events Dress touches; TopbarPlus itself does not run offline), for rur:
 --   rur-native render --headless --offline --rojo <lobby.project.json without its comments> \
 --     --story tools/uimatt/TopbarDaily.story.luau --viewport 520x120 --scale 2 --background 40,40,60 --time 1 \
 --     --controls '{"Moment": "Waiting"}' --dir <out>
--- Moment: Waiting (3 things wait: the badge, the glow, the light crossing every 1.2 s here), Arrive (the count going
--- from 0 to 3 at 0.3 s), Up (2 to 3 at 0.3 s: the punch), Clear (1 to 0 at 0.3 s: the badge shrinks away wearing its
--- 1), Selected (the screen open), Quiet (nothing waits), for `rur-native sequence`.
+-- Moment: Waiting (3 things wait: the "!", the glow, the light crossing every 1.2 s here), Arrive (the count going
+-- from 0 to 3 at 0.3 s), Up (2 to 3 at 0.3 s: nothing should move), Clear (1 to 0 at 0.3 s: the "!" shrinks away),
+-- Selected (the screen open), Quiet (nothing waits), for `rur-native sequence`.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")

@@ -12,6 +12,7 @@ local MatchController = require(script.Parent.MatchController)
 local CoinFlight = require(script.Parent.Parent.Utils.coinFlight)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local LocalPlayer = Players.LocalPlayer
 local TemporalFolder = Workspace:WaitForChild("Temporal")
@@ -40,8 +41,8 @@ local FIRST_PERSON_DISTANCE = 1.5
 
 -- The anime sprites (Assets/effects/anime, VFX.md 15).
 local Sprites = table.freeze({
-	FLARE = "rbxassetid://128750342796317",
-	STREAK = "rbxassetid://75972998756629",
+	FLARE = "rbxassetid://99044399113698",
+	STREAK = "rbxassetid://123614970877563",
 })
 
 -- Measured against the map's floors (Assets/effects/anime/measure_contrast.py): amber at a quarter additive scores
@@ -128,6 +129,11 @@ local moveParts: { BasePart } = table.create(MAX_COINS)
 local moveCFrames: { CFrame } = table.create(MAX_COINS)
 -- Reused per kill: who lands when, shuffled apart from where it was thrown.
 local hangOrder: { number } = table.create(COINS_PER_KILL)
+
+-- Kill coins in the air now (the debug readout's).
+function CoinsController.InAir(): number
+	return #coins
+end
 
 local function newEmitter(texture: string): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
@@ -445,8 +451,8 @@ MatchController.OnCoins:Connect(function(position: Vector3, amount: number)
 	end
 
 	burstAnchor.Position = at
-	streaks:Emit(Effects.POP_STREAKS)
-	flash:Emit(Effects.POP_FLASHES)
+	fxBudget.Emit(streaks, Effects.POP_STREAKS, at)
+	fxBudget.Emit(flash, Effects.POP_FLASHES, at)
 end)
 
 -- The buyer's own pack: its Gold thrown out of him all round and pulled back in, each coin landing on its beat. With

@@ -115,8 +115,8 @@ local INDEX_RED = Color3.fromRGB(230, 60, 72)
 -- How faint the slabs' glow is at rest, as his.
 local SLAB_GLOW_TRANSPARENCY = 0.55
 
--- What waits behind a button, worn as a Notice: the index's discoveries and the finished quests (counted), and a gun
--- or a class ability the Gems held can pay for (the up arrow). The button also calls for it in light.
+-- What waits behind a button, worn as a Notice: the index's discoveries, the finished quests and a brew ("!"), and a
+-- gun or a class ability the Gems held can pay for (the up arrow). The button also calls for it in light.
 type TNotice = "Index" | "Quests" | "Lab" | "Weapons" | "Classes"
 
 -- A rail card: its word, its picture (Icons.Pictures), its accent (and its glow where his is not the accent), the
@@ -385,8 +385,8 @@ Hud.TOP_ROW_BOTTOM = Layout.COUNTER_MIDDLE + Layout.PLUS_SIZE / 2
 
 -- A piece's slide in from `from` (px past its rest) starting `delay` after the lobby opens: an offset to add to its
 -- Position, nothing once it has landed. `aside` is what sends it away while it is up: "Covered", any screen over the
--- lobby; "Plate", any but the daily screen (the level plate, which a spin's XP flies into); "Bare", only a screen that
--- takes the whole view. Derived, so it is written only while it moves.
+-- lobby; "Plate", any but the daily and codes screens (the level plate, which their XP flies into); "Bare", only
+-- settings or a screen that takes the whole view. Derived, so it is written only while it moves.
 local function arrival(
 	state: Types.TLobbyState,
 	delay: number,
@@ -447,11 +447,12 @@ local NOTHING_WAITS: TWaiting = table.freeze({
 local function waiting(state: Types.TLobbyState, name: TNotice?, delay: number, size: number, at: Vector2): TWaiting
 	if not name then return NOTHING_WAITS end
 
-	local count = if name == "Index" then state.IndexCount elseif name == "Quests" then state.QuestsReady else nil
 	local isCalling = derive(function(): boolean
-		if count then return count() > 0 end
+		if name == "Index" then return state.IndexCount() > 0 end
+		if name == "Quests" then return state.QuestsReady() > 0 end
 		if name == "Lab" then return state.CanBrew() end
-		return if name == "Weapons" then state.CanUpgradeWeapons() else state.CanUpgradeClasses()
+		if name == "Weapons" then return state.CanUpgradeWeapons() end
+		return state.CanUpgradeClasses()
 	end)
 	local callDelay = Gesture.NOTICE_STAGGER * NOTICE_ORDER[name]
 	local landsAt = delay + Arrive.SLIDE + Gesture.NOTICE_AFTER
@@ -466,12 +467,11 @@ local function waiting(state: Types.TLobbyState, name: TNotice?, delay: number, 
 			return Progress(state.Now(), state.CallAt(), Gesture.CALL_SHEEN, callDelay)
 		end),
 		Chip = Notice.Build({
-			Kind = if count or name == "Lab" then "New" else "Upgrade",
+			Kind = if name == "Weapons" or name == "Classes" then "Upgrade" else "New",
 			Size = size,
 			IsShown = function()
 				return hasLanded() and isCalling()
 			end,
-			Count = count,
 			Now = state.Now,
 			CallAt = state.CallAt,
 			CallDelay = callDelay,

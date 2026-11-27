@@ -8,6 +8,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
+local LoadingGate = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.LoadingGate)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
 local DamageNumbersController =
 	require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.DamageNumbersController)
@@ -97,7 +98,7 @@ MatchController.BossWayKills = 0
 MatchController.BossWayNeeded = 0
 -- os.clock of the last wave done (MarkWaveDone), for the HUD's green edge.
 MatchController.WaveDoneAt = -math.huge
--- The revive product on offer after a clear while down, or 0.
+-- The revive product the results offer, or 0.
 MatchController.ReviveProductId = 0
 -- Each player's line on the squad screen, once the server has sent one.
 MatchController.Scores = {} :: { [Player]: TScore }
@@ -189,6 +190,7 @@ ServerNetworkGame.MatchStarted.On(function(mapIndex: number)
 	MatchController.MapName = if map then map.Name else MapsCore.DEFAULT
 	leaveResults()
 	changed()
+	LoadingGate.MarkReady()
 end)
 
 ServerNetworkGame.MatchEnded.On(function(results: NetworkTypes.Server_Game_Results)
@@ -321,11 +323,6 @@ end)
 -- keeps every payload it is sent.
 ServerNetworkRounds.Rewards.On(function() end)
 
-ServerNetworkRounds.ReviveOffer.On(function(productId: number)
-	MatchController.ReviveProductId = productId
-	changed()
-end)
-
 ServerNetworkEnemies.BossHealth.On(
 	function(
 		dataId: number,
@@ -362,12 +359,17 @@ MatchController.OnPlayerDisconnected = function(player: Player)
 end :: TPlayerEvents.OnPlayerDisconnected
 
 MatchController.OnStart = function()
+	-- The run starts once the whole squad is in (MatchService), which is what the loading screen waits on.
+	LoadingGate.SetWaiting("WAITING FOR THE SQUAD")
 	ContextActionService:BindAction("VoteStart", function(_, state)
 		if state == Enum.UserInputState.Begin then MatchController.VoteStart() end
 		return Enum.ContextActionResult.Sink
 	end, false, MatchController.SKIP_KEY)
-	-- Last thing on start: every module's network listeners were connected when it loaded.
-	ClientNetworkGame.GameLoaded.Fire()
+	-- Last thing on start, as every module's network listeners were connected when it loaded, and only once the
+	-- loading screen's assets are in, so the first countdown never runs under it.
+	LoadingGate.OnLoaded(function()
+		ClientNetworkGame.GameLoaded.Fire()
+	end)
 end
 
 return Ignis.Register(MatchController)

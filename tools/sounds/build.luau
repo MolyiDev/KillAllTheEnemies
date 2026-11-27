@@ -1,10 +1,10 @@
 -- Turns tools/sounds/Sounds.txt into sounds/Sounds.rbxmx, Rojo's ReplicatedStorage.Sounds in both places.
 --   lune run tools/sounds/build.luau "$PWD"
--- Sounds.txt is BeACastleLord's ReplicatedStorage.Sounds as its Studio holds it, one Sound a line:
+-- Sounds.txt holds one Sound a line:
 --   path|SoundId|Volume|PlaybackSpeed|bus|flags
--- with flags from Looped, PlayOnRemove, RollOff=<mode>, Min=<studs>, Max=<studs>. The clips were uploaded by group
--- 35115431 (the earlier games' group). This game's universe belongs to group 34796361, so they play here only once
--- this universe is granted use of them (Tripwire grant_asset_permissions) or they are re-uploaded by 34796361.
+-- with flags from Looped, PlayOnRemove, RollOff=<mode>, Min=<studs>, Max=<studs>. Audio plays only in games its
+-- owner owns, so every id is group 34796361's (tools/sounds/upload.py) or Roblox library audio; anyone else's is a
+-- silent Sound and two Studio warnings every load.
 --
 -- The bus column is a record only: a model file cannot point at a SoundGroup outside itself, so SoundsCore puts each
 -- Sound on its bus by its top folder when it loads.

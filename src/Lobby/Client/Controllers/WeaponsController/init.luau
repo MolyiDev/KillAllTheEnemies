@@ -142,7 +142,6 @@ function WeaponsController.Open()
 	end)
 	SoundsCore.SetMuffled("Weapons", true)
 	BlurController.SetBlurred("Weapons", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function WeaponsController.Close()
@@ -151,7 +150,6 @@ function WeaponsController.Close()
 	stamp(state.ToggledAt, os.clock())
 	SoundsCore.SetMuffled("Weapons", false)
 	BlurController.SetBlurred("Weapons", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function refuse()

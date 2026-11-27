@@ -5,4 +5,6 @@ return table.freeze({
 	MenuSoundsVolume = 3,
 	IsCameraShakeReduced = 4,
 	IsDragFireToAim = 5,
+	ShouldShowDamageNumbers = 6,
+	ShouldShowDebugInfo = 7,
 })

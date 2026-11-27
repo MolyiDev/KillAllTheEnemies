@@ -5,13 +5,23 @@ import "../Types/Vec.blink"
 
 -- Classes and their abilities (Game/Server/Services/AbilityService).
 
--- To the owner: the class they play this run, its slots' levels (the ultimate last) and their ultimate's meter, on
--- every spawn and every time the meter moves. (classId, levels, kills banked)
+-- To the owner: the class they play this run, its slots' levels (the ultimate last), the casts each slot has paid for
+-- this run (its price) and their ultimate's meter, on every spawn, every paid cast and every time the meter moves.
+-- (classId, levels, casts, kills banked)
 event State {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (DataId.Type, u8[], u16)
+	data: (DataId.Type, u8[], u16[], u16)
+}
+
+-- To the buyer: CHARGE NOW was bought. Fired just before the State that fills the meter, for the show of it filling.
+-- (kills banked before it)
+event UltimateBought {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: u16
 }
 
 -- A decoy was thrown, to everybody. (decoy, thrower, the floor it lands on, seconds in the air, seconds it stands)

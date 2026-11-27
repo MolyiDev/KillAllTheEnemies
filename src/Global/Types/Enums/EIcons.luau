@@ -73,4 +73,10 @@ return table.freeze({
 	Cauldron = "Cauldron",
 	EnergyBolt = "EnergyBolt",
 	Soul = "Soul",
+	HudScreen = "HudScreen",
+	InviteGift = "InviteGift",
+	UpgradeHaste = "UpgradeHaste",
+	UpgradeDiscount = "UpgradeDiscount",
+	UpgradeSpeed = "UpgradeSpeed",
+	UpgradeOvercharge = "UpgradeOvercharge",
 })

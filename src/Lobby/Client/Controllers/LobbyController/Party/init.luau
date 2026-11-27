@@ -274,8 +274,9 @@ local function chip(state: Types.TLobbyState, elapsed: () -> number, order: numb
 			TextSize = Layout.CHIP_TEXT,
 			TextTransparency = 1,
 			Text = word,
+			-- TextBounds is in screen px, under the root's UIScale; the width is in design px.
 			vide.changed("TextBounds", function(bounds: Vector2)
-				wordWidth(math.ceil(bounds.X))
+				wordWidth(math.ceil(bounds.X / math.max(vide.untrack(state.PageScale), 0.01)))
 			end),
 		}),
 		Parts.Plaque({

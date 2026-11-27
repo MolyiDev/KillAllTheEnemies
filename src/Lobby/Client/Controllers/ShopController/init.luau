@@ -19,6 +19,7 @@ local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Netw
 local BlurController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.BlurController)
 local LobbyEnteringController = require(script.Parent.LobbyEnteringController)
 local GemPayout = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GemPayout)
+local LoadingGate = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.LoadingGate)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local ShopCore = require(ReplicatedStorage.GlobalShared.Core.ShopCore)
@@ -135,9 +136,9 @@ local promptDimFrom = 0
 -- os.clock until which the receipt's clock keeps ticking, and when the light next crosses its card.
 local receiptUntil = -math.huge
 local nextCall = math.huge
--- The beats of the receipt on show that have played: its landing, ribbon and CONTINUE, each line's print and stamp,
+-- The beats of the receipt on show that have played: its landing and ribbon, each line's print and stamp,
 -- and how many times each line's count has ticked.
-local played = { Slam = false, Ribbon = false, Button = false }
+local played = { Slam = false, Ribbon = false }
 local printed: { boolean } = {}
 local stamped: { boolean } = {}
 local ticks: { number } = {}
@@ -155,6 +156,11 @@ end
 -- Whether the shop's Gems are landing in the pill now. Reads a vide source.
 function ShopController.IsLandingGems(): boolean
 	return isLandingGems()
+end
+
+-- Whether a receipt is on show or waiting its turn, so the lobby opens nothing of its own over it.
+function ShopController.HasReceipt(): boolean
+	return state.Receipt() ~= nil or #queue > 0
 end
 
 -- Where the Gems fly to: the glyph on the lobby HUD's Gems pill.
@@ -243,7 +249,6 @@ function ShopController.Open(section: ShopCore.TSection?)
 	stir(Tune.MOTION_SECONDS)
 	SoundsCore.SetMuffled("Shop", true)
 	BlurController.SetBlurred("Shop", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 local function closeGift()
@@ -265,7 +270,6 @@ function ShopController.Close()
 	stir(Tune.MOTION_SECONDS)
 	SoundsCore.SetMuffled("Shop", false)
 	BlurController.SetBlurred("Shop", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function giftPlayers(): { Types.TGiftPlayer }
@@ -343,12 +347,8 @@ local actions: Types.TShopActions = {
 			state.GiftToggledAt(os.clock())
 		end)
 		stir(1)
-		SoundsCore.PlayUINamed("UI", "MenuIn")
 	end,
-	CloseGift = function()
-		closeGift()
-		SoundsCore.PlayUINamed("UI", "MenuOut")
-	end,
+	CloseGift = closeGift,
 	-- The server checks the pick and prompts the gift product; its answer comes back as GiftResult.
 	SendGift = function(userId: number)
 		local name = state.GiftOffer()
@@ -392,7 +392,7 @@ local function receiptOf(offer: ShopCore.TOffer, giver: string, receiver: string
 end
 
 local function showReceipt(receipt: Types.TReceipt, now: number)
-	played.Slam, played.Ribbon, played.Button = false, false, false
+	played.Slam, played.Ribbon = false, false
 	table.clear(printed)
 	table.clear(stamped)
 	table.clear(ticks)
@@ -439,7 +439,6 @@ local function continueReceipt()
 	stirReceipt(Receipt.LEAVE_SECONDS + 0.1)
 	SoundsCore.SetMuffled("Receipt", false)
 	BlurController.SetBlurred("Receipt", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local receiptActions: Types.TReceiptActions = {
@@ -512,10 +511,6 @@ local function stepReceipt(now: number)
 		played.Ribbon = true
 		SoundsCore.PlayUINamed("UI.Index", "Unlock")
 	end
-	if not played.Button and now >= plan.ButtonAt then
-		played.Button = true
-		SoundsCore.PlayUINamed("UI", "MenuIn")
-	end
 
 	local leftAt = state.ReceiptLeftAt()
 	if leftAt == math.huge and now >= nextCall then
@@ -530,9 +525,11 @@ local function stepReceipt(now: number)
 	stampOffer(state.GrantedAt, receipt.Offer, now)
 end
 
--- The next receipt, once the one before has gone, Roblox's dialog has closed (or it was waited on long enough) and
--- the lobby is not showing the last run's results.
+-- The next receipt, once the loading screen has lifted (a purchase made outside the game is granted on joining,
+-- under it), the one before has gone, Roblox's dialog has closed (or it was waited on long enough) and the lobby is
+-- not showing the last run's results.
 local function pump(now: number)
+	if not LoadingGate.IsLifted then return end
 	if state.Receipt() or #queue == 0 or LobbyEnteringController.IsOpen() then return end
 	local entry = queue[1]
 	if state.IsPrompting() and now - entry.At < Tune.MAX_DIALOG_WAIT then return end
@@ -793,8 +790,8 @@ ServerNetworkShop.GiftResult.On(function(index: number, receiver: string, result
 end)
 
 -- In the same frame as the profile it paid, as Granted.
-ServerNetworkInvites.Rewarded.On(function(name: string, gems: number, friends: number, most: number)
-	enqueue(Receipts.Invite(name, gems, friends, most))
+ServerNetworkInvites.Rewarded.On(function(name: string, gems: number, friends: number, most: number, isGift: boolean)
+	enqueue(Receipts.Invite(name, gems, friends, most, isGift))
 end)
 
 return Ignis.Register(ShopController)

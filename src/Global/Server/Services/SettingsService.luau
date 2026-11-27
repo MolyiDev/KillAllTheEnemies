@@ -27,7 +27,12 @@ local function send(player: Player, profile: TProfile.TProfile)
 		saved.MenuSoundsVolume or VOLUMES[ESettings.MenuSoundsVolume].Default,
 		-- Each is false by default; `or false` only makes a boolean of a missing key.
 		saved.IsCameraShakeReduced or false,
-		saved.IsDragFireToAim or false
+		saved.IsDragFireToAim or false,
+		-- True by default: false is saved, so `or` cannot stand in for the missing key.
+		if saved.ShouldShowDamageNumbers == nil
+			then TOGGLES[ESettings.ShouldShowDamageNumbers].Default
+			else saved.ShouldShowDamageNumbers,
+		saved.ShouldShowDebugInfo or false
 	)
 end
 

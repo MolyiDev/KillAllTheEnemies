@@ -7,4 +7,8 @@ return table.freeze({
 	Lifesteal = 5,
 	-- 6 was Explosive Headshots.
 	Greed = 7,
+	Haste = 8,
+	Discount = 9,
+	Speed = 10,
+	Overcharge = 11,
 })

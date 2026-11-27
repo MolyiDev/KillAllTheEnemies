@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local CoinFlight = require(script.Parent.coinFlight)
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local goldFx = {}
 
@@ -100,7 +101,7 @@ end
 
 local function emit(attachment: Attachment, layer: string, count: number)
 	local emitter = attachment:FindFirstChild(layer)
-	if emitter and emitter:IsA("ParticleEmitter") then emitter:Emit(count) end
+	if emitter and emitter:IsA("ParticleEmitter") then fxBudget.Emit(emitter, count) end
 end
 
 local function roll(range: NumberRange): number

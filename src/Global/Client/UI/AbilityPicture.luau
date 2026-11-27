@@ -8,6 +8,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local AvatarPose = require(script.Parent.AvatarPose)
 local GunPicture = require(script.Parent.GunPicture)
 local copyCharacter = require(script.Parent.Parent.Utils.copyCharacter)
+local equipmentPieces = require(script.Parent.Parent.Utils.equipmentPieces)
 
 local create = vide.create
 local derive = vide.derive
@@ -25,10 +26,12 @@ local AbilityPicture = {}
 local pictures: { [string]: GunPicture.TPicture | false } = {}
 
 -- A copy of `character` in the doll's pose, for the Decoy's picture, or nil when it cannot be copied. Copy it once its
--- clothes and hats are on.
+-- clothes and hats are on. It is the avatar alone, as the thrown doll is: the equipment may or may not have arrived
+-- on the body yet.
 function AbilityPicture.Doll(character: Model): Model?
 	local copy = copyCharacter(character)
 	if not copy then return nil end
+	equipmentPieces.Strip(copy)
 	AvatarPose.Apply(copy, AvatarPose.DOLL)
 	return copy
 end

@@ -7,6 +7,7 @@
 -- each gets copies of its own, destroyed when they are spent.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local healFx = {}
 
@@ -69,7 +70,7 @@ end
 
 local function emit(attachment: Attachment, layer: string, count: number)
 	local emitter = attachment:FindFirstChild(layer)
-	if emitter and emitter:IsA("ParticleEmitter") then emitter:Emit(count) end
+	if emitter and emitter:IsA("ParticleEmitter") then fxBudget.Emit(emitter, count) end
 end
 
 -- Heals the body whose root is `root`: the burst rides it. `isCaster` is whoever bought the heal.
@@ -123,7 +124,7 @@ function healFx.Step()
 		if heal.RisesLeft > 0 and now >= heal.NextRiseAt then
 			heal.RisesLeft -= 1
 			heal.NextRiseAt = now + Tune.RISE_GAP
-			if heal.Rise then heal.Rise:Emit(1) end
+			if heal.Rise then fxBudget.Emit(heal.Rise, 1) end
 		end
 
 		if now < heal.EndsAt then continue end

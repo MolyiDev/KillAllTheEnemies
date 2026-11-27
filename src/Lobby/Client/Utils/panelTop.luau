@@ -28,15 +28,20 @@ function panelTop.Lift(designTop: number): () -> number
 	end
 end
 
+-- How far down the screen the top strip reaches now, in screen px: Roblox's top bar or the top row, whichever is lower.
+-- The settings screen stays under it too (SettingsController.SetTopReach).
+function panelTop.Reach(): number
+	local rowBottom = Hud.TOP_ROW_BOTTOM * Hud.ScaleFor(camera.ViewportSize.Y, GuiService:GetGuiInset().Y)
+	return math.max(GuiService.TopbarInset.Max.Y, rowBottom)
+end
+
 local function update()
 	local viewport = camera.ViewportSize
 	if viewport.X <= 0 or viewport.Y <= 0 then return end
 
 	local scale = math.min(viewport.Y / DESIGN.Y, viewport.X / DESIGN.X)
 	local pageTop = (viewport.Y - DESIGN.Y * scale) / 2
-	local rowBottom = Hud.TOP_ROW_BOTTOM * Hud.ScaleFor(viewport.Y, GuiService:GetGuiInset().Y)
-	local reach = math.max(GuiService.TopbarInset.Max.Y, rowBottom)
-	panelTop.Top(math.round((reach - pageTop) / scale + GAP))
+	panelTop.Top(math.round((panelTop.Reach() - pageTop) / scale + GAP))
 	panelTop.Scale(scale)
 end
 

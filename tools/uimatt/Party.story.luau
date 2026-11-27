@@ -3,14 +3,15 @@
 --   rur-native render --headless --offline --rojo <lobby.project.json without its comments> \
 --     --story tools/uimatt/Party.story.luau --viewport 1920x1080 --scale 1 --background 40,40,60 --time 2 \
 --     --controls '{"Moment": "Rest"}' --dir <out>
--- Moment: Rest (open and settled: Pirate Cove, Normal, a party of 4, public), Enter (opening 0.2 s in), Map (the next
+-- Moment: Rest (open and settled: Baseplate, Normal, a party of 4, public), Enter (opening 0.2 s in), Map (the next
 -- map picked 0.2 s in), Back (the map before), Dot (the last map picked by its dot), Size (a party of 2 picked), Grow
 -- (from 1 to 4), Difficulty (Hell picked), Access (friends picked), Create (CREATE pressed and the party going up),
 -- Close (the X), Hurry (the last seconds to pick), Locked (the second map, not open: level 7 of 10, its boss beaten
 -- once of three), Unlock (the second map open and its unlock playing from 0.2 s in, as the screen opens on it), Path
 -- (the third map picked, its unlock played), Slide (Locked's player turning from the first map to the second 0.2 s in),
--- Mystery (Locked's player on the path's '?'), for `rur-native sequence`. The group-owned images 403
--- offline, so they are swapped for the local PNGs they were made from.
+-- Mystery (Locked's player on the path's '?'), for `rur-native sequence`. Locked, Unlock, Path and Slide need a
+-- second map in MapsCore.LIST: with Baseplate alone they show it. The group-owned images 403 offline, so they are
+-- swapped for the local PNGs they were made from.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -34,8 +35,6 @@ local SWAPS = {
 	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "hud/Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "hud/PanelTexture.png",
-	[Parts.PICTURES.PirateCove] = ROOT .. "party/maps/PirateCove.png",
-	[Parts.PICTURES.GrassLands] = ROOT .. "party/maps/GrassLands.png",
 }
 local MOMENT_AT = 0.2
 -- The server's answer to CREATE: the pad moves on and the screen shuts.
@@ -111,10 +110,10 @@ return {
 			},
 			IsChoosing = source(true),
 			ChoosingAt = source(if moment == "Enter" then at else -math.huge),
-			BestByMap = source({ PirateCove = 23, GrassLands = 8 }),
-			BossKills = source(if isEarly then { PirateCove = 1 } else { PirateCove = 3, GrassLands = 3 }),
+			BestByMap = source({ Baseplate = 23 }),
+			BossKills = source(if isEarly then { Baseplate = 1 } else { Baseplate = 3 }),
 			-- The controller marks a map shown as its unlock starts.
-			MapsShown = source(if moment == "Path" or moment == "Unlock" then { GrassLands = true } else {}),
+			MapsShown = source({}),
 			Level = source(if isEarly then 7 else 24),
 			UnlockMap = source(if moment == "Unlock" then 2 else 0),
 			UnlockAt = source(if moment == "Unlock" then at else -math.huge),

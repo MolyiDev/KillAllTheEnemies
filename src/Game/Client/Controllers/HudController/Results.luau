@@ -1249,7 +1249,7 @@ end
 local function lobbyButton(actions: Types.TActions): TextButton
 	local isHovered = source(false)
 	local isPressed = source(false)
-	local hover = spring(function()
+	local hover = Hand.Spring(function()
 		return if isHovered() then 1 else 0
 	end, 0.2, 0.9)
 	local scale = spring(function()

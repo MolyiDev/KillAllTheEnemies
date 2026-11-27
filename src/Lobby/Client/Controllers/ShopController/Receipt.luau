@@ -619,8 +619,9 @@ local function row(view: TView, data: Types.TReceiptRow, index: number): Frame
 				TextSize = Layout.COUNT_TEXT,
 				TextTransparency = 1,
 				Text = countText(data, data.Count),
+				-- TextBounds is in screen px, under the root's UIScale; the width is in design px.
 				vide.changed("TextBounds", function(bounds: Vector2)
-					countWidth(math.ceil(bounds.X))
+					countWidth(math.ceil(bounds.X / math.max(vide.untrack(state.Scale), 0.01)))
 				end),
 			}),
 			create("Frame")({

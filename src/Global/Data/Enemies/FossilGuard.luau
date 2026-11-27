@@ -8,7 +8,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TEnemy = {
 	Id = EEnemiesIds.FossilGuard,
 	Name = "Fossil Guard",
-	Description = "Rises when the Skeleton T-Rex roars and keeps its shield up. Kill every guard to break it.",
+	Description = "Old bones the Skeleton T-Rex calls up from the ground. While they stand, its shield holds.",
 	ModelName = "Revenant",
 	AnimationSet = "MonsterR6",
 	Sounds = { Group = "Enemies.Zombie", Idle = "Idle", Attack = "Attack", Death = "Death" },

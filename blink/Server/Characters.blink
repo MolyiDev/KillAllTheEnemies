@@ -33,3 +33,13 @@ event HealthLevel {
 	call: SingleAsync,
 	data: (Player.Type, u8)
 }
+
+-- `player` is about to be revived: their new body stands where the old one fell and every client builds it from the
+-- pile of bricks it left (reviveFx). Sent before the body is loaded; a body that comes without it (a run started
+-- over) is a fresh one.
+event Revived {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: Player.Type
+}

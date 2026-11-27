@@ -13,6 +13,7 @@ local motorParts = require(script.Parent.Parent.Parent.GlobalClient.Utils.motorP
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local burstLayers = require(script.Parent.burstLayers)
 local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local trexFx = {}
 
@@ -150,6 +151,8 @@ local Tune = table.freeze({
 	SPINE_QUIVER_DECAY = 11,
 	SPINE_STUCK = 0.7,
 	SPINE_SINK = 6.5,
+	-- Its boss killed while it flies: it fades out on its way over this long, never landing.
+	SPINE_LET_GO = 0.3,
 	SPINE_CRATER = 3.4,
 	SPINE_CRATER_HOLD = 1.2,
 	SPINE_PIXELS = NumberRange.new(12, 16),
@@ -315,12 +318,21 @@ type TSpine = {
 	Flight: number,
 	-- 0 in the air; the clock it landed at once stuck in the floor.
 	LandedAt: number,
+	-- The clock its boss died at while it flew (trexFx.LetGo).
+	LetGoAt: number?,
 	Stuck: CFrame,
 	Roll: number,
 }
 -- The maw: where it bites and the way it bites, when it opened, and the colour and see-through its parts were last
--- given (written only when they change).
-type TMaw = { At: Vector3, Forward: Vector3, OpenedAt: number, Color: Color3?, Transparency: number }
+-- given (written only when they change), and the clock its boss died at, if it did before it faded (trexFx.LetGo).
+type TMaw = {
+	At: Vector3,
+	Forward: Vector3,
+	OpenedAt: number,
+	Color: Color3?,
+	Transparency: number,
+	LetGoAt: number?,
+}
 -- Its eye sockets burning: `Eyes` says where both are and how bright every frame until it lets go; each socket's last
 -- place and what is owed of its streak.
 type TGlare = {
@@ -354,7 +366,8 @@ local bricks: { BasePart } = {}
 local boneBricks: { BasePart } = {}
 local shardBricks: { BasePart } = {}
 -- The Spine's pieces and where each sits in the spine's frame; the Rubble's slabs, narrowest first.
-local spinePieces: { { Template: BasePart, Offset: CFrame } } = {}
+-- Each piece's authored see-through too, given back after a spine faded in the air (trexFx.LetGo).
+local spinePieces: { { Template: BasePart, Offset: CFrame, Transparency: number } } = {}
 local rubble: { BasePart } = {}
 -- Copies of a template grown or shrunk (a Quake's beats), by name and size.
 local scaled: { [string]: TLayers } = {}
@@ -480,7 +493,8 @@ local function ready(): boolean
 	if spineFolder then
 		for _, piece in spineFolder:GetChildren() do
 			if piece:IsA("BasePart") then
-				spinePieces[#spinePieces + 1] = { Template = piece, Offset = piece.CFrame }
+				spinePieces[#spinePieces + 1] =
+					{ Template = piece, Offset = piece.CFrame, Transparency = piece.Transparency }
 			end
 		end
 	end
@@ -750,6 +764,7 @@ function trexFx.Maw(at: Vector3, forward: Vector3)
 		OpenedAt = clock,
 		Color = nil,
 		Transparency = -1,
+		LetGoAt = nil,
 	}
 end
 
@@ -822,6 +837,7 @@ function trexFx.Spine(from: Vector3, to: Vector3, flight: number)
 		LaunchedAt = clock,
 		Flight = math.max(flight, 0.05),
 		LandedAt = 0,
+		LetGoAt = nil,
 		Stuck = CFrame.identity,
 		Roll = random:NextNumber(0, math.pi * 2),
 	}
@@ -1131,6 +1147,32 @@ function trexFx.BeamFlow(from: Vector3, to: Vector3, phase: number, dt: number, 
 	return owed - count
 end
 
+-- Its boss is dead: what is left of its moves lets go where it is. What rides its body stops pouring out (what is out
+-- lives out its life), the maw fades holding its bite, and a spine in the air fades on its way, as its warning is
+-- taken back (EnemyAttacksService). Landed things (a spine stuck in the floor, a wave rolling) run on. Kit-wide: one
+-- boss at a time, as with the maw.
+function trexFx.LetGo()
+	for _, entry in rides do
+		entry.EndsAt = math.min(entry.EndsAt, clock)
+	end
+	local open = maw
+	if open and not open.LetGoAt then open.LetGoAt = clock end
+	for _, spine in spines do
+		if spine.LandedAt == 0 and not spine.LetGoAt then spine.LetGoAt = clock end
+	end
+end
+
+-- Spines still in the air (the debug readout's): a stuck one is no longer a projectile.
+function trexFx.SpinesInAir(): number
+	local count = 0
+	for _, spine in spines do
+		if spine.LandedAt == 0 then
+			count += 1
+		end
+	end
+	return count
+end
+
 -- A guard falling breaks its beam at `at`.
 function trexFx.Snap(at: Vector3)
 	if not ready() or not near(at, Tune.RANGE) then return end
@@ -1311,6 +1353,24 @@ local function stepSpines(now: number)
 				local spin = spine.Roll + Tune.SPINE_ROLL * (now - spine.LaunchedAt)
 				pose(spine, CFrame.lookAt(point, ahead) * CFrame.Angles(0, 0, spin))
 			end
+			local letGoAt = spine.LetGoAt
+			if letGoAt then
+				local faded = (now - letGoAt) / Tune.SPINE_LET_GO
+				if faded < 1 then
+					for k, mover in spine.Movers do
+						local authored = spinePieces[k].Transparency
+						mover.Part.Transparency = authored + (1 - authored) * faded
+					end
+					continue
+				end
+				for k, mover in spine.Movers do
+					mover.Part.Transparency = spinePieces[k].Transparency
+					motorParts.Release(spineParts, mover)
+				end
+				spines[i] = spines[#spines]
+				spines[#spines] = nil
+				continue
+			end
 			if u > 0 then emit(place("SpineTrail", point), "Trail", 1) end
 			if u < 1 then continue end
 
@@ -1383,8 +1443,11 @@ local function stepMaw()
 		end
 		return
 	end
-	local age = clock - open.OpenedAt
+	-- Let go, it holds the pose it had and fades over MAW_FADE.
+	local letGoAt = open.LetGoAt
+	local age = (if letGoAt then letGoAt else clock) - open.OpenedAt
 	local angle, back, fade = mawPose(age)
+	if letGoAt then fade = math.max(fade, math.min((clock - letGoAt) / Tune.MAW_FADE, 1)) end
 	if fade >= 1 then
 		maw = nil
 		return
@@ -1538,7 +1601,7 @@ local function stepInhale(dt: number)
 			emitter.Speed = NumberRange.new(
 				if math.abs(k) < 1e-4 then distance / pull.Life else distance * k / (1 - math.exp(-k * pull.Life))
 			)
-			emitter:Emit(1)
+			fxBudget.Emit(emitter, 1, from)
 		end
 	end
 end

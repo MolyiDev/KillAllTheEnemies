@@ -91,9 +91,9 @@ RoundService.State = ERoundState.Idle
 RoundService.Round = 0
 -- The highest round cleared together with every round before it, this run.
 RoundService.LastCleared = 0
--- The record key the run's clears go under ("PirateCove:Solo") and the map its waves are drawn for, set by
+-- The record key the run's clears go under ("Baseplate:Solo") and the map its waves are drawn for, set by
 -- MatchService at the start of the run.
-RoundService.RecordKey = "GrassLands:Solo"
+RoundService.RecordKey = "Baseplate:Solo"
 RoundService.MapName = MapsCore.DEFAULT
 -- Set from the console. The wave being fought stays open, since what it has still to spawn is not cleared.
 RoundService.IsSpawningPaused = false
@@ -190,6 +190,18 @@ local function getBoss(round: number): TData.TEnemy?
 	return RoundCore.GetBoss(round, RoundService.MapName, ENEMIES, EnemiesCore.HasModel)
 end
 
+-- Skips the wave being fought into the next one's countdown once everyone counts; otherwise tells everyone the count.
+local function checkVotes()
+	if RoundService.State == ERoundState.Idle then return end
+	local count, needed = countVotes()
+	if needed == 0 or count < needed or not canSkip() then
+		ServerNetworkRounds.Votes.FireAll(count, needed)
+		return
+	end
+
+	RoundService.Prepare(RoundService.Round + 1)
+end
+
 -- Opens the fight for RoundService.Round, beside any round a skip left open.
 local function fight()
 	local round = RoundService.Round
@@ -214,7 +226,7 @@ local function fight()
 		PoolWeight = RoundCore.GetPool(round, RoundService.MapName, ALL_ENEMIES, pool),
 	}
 	skipOpensAt = TimeCore.GameClock + RoundCore.GetSkipAfterSeconds(round)
-	wasSkippable = false
+	wasSkippable = canSkip()
 	table.clear(votes)
 
 	-- Reaching a round is recorded too: the hard map's gate may be set on reaching rather than clearing (GDD 8).
@@ -231,20 +243,10 @@ local function fight()
 
 	sentRemaining = countRemaining()
 	ServerNetworkRounds.Started.FireAll(round, sentRemaining)
-	ServerNetworkRounds.Votes.FireAll(countVotes())
 	RoundService.OnRoundStarted:Fire(round)
-end
-
--- Skips the wave being fought into the next one's countdown once everyone counts; otherwise tells everyone the count.
-local function checkVotes()
-	if RoundService.State == ERoundState.Idle then return end
-	local count, needed = countVotes()
-	if needed == 0 or count < needed or not canSkip() then
-		ServerNetworkRounds.Votes.FireAll(count, needed)
-		return
-	end
-
-	RoundService.Prepare(RoundService.Round + 1)
+	-- A wave everyone skips as it opens (an early one, on auto-skip) goes into the next countdown on this frame: both
+	-- events reach clients in one packet, so the HUD never drops the boss strip in for a wave gone a frame later.
+	checkVotes()
 end
 
 -- Opens the preparation before `round`: its countdown, after a clear or a skip alike. None with a boss coming or up
@@ -432,7 +434,8 @@ local function payClear(round: number)
 	local key = RoundService.RecordKey
 
 	for _, player in Players:GetPlayers() do
-		EconomyService.AddGold(player, gold)
+		local paidGold = math.floor(gold * (1 + upgradeStats.Get(player, EUpgradesIds.Greed)) + 0.5)
+		EconomyService.AddGold(player, paidGold)
 		local paidGems = EconomyService.AddGameplayGems(player, gems)
 		local paidXp = xpPercent
 		DatabaseService.Update(player, function(profile)
@@ -451,7 +454,7 @@ local function payClear(round: number)
 		end)
 
 		DatabaseService.SaveAsync(player)
-		ServerNetworkRounds.Rewards.Fire(player, round, gold, paidGems, paidXp)
+		ServerNetworkRounds.Rewards.Fire(player, round, paidGold, paidGems, paidXp)
 	end
 end
 

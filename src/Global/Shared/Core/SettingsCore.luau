@@ -37,6 +37,16 @@ SettingsCore.Toggles = table.freeze({
 		Key = "IsDragFireToAim",
 		Default = false,
 	}),
+	[ESettings.ShouldShowDamageNumbers] = table.freeze({
+		Id = ESettings.ShouldShowDamageNumbers,
+		Key = "ShouldShowDamageNumbers",
+		Default = true,
+	}),
+	[ESettings.ShouldShowDebugInfo] = table.freeze({
+		Id = ESettings.ShouldShowDebugInfo,
+		Key = "ShouldShowDebugInfo",
+		Default = false,
+	}),
 }) :: { [number]: TToggle }
 
 return table.freeze(SettingsCore)

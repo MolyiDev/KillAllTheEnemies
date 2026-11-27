@@ -109,7 +109,7 @@ return {
 			IsOpen = source(true),
 			ToggledAt = source(if isRest then 0 else os.clock() + MOMENT_AT),
 			Record = source({
-				MapName = "PirateCove",
+				MapName = "Baseplate",
 				Wave = 21,
 				BestWaveBefore = 18,
 				Seconds = 820,

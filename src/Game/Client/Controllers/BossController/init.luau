@@ -2,7 +2,7 @@
 -- turns and dive drawn exactly where the server moves it (EnemiesController.Drive), and the weight of a body this big:
 -- every footfall felt, its bite, tail, charge, spines, dive, roar, the shield its guards hold up and the beams that tie
 -- them to it, and its fall. This says when and where off the body's own bones; Utils/trexFx draws it, and the shake is
--- this module's. Its ground warnings are TelegraphController's, like every enemy's. Its timing runs on
+-- this module's. The Giant Spider's own moves are its child Spider's, handed this module's timeline, bones and shake. Its ground warnings are TelegraphController's, like every enemy's. Its timing runs on
 -- TimeCore.EnemyClock, so a freeze or a pause holds it with the fight.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,10 +17,14 @@ local EnemiesController = require(script.Parent.EnemiesController)
 local MatchController = require(script.Parent.MatchController)
 -- Through PlayerScripts, the copy that runs (see HudController).
 local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CameraController)
+local DebugInfoController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.DebugInfoController)
 local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
 local EnemyImpacts = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.enemyImpacts)
 local trexFx = require(script.Parent.Parent.Utils.trexFx)
 local trexSounds = require(script.Parent.Parent.Utils.trexSounds)
+local spiderFx = require(script.Parent.Parent.Utils.spiderFx)
+local Spider = require(script.Spider)
+local Types = require(script.Types)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local BossesCore = require(ReplicatedStorage.Shared.Core.BossesCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
@@ -28,7 +32,6 @@ local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local EBossMoves = require(ReplicatedStorage.Types.Enums.EBossMoves)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
-local TData = require(ReplicatedStorage.Types.TData)
 
 local ServerNetworkBosses = Network.Server.Bosses
 
@@ -38,6 +41,8 @@ local UP = Vector3.yAxis
 -- Its glow: the T-Rex's neon, the shield and the beams, its spines and its crack.
 local GREEN = Color3.fromRGB(90, 255, 140)
 local PALE_GREEN = Color3.fromRGB(205, 255, 195)
+-- The spider's silk.
+local SILK = Color3.fromRGB(240, 240, 246)
 
 local Tune = table.freeze({
 	-- An impact is felt in full this close to the player's body (the camera's, with none), falling off steeply (the
@@ -138,6 +143,9 @@ local Tune = table.freeze({
 	PANT_AT = 0.7,
 	-- Its pieces settling once the fall has rung out, this long after the killing blow.
 	SETTLE_AT = 2.4,
+	-- Killed in the middle of a move: what it still had coming is dropped, and its cues still ringing ease out over
+	-- this long (real seconds: a sound plays at its own speed through the slow motion).
+	LET_GO_SOUND_SECONDS = 0.6,
 	-- The roar's breath and rings pour out for this long, out of a mouth this far ahead of the jaw bone.
 	ROAR_SECONDS = 1.2,
 	MOUTH_AHEAD = 2,
@@ -161,6 +169,9 @@ local Tune = table.freeze({
 	-- The beams from each guard's chest to the boss's: thin at the guard, wider at the boss, their width shivering
 	-- this much at this rate.
 	BEAM_WIDTH = 0.9,
+	-- A spider's silk to its sacs: this wide, from this high on a sac.
+	SILK_WIDTH = 0.3,
+	SAC_TOP = 4.6,
 	BEAM_SHIVER = 0.3,
 	BEAM_SHIVER_RATE = 9,
 	GUARD_CHEST = 3.5,
@@ -198,47 +209,7 @@ local Tune = table.freeze({
 	},
 })
 
-type TBoss = {
-	InstanceId: number,
-	Data: TData.TEnemy,
-	Kit: TData.TEnemyBoss,
-	-- Effects due on the enemy clock, in order.
-	Timeline: { { At: number, Run: () -> () } },
-	-- Last place each step clip was read at, to see a footfall pass.
-	StepClock: { [string]: number },
-	Shield: BasePart?,
-	ShieldAlpha: number,
-	ShieldHitAt: number,
-	ShieldSoundAt: number,
-	ShieldTarget: boolean,
-	-- The floor under the bubble's middle, looked up once as it rises.
-	ShieldFloor: Vector3?,
-	-- Each guard's beam, its own phase (so beams do not pulse together) and the motes it owes.
-	Beams: { [number]: { Beam: Beam, From: Attachment, Phase: number, Owed: number } },
-	Anchor: Attachment?,
-	Guards: { number },
-	LastCFrame: CFrame?,
-	-- The dive's crack, drawn leg by leg as the server steers it: studs to its next step, steps drawn, and when it was
-	-- last heard.
-	CrackOwed: number,
-	CrackSteps: number,
-	CrackHeardAt: number,
-	-- The enemy clock its last dart lands at: the floor under its circle heaves from then.
-	DartLandsAt: number,
-	-- Under the floor (its dive): nothing of it is seen, so nothing of it reacts.
-	IsBuried: boolean,
-	-- The enemy clock its last chained charge's turn began, to tell a skid that ends the run from one a turn cuts.
-	TurnedAt: number,
-	-- Quarters of its health still standing, 0 until the server has said; and its last recoil (Tune.HURT_*): the
-	-- enemy clock it started, which way it turns (1 its front toward its left, away from shots from its right; -1 the
-	-- other way), and per bone the pose its clip gave and what was written over it, to tell a clip's write from this
-	-- one's.
-	Quarters: number,
-	HurtAt: number,
-	HurtSide: number,
-	HurtBase: { [Bone]: CFrame },
-	HurtWritten: { [Bone]: CFrame },
-}
+type TBoss = Types.TBoss
 
 local BossController = {}
 
@@ -301,10 +272,15 @@ local function boneOf(model: Model, name: string): Bone?
 	return bone
 end
 
-local function bonePosition(boss: TBoss, name: string): Vector3?
+local function boneFrame(boss: TBoss, name: string): CFrame?
 	local model = EnemiesController.GetModel(boss.InstanceId)
 	local bone = if model then boneOf(model, name) else nil
-	return if bone then bone.TransformedWorldCFrame.Position else nil
+	return if bone then bone.TransformedWorldCFrame else nil
+end
+
+local function bonePosition(boss: TBoss, name: string): Vector3?
+	local frame = boneFrame(boss, name)
+	return if frame then frame.Position else nil
 end
 
 -- Where its voice comes from: the head, or head height over `from` while the rig is not there.
@@ -323,7 +299,7 @@ local function footfall(boss: TBoss, side: string, strength: number, preset: { n
 	local floor, normal, color = floorUnder(foot)
 	if not floor then return end
 	trexFx.Footfall(floor, normal, color, strength)
-	trexSounds.Play("Step", floor)
+	trexSounds.Play("Step", floor, boss.InstanceId)
 	shake(floor, preset)
 end
 
@@ -334,7 +310,7 @@ local function stamp(boss: TBoss, side: string, size: number, preset: { number }
 	local floor, normal, color = floorUnder(foot)
 	if not floor then return end
 	trexFx.Stomp(floor, normal, color, size)
-	trexSounds.Play("Stomp", floor)
+	trexSounds.Play("Stomp", floor, boss.InstanceId)
 	shake(floor, preset)
 end
 
@@ -400,6 +376,9 @@ local function track(instanceId: number): TBoss?
 		HurtSide = 1,
 		HurtBase = {},
 		HurtWritten = {},
+		IsThreaded = false,
+		LegLandings = 0,
+		IsDead = false,
 	}
 	bosses[instanceId] = boss
 	return boss
@@ -439,6 +418,15 @@ local function aimAt(boss: TBoss, yaw: number)
 	end)
 end
 
+-- What the Spider child is handed.
+local api: Types.TApi = {
+	Schedule = schedule,
+	BoneFrame = boneFrame,
+	BonePosition = bonePosition,
+	Shake = shake,
+	Facing = facing,
+}
+
 -- ============================== Moves ==============================
 
 -- `tempo`: how many times as long as authored the server times it (BossesCore.Tempo), so the clip plays at 1 / tempo
@@ -453,12 +441,16 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 	local clip = attack.AnimationName or "Attack"
 	EnemiesController.PlayClip(id, clip, { Fade = 0.12, Speed = 1 / tempo })
 	aimAt(boss, yaw)
+	if boss.Data.AnimationSet == "Spider" then
+		Spider.OnAttack(api, boss, attack, from, yaw, tempo)
+		return
+	end
 
 	local moveSounds = Tune.MOVE_SOUNDS[clip]
 	if moveSounds then
 		for _, sound in moveSounds do
 			schedule(boss, now + sound.At * tempo, function()
-				trexSounds.Play(sound.Cue, bonePosition(boss, sound.Bone) or from)
+				trexSounds.Play(sound.Cue, bonePosition(boss, sound.Bone) or from, boss.InstanceId)
 			end)
 		end
 	end
@@ -484,7 +476,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 		if not floor then return end
 
 		-- One cue carries all three heaves at these moments.
-		trexSounds.Play("Sink", floor)
+		trexSounds.Play("Sink", floor, boss.InstanceId)
 		for i, delay in { 0.3, 0.7, 1.1 } do
 			schedule(boss, now + delay, function()
 				local size = Tune.SINK_SIZES[i]
@@ -498,7 +490,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 	if kind == "Summon" then
 		-- The voice builds before the jaws open on the roar.
 		schedule(boss, now + attack.Delay - trexSounds.Lead("RoarShort"), function()
-			trexSounds.Play("RoarShort", headOf(boss, from))
+			trexSounds.Play("RoarShort", headOf(boss, from), boss.InstanceId)
 		end)
 		schedule(boss, now + attack.Delay, function()
 			local head = headOf(boss, from)
@@ -520,7 +512,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 		-- The wind-up: a foot pawing the floor back twice, a snort out of the nose each time.
 		for _, delay in { 0.35, 0.75 } do
 			schedule(boss, now + delay * tempo - trexSounds.Lead("Snort"), function()
-				trexSounds.Play("Snort", headOf(boss, from))
+				trexSounds.Play("Snort", headOf(boss, from), boss.InstanceId)
 			end)
 			schedule(boss, now + delay * tempo, function()
 				local ahead = facing(boss)
@@ -542,7 +534,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 		end)
 		-- One swing whose whoosh peaks on the blow.
 		schedule(boss, now + attack.Delay * tempo - trexSounds.Lead("TailSweep"), function()
-			trexSounds.Play("TailSweep", bonePosition(boss, "Tail3") or from)
+			trexSounds.Play("TailSweep", bonePosition(boss, "Tail3") or from, boss.InstanceId)
 		end)
 	end
 
@@ -556,7 +548,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 		end)
 		-- Its snarl builds into the jaws shutting on the blow.
 		schedule(boss, now + attack.Delay * tempo - trexSounds.Lead("Bite"), function()
-			trexSounds.Play("Bite", bonePosition(boss, "Jaw") or from)
+			trexSounds.Play("Bite", bonePosition(boss, "Jaw") or from, boss.InstanceId)
 		end)
 	end
 
@@ -576,7 +568,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 			elseif attack.IsVolley then
 				local back = bonePosition(boss, "Chest") or from
 				trexFx.Launch(back + UP * Tune.LAUNCH_LIFT)
-				trexSounds.Play("SpineLaunch", back)
+				trexSounds.Play("SpineLaunch", back, boss.InstanceId)
 				shake(back, Tune.SHAKE_LOOSE)
 			else
 				-- Stomp and Quake land on alternate feet (left, right, left), read off the clips; the Quake's last
@@ -588,7 +580,7 @@ local function onAttack(boss: TBoss, index: number, from: Vector3, yaw: number, 
 				local here = EnemiesController.GetCFrame(id)
 				if isQuake and isLast and attack.FinisherRadius and attack.FinisherSpeed and here then
 					trexFx.Wave(here.Position, attack.FinisherRadius, attack.FinisherSpeed, Tune.QUAKE_WAVE)
-					trexSounds.Play("QuakeWave", here.Position)
+					trexSounds.Play("QuakeWave", here.Position, boss.InstanceId)
 				end
 			end
 		end)
@@ -634,7 +626,7 @@ local function onSkid(boss: TBoss, from: Vector3, to: Vector3, speed: number)
 
 	-- Both feet tear the floor up while it slides, and land hard as they catch. The scrape is one cue as long as the
 	-- slide.
-	trexSounds.Play("Skid", from)
+	trexSounds.Play("Skid", from, boss.InstanceId)
 	for i = 0, 5 do
 		schedule(boss, startedAt + i * kit.SkidStop / 6, function()
 			for _, name in { "ToeL", "ToeR" } do
@@ -648,7 +640,7 @@ local function onSkid(boss: TBoss, from: Vector3, to: Vector3, speed: number)
 	end)
 	schedule(boss, startedAt + Tune.PANT_AT, function()
 		if boss.TurnedAt >= startedAt then return end
-		trexSounds.Play("SkidPant", headOf(boss, to))
+		trexSounds.Play("SkidPant", headOf(boss, to), boss.InstanceId)
 	end)
 end
 
@@ -665,7 +657,7 @@ local function onTurn(boss: TBoss, yaw: number)
 	EnemiesController.StopClip(id, "Skid", 0.1)
 	EnemiesController.PlayClip(id, "ChargeTurn", { Fade = 0.1 })
 	-- Its feet scraping round, the tail swung out and whipped back: one cue as long as the turn.
-	trexSounds.Play("ChargeTurn", position)
+	trexSounds.Play("ChargeTurn", position, boss.InstanceId)
 	-- The way the server turns it, so a chained charge's turn never takes the short way round.
 	local delta = BossesCore.TurnDelta(startYaw, yaw)
 	EnemiesController.Drive(id, function(now: number): CFrame?
@@ -697,7 +689,7 @@ local function onRise(boss: TBoss, to: Vector3, yaw: number)
 		return frame
 	end)
 	schedule(boss, startedAt + kit.DiveRiseImpact - trexSounds.Lead("Rise"), function()
-		trexSounds.Play("Rise", floorUnder(to) or to)
+		trexSounds.Play("Rise", floorUnder(to) or to, boss.InstanceId)
 	end)
 	schedule(boss, startedAt + kit.DiveRiseImpact, function()
 		local floor, normal, color = floorUnder(to)
@@ -710,7 +702,7 @@ local function onRise(boss: TBoss, to: Vector3, yaw: number)
 	-- The reassemble's cue is as long as its clip: the pieces knocking in build to the head snapping home at 1 s.
 	schedule(boss, startedAt + kit.DiveRiseLength, function()
 		EnemiesController.PlayClip(id, "Reassemble", { Fade = 0.1 })
-		trexSounds.Play("Reassemble", bonePosition(boss, "Chest") or (to + UP * Tune.BOSS_CHEST))
+		trexSounds.Play("Reassemble", bonePosition(boss, "Chest") or (to + UP * Tune.BOSS_CHEST), boss.InstanceId)
 	end)
 	for _, delay in Tune.RATTLES do
 		schedule(boss, startedAt + kit.DiveRiseLength + delay, function()
@@ -733,7 +725,7 @@ local function crackStep(boss: TBoss, point: Vector3, along: Vector3, number: nu
 	local now = TimeCore.EnemyClock
 	if now - boss.CrackHeardAt < Tune.CRACK_SOUND_SECONDS then return end
 	boss.CrackHeardAt = now
-	trexSounds.Play("Crack", floor)
+	trexSounds.Play("Crack", floor, boss.InstanceId)
 end
 
 -- One leg of the crack it runs under the floor, glowing step by step from `from` to `to` over `seconds`, its head
@@ -790,7 +782,7 @@ local function onSurface(boss: TBoss, index: number, to: Vector3, seconds: numbe
 			local size = Tune.HEAVE_SIZES[i]
 			trexFx.Sink(floor, normal, color, size)
 			boss.CrackHeardAt = TimeCore.EnemyClock
-			trexSounds.Play("Crack", floor)
+			trexSounds.Play("Crack", floor, boss.InstanceId)
 			shake(floor, Tune.CATCH, size)
 		end)
 	end
@@ -828,7 +820,7 @@ local function onSpine(boss: TBoss, index: number, to: Vector3, seconds: number)
 		trexFx.Spine(from, to, flight)
 	end)
 	schedule(boss, startedAt + flight, function()
-		trexSounds.Play("SpineLand", to)
+		trexSounds.Play("SpineLand", to, boss.InstanceId)
 		shake(to, Tune.SPINE_LAND)
 	end)
 end
@@ -836,6 +828,7 @@ end
 -- ============================== Shield ==============================
 
 local function setBeams(boss: TBoss, guardIds: { number })
+	local isSilk = boss.Data.AnimationSet == "Spider"
 	local anchor = boss.Anchor
 	if not anchor then
 		anchor = Instance.new("Attachment")
@@ -855,11 +848,11 @@ local function setBeams(boss: TBoss, guardIds: { number })
 		beam.Attachment0 = from
 		beam.Attachment1 = anchor
 		-- Straight, so the motes trexFx flows along it lie on it.
-		beam.Color = ColorSequence.new(PALE_GREEN, GREEN)
-		beam.LightEmission = 1
-		beam.LightInfluence = 0
-		beam.Width0 = Tune.BEAM_WIDTH
-		beam.Width1 = Tune.BEAM_WIDTH * 1.6
+		beam.Color = if isSilk then ColorSequence.new(SILK) else ColorSequence.new(PALE_GREEN, GREEN)
+		beam.LightEmission = if isSilk then 0.3 else 1
+		beam.LightInfluence = if isSilk then 0.6 else 0
+		beam.Width0 = if isSilk then Tune.SILK_WIDTH else Tune.BEAM_WIDTH
+		beam.Width1 = if isSilk then Tune.SILK_WIDTH else Tune.BEAM_WIDTH * 1.6
 		beam.FaceCamera = true
 		beam.Transparency = NumberSequence.new(0.1)
 		beam.Parent = from
@@ -876,6 +869,7 @@ local function setBeams(boss: TBoss, guardIds: { number })
 		local chest = at.Position + UP * Tune.GUARD_CHEST
 		trexFx.Snap(chest)
 		trexSounds.Play("BeamSnap", chest)
+		if isSilk then Spider.OnSacGone(chest) end
 	end
 end
 
@@ -884,6 +878,8 @@ local function onShield(boss: TBoss, guardIds: { number }, total: number)
 	boss.ShieldTarget = #guardIds > 0
 	setBeams(boss, guardIds)
 	BossController.OnShield:Fire(boss.InstanceId, #guardIds, total)
+	-- The spider's sacs hold no bubble up: it is out of reach on its line, tied to them by silk.
+	if boss.Data.AnimationSet == "Spider" then return end
 	local here = EnemiesController.GetCFrame(boss.InstanceId)
 	if boss.ShieldTarget and not boss.Shield then
 		local bubble = fxPart(Enum.PartType.Ball, Enum.Material.ForceField, GREEN)
@@ -907,7 +903,27 @@ local function onShield(boss: TBoss, guardIds: { number }, total: number)
 	end
 end
 
+-- The silk from each of a spider's sacs up to its body on its line.
+local function stepSilk(boss: TBoss, now: number)
+	if next(boss.Beams) == nil then return end
+	local body = bonePosition(boss, "Thorax")
+	local anchor = boss.Anchor
+	if anchor and body then anchor.WorldPosition = body end
+	for guardId, entry in boss.Beams do
+		local guard = EnemiesController.GetCFrame(guardId)
+		local beam = entry.Beam
+		beam.Enabled = guard ~= nil and body ~= nil
+		if not guard then continue end
+		entry.From.WorldPosition = guard.Position + UP * Tune.SAC_TOP
+		beam.Width0 = Tune.SILK_WIDTH * (1 + 0.25 * math.sin(now * 5 + entry.Phase * 7))
+	end
+end
+
 local function stepShield(boss: TBoss, dt: number, now: number)
+	if boss.Data.AnimationSet == "Spider" then
+		stepSilk(boss, now)
+		return
+	end
 	local bubble = boss.Shield
 	if not bubble then return end
 	local target = if boss.ShieldTarget then 1 else 0
@@ -981,7 +997,7 @@ local function hurt(boss: TBoss)
 	local at = WeaponController.BossContact(id) or bonePosition(boss, "Chest") or (here.Position + UP * Tune.BOSS_CHEST)
 	trexFx.Shatter(at)
 	trexSounds.Play("Shatter", at)
-	trexSounds.Play("Hurt", headOf(boss, here.Position))
+	trexSounds.Play("Hurt", headOf(boss, here.Position), boss.InstanceId)
 	shake(at, Tune.HURT)
 
 	-- The body's left is its frame's +X (it faces its model's +Z).
@@ -1004,6 +1020,18 @@ local function stepQuarters(boss: TBoss)
 	if was > 0 and quarters < was and quarters > 0 then hurt(boss) end
 end
 
+-- Dead (or cleared): the move it was in the middle of goes with it. What it still had coming is dropped, its cues ease
+-- out, and what rides its body or is still in the air fades where it is (trexFx / spiderFx LetGo, as the server takes
+-- its warnings back). Its fall's own effects come after this.
+local function release(boss: TBoss)
+	if boss.IsDead then return end
+	boss.IsDead = true
+	table.clear(boss.Timeline)
+	trexSounds.FadeOut(boss.InstanceId, Tune.LET_GO_SOUND_SECONDS)
+	trexFx.LetGo()
+	if boss.Data.AnimationSet == "Spider" then spiderFx.LetGo() end
+end
+
 local function forget(boss: TBoss)
 	if boss.Shield then boss.Shield:Destroy() end
 	for _, entry in boss.Beams do
@@ -1024,13 +1052,21 @@ local function update(dt: number)
 		end
 
 		stepShield(boss, dt, clock)
+		if not EnemiesController.Bosses[instanceId] then
+			release(boss)
+			if not boss.Shield then forget(boss) end
+			continue
+		end
+		-- Killed, its rig still falling: nothing of its fight goes on.
+		if boss.IsDead then continue end
+
 		stepQuarters(boss)
+		if boss.Data.AnimationSet == "Spider" then Spider.Step(api, boss) end
 		local kit = boss.Kit
 		stepGait(boss, "Walk", kit.WalkSteps, Tune.STEP_STRENGTH, Tune.STEP)
 		stepGait(boss, "Charge", kit.ChargeSteps, Tune.RUN_STRENGTH, Tune.RUN_STEP)
 		local here = EnemiesController.GetCFrame(instanceId)
 		if here then boss.LastCFrame = here end
-		if not EnemiesController.Bosses[instanceId] and not boss.Shield and #timeline == 0 then forget(boss) end
 	end
 
 	-- The server holds the match through a boss's intro and tells clients only the scale (TimeCore.IsCutscene is the
@@ -1048,6 +1084,8 @@ local function update(dt: number)
 	)
 	-- The intro's camera has its own jolts.
 	if passedAt and not isIntro then shake(passedAt, Tune.WAVE_PASS, passedStrength) end
+	spiderFx.Update(fxDt, fxClock, Workspace.CurrentCamera.CFrame.Position)
+	trexSounds.Update()
 
 	local gameNow = TimeCore.GameClock
 	for i = #later, 1, -1 do
@@ -1074,7 +1112,11 @@ local function poseHurts()
 		if not model then continue end
 
 		local bases, written = boss.HurtBase, boss.HurtWritten
-		for _, turn in Tune.HURT_POSE do
+		local hurtPose: { { Bone: string, Pitch: number, Yaw: number, Lag: number } } = if boss.Data.AnimationSet
+				== "Spider"
+			then Spider.HURT_POSE
+			else Tune.HURT_POSE
+		for _, turn in hurtPose do
 			local bone = boneOf(model, turn.Bone)
 			if not bone then continue end
 			local t = elapsed - turn.Lag
@@ -1097,7 +1139,8 @@ end
 ServerNetworkBosses.Move.On(
 	function(instanceId: number, move: number, index: number, from: Vector3, to: Vector3, value: number, tempo: number)
 		local boss = track(instanceId)
-		if not boss then return end
+		-- A move sent before its death that lands after it is not played.
+		if not boss or boss.IsDead then return end
 		if move == EBossMoves.Attack then
 			onAttack(boss, index, from, value, tempo)
 		elseif move == EBossMoves.ChargeRun then
@@ -1115,7 +1158,18 @@ ServerNetworkBosses.Move.On(
 		elseif move == EBossMoves.Surface then
 			onSurface(boss, index, to, value)
 		elseif move == EBossMoves.Spine then
-			onSpine(boss, index, to, value)
+			local attack = boss.Data.Attacks[index]
+			if boss.Data.AnimationSet == "Spider" and attack then
+				Spider.OnGlob(api, boss, attack, to, value)
+			else
+				onSpine(boss, index, to, value)
+			end
+		elseif move == EBossMoves.Leap and boss.Data.Attacks[index] then
+			Spider.OnLeap(api, boss, boss.Data.Attacks[index], from, to, value)
+		elseif move == EBossMoves.Drop and boss.Data.Attacks[index] then
+			Spider.OnDrop(api, boss, boss.Data.Attacks[index], to, value)
+		elseif move == EBossMoves.Hatch then
+			Spider.OnHatch(api, to)
 		elseif move == EBossMoves.Pace then
 			EnemiesController.SetWalkPace(instanceId, value)
 		end
@@ -1160,6 +1214,7 @@ end)
 EnemiesController.OnEnemyKilled:Connect(function(instanceId: number, _, _, _, chest: Vector3)
 	local boss = bosses[instanceId]
 	if not boss then return end
+	release(boss)
 	local enemyData = ENEMIES[boss.Data.Id]
 	if enemyData then EnemyImpacts.EmitOverkill(enemyData, chest, EnemiesCore.AimShape(enemyData), nil) end
 	trexFx.Shatter(chest)
@@ -1190,6 +1245,7 @@ EnemiesController.OnEnemyKilled:Connect(function(instanceId: number, _, _, _, ch
 end)
 
 BossController.OnStart = function()
+	DebugInfoController.Track("PROJECTILES", trexFx.SpinesInAir)
 	RunService.PreRender:Connect(update)
 	RunService.PreSimulation:Connect(poseHurts)
 end

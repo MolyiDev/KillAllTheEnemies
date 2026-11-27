@@ -113,7 +113,6 @@ function DailyController.Open(tab: number?)
 	showPages()
 	SoundsCore.SetMuffled("Daily", true)
 	BlurController.SetBlurred("Daily", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function DailyController.Close()
@@ -125,7 +124,6 @@ function DailyController.Close()
 	showPages()
 	SoundsCore.SetMuffled("Daily", false)
 	BlurController.SetBlurred("Daily", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function pickTab(tab: number)

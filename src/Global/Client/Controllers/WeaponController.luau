@@ -170,9 +170,29 @@ local random = Random.new()
 -- Scratch for one shot: the drawn bodies near it and its pellets' directions.
 local bodies = GunsCore.NewBodies()
 local bodyEntities: { unknown } = {}
+-- One ray's hits, nearest first (GunsCore.CastBodiesAll).
+local castIndices: { number } = {}
+local castDistances: { number } = {}
 local pelletDirections: { Vector3 } = {}
 -- The enemy the aim was on last frame, under the crosshair or assisted, and the assist's best few, best first.
 local heldEntity: unknown = nil
+-- This frame's aimed body among the gathered ones (its index, 0 for none), which a shot is lined up on, and the shot
+-- GunsCore.LineUp lines up, filled for each one (lineUp).
+local aimBody = 0
+local lineUpShot: GunsCore.TLineUpShot = {
+	Bodies = bodies,
+	Owners = bodyEntities,
+	Origin = Vector3.zero,
+	Target = Vector3.zero,
+	Body = 0,
+	Pierce = 0,
+	Range = 0,
+	Pad = 0,
+	CastWall = function(origin: Vector3, vector: Vector3): number
+		local _, length = sightCast(origin, vector, WeaponController.SightParams)
+		return length
+	end,
+}
 local assistCount = 0
 local assistEntities: { unknown } = table.create(Tune.ASSIST_CHECKS)
 local assistPoints: { Vector3 } = table.create(Tune.ASSIST_CHECKS)
@@ -269,22 +289,28 @@ local function castLine(
 	pierce: number
 ): (Vector3, RaycastResult?, number, number, number)
 	local wall, length = sightCast(origin, unit * range, WeaponController.SightParams)
-	local body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, -1)
+	-- The aim's ray every frame: the nearest body is all it needs.
+	if pierce == 0 then
+		local body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, -1)
+		if body == 0 then return origin + unit * length, wall, 0, 0, 0 end
+		local isBoss = isBossBody(body)
+		return origin + unit * distance, nil, body, if isBoss then body else 0, if isBoss then distance else 0
+	end
+
+	local hitCount = GunsCore.CastBodiesAll(bodies, origin, unit, length, 0, castIndices, castDistances)
 	local bossBody, bossDistance = 0, 0
 	local piercesLeft = pierce
-	while body > 0 do
+	for hit = 1, hitCount do
+		local body, distance = castIndices[hit], castDistances[hit]
 		if bossBody == 0 and isBossBody(body) then
 			bossBody, bossDistance = body, distance
 		end
-		if piercesLeft == 0 then break end
-		local entity = bodyEntities[body]
-		body, distance = GunsCore.CastBodies(bodies, origin, unit, length, 0, distance)
+		if piercesLeft == 0 then return origin + unit * distance, nil, body, bossBody, bossDistance end
 		-- The next piece of the same long body is no new body to pierce.
-		if body > 0 and bodyEntities[body] ~= entity then
+		if hit < hitCount and bodyEntities[castIndices[hit + 1]] ~= bodyEntities[body] then
 			piercesLeft -= 1
 		end
 	end
-	if body > 0 then return origin + unit * distance, nil, body, bossBody, bossDistance end
 
 	return origin + unit * length, wall, 0, bossBody, bossDistance
 end
@@ -375,20 +401,44 @@ local function findSighted(origin: Vector3): (Vector3?, unknown)
 	return nil, nil
 end
 
--- Where this frame's shot goes: the first thing under the crosshair, or, over no enemy, the assisted chest.
-local function findAim(camera: Camera, pointer: Vector2, gun: TData.TGun, root: BasePart): Vector3
-	local origin = root.Position + Vector3.yAxis * GunsCore.Tune.EYE_HEIGHT
-	local eye, direction = gatherAim(camera, pointer, origin, gun.Range)
+-- Where this frame's shot goes: the first thing under the crosshair, or, over no enemy, the assisted chest. `head` is
+-- where the server shoots from.
+local function findAim(camera: Camera, pointer: Vector2, gun: TData.TGun, head: Vector3): Vector3
+	local eye, direction = gatherAim(camera, pointer, head, gun.Range)
 	local target, _, body = castLine(eye, direction, Tune.AIM_RANGE, 0)
 	WeaponController.IsOnEnemy = body > 0
+	aimBody = body
 	if body > 0 then
 		heldEntity = bodyEntities[body]
 		return target
 	end
 
-	local point, entity = findSighted(origin)
+	local point, entity = findSighted(head)
 	heldEntity = entity
-	return point or target
+	if not point then return target end
+
+	-- Its AimShape, gathered ahead of its pieces.
+	for index = 1, bodies.Count do
+		if bodyEntities[index] ~= entity then continue end
+		aimBody = index
+		break
+	end
+
+	return point
+end
+
+-- Where this frame's shot goes: lined up through the aimed body (GunsCore.LineUp). Only a shot is, not the aim the
+-- arms and the body follow every frame.
+local function lineUp(gun: TData.TGun, head: Vector3, aimPoint: Vector3): Vector3
+	if aimBody == 0 then return aimPoint end
+
+	lineUpShot.Origin = head
+	lineUpShot.Target = aimPoint
+	lineUpShot.Body = aimBody
+	lineUpShot.Pierce = gun.Pierce or 0
+	lineUpShot.Range = gun.Range
+	lineUpShot.Pad = gun.HitRadius + GunsCore.Tune.LAG_PAD
+	return GunsCore.LineUp(lineUpShot)
 end
 
 local function getMuzzle(tool: Tool): Attachment?
@@ -451,8 +501,17 @@ local function bossHitOn(entity: unknown, at: Vector3, damage: number, isOwn: bo
 	return { Data = enemyData, Damage = damage, IsOwn = isOwn, At = at }
 end
 
--- The sound, the cycle after it, the shooter's release, and the pellets' tracers from `from` toward `target`.
-local function drawShot(gun: TData.TGun, shooter: Model, from: Vector3, target: Vector3, seed: number, isClose: boolean)
+-- The sound, the cycle after it, the shooter's release, and the pellets' tracers from the muzzle at `from`. The pellets
+-- are the server's: from the shooter's head (`eye`) toward `target`, each drawn from the muzzle to where it stops.
+local function drawShot(
+	gun: TData.TGun,
+	shooter: Model,
+	from: Vector3,
+	eye: Vector3,
+	target: Vector3,
+	seed: number,
+	isClose: boolean
+)
 	local isOwn = shooter == selfCharacter
 	playSound(gun.Sound, from, isOwn)
 	if gun.CycleSound then
@@ -471,20 +530,20 @@ local function drawShot(gun: TData.TGun, shooter: Model, from: Vector3, target: 
 		release.Position = from
 	end
 
-	local toTarget = target - from
+	local toTarget = target - eye
 	if toTarget.Magnitude < 0.5 then return end
 	local direction = toTarget.Unit
 	local pellets = math.min(gun.Pellets, GunsCore.Tune.MAX_PELLETS)
-	gatherDrawnBodies(from, direction, gun.Range)
+	gatherDrawnBodies(eye, direction, gun.Range)
 	GunsCore.PelletDirections(direction, seed, gun.SpreadDeg, pellets, pelletDirections)
 	local kit = gun.Fx
 	local pierce = gun.Pierce or 0
 	local pelletDamage = gun.Damage / gun.Pellets
 	for pellet = 1, pellets do
 		local unit = pelletDirections[pellet]
-		local to, wall, body, bossBody, bossDistance = castLine(from, unit, gun.Range, pierce)
+		local to, wall, body, bossBody, bossDistance = castLine(eye, unit, gun.Range, pierce)
 		local bossHit = if bossBody > 0
-			then bossHitOn(bodyEntities[bossBody], from + unit * bossDistance, pelletDamage, isOwn)
+			then bossHitOn(bodyEntities[bossBody], eye + unit * bossDistance, pelletDamage, isOwn)
 			else nil
 		if kit and gunFx.Shot(kit, from, to, wall, body > 0, isClose, bossHit) then continue end
 		tracers.Fire(from, to, isClose, bossHit)
@@ -504,16 +563,16 @@ local function shakeOf(gun: TData.TGun, kickDeg: number): number
 	return math.min(kickDeg * Tune.SHAKE_PER_KICK_DEG, Tune.SHAKE_MAX)
 end
 
--- `target` is this frame's aim (findAim).
-local function shoot(gun: TData.TGun, character: Model, tool: Tool, target: Vector3)
+-- `target` is where this shot goes (lineUp).
+local function shoot(gun: TData.TGun, character: Model, tool: Tool, head: Vector3, target: Vector3)
 	ClientNetworkWeapons.Fire.Fire(target)
 	shotCount = (shotCount + 1) % 65536
 	WeaponController.FiredAt = os.clock()
 
 	local isClose = ViewmodelController.IsActive
 	local muzzle = ViewmodelController.GetMuzzle() or getMuzzle(tool)
-	local from = if muzzle then muzzle.WorldPosition elseif selfRoot then selfRoot.Position else target
-	drawShot(gun, character, from, target, shotCount, isClose)
+	local from = if muzzle then muzzle.WorldPosition else head
+	drawShot(gun, character, from, head, target, shotCount, isClose)
 	if muzzle then muzzleFlash(gun, muzzle, isClose) end
 
 	local kickDeg, poseKick = kickOf(gun)
@@ -600,18 +659,21 @@ local function step(dt: number)
 		BodyPoseController.Target = nil
 		ViewmodelController.Target = nil
 		heldEntity = nil
+		aimBody = 0
 		releaseFacing(humanoid)
 		return
 	end
 
-	local aimPoint = findAim(Workspace.CurrentCamera, getPointer(), gun :: TData.TGun, root :: BasePart)
+	local head = (root :: BasePart).Position + Vector3.yAxis * GunsCore.Tune.EYE_HEIGHT
+	local aimPoint = findAim(Workspace.CurrentCamera, getPointer(), gun :: TData.TGun, head)
 	BodyPoseController.Target = aimPoint
 	ViewmodelController.Target = aimPoint
 	faceAim(root :: BasePart, humanoid :: Humanoid, aimPoint, dt)
 
 	if isTriggerDown and now >= nextShotAt and WeaponController.CanFire() then
 		nextShotAt = now + (gun :: TData.TGun).FireInterval / (1 + WeaponController.GetFireRateBonus())
-		shoot(gun :: TData.TGun, character :: Model, tool :: Tool, aimPoint)
+		local shotPoint = lineUp(gun :: TData.TGun, head, aimPoint)
+		shoot(gun :: TData.TGun, character :: Model, tool :: Tool, head, shotPoint)
 	end
 end
 
@@ -645,9 +707,11 @@ ServerNetworkWeapons.Shot.On(function(characterId: number, target: Vector3, seed
 	local tool = if model then model:FindFirstChildOfClass("Tool") else nil
 	local gun = if tool then GunsCore.FromToolName(tool.Name) else nil
 	local muzzle = if tool then getMuzzle(tool) else nil
-	if not gun or not muzzle or model == LocalPlayer.Character then return end
+	local root = if entity then World:get(entity, Components.HumanoidRootPart) else nil
+	if not gun or not muzzle or not root or model == LocalPlayer.Character then return end
 
-	drawShot(gun, model :: Model, muzzle.WorldPosition, target, seed, false)
+	local eye = root.Position + Vector3.yAxis * GunsCore.Tune.EYE_HEIGHT
+	drawShot(gun, model :: Model, muzzle.WorldPosition, eye, target, seed, false)
 	muzzleFlash(gun, muzzle, false)
 	local _, poseKick = kickOf(gun)
 	BodyPoseController.Kick(model, poseKick)

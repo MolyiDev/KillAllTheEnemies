@@ -9,7 +9,7 @@
 -- count rolling down), Dock (the classes or weapons page opening: the Gems counter glides into his coin slot), PlayCall
 -- (the light crossing PLAY), Play (PLAY pressed: the launch), PlayRefused (no pad free: PLAY shakes), Waiting (every
 -- button's Notice up: 2 quests, 6 discoveries, a gun and an ability to pay for; the call every 1.2 s from 0.3 s),
--- NoticesArrive (all four popping in at 0.2 s), CountUp (the index's count 5 to 6 at 0.2 s), NoticesClear (all four
+-- NoticesArrive (all four popping in at 0.2 s), CountUp (the index's count 5 to 6 at 0.2 s: its "!" holds), NoticesClear (all four
 -- going at 0.2 s), for `rur-native sequence`.
 -- The HUD's root starts under Roblox's top bar strip, as in the game: the strip is drawn (Studio's 58 px, the taller one,
 -- and the unibar's 208 x 58 corner, UI.md "The top-left corner is the PLATFORM'S"), since the top row stands in it.

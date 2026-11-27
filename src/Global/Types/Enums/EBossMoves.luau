@@ -15,6 +15,9 @@
 --   Surface     the dive's crack stops under `to`, and the floor there heaves for value seconds until it bursts up.
 --   Dart        the dive's crack, caught up with its target, shoots on from `from` to `to` (where it comes up) in value
 --               seconds.
+--   Leap        a pounce leaves the floor at `from` and lands on `to` in value seconds.
+--   Drop        a brood ends: it lets go of its line and lands back on `to` in value seconds.
+--   Hatch       an egg sac still whole at `to` bursts and lets its young out.
 return table.freeze({
 	Attack = 1,
 	ChargeRun = 2,
@@ -27,4 +30,7 @@ return table.freeze({
 	Pace = 9,
 	Surface = 10,
 	Dart = 11,
+	Leap = 12,
+	Drop = 13,
+	Hatch = 14,
 })

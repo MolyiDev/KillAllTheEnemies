@@ -4,8 +4,10 @@
 --     --story tools/uimatt/Settings.story.luau --viewport 1920x1080 --scale 1 --background 40,40,60 --time 1.5 \
 --     --controls '{"Moment": "Rest"}' --dir <out>
 -- Moment: Rest (everything landed, his values), Confirm (his reset confirm over it), Defaults (nothing changed, so
--- nothing to reset), Open (the screen going up, 0.2 s in), Ask (the confirm coming forward), ResetAll (the confirm
--- accepted: every row going home), Toggle (a switch turned on), for `rur-native sequence`.
+-- nothing to reset), Scrolled (the scroll at its end), Open (the screen going up, 0.2 s in), Ask (the confirm coming
+-- forward), ResetAll (the confirm accepted: every row going home), Toggle (a switch turned on), Scroll (the scroll
+-- running from its top to its end from 0.2 s), for `rur-native sequence`. Reach: the px at the top kept free, the
+-- lobby's Gems row at 1080 (73) or a bare Roblox top bar (58).
 -- rur reads the project file as plain JSON, so strip its comments into a copy first. The group-owned images 403
 -- offline, so they are swapped for the local PNGs they were made from.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -49,13 +51,18 @@ local function noop() end
 return {
 	vide = vide,
 	controls = {
-		Moment = { "Rest", "Confirm", "Defaults", "Open", "Ask", "ResetAll", "Toggle" },
+		Moment = { "Rest", "Confirm", "Defaults", "Scrolled", "Open", "Ask", "ResetAll", "Toggle", "Scroll" },
+		Reach = 73,
 	},
 	story = function(props)
 		local moment = props.controls.Moment()
 		local at = os.clock() + MOMENT_AT
 		local isDefault = moment == "Defaults"
-		local isMoving = moment == "Open" or moment == "Ask" or moment == "ResetAll" or moment == "Toggle"
+		local isMoving = moment == "Open"
+			or moment == "Ask"
+			or moment == "ResetAll"
+			or moment == "Toggle"
+			or moment == "Scroll"
 
 		local function volume(id: number, text: string, value: number)
 			return {
@@ -67,13 +74,13 @@ return {
 				ResetAt = source(-math.huge),
 			}
 		end
-		local function toggle(id: number, text: string, description: string, isOn: boolean)
+		local function toggle(id: number, text: string, description: string, isOn: boolean, default: boolean?)
 			return {
 				Id = id,
 				Label = text,
 				Description = description,
-				Default = false,
-				IsOn = source(isOn and not isDefault),
+				Default = default == true,
+				IsOn = source(if isDefault then default == true else isOn),
 				ChangedAt = source(-math.huge),
 				ResetAt = source(-math.huge),
 			}
@@ -82,6 +89,7 @@ return {
 		-- His values: music 100, sound effects 75, menu sounds 0, shake as it is, drag fire on, a typed name.
 		local state = {
 			Scale = source(1),
+			Height = source(SettingsUI.HeightFor(1080, props.controls.Reach())),
 			Now = source(if isMoving then os.clock() else math.huge),
 			IsOpen = source(true),
 			ToggledAt = source(if moment == "Open" then at else -math.huge),
@@ -95,6 +103,8 @@ return {
 			Toggles = {
 				toggle(4, "REDUCE CAMERA SHAKE", "No camera shake; weapon kick stays", false),
 				toggle(5, "DRAG FIRE TO AIM", "Drag the fire button to look around", true),
+				toggle(6, "DAMAGE NUMBERS", "Show the damage each hit deals", true, true),
+				toggle(7, "DEBUG INFO", "FPS, ping, enemies and more in the corner", true),
 			},
 			SavedAt = source(-math.huge),
 		}
@@ -146,6 +156,16 @@ return {
 			}),
 		})
 		swapImages(root)
+		local list = root:FindFirstChild("List", true) :: ScrollingFrame
+		if moment == "Scrolled" then
+			list.CanvasPosition = Vector2.new(0, 10_000)
+		elseif moment == "Scroll" then
+			local from = os.clock() + MOMENT_AT
+			RunService.Heartbeat:Connect(function()
+				local t = math.clamp((os.clock() - from) / 0.6, 0, 1)
+				list.CanvasPosition = Vector2.new(0, 400 * (1 - (1 - t) ^ 3))
+			end)
+		end
 		return root
 	end,
 }

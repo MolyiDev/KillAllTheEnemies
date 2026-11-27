@@ -19,7 +19,6 @@ local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
-local spring = vide.spring
 local Palette = Theme.Palette
 local Font = Theme.Font
 local Panel = Components.Panel
@@ -550,7 +549,7 @@ end
 local function autoSkip(state: Types.THudState, actions: Types.TActions): TextButton
 	local isOn = state.IsAutoSkip
 	local hand = Hand.React("Operate")
-	local knob = spring(function()
+	local knob = Hand.Spring(function()
 		return if isOn() then 1 else 0
 	end, 0.2, 0.72)
 	-- Under the hand the knob leans toward the side a click would send it.

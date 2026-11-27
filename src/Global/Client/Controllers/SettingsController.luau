@@ -1,6 +1,8 @@
 -- The player's settings on this client, in both places: the values the settings screen shows (UI/SettingsUI), what
--- each one does here (the sound buses, the camera's shake), and the screen's opening and shutting. A change is
--- applied at once and sent to SettingsService to be saved; the saved values arrive once the profile loads.
+-- each one does here (the sound buses, the camera's shake, the damage numbers, the debug readout), and the screen's
+-- opening and shutting.
+-- A change is applied at once and sent to SettingsService to be saved; the saved values arrive once the profile loads.
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,6 +13,8 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
 local CameraController = require(script.Parent.CameraController)
+local DamageNumbersController = require(script.Parent.DamageNumbersController)
+local DebugInfoController = require(script.Parent.DebugInfoController)
 local SettingsCore = require(ReplicatedStorage.GlobalShared.Core.SettingsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local SettingsUI = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.SettingsUI)
@@ -33,8 +37,9 @@ local Tune = table.freeze({
 	DESIGN_WIDTH = 1120,
 	-- Longer than the screen's way out (SettingsUI): it is drawn this long after it is shut.
 	LEAVE_SECONDS = 0.5,
-	-- Above the HUD and the lobby's screens.
-	DISPLAY_ORDER = 10,
+	-- Above the HUD, the lobby's screens, the upgrade cards (10) and the hurt vignette (11): a tie with the cards left
+	-- their full-screen catch over it, taking every press.
+	DISPLAY_ORDER = 15,
 	-- RESET ALL sends each changed row home this long after the one above it.
 	RESET_STAGGER = 0.05,
 	-- The menu sounds slider is heard as it moves: one click each time it crosses this many percent.
@@ -88,6 +93,7 @@ end
 
 local state: Types.TSettingsState = {
 	Scale = source(1),
+	Height = source(SettingsUI.HeightFor(Theme.DESIGN_HEIGHT, 0)),
 	Now = source(os.clock()),
 	IsOpen = source(false),
 	ToggledAt = source(-math.huge),
@@ -101,6 +107,8 @@ local state: Types.TSettingsState = {
 	Toggles = {
 		toggleRow(ESettings.IsCameraShakeReduced, "REDUCE CAMERA SHAKE", "No camera shake; weapon kick stays"),
 		toggleRow(ESettings.IsDragFireToAim, "DRAG FIRE TO AIM", "Drag the fire button to look around"),
+		toggleRow(ESettings.ShouldShowDamageNumbers, "DAMAGE NUMBERS", "Show the damage each hit deals"),
+		toggleRow(ESettings.ShouldShowDebugInfo, "DEBUG INFO", "FPS, ping, enemies and more in the corner"),
 	},
 	SavedAt = source(-math.huge),
 }
@@ -109,6 +117,11 @@ local state: Types.TSettingsState = {
 local motionUntil = -math.huge
 -- The value each slider had when the hand took its knob.
 local draggedFrom: { [Types.TVolumeRow]: number } = {}
+-- Screen px from the top that the panel stays under: Roblox's top bar, unless the place stands something lower in its
+-- strip (SetTopReach).
+local topReach = function(): number
+	return GuiService.TopbarInset.Max.Y
+end
 
 local SettingsController = {}
 
@@ -132,7 +145,7 @@ end
 function SettingsController.Open()
 	if state.IsOpen() then return end
 	state.IsOpen(true)
-	CameraController.IsMouseFreed = true
+	CameraController.SetMouseFreed("Settings", true)
 	stamp(state.ToggledAt, os.clock())
 end
 
@@ -140,7 +153,7 @@ function SettingsController.Close()
 	if not state.IsOpen() then return end
 	setConfirmOpen(false)
 	state.IsOpen(false)
-	CameraController.IsMouseFreed = false
+	CameraController.SetMouseFreed("Settings", false)
 	stamp(state.ToggledAt, os.clock())
 end
 
@@ -153,7 +166,13 @@ end
 
 local function applyToggle(row: Types.TToggleRow)
 	-- Drag Fire To Aim is kept and saved here; nothing reads it until there is a touch fire button.
-	if row.Id == ESettings.IsCameraShakeReduced then CameraController.ShakeMultiplier = if row.IsOn() then 0 else 1 end
+	if row.Id == ESettings.IsCameraShakeReduced then
+		CameraController.ShakeMultiplier = if row.IsOn() then 0 else 1
+	elseif row.Id == ESettings.ShouldShowDamageNumbers then
+		DamageNumbersController.IsDamageShown = row.IsOn()
+	elseif row.Id == ESettings.ShouldShowDebugInfo then
+		DebugInfoController.SetShown(row.IsOn())
+	end
 end
 
 -- The hint's flash: a change was just sent to be saved.
@@ -245,7 +264,18 @@ local actions: Types.TActions = {
 
 local function updateScale()
 	local viewport = Workspace.CurrentCamera.ViewportSize
-	state.Scale(math.max(math.min(viewport.Y / Theme.DESIGN_HEIGHT, viewport.X / Tune.DESIGN_WIDTH), 0.01))
+	local scale = math.max(math.min(viewport.Y / Theme.DESIGN_HEIGHT, viewport.X / Tune.DESIGN_WIDTH), 0.01)
+	vide.batch(function()
+		state.Scale(scale)
+		state.Height(SettingsUI.HeightFor(viewport.Y / scale, topReach() / scale))
+	end)
+end
+
+-- What the place stands in the top strip that the panel must stay under, in screen px from the top (the lobby's Gems
+-- counter). Read again whenever the screen or Roblox's top bar changes size.
+function SettingsController.SetTopReach(reach: () -> number)
+	topReach = reach
+	updateScale()
 end
 
 SettingsController.OnStart = function()
@@ -286,14 +316,23 @@ SettingsController.OnStart = function()
 
 	local camera = Workspace.CurrentCamera
 	camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(updateScale)
 	updateScale()
 end
 
 -- The saved values. A slider under the hand keeps the hand's value: it is sent when it is let go.
 ServerNetworkSettings.Sync.On(
-	function(music: number, effects: number, menu: number, isShakeReduced: boolean, isDragFire: boolean)
+	function(
+		music: number,
+		effects: number,
+		menu: number,
+		isShakeReduced: boolean,
+		isDragFire: boolean,
+		shouldShowDamage: boolean,
+		shouldShowDebug: boolean
+	)
 		local volumes = { music, effects, menu }
-		local toggles = { isShakeReduced, isDragFire }
+		local toggles = { isShakeReduced, isDragFire, shouldShowDamage, shouldShowDebug }
 		vide.batch(function()
 			for index, row in state.Volumes do
 				if row.IsDragging() then continue end

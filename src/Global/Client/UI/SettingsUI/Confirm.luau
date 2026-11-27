@@ -69,7 +69,7 @@ local Timing = table.freeze({
 local WARNING = Color3.fromRGB(230, 51, 64)
 local WARNING_EDGE = Color3.fromRGB(205, 47, 61)
 -- Broken where his is: left to wrap, the first line takes one word more.
-local BODY_TEXT = "Audio, camera and profile settings will go back to\ntheir default values. This can't be undone."
+local BODY_TEXT = "Audio, camera and interface settings will go back to\ntheir default values. This can't be undone."
 
 local Confirm = {}
 

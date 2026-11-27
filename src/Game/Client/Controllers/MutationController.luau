@@ -10,6 +10,8 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
+local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
+local UpgradePickController = require(script.Parent.UpgradePickController)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -31,8 +33,9 @@ local Progress = Motion.Progress
 
 local Layout = table.freeze({
 	DESIGN_HEIGHT = 1080,
-	-- Right of his money plate (its right edge 1096, its middle 901), clear of the hotbar under it.
-	CHIP = Vector2.new(1120, 880),
+	-- Right of his money plate (its right edge 1096, its middle 901), clear of the hotbar under it: the chip's left middle,
+	-- so it punches out from the plate's side and never over it.
+	CHIP = Vector2.new(1120, 902),
 	CHIP_SIZE = Vector2.new(250, 44),
 	BOLT = 26,
 	CHIP_TEXT = 17,
@@ -41,6 +44,8 @@ local Layout = table.freeze({
 	ROW = 64,
 	BANNER_WIDTH = 560,
 	BOTTLE = 48,
+	-- Room round a panel inside the group that fades it, for its glow and brackets (a CanvasGroup clips).
+	MARGIN = 64,
 })
 
 local Timing = table.freeze({
@@ -59,8 +64,13 @@ local Timing = table.freeze({
 local MutationController = {}
 
 local scale = source(1)
-local now = source(os.clock())
+-- Seconds on screen: it stands still while the chip and the banner are hidden (isUp), so a drop or a potion landing
+-- under the upgrade cards waits for them to go instead of running out unseen.
+local clock = 0
+local now = source(clock)
 local motionUntil = -math.huge
+-- Sounds of drops and potions that landed while hidden, by name, played as the chip and the banner come back (voice).
+local heldSounds: { [string]: boolean } = {}
 -- The chip: the kind on it, how many in a row, the last drop's stamp and the first's.
 local chipKind = source(0)
 local chipCount = source(0)
@@ -71,7 +81,23 @@ local drunk = source({} :: { { Recipe: number, Rarity: number } })
 local drunkAt = source(-math.huge)
 
 local function stir(seconds: number)
-	motionUntil = math.max(motionUntil, os.clock() + seconds)
+	motionUntil = math.max(motionUntil, clock + seconds)
+end
+
+-- Drawn when the HUD is: the upgrade cards are parts in the world, which a ScreenGui draws over, so they hide it as
+-- they hide the HUD (under the curtain that fades both), and so does the settings screen and a boss's intro (UiFade).
+local function isUp(): boolean
+	return not UpgradePickController.IsCovering() and not SettingsController.IsOpen() and UiFade.IsUp()
+end
+
+-- `name`'s sound now, or as the chip and the banner come back if hidden: a sound is heard with what it voices, once
+-- however many drops landed meanwhile.
+local function voice(name: string)
+	if isUp() then
+		SoundsCore.PlayUINamed("UI.Mutation", name)
+	else
+		heldSounds[name] = true
+	end
 end
 
 local function rarityOf(rarity: number)
@@ -79,6 +105,22 @@ local function rarityOf(rarity: number)
 		if value == rarity then return Theme.Rarities[name] end
 	end
 	return Theme.Rarities.Common
+end
+
+-- A panel fading as a whole, body and all: the group stands MARGIN out round its holder, so the panel's glow and
+-- brackets are not clipped. It is the panel's group for its whole life, never switched on for the way out (a group
+-- made mid screen draws nothing for its first frames).
+local function fading(shown: () -> number, panel: Frame): CanvasGroup
+	return create("CanvasGroup")({
+		Name = "Fade",
+		Position = UDim2.fromOffset(-Layout.MARGIN, -Layout.MARGIN),
+		Size = UDim2.new(1, Layout.MARGIN * 2, 1, Layout.MARGIN * 2),
+		BackgroundTransparency = 1,
+		GroupTransparency = function()
+			return 1 - shown()
+		end,
+		panel,
+	})
 end
 
 local function chip(): Frame
@@ -100,12 +142,14 @@ local function chip(): Frame
 		return if enemy and enemy.Energy then enemy.Energy.Color else Palette.White
 	end)
 
-	return Components.Panel({ Glow = color, GlowTransparency = 0.6 }, {
+	return create("Frame")({
 		Name = "EnergyChip",
+		AnchorPoint = Vector2.new(0, 0.5),
 		Position = function()
 			return UDim2.fromOffset(Layout.CHIP.X - math.round(24 * (1 - shown())), Layout.CHIP.Y)
 		end,
 		Size = UDim2.fromOffset(Layout.CHIP_SIZE.X, Layout.CHIP_SIZE.Y),
+		BackgroundTransparency = 1,
 		Visible = function()
 			return shown() > 0.01
 		end,
@@ -114,37 +158,38 @@ local function chip(): Frame
 				return (0.85 + 0.15 * shown()) * punch()
 			end,
 		}),
-		Components.Picture(EIcons.Soul, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(26, Layout.CHIP_SIZE.Y / 2),
-			Size = Components.PictureBox(Layout.BOLT),
-			ImageColor3 = color,
-			ImageTransparency = function()
-				return 1 - shown()
-			end,
-			ZIndex = 3,
-		}),
-		create("TextLabel")({
-			Position = UDim2.fromOffset(48, (Layout.CHIP_SIZE.Y - Layout.CHIP_TEXT) / 2),
-			Size = UDim2.new(1, -56, 0, Layout.CHIP_TEXT),
-			BackgroundTransparency = 1,
-			FontFace = Font.Display,
-			TextSize = Layout.CHIP_TEXT,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = color,
-			TextTransparency = function()
-				return 1 - shown()
-			end,
-			Text = function()
-				local enemy = DataCore.Enemies.ById[chipKind()]
-				if not enemy then return "" end
-				local word = if enemy.IsBoss
-					then "BOSS"
-					else string.upper((string.gsub(enemy.Name, "%s*Zombie%s*", "")))
-				return `+{chipCount()} {word} {if chipCount() == 1 then "SOUL" else "SOULS"}`
-			end,
-			ZIndex = 3,
-		}),
+		fading(
+			shown,
+			Components.Panel({ Glow = color, GlowTransparency = 0.6 }, {
+				Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
+				Size = UDim2.new(1, -Layout.MARGIN * 2, 1, -Layout.MARGIN * 2),
+				Components.Picture(EIcons.Soul, {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromOffset(26, Layout.CHIP_SIZE.Y / 2),
+					Size = Components.PictureBox(Layout.BOLT),
+					ImageColor3 = color,
+					ZIndex = 3,
+				}),
+				create("TextLabel")({
+					Position = UDim2.fromOffset(48, (Layout.CHIP_SIZE.Y - Layout.CHIP_TEXT) / 2),
+					Size = UDim2.new(1, -56, 0, Layout.CHIP_TEXT),
+					BackgroundTransparency = 1,
+					FontFace = Font.Display,
+					TextSize = Layout.CHIP_TEXT,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextColor3 = color,
+					Text = function()
+						local enemy = DataCore.Enemies.ById[chipKind()]
+						if not enemy then return "" end
+						local word = if enemy.IsBoss
+							then "BOSS"
+							else string.upper((string.gsub(enemy.Name, "%s*Zombie%s*", "")))
+						return `+{chipCount()} {word} {if chipCount() == 1 then "SOUL" else "SOULS"}`
+					end,
+					ZIndex = 3,
+				}),
+			})
+		),
 	})
 end
 
@@ -163,7 +208,7 @@ local function banner(): Frame
 		return 46 + Layout.ROW * #drunk()
 	end)
 
-	return Components.Panel({ Brackets = true }, {
+	return create("Frame")({
 		Name = "Drunk",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = function()
@@ -172,6 +217,7 @@ local function banner(): Frame
 		Size = function()
 			return UDim2.fromOffset(Layout.BANNER_WIDTH, height())
 		end,
+		BackgroundTransparency = 1,
 		Visible = function()
 			return shown() > 0.01
 		end,
@@ -180,84 +226,90 @@ local function banner(): Frame
 				return 0.9 + 0.1 * shown()
 			end,
 		}),
-		create("TextLabel")({
-			Position = UDim2.fromOffset(20, 14),
-			Size = UDim2.new(1, -40, 0, 20),
-			BackgroundTransparency = 1,
-			FontFace = Font.Display,
-			TextSize = 20,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = Palette.Gold,
-			TextTransparency = function()
-				return 1 - shown()
-			end,
-			Text = "POTIONS ACTIVE THIS MATCH",
-			ZIndex = 3,
-		}),
-		vide.indexes(drunk, function(entry: () -> { Recipe: number, Rarity: number }, index: number)
-			local landed = derive(function(): number
-				return Motion.Decelerate(Progress(elapsed(), Timing.BANNER_IN + Timing.ROW_STAGGER * (index - 1), 0.3))
-			end)
-			local look = derive(function()
-				return rarityOf(entry().Rarity)
-			end)
-			local alpha = function(): number
-				return 1 - landed() * shown()
-			end
-			return create("Frame")({
-				Name = `Row{index}`,
-				Position = function()
-					return UDim2.fromOffset(20 + math.round(30 * (1 - landed())), 44 + Layout.ROW * (index - 1))
-				end,
-				Size = UDim2.new(1, -40, 0, Layout.ROW - 6),
-				BackgroundTransparency = 1,
-				ZIndex = 3,
-				Components.Picture(EIcons.PotionBottle, {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromOffset(Layout.BOTTLE / 2, (Layout.ROW - 6) / 2),
-					Size = Components.PictureBox(Layout.BOTTLE),
-					ImageColor3 = function()
-						return look().Accent
-					end,
-					ImageTransparency = alpha,
-				}),
+		fading(
+			shown,
+			Components.Panel({ Brackets = true }, {
+				Position = UDim2.fromOffset(Layout.MARGIN, Layout.MARGIN),
+				Size = UDim2.new(1, -Layout.MARGIN * 2, 1, -Layout.MARGIN * 2),
 				create("TextLabel")({
-					Position = UDim2.fromOffset(Layout.BOTTLE + 14, 4),
-					Size = UDim2.new(1, -Layout.BOTTLE - 14, 0, 20),
+					Position = UDim2.fromOffset(20, 14),
+					Size = UDim2.new(1, -40, 0, 20),
 					BackgroundTransparency = 1,
 					FontFace = Font.Display,
 					TextSize = 20,
 					TextXAlignment = Enum.TextXAlignment.Left,
-					TextColor3 = function()
-						return look().Accent
-					end,
-					TextTransparency = alpha,
-					Text = function()
-						local recipe = DataCore.Potions.ById[entry().Recipe]
-						return if recipe then `{string.upper(recipe.Name)}  ·  {look().Text}` else ""
-					end,
+					TextColor3 = Palette.Gold,
+					Text = "POTIONS ACTIVE THIS MATCH",
+					ZIndex = 3,
 				}),
-				create("TextLabel")({
-					Position = UDim2.fromOffset(Layout.BOTTLE + 14, 30),
-					Size = UDim2.new(1, -Layout.BOTTLE - 14, 0, 15),
-					BackgroundTransparency = 1,
-					FontFace = Font.DisplayBold,
-					TextSize = 15,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextColor3 = Palette.White,
-					TextTransparency = alpha,
-					Text = function()
-						local recipe = DataCore.Potions.ById[entry().Recipe]
-						if not recipe then return "" end
-						local lines = {}
-						for at, effect in PotionsCore.Effects(recipe, entry().Rarity) do
-							lines[at] = PotionsCore.Describe(effect)
-						end
-						return table.concat(lines, "   ")
-					end,
-				}),
+				vide.indexes(drunk, function(entry: () -> { Recipe: number, Rarity: number }, index: number)
+					local landed = derive(function(): number
+						return Motion.Decelerate(
+							Progress(elapsed(), Timing.BANNER_IN + Timing.ROW_STAGGER * (index - 1), 0.3)
+						)
+					end)
+					local look = derive(function()
+						return rarityOf(entry().Rarity)
+					end)
+					local alpha = function(): number
+						return 1 - landed()
+					end
+					return create("Frame")({
+						Name = `Row{index}`,
+						Position = function()
+							return UDim2.fromOffset(20 + math.round(30 * (1 - landed())), 44 + Layout.ROW * (index - 1))
+						end,
+						Size = UDim2.new(1, -40, 0, Layout.ROW - 6),
+						BackgroundTransparency = 1,
+						ZIndex = 3,
+						Components.Picture(EIcons.PotionBottle, {
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							Position = UDim2.fromOffset(Layout.BOTTLE / 2, (Layout.ROW - 6) / 2),
+							Size = Components.PictureBox(Layout.BOTTLE),
+							ImageColor3 = function()
+								return look().Accent
+							end,
+							ImageTransparency = alpha,
+						}),
+						create("TextLabel")({
+							Position = UDim2.fromOffset(Layout.BOTTLE + 14, 4),
+							Size = UDim2.new(1, -Layout.BOTTLE - 14, 0, 20),
+							BackgroundTransparency = 1,
+							FontFace = Font.Display,
+							TextSize = 20,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							TextColor3 = function()
+								return look().Accent
+							end,
+							TextTransparency = alpha,
+							Text = function()
+								local recipe = DataCore.Potions.ById[entry().Recipe]
+								return if recipe then `{string.upper(recipe.Name)}  ·  {look().Text}` else ""
+							end,
+						}),
+						create("TextLabel")({
+							Position = UDim2.fromOffset(Layout.BOTTLE + 14, 30),
+							Size = UDim2.new(1, -Layout.BOTTLE - 14, 0, 15),
+							BackgroundTransparency = 1,
+							FontFace = Font.DisplayBold,
+							TextSize = 15,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							TextColor3 = Palette.White,
+							TextTransparency = alpha,
+							Text = function()
+								local recipe = DataCore.Potions.ById[entry().Recipe]
+								if not recipe then return "" end
+								local lines = {}
+								for at, effect in PotionsCore.Effects(recipe, entry().Rarity) do
+									lines[at] = PotionsCore.Describe(effect)
+								end
+								return table.concat(lines, "   ")
+							end,
+						}),
+					})
+				end),
 			})
-		end),
+		),
 	})
 end
 
@@ -274,7 +326,7 @@ MutationController.OnStart = function()
 			ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 			DisplayOrder = 2,
-			Enabled = UiFade.IsUp,
+			Enabled = isUp,
 			UiFade.Group({
 				create("Frame")({
 					Name = "Root",
@@ -292,29 +344,40 @@ MutationController.OnStart = function()
 		})
 	end, LocalPlayer:WaitForChild("PlayerGui"))
 
-	-- The clock runs only while a chip or the banner is up.
-	RunService.PreRender:Connect(function()
-		local at = os.clock()
-		if at < motionUntil then now(at) end
+	-- The clock runs only while a chip or the banner is up, and on screen.
+	RunService.PreRender:Connect(function(dt: number)
+		if not isUp() then return end
+		if next(heldSounds) then
+			for name in heldSounds do
+				SoundsCore.PlayUINamed("UI.Mutation", name)
+			end
+			table.clear(heldSounds)
+		end
+		if clock >= motionUntil then return end
+
+		clock += dt
+		now(clock)
 	end)
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 	updateScale()
 end
 
 ServerNetworkMutation.EnergyDropped.On(function(enemyId: number)
-	local at = os.clock()
-	local isStacking = chipKind() == enemyId and at - chipAt() < Timing.CHIP
+	local at = clock
+	local isChipUp = at - chipAt() < Timing.CHIP
+	local isStacking = isChipUp and chipKind() == enemyId
 	vide.batch(function()
 		if not isStacking then
 			chipKind(enemyId)
 			chipCount(0)
-			chipStartedAt(at)
 		end
+		-- Another kind takes over a chip that is up in place, punched; only a chip that had gone comes in again.
+		if not isChipUp then chipStartedAt(at) end
 		chipCount(chipCount() + 1)
 		chipAt(at)
 	end)
 	stir(Timing.CHIP + 0.1)
-	SoundsCore.PlayUINamed("UI.UpgradePick", "Tick", 1 + 0.06 * math.min(chipCount(), 8))
+	voice("Soul")
 end)
 
 ServerNetworkMutation.Drunk.On(function(recipeIds: { number }, rarities: { number })
@@ -324,10 +387,10 @@ ServerNetworkMutation.Drunk.On(function(recipeIds: { number }, rarities: { numbe
 	end
 	vide.batch(function()
 		drunk(list)
-		drunkAt(os.clock())
+		drunkAt(clock)
 	end)
 	stir(Timing.BANNER + 0.1)
-	SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
+	voice("Potions")
 end)
 
 return Ignis.Register(MutationController)

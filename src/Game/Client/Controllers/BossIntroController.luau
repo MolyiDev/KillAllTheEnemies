@@ -1,7 +1,8 @@
 -- A boss's intro (Bosses.Intro), played for everyone every time a boss arrives while the server holds the match:
--- the delivered scene's cutscene on our rig. Its Intro clip at full speed whatever the held clock, the delivered
--- camera shots in the boss's own frame (BossesCore.INTRO_SHOTS) with their handheld drift and impact jolts, a grade,
--- the letterbox and the title card, and the walk-in's footfalls, stomp, roar and bite thrown in the house look.
+-- its Intro clip at full speed whatever the held clock, its camera shots in the boss's own frame
+-- (BossesCore.INTRO_SHOTS) with their handheld drift and impact jolts, a grade, the letterbox and the title card, and
+-- its beats thrown in the house look: the T-Rex's walk-in, stomp, roar and bite (the delivered scene's), the Giant
+-- Spider's descent on its thread, landing, sharpening, salute and fang click. Each boss's look is its STYLES entry.
 -- Everything runs off BossesCore.IntroClock, the clock the server holds the match by.
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -18,6 +19,8 @@ local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.
 local MusicController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.MusicController)
 local trexFx = require(script.Parent.Parent.Utils.trexFx)
 local trexSounds = require(script.Parent.Parent.Utils.trexSounds)
+local spiderFx = require(script.Parent.Parent.Utils.spiderFx)
+local spiderSounds = require(script.Parent.Parent.Utils.spiderSounds)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local BossesCore = require(ReplicatedStorage.Shared.Core.BossesCore)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -34,6 +37,7 @@ local UP = Vector3.yAxis
 
 local GREEN = Color3.fromRGB(90, 255, 140)
 local TITLE_INK = Color3.fromRGB(10, 40, 20)
+local RED = Color3.fromRGB(255, 58, 42)
 
 local Tune = table.freeze({
 	-- Seconds to wait for the boss's rig before playing without it.
@@ -137,10 +141,106 @@ local Tune = table.freeze({
 	MUSIC_UP_SECONDS = 2.5,
 })
 
+-- Each boss's look over its intro: its handheld wander, its grade (clock, value[, ease]) with the tint swung to its peak
+-- round PeakAt, and its title card's colours and moment.
+type TStyle = {
+	Handheld: { { any } },
+	Saturation: { { any } },
+	Contrast: { { any } },
+	TintCalm: Color3,
+	TintPeak: Color3,
+	PeakAt: number,
+	PeakWidth: number,
+	TitleAt: number,
+	Glow: Color3,
+	Ink: Color3,
+	Line: Color3,
+	Subtitle: Color3,
+}
+
+local STYLES: { [string]: TStyle } = table.freeze({
+	TRex = table.freeze({
+		Handheld = Tune.HANDHELD,
+		Saturation = Tune.SATURATION,
+		Contrast = Tune.CONTRAST,
+		TintCalm = Tune.TINT_CALM,
+		TintPeak = Tune.TINT_ROAR,
+		PeakAt = 7.9,
+		PeakWidth = 1.2,
+		TitleAt = Tune.TITLE_AT,
+		Glow = GREEN,
+		Ink = TITLE_INK,
+		Line = Color3.fromRGB(120, 255, 160),
+		Subtitle = Color3.fromRGB(200, 230, 210),
+	}),
+	-- Cold and violet as its scene was delivered, flushed red on the salute.
+	Spider = table.freeze({
+		Handheld = table.freeze({
+			{ 0, 0.08 },
+			{ 2.9, 0.14 },
+			{ 3.3, 0.05 },
+			{ 4.8, 0.03 },
+			{ 7.3, 0.2 },
+			{ 8.4, 0.1 },
+			{ 10.6, 0.05 },
+		}),
+		Saturation = table.freeze({ { 0, -0.3 }, { 7.6, -0.25 }, { 7.75, 0.1, "Out" }, { 9.2, -0.15 }, { 10.6, -0.2 } }),
+		Contrast = table.freeze({ { 0, 0.12 }, { 7.6, 0.2 }, { 7.75, 0.35, "Out" }, { 9.2, 0.2 } }),
+		TintCalm = Color3.fromRGB(235, 222, 255),
+		TintPeak = Color3.fromRGB(255, 175, 165),
+		PeakAt = 7.75,
+		PeakWidth = 1,
+		TitleAt = 8.95,
+		Glow = RED,
+		Ink = Color3.fromRGB(45, 6, 4),
+		Line = Color3.fromRGB(255, 110, 90),
+		Subtitle = Color3.fromRGB(240, 210, 205),
+	}),
+})
+
+-- The spider's beats on its Intro clip's seconds (Assets/models/Bosses/Spider/anim/spider_clips.py: TOUCH, SHARPEN,
+-- the salute's keys): its thread lets go as its first feet reach the floor, each pair touches down, the body lands;
+-- it studies the players, raises its blades, draws each down the other (DRAW long), salutes, bows and clicks.
+local SPIDER = table.freeze({
+	THREAD_SNAP = 2.75,
+	TOUCH = table.freeze({ 2.68, 2.78, 2.88, 2.97 }),
+	LANDED = 2.97,
+	STUDY = 3.3,
+	RAISE = 4.7,
+	SHARPEN = table.freeze({ 5.8, 6.35, 6.9 }),
+	DRAW = 0.4,
+	SALUTE = 7.3,
+	SALUTE_HELD = 7.7,
+	BOW = 8.45,
+	CLICK = 8.8,
+	-- The music clears room for the landing and comes back after the click.
+	MUSIC_DOWN = 2,
+	MUSIC_UP = 9.3,
+	-- How hard its feet and its landing come down, and its landing's wave.
+	TOUCH_STRENGTH = 1.1,
+	LANDING_SIZE = 0.75,
+	LANDING_REACH = 32,
+	LANDING_SPEED = 45,
+	-- Jolts (as Tune's) and white flashes.
+	JOLT_TOUCH = 0.35,
+	JOLT_LANDED = 1,
+	JOLT_DRAW = 0.18,
+	JOLT_SALUTE = 0.6,
+	JOLT_CLICK = 0.55,
+	FLASH_LANDED = 0.2,
+	FLASH_SALUTE = 0.3,
+	FLASH_CLICK = 0.4,
+	-- Points sampled along each blade to find where they touch.
+	BLADE_SAMPLES = 6,
+	-- The thread's sky end, this far over the body.
+	SKY = 240,
+})
+
 type TPlaying = {
 	InstanceId: number,
 	Data: TData.TEnemy,
 	Intro: TData.TEnemyBossIntro,
+	Style: TStyle,
 	Shots: { { BossesCore.TShotKey } },
 	Stage: CFrame,
 	Frame: CFrame,
@@ -173,6 +273,11 @@ local flash = source(0)
 local titleAge = source(-1)
 local titleText = source("")
 local subtitleText = source("")
+-- The title card's colours, the boss's (TStyle).
+local titleGlow = source(GREEN)
+local titleInk = source(TITLE_INK)
+local lineColor = source(Color3.fromRGB(120, 255, 160))
+local subtitleColor = source(Color3.fromRGB(200, 230, 210))
 -- The overlay stays up after the intro while the black and the bars go (os.clock it ended at).
 local isOverlayUp = source(false)
 local endedAt = -math.huge
@@ -344,11 +449,13 @@ local function hunt(intro: TPlaying, clock: number)
 	end
 end
 
--- The clip's beats, each thrown once when the clock passes it.
-local function beats(intro: TPlaying, clock: number)
+-- The T-Rex's beats, each thrown once when the clock passes it.
+local function trexBeats(intro: TPlaying, clock: number)
 	local data = intro.Intro
 	local done = intro.Done
-	for i, beat in data.Steps do
+	local stomp, roar, chomp = data.Stomp :: number, data.Roar :: number, data.Chomp :: number
+	local steps: { { Time: number, Side: string } } = data.Steps or {}
+	for i, beat in steps do
 		local name = `Step{i}`
 		if done[name] or clock < beat.Time then continue end
 		done[name] = true
@@ -356,28 +463,28 @@ local function beats(intro: TPlaying, clock: number)
 		step(intro, beat.Side, Tune.STEP_STRENGTH)
 	end
 
-	if not done.Hunt and clock >= data.Hunt then
+	if not done.Hunt and clock >= (data.Hunt :: number) then
 		done.Hunt = true
 		trexSounds.Play("Hunt", bone(intro, "Head") or intro.Stage.Position + UP * Tune.LOOK_HEIGHT)
 	end
 
 	hunt(intro, clock)
 
-	if not done.MusicDown and clock >= data.Stomp - Tune.MUSIC_DOWN_BEFORE then
+	if not done.MusicDown and clock >= stomp - Tune.MUSIC_DOWN_BEFORE then
 		done.MusicDown = true
 		MusicController.Duck(Tune.MUSIC_DUCK, Tune.MUSIC_DOWN_SECONDS)
 	end
 
-	if not done.MusicUp and clock >= data.Chomp + Tune.MUSIC_UP_AFTER then
+	if not done.MusicUp and clock >= chomp + Tune.MUSIC_UP_AFTER then
 		done.MusicUp = true
 		MusicController.Duck(1, Tune.MUSIC_UP_SECONDS)
 	end
 
-	if not done.Stomp and clock >= data.Stomp then
+	if not done.Stomp and clock >= stomp then
 		done.Stomp = true
 		intro.Jolt = Tune.JOLT_STOMP
 		flash(Tune.FLASH_STOMP)
-		local floor, normal, color = floorAtFoot(intro, data.StompSide)
+		local floor, normal, color = floorAtFoot(intro, data.StompSide or "r")
 		if floor then
 			trexFx.Stomp(floor, normal, color, Tune.STOMP_SIZE)
 			trexFx.Wave(floor, Tune.STOMP_REACH, Tune.STOMP_WAVE_SPEED, Tune.STOMP_WAVE)
@@ -386,17 +493,17 @@ local function beats(intro: TPlaying, clock: number)
 	end
 
 	-- The roar's and the chomp's voices build before their beats (trexSounds.Lead); the clock runs at real time there.
-	if not done.RoarVoice and clock >= data.Roar - trexSounds.Lead("Roar") then
+	if not done.RoarVoice and clock >= roar - trexSounds.Lead("Roar") then
 		done.RoarVoice = true
 		trexSounds.Play("Roar", bone(intro, "Head") or intro.Stage.Position + UP * Tune.LOOK_HEIGHT)
 	end
 
-	if not done.BiteVoice and clock >= data.Chomp - trexSounds.Lead("Bite") then
+	if not done.BiteVoice and clock >= chomp - trexSounds.Lead("Bite") then
 		done.BiteVoice = true
 		trexSounds.Play("Bite", bone(intro, "Jaw") or intro.Stage.Position + UP * Tune.LOOK_HEIGHT)
 	end
 
-	if not done.Roar and clock >= data.Roar then
+	if not done.Roar and clock >= roar then
 		done.Roar = true
 		intro.Jolt = Tune.JOLT_ROAR
 		flash(Tune.FLASH_ROAR)
@@ -411,7 +518,7 @@ local function beats(intro: TPlaying, clock: number)
 	end
 
 	-- The maw opens ahead of the bite and snaps shut on it.
-	if not done.Maw and clock >= data.Chomp - trexFx.MawOpenSeconds then
+	if not done.Maw and clock >= chomp - trexFx.MawOpenSeconds then
 		done.Maw = true
 		local here = EnemiesController.GetCFrame(intro.InstanceId)
 		local base = if here then here.Position else intro.Stage.Position
@@ -419,12 +526,152 @@ local function beats(intro: TPlaying, clock: number)
 		trexFx.Maw(base + forward * Tune.MAW_AHEAD + UP * Tune.MAW_HEIGHT, forward)
 	end
 
-	if not done.Chomp and clock >= data.Chomp then
+	if not done.Chomp and clock >= chomp then
 		done.Chomp = true
 		intro.Jolt = math.max(intro.Jolt, Tune.JOLT_CHOMP)
 		flash(Tune.FLASH_CHOMP)
 		local jaw = bone(intro, "Jaw")
 		if jaw then trexFx.Bite(jaw, intro.Stage.ZVector) end
+	end
+end
+
+-- Once, the first frame the clock is at `at` or past it.
+local function due(intro: TPlaying, name: string, clock: number, at: number): boolean
+	if intro.Done[name] or clock < at then return false end
+	intro.Done[name] = true
+	return true
+end
+
+local function spinnerets(intro: TPlaying): Vector3?
+	local tail = boneFrame(intro, "Tail")
+	return if tail then tail:PointToWorldSpace(intro.Data.Boss and intro.Data.Boss.Spinnerets or Vector3.zero) else nil
+end
+
+-- Where its two front blades touch: the nearest pair of points along them, met halfway.
+local function bladesMeet(intro: TPlaying): Vector3?
+	local fromL, tipL = bone(intro, "Tarsus1_L"), bone(intro, "Tip1_L")
+	local fromR, tipR = bone(intro, "Tarsus1_R"), bone(intro, "Tip1_R")
+	if not fromL or not tipL or not fromR or not tipR then return nil end
+	local best, bestAt = math.huge, nil
+	local count = SPIDER.BLADE_SAMPLES
+	for i = 0, count do
+		local onL = fromL:Lerp(tipL, i / count)
+		for j = 0, count do
+			local onR = fromR:Lerp(tipR, j / count)
+			local gap = (onL - onR).Magnitude
+			if gap < best then
+				best = gap
+				bestAt = onL:Lerp(onR, 0.5)
+			end
+		end
+	end
+
+	return bestAt
+end
+
+-- A pair of its feet touching down.
+local function touchDown(intro: TPlaying, pair: number)
+	local heard = false
+	for _, side in { "L", "R" } do
+		local tip = bone(intro, `Tip{pair}_{side}`)
+		local floor, normal, color = floorUnder(tip or intro.Stage.Position)
+		if not floor then continue end
+		trexFx.Footfall(floor, normal, color, SPIDER.TOUCH_STRENGTH)
+		if not heard then
+			heard = true
+			spiderSounds.Play("Step", floor)
+		end
+	end
+	intro.Jolt = math.max(intro.Jolt, SPIDER.JOLT_TOUCH)
+end
+
+-- The Giant Spider's beats, each thrown once when the clock passes it.
+local function spiderBeats(intro: TPlaying, clock: number)
+	local stage = intro.Stage.Position
+	if due(intro, "Thread", clock, 0) then
+		spiderSounds.Play("Descend", stage + UP * 20)
+		spiderFx.Thread(function()
+			if playing ~= intro or intro.Clock >= SPIDER.THREAD_SNAP then return nil, nil end
+			local body = spinnerets(intro)
+			if not body then return nil, nil end
+			return body + UP * SPIDER.SKY, body
+		end)
+	end
+
+	if due(intro, "Snap", clock, SPIDER.THREAD_SNAP) then
+		local at = spinnerets(intro)
+		if at then
+			trexFx.Snap(at)
+			spiderSounds.Play("ThreadSnap", at)
+		end
+	end
+
+	for pair, at in SPIDER.TOUCH do
+		if due(intro, `Touch{pair}`, clock, at) then touchDown(intro, pair) end
+	end
+
+	if due(intro, "MusicDown", clock, SPIDER.MUSIC_DOWN) then
+		MusicController.Duck(Tune.MUSIC_DUCK, Tune.MUSIC_DOWN_SECONDS)
+	end
+	if due(intro, "MusicUp", clock, SPIDER.MUSIC_UP) then MusicController.Duck(1, Tune.MUSIC_UP_SECONDS) end
+
+	if due(intro, "Landed", clock, SPIDER.LANDED) then
+		intro.Jolt = math.max(intro.Jolt, SPIDER.JOLT_LANDED)
+		flash(SPIDER.FLASH_LANDED)
+		local floor, normal, color = floorUnder(stage)
+		if floor then
+			trexFx.Stomp(floor, normal, color, SPIDER.LANDING_SIZE)
+			trexFx.Wave(floor, SPIDER.LANDING_REACH, SPIDER.LANDING_SPEED)
+			spiderSounds.Play("Land", floor)
+		end
+	end
+
+	if due(intro, "Study", clock, SPIDER.STUDY) then
+		spiderSounds.Play("Study", bone(intro, "Head") or stage + UP * Tune.LOOK_HEIGHT)
+	end
+	if due(intro, "Raise", clock, SPIDER.RAISE) then
+		spiderSounds.Play("Whoosh", bone(intro, "Head") or stage + UP * Tune.LOOK_HEIGHT)
+	end
+
+	-- Each draw: its rasp, and sparks off the blades every frame they slide.
+	for i, at in SPIDER.SHARPEN do
+		if due(intro, `Sharpen{i}`, clock, at) then
+			spiderSounds.Play("Sharpen", bladesMeet(intro) or stage + UP * 5)
+		end
+		if clock >= at and clock <= at + SPIDER.DRAW then
+			local meet = bladesMeet(intro)
+			if meet then spiderFx.Scrape(meet) end
+			intro.Jolt = math.max(intro.Jolt, SPIDER.JOLT_DRAW)
+		end
+	end
+
+	if due(intro, "Salute", clock, SPIDER.SALUTE) then
+		spiderSounds.Play("Salute", bone(intro, "Head") or stage + UP * Tune.LOOK_HEIGHT)
+	end
+	if due(intro, "SaluteHeld", clock, SPIDER.SALUTE_HELD) then
+		intro.Jolt = math.max(intro.Jolt, SPIDER.JOLT_SALUTE)
+		flash(SPIDER.FLASH_SALUTE)
+	end
+	if due(intro, "Bow", clock, SPIDER.BOW) then
+		spiderSounds.Play("Bow", bone(intro, "Head") or stage + UP * Tune.LOOK_HEIGHT)
+	end
+	if due(intro, "Click", clock, SPIDER.CLICK) then
+		intro.Jolt = math.max(intro.Jolt, SPIDER.JOLT_CLICK)
+		flash(SPIDER.FLASH_CLICK)
+		local left, right = bone(intro, "Fang_L"), bone(intro, "Fang_R")
+		local at = if left and right then left:Lerp(right, 0.5) else bone(intro, "Head")
+		if at then
+			trexFx.Click(at, intro.Stage.ZVector)
+			spiderSounds.Play("Click", at)
+		end
+	end
+end
+
+local function beats(intro: TPlaying, clock: number)
+	if intro.Data.AnimationSet == "Spider" then
+		spiderBeats(intro, clock)
+	else
+		trexBeats(intro, clock)
 	end
 end
 
@@ -481,22 +728,24 @@ local function cameraStep(dt: number): (CFrame, number)
 	intro.Jolt = math.max(intro.Jolt - dt * Tune.JOLT_DECAY, 0)
 	flash(math.max(flash() - dt * Tune.FLASH_FADE, 0))
 	bars(math.min(elapsed / Tune.BARS_SECONDS, 1))
-	titleAge(clock - Tune.TITLE_AT)
+	local style = intro.Style
+	titleAge(clock - style.TitleAt)
 	local data = intro.Intro
 	black(math.clamp(1 - (data.End - clock) / Tune.FADE_OUT, 0, 1))
 
 	-- The grade.
 	local grade = intro.Grade
-	grade.Saturation = keyed(Tune.SATURATION, clock)
-	grade.Contrast = keyed(Tune.CONTRAST, clock)
-	grade.TintColor = Tune.TINT_CALM:Lerp(Tune.TINT_ROAR, math.clamp(1 - math.abs(clock - 7.9) / 1.2, 0, 1))
+	grade.Saturation = keyed(style.Saturation, clock)
+	grade.Contrast = keyed(style.Contrast, clock)
+	grade.TintColor =
+		style.TintCalm:Lerp(style.TintPeak, math.clamp(1 - math.abs(clock - style.PeakAt) / style.PeakWidth, 0, 1))
 
 	-- The shot, its handheld wander and the jolt of each beat.
-	local scale = BossesCore.INTRO_KEY_SCALE
+	local scale = BossesCore.INTRO_KEY_SCALES[intro.Data.AnimationSet] or 1
 	local eye, look, fov, roll = evalShot(intro.Shots, clock)
 	local worldEye = intro.Frame:PointToWorldSpace(eye * scale)
 	local worldLook = intro.Frame:PointToWorldSpace(look * scale)
-	local wander = keyed(Tune.HANDHELD, clock) * Tune.DRIFT_DEGREES
+	local wander = keyed(style.Handheld, clock) * Tune.DRIFT_DEGREES
 	local n = os.clock()
 	local drift = CFrame.Angles(
 		math.rad(math.noise(n * 0.7, 1.3) * wander),
@@ -533,10 +782,12 @@ local function begin(instanceId: number, enemyData: TData.TEnemy, stage: CFrame,
 	focus.FarIntensity = Tune.FAR_BLUR
 	focus.Parent = Lighting
 
+	local style = STYLES[enemyData.AnimationSet] or STYLES.TRex
 	local intro: TPlaying = {
 		InstanceId = instanceId,
 		Data = enemyData,
 		Intro = kit.Intro,
+		Style = style,
 		Shots = shots,
 		Stage = stage,
 		Frame = BossesCore.IntroFrame(stage, kit.Intro),
@@ -554,6 +805,10 @@ local function begin(instanceId: number, enemyData: TData.TEnemy, stage: CFrame,
 	}
 	playing = intro
 	titleText(kit.Title)
+	titleGlow(style.Glow)
+	titleInk(style.Ink)
+	lineColor(style.Line)
+	subtitleColor(style.Subtitle)
 	-- Spaced out, as delivered.
 	subtitleText(table.concat(string.split(kit.Subtitle, ""), " "))
 	EnemiesController.Drive(instanceId, function()
@@ -650,18 +905,21 @@ local function overlay()
 				end,
 				ZIndex = 7,
 				create("UIStroke")({
-					Color = TITLE_INK,
+					Color = titleInk,
 					Thickness = 3,
 					Transparency = function()
 						return 1 - shown()
 					end,
 				}),
 				create("UIGradient")({
-					Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, GREEN),
-						ColorSequenceKeypoint.new(0.5, Color3.fromRGB(235, 255, 240)),
-						ColorSequenceKeypoint.new(1, GREEN),
-					}),
+					Color = function()
+						local glow = titleGlow()
+						return ColorSequence.new({
+							ColorSequenceKeypoint.new(0, glow),
+							ColorSequenceKeypoint.new(0.5, glow:Lerp(Color3.new(1, 1, 1), 0.85)),
+							ColorSequenceKeypoint.new(1, glow),
+						})
+					end,
 					Offset = function()
 						local u = math.clamp(titleAge() / Tune.SWEEP_SECONDS, 0, 1)
 						return Vector2.new(-1 + 2 * ease("InOut", u), 0)
@@ -676,7 +934,7 @@ local function overlay()
 					local u = math.clamp((titleAge() - Tune.SUBTITLE_AFTER) / Tune.TITLE_IN, 0, 1)
 					return UDim2.new(0.55 * (1 - (1 - u) ^ 4), 0, 0, 2)
 				end,
-				BackgroundColor3 = Color3.fromRGB(120, 255, 160),
+				BackgroundColor3 = lineColor,
 				BorderSizePixel = 0,
 				ZIndex = 7,
 			}),
@@ -689,7 +947,7 @@ local function overlay()
 				FontFace = font.Bold,
 				TextScaled = true,
 				Text = subtitleText,
-				TextColor3 = Color3.fromRGB(200, 230, 210),
+				TextColor3 = subtitleColor,
 				TextTransparency = function()
 					return 1 - math.clamp((titleAge() - Tune.SUBTITLE_AFTER) / Tune.TITLE_IN, 0, 1)
 				end,

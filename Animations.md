@@ -1812,3 +1812,212 @@ instead, the way the T-Rex's Intro settles into its Idle (`Assets/models/Bosses/
 `EnemiesController.Drive(id, nil)` keeps the yaw the driver left it at until a packet turns it. A held match (an
 intro) and a dive stream no packets, so the yaw on record was stale or missing (0 for a fresh boss), and the T-Rex
 swung 50 degrees toward it as the intro handed back.
+
+---
+
+## 18. A boss of rigid pieces and its Death (the Giant Spider, 2026-11-26)
+
+Section 16's recipe on a rig of rigid pieces (Models.md section 16). The Death took five rounds with the user; what
+they corrected is the checklist for every death and every fall from here.
+
+### Files and commands
+
+Under `Assets/models/Bosses/Spider/anim/` (gitignored, like all of `Assets/`):
+
+| File | What it is |
+| --- | --- |
+| `rerig.py` | the one-off re-rig into 70 bones (Models.md section 16); never run on the result |
+| `dump_rest.py`, `rest.json` | the rig dumped from the open Blender: each bone's rest matrix, the mirrored mesh with each vertex's one bone (it refuses a vertex on two). Redo it after any change to the rig or mesh |
+| `spider_death.py` | numpy: deforms, the leg solver, the Death as a function of time, the piece sim, `measure`, `bake_into_blender` |
+| `bake.py` | the T-Rex's, copied: one linear key a frame into Blender 5's layered action |
+| `render.py` | the T-Rex's review render, for the spider; `SPIDER_TOP=1` adds a top view, `SPIDER_LOW=1` a floor-level one |
+
+```sh
+cd Assets/models/Bosses/Spider/anim
+python3 spider_death.py measure
+# in the live Blender: sys.path.insert(0, <anim>); sys.modules.pop("spider_death", None); import spider_death as S
+#   S.bake_into_blender(); bpy.ops.wm.save_mainfile(); save_as_mainfile(copy=True) to <scratch>/c/Spider.blend, then
+#   SPIDER_LOW=1 SPIDER_TOP=1 blender -b <scratch>/c/Spider.blend --python render.py -- ../preview/death Death
+```
+
+Each round's take is kept beside the new one (`preview/death_v1` ... `death_v5`): the user compares them.
+
+### Work in world deforms, never in bone channels
+
+A bone here rests with its y up (the exporter's convention), so a pose channel's axes are not the world's and a turn
+written in them reads wrong. Every pose is a DEFORM per bone, a world rigid transform applied to its rest piece
+(`about(R, pivot, move)`), composed down the chain; only `basis()` turns them into channels at the end
+(`posed = D @ rest`, `basis = local_rest^-1 @ parent_posed^-1 @ posed`). Blender's deformed mesh matched the numpy
+skin to 0.00001 studs on every check. World turns: pitch + raises the front (+Y), roll + tips the top to the spider's
+right (+X), yaw + turns the front to its left.
+
+### The leg
+
+- **Planted legs are solved, not posed**: the coxa yaws the leg toward its target, law of cosines on the femur and
+  the rigid lower leg (tibia to tip at rest), the femur aims the chain. A planted tip moved 0.000000 a frame.
+- **A curl is joint turns laid on top of the solve** (lift the knee at the femur, fold the knee, curl the metatarsus
+  and blade), never a target: a curl target out of reach made the femur chase it and flip at 230 studs/s.
+- **Read a turn's sign once, off the rest leg.** Read per frame ("which way raises the knee?"), it flipped where the
+  knee passed the top of its arc and the femur jumped twice the lift in one frame.
+- **A lifted blade is held off the floor by giving way**: first it curls less (to a quarter), then the knee lifts a
+  little more (0.4 rad at most). Lifting the knee by the whole clearance swung the rear femurs up over the back and
+  into the thorax. **Once a leg gives it stays given**: clearance is not monotonic in the give (a full curl can clear
+  where a half one digs in), so easing between frames buried a blade 0.5 under the floor and popped it out at 80
+  studs/s. Accumulate, smooth, check every frame again and only ever give more.
+
+### The fall, and what the user corrected
+
+1. **The body never holds still while something else moves.** With only the legs curling for a quarter second after
+   a busy start, it "looks really robotic". Every phase overlaps the next.
+2. **A dying body is slow.** Rocking at 2-3 Hz and a 11-15 Hz shudder read as "too fast". After the blow every move
+   is one gesture that runs down (a lean, the nose sinking, the head lifting once weakly, the fangs opening once, one
+   heave of the abdomen, one ripple down the spine plates), keyed curves, not rates. The whole clip about 1.7x
+   slower than the first take; the fastest point before the break 14-20 studs/s (it was 85), only the blow quick (38).
+3. **A landing eases into the floor.** A drop that sped up into the floor hit at 5 studs/s and stopped dead in one
+   frame, with a bounce on top and the legs' slide-out stopping on the same frame: "too abrupt". The last drop eases
+   to rest, no bounce, the slide-out still easing as the curl starts so leg speed never falls under 1.6 studs/s.
+4. **Nothing floats.** "It starts floating" (twice): the legs hold the body until it is down, and only then let go
+   one by one (`REST_AT`). From then the BELLY (thorax and abdomen groups) is held AT the floor, not only kept off
+   it. The first fix counted the head and fangs as body, so it lay on its fangs with the belly 1.5 studs up, then on
+   the abdomen's back end like a see-saw with the thorax a stud up. Now the abdomen's tilt at the waist is solved each
+   frame so both groups lie down, and as it goes down the body tips 10 degrees nose-up, the head 12 more and the fangs
+   splay forward (they hang lower than the belly; folded back they go into the head). Searched numerically.
+5. **Then the skeleton lets go**: each skinned bone a rigid piece on section 16's sim (impulse at the deepest corner,
+   friction, toppling flat), thrown gently so it crumbles rather than bursts (pieces about 50 studs/s, half the first
+   take's). Two additions: **static friction** (resting contact gives tiny impulses and so almost no rub; a slow piece
+   on the floor is damped hard) and **sleep judged by how far a piece's points moved**, not its spin: resting on two
+   corners, the contact impulses jitter the spin past any threshold while the piece drifts on for seconds into the
+   held last frame.
+
+### Before showing: what `measure` and the per-frame tables must read
+
+- No stretched skin (worst edge against rest 0.00000), planted tips 0.000000 a frame.
+- Before the break nothing under the floor but a PLANTED blade (a lifted blade counts like the body); after it,
+  nothing under at all. No leg segment inside a body piece's rest box.
+- Per frame through the fall: **feet on the floor, and the lowest point of each body group** (thorax, abdomen, head,
+  fangs). "The lowest body point" alone hid a body propped on its fangs. Then look at the floor-level render
+  (`SPIDER_LOW=1`) before saying it touches.
+- The fastest point a frame and the owner of it: a lone spike is a sign flip or a pop; the mean speed of the body and
+  of the legs per frame shows a stall (a hand-over that stops) or a cut.
+- The last motion before the clip ends (trim the length to it): nothing moves into the held last frame.
+
+As built: 5.3 s (frames 1-319), the break and its `Down` marker at 3.5 s (frame 211). Not exported or uploaded.
+
+---
+
+## 19. The Giant Spider's clips (2026-11-26)
+
+Section 18's tools for the rest of the spider's set (PlanBosses.md, "The Giant Spider's set"). Its walking is the
+game's IK, so no clip walks: every clip starts and ends in the stance the IK stands it in (the rest pose with every
+foot on its rest spot at floor height), or in the pose of the clip it hands over to.
+
+### Files and commands
+
+Under `Assets/models/Bosses/Spider/anim/`:
+
+| File | What it is |
+| --- | --- |
+| `spider_clips.py` | every clip but the Death as a function of time, on `spider_death.py`'s deforms and leg solver; `measure`, `json`, `run_name="bake"` |
+| `clips.json` | each clip's length, loop and beats, the Impale's stab spots, the blades' chop lines, the spit point, the thread point (Blender studs) |
+| `intro_src.json` | the delivered Intro read out of Blender (the thorax and head deforms, the tips) |
+| `blade_contact.py` | the two front blades' surfaces sampled densely: how close they come (contact, or through) |
+| `head_clear.py` | leg surfaces inside the head, jaws or fangs, sampled densely |
+| `render.py` | section 18's, plus `SPIDER_WIDE=1` (the Intro's thread and the Brood's hang, 20-45 studs up) and `SPIDER_FACE=1` (close on the front blades) |
+
+```sh
+cd Assets/models/Bosses/Spider/anim
+python3 spider_clips.py measure [Clip ...]   # feet, floor, legs in the body, legs on legs, speeds, seams, hand-overs
+python3 spider_clips.py json                 # clips.json
+# in the live Blender: pop spider_clips, spider_death, spider_bake, blade_contact, head_clear from sys.modules, then
+#   runpy.run_path(".../spider_clips.py", run_name="bake")["build"](["Intro", ...]); save; save a copy and render it
+```
+
+Renders are in `preview/clips/`, each earlier take kept beside the new one (`Intro_v1` ... `Intro_v5`,
+`ScytheCross_v1`): the user compares them.
+
+### The set as built
+
+| Clip | Length | Beats |
+| --- | --- | --- |
+| Idle (loop) | 2.4 s | breathing, one leg tap per side, fang twitches; starts 0.57 off the stance (the blend covers it) |
+| ScytheCross | 1.9 s | Impact 0.85: cocked over the front, chopped down side by side, raked apart (a chevron, not an X) |
+| ScytheFlurry | 3.6 s | left 0.7, right 1.15, left 1.6 (each chops on its own side), the cross 2.5; in place |
+| Impale / Impale2 | 3.05 / 4.3 s | rises tall, stabs each foot round the body (0.2 s apart; the second lap 0.15) |
+| PounceCrouch, PounceAir (loop), PounceLand | 1.05 / 0.6 / 1.7 s | `Leave` 0.8 (the game carries Root on the arc), `Land` 0.0 |
+| WebVolley / WebVolley5 | 2.75 / 3.55 s | abdomen raised, a spit from the tail every 0.5 / 0.45 s |
+| BroodRise, BroodHang (loop), BroodDrop | 2.4 / 4.0 / 2.8 s | `Shoot` 0.55; hangs nose-down 20-33 studs up (in the clip, Root stays); `Land` 0.66 on its belly |
+| Intro | 10.0 s | the delivered descent, then its own show; ends on the Idle's frame at `IdleAt` 0.42 |
+
+### Leg techniques (all in `spider_clips.py`)
+
+- **A raised leg is turned up at the femur (`lift`), never aimed at a point in the air.** Aimed high, the law of
+  cosines hung the knee down into the body and the knee flipped over in the chop (370 studs/s). Lifted, the knee
+  rides over the leg as a spider's does; the chop drops the lift onto the floor spot.
+- **Planted blades are kept on the floor** (`keep_blades`): crouched over a planted foot the lower leg tilts and the
+  curved blade went 0.6 studs under. The lower joints are turned just enough and the target moved so the tip stays
+  on its spot; smoothed in time.
+- **A leg can be twisted about its hip-to-tip line** (`twist`): the tip stays, the knee swings round it. Bent in its
+  own plane, a leg reaching across the face rode its knee over the head.
+- **The front coxae's swing can be held back** (`hold`, `solve_leg_held`): they sit against the head, and swung right
+  round to reach the middle they carried the femurs into the skull. Held half way, the femur aims the rest.
+- **Blades touching are solved, not guessed** (`sharpen_offsets`): each frame the left blade is stood in front of the
+  right by the least that keeps their surfaces 0.06 studs apart, searched from outside in (never through), smoothed
+  and never closer. Drawn back, a blade lifts off instead of scraping up the other.
+- **Feet off a body that turns** (the Intro's landing): uncurled in the body's own frame, then reaching onto their rest
+  spots in an arc, front pair first, smoothed in time. Moved straight from the hang to the floor in the world, the
+  back feet swept through the body; held to the floor frame by frame, a front foot skated 10 studs in 0.08 s.
+
+### What the user corrected
+
+1. **The Intro's descent is a spider on a thread**: hanging nose-down under the spinnerets like the Brood, legs drawn
+   in, levelling out only as it reaches the floor. Lowered level it read as a body floating down.
+2. **Its show is its own, and clever where the T-Rex is brute**: it studies the players (the whole body turns: a
+   spider has no neck, and a head turned 22 degrees opened a gap onto the dark core), sharpens its blades, salutes
+   with them raised and the plates fanned, bows them apart, sinks and clicks its fangs.
+3. **A touch of the blades should be a knife sharpening**: one blade drawn down the other, heel to tip, in turns.
+4. **Coming together is never a snap** (crossed in 0.12 s): the blades rise and cross over about half a second each.
+5. **A death threat is aggressive, not fast**: the threat is in the pose (looming over its blades, head down, jaws
+   bared); the strokes are slow heavy draws the body follows through. 0.13 s jolts read "too robotic".
+6. **Legs never sit on top of the head, or in it**: the sharpening works low in front of the jaws, knees out beside
+   the head. A vertex count passed a femur going through the skull: check with `head_clear.py` (surfaces), every frame.
+
+### Before showing: what `measure` must read
+
+- Planted tips slide 0.000000 a frame; nothing under the floor but a blade on it or stuck in it (to -0.3).
+- `head_clear.hits` empty on every frame of every clip; leg gaps (front pair, neighbours) not far under rest.
+- Fastest point per 0.25 s with its owner: no lone spike (a knee flip, a skate); loops seam 0.
+- Hand-overs: first and last frames against the stance or the clip they meet (Crouch to Air to Land, Rise to Hang
+  to Drop, the Intro to the Idle at `IdleAt`).
+- Look at the poses (a matplotlib three-view of the skinned triangles is quick), then the renders, close-ups where
+  blades meet.
+
+### In the game (2026-11-26)
+
+- **Exported and uploaded** by `anim/export.py` (headless on a COPY: the Mirror applied, the mesh split by material
+  into `Bone`, `Neon`, `Steel` and `Dark`, a 0.03-stud sliver at each `Tip` weighted to it so the importer keeps the
+  bone), then the rig and one FBX per action through the T-Rex's exporter. Ids in `fbx/ids.json` and
+  `Assets/README.md`. The place's rig and set: Models.md section 16.
+- **Coordinates**: the game's body frame is +X its left, +Z ahead; a `.blend` spot (x, y) is (-x, y) there. Every
+  spot the data uses (the blades' lines, the stabs, the thread, the spit point) is converted once, in
+  `Data/Enemies/GiantSpider.luau`. Played at the `.blend`'s size (no ScaleTo).
+- **The walk is `Client/Utils/spiderLegs`**: each blade planted on the floor, two groups of four stepping in turn
+  (legs 1 and 3 of one side with 2 and 4 of the other), a step half a stride at the body's speed, the floor raycast
+  under each new spot, the thorax riding the feet (height, pitch, roll, a dip as a group lands). The leg is solved as
+  `solve_leg` does (coxa yaw, law of cosines, femur aim); checked headless in lune to put the tip on its target to
+  0.000002 studs with the knee up, for every leg and target tried. Standing still, any foot off its rest spot steps
+  home, so the body is in the clips' stance when a move starts.
+- **The hand-over**: `EnemiesController.stepLegs` runs after the Animator and the blends; the legs are the IK's while
+  the Idle is all the rig plays and the clips' for every other move, eased over 0.25 s each way. A one-shot a blend
+  cut is still in `playingTracks`, so it asks the track `IsPlaying`.
+- **The Pounce**: the server moves Root on `BossesCore.LeapPoint` (its arc), the client drives the same; Crouch to
+  `Leave`, then `PounceAir` looped, then `PounceLand` cut in on the landing.
+- **The Brood**: BroodRise plays, BroodHang loops from its end, BroodDrop starts `BroodLand` before the landing the
+  server sends. The silk is drawn from `BroodThread` up into the sky to the spinnerets (the Tail bone's tip).
+- **Its young** (`Spiderling`) are this rig ScaleTo'd 0.22 on the client (`TEnemy.ModelScale`), on the same IK, the
+  ScytheCross as their bite (`TEnemyAttack.ClipImpact` 0.85 lands it on their wind-up).
+- **The Intro**: its own shots (`BossesCore.INTRO_SHOTS.Spider`, authored on this rig) and beats
+  (`BossIntroController`'s `SPIDER`): thread, touchdowns, landing, sharpening sparks found where the blades meet each
+  frame, salute, bow, fang click. Seen in a playtest; not yet judged by the user.
+
+As built: 14 clips plus the Death in `Spider.blend`; Blender's deform matches the numpy clips to 0.00001 studs.
+Exported, uploaded and played in Studio on 2026-11-26 (every move forced once through the console, one player).

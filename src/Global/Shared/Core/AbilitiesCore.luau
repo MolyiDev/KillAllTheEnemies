@@ -63,6 +63,14 @@ function AbilitiesCore.UpgradeCost(level: number): number?
 	return LoadoutCore.LevelCost(0, level)
 end
 
+-- Run Gold `ability`'s next cast costs after `casts` paid ones this run, before Discount: each cast adds its step, and
+-- each adds CostStepGrowth to the step (50, step 20, growth 5: 50, 70, 95, 125, 160).
+function AbilitiesCore.CastCost(ability: TData.TAbility, casts: number): number
+	local step = ability.CostStep or 0
+	local growth = ability.CostStepGrowth or 0
+	return (ability.Cost or 0) + casts * step + growth * casts * (casts - 1) / 2
+end
+
 -- `ability` as it is at `level`: every stat its levels up to that one set, over its own. Frozen and shared.
 function AbilitiesCore.AtLevel(ability: TData.TAbility, level: number): TData.TAbility
 	if level <= 1 then return ability end

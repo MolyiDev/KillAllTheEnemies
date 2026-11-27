@@ -45,6 +45,9 @@ local Fall = table.freeze({
 	MIN_SCALE = 0.04,
 })
 
+-- The name of the weld Attach puts on a piece's handle, by which a copy of a body tells its pieces from its own hats.
+local WELD_NAME = "EquipmentWeld"
+
 export type TPiece = {
 	Accessory: Accessory,
 	Handle: BasePart,
@@ -121,7 +124,7 @@ function equipmentPieces.Attach(body: Model, accessory: Accessory, parent: Insta
 	local bodyPart = bodyAttachment.Parent :: BasePart
 
 	local weld = Instance.new("Weld")
-	weld.Name = "EquipmentWeld"
+	weld.Name = WELD_NAME
 	weld.Part0 = bodyPart
 	weld.Part1 = piece.Handle
 	weld.C0 = bodyAttachment.CFrame
@@ -222,6 +225,18 @@ function equipmentPieces.CoverAvatar(body: Model, attachments: { [string]: boole
 			handle.Transparency = 0
 		end
 	end
+end
+
+-- Takes the pieces put on by Attach off `body`, a copy of a worn one, and shows the accessories they covered again.
+function equipmentPieces.Strip(body: Model)
+	-- GetDescendants is a copy of the list: a piece destroyed in the loop is safe.
+	for _, weld in body:GetDescendants() do
+		if weld.Name ~= WELD_NAME or not weld:IsA("Weld") then continue end
+		local accessory = weld:FindFirstAncestorOfClass("Accessory")
+		if accessory then accessory:Destroy() end
+	end
+
+	equipmentPieces.CoverAvatar(body, {})
 end
 
 -- `accessories` anchored in a Model as they would sit on an R6 body standing at the origin facing -Z, for a picture.

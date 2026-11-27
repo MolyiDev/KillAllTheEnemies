@@ -1,7 +1,8 @@
 # Balance.md
 
 How the guns are balanced against each other, worked out on 2026-11-22 by measuring every gun in
-`tools/lune/guns.luau`. Read it before adding a gun or changing one's numbers in `src/Global/Data/Guns`.
+`tools/lune/guns.luau`. Read it before adding a gun or changing one's numbers in `src/Global/Data/Guns`. Section 7 is
+what abilities cost in a run.
 
 ## 1. The ladder a run climbs
 
@@ -52,6 +53,12 @@ The scores on 2026-11-22, the spacing to keep:
 | 3 | Starter Rifle 3.44 | Poison Pistol 3.99, Snowy Rifle 4.13, RPG Bazooka 4.50 |
 | 4 | Starter Minigun 6.04 | Sandan Gun 6.39, UFO Bullpup 6.56, Hacker Drum 7.16, Lavaforge 7.98, Corrupted Runes AK 8.73 |
 
+Since 2026-11-26 the tool lines every crowd shot up as the game does (`GunsCore.LineUp`: through as many bodies as
+the pierce allows, not at the nearest chest), which lifted every piercing gun. The table above is from before that.
+On the lined-up run, five guns fall out of order and wait on a rebalance: Celebration Gun 2.48 under Starter Sniper
+2.65, RPG Bazooka 4.42 under Snowy Rifle 5.51, and UFO Bullpup 6.56, Hacker Drum 7.15 and Lavaforge 8.34 under Sandan
+Gun 8.43. AWP The Prince (3.53) is back in order. Once rebalanced, write the new scores into the table.
+
 A new paid gun goes between its tier's starter and the next tier's starter, at the place its price gives it, with
 room on both sides: about 5-15% over the gun priced just below it.
 
@@ -64,7 +71,8 @@ by what the gun is:
   hit, more damage does nothing, and the gun tops out near one kill a shot. Past that, `Pierce = 1` (the Minigun,
   Lavaforge, Corrupted Runes AK).
 - **Slow guns** (snipers, Desert Eagle, Poison Pistol, Snowy Rifle): `Pierce`, so one bullet kills several bodies
-  in a line and makes up for the wait between shots. The longer the wait, the more pierce.
+  in a line and makes up for the wait between shots. The longer the wait, the more pierce. Every shot is lined up
+  through the crowd (`GunsCore.LineUp`), so a point of pierce is worth nearly a body a shot in a queue.
 - **Snipers also get a wide shot**: `HitRadius` 1.0 to 2.0 studs instead of a thin line, so a pierce through a
   crowd meets the bodies beside its line too (AWP Printstream 1.0 and pierce 2 at the bottom, Sandan Gun 2.0 and
   pierce 10 at the top).
@@ -87,11 +95,15 @@ by what the gun is:
 4. Write the numbers into `src/Global/Data/Guns/<Gun>.luau`, set `RecoilDeg` if the derived kick is not the feel
    wanted, and run the tool once more on the real data: the table must match the overrides run.
 5. Update section 3's table here.
+6. A gun that pierces: `lune run tools/lune/aim.luau "$PWD" "<Gun Name>"` shows how many bodies its shot goes into
+   on flat ground, slopes, a deck and stairs, aimed plain and lined up. Its "worse" column must stay 0.
 
 ## 6. What the tool does not show
 
 - **A single tough body.** Bosses and elites are not measured: a sniper's one big hit matters more there than any
   crowd score says.
+- **Floors.** The crowds stand on flat open ground. Slopes, decks and stairs, where a lined-up shot gains most, are
+  measured by `tools/lune/aim.luau`.
 - **Splash from a miss.** A rocket that hits the arena still blasts; the tool only blasts where a rocket stops in a
   body, so a launcher is a little better than its score.
 - **A shove's second.** A shoved body then takes about a second to get back up to speed, which the tool does not
@@ -99,3 +111,25 @@ by what the gun is:
 - **Loadout levels.** The lobby's upgrade levels (`LoadoutCore.Damage`, +10% a level) are not counted, and are not
   applied in a run yet.
 - **Gun names.** The Freeze, Poison and Flame guns have no effect behind their names: they are plain guns.
+
+## 7. Ability prices in a run
+
+An ability's run Gold price goes up by a step every time it is cast, and goes back to `Cost` when a new run starts
+(`AbilityService.ResetRun`). A death keeps it. The step is set for each ability in its class's data:
+
+- `CostStep` is what each cast adds to the next price.
+- `CostStepGrowth` is what each cast adds to the step itself: 0 for a flat climb.
+- `AbilitiesCore.CastCost` works out the price, and the Discount upgrade comes off after it, on both sides.
+
+The two shapes come from Survive a Million Monkeys, measured in game:
+
+| Kind | Cost | Step | Growth | Prices |
+| --- | --- | --- | --- | --- |
+| A grenade (cheap, cast often) | 50 | 6 | 0 | 50, 56, 62, 68 |
+| A turret (what stays out and fights) | 50 | 20 | 5 | 50, 70, 95, 125, 160 |
+
+- A move that just hits takes the flat climb. A move that leaves something on the field that keeps working takes the
+  growing one, so it can't be spammed.
+- Human: Foam Cannon has the grenade's numbers (50, 56, 62, 68, 74). Decoy has the turret's curve scaled to its 40
+  price (step 16, growth 4: 40, 56, 76, 100, 128, 160).
+- Check a new ladder with `AbilitiesCore.CastCost` in lune, not by hand.

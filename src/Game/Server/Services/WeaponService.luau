@@ -47,9 +47,6 @@ local PiecedQuery =
 local Tune = table.freeze({
 	-- A shot is accepted this much early against the gun's interval, for the jitter between two of the client's.
 	RATE_TOLERANCE = 0.8,
-	-- Added to every gun's HitRadius: the client aims at bodies drawn a little behind where the server has them
-	-- (one 10 Hz movement tick plus the trip), and there is no rewind yet.
-	LAG_PAD = 0.75,
 	-- The widest body's half width, so a body whose centre is just off the ray's box is still tested.
 	MAX_BODY_RADIUS = 4,
 	-- A body that took less than this share of a shoving shot is not shoved: any shove at all costs a body about a
@@ -83,6 +80,9 @@ local templates: { [number]: Tool | false } = {}
 local bodies = GunsCore.NewBodies()
 local bodyEntities: { jecs.Entity<any> } = {}
 local pelletDirections: { Vector3 } = {}
+-- One pellet's hits, nearest first (GunsCore.CastBodiesAll).
+local castIndices: { number } = {}
+local castDistances: { number } = {}
 local reusableCandidates: { jecs.Entity<any> } = {}
 local hitDamage: { [jecs.Entity<any>]: number } = {}
 local byFigure: { [number]: { jecs.Entity<any> } } = {}
@@ -147,9 +147,10 @@ function WeaponService.ResetRun()
 end
 
 -- Every body a shot from `origin` along `direction` could reach: the box around its whole cone, out to `range`.
-local function gatherBodies(origin: Vector3, direction: Vector3, range: number, spreadDeg: number)
+local function gatherBodies(origin: Vector3, direction: Vector3, range: number, spreadDeg: number, pad: number)
 	local finish = origin + direction * range
-	local margin = range * math.tan(math.rad(spreadDeg)) + Tune.MAX_BODY_RADIUS
+	local reach = range * math.tan(math.rad(spreadDeg))
+	local margin = reach + Tune.MAX_BODY_RADIUS
 	table.clear(reusableCandidates)
 	EnemiesSpatialHash:QueryAABBAsPoints(
 		math.min(origin.X, finish.X) - margin,
@@ -159,11 +160,25 @@ local function gatherBodies(origin: Vector3, direction: Vector3, range: number, 
 		collect
 	)
 
+	-- The box takes in most of the arena for a diagonal shot. A body farther from the shot's line, seen from above, than
+	-- the cone's reach plus the widest body and the pad cannot be hit by any pellet: dropped before its reads, its
+	-- shape and every pellet's cast (-15% to -56% a shot, same hits: performance/optimization-2026-11-26).
+	local originX, originZ = origin.X, origin.Z
+	local lineX, lineZ = finish.X - originX, finish.Z - originZ
+	local lineSq = lineX * lineX + lineZ * lineZ
+	local tube = reach + Tune.MAX_BODY_RADIUS + pad
+	local tubeSq = tube * tube
+
 	bodies.Count = 0
 	for _, enemyEntity in reusableCandidates do
 		local position = EnemyWorld:get(enemyEntity, Components.Position)
+		if not position then continue end
+		local offsetX, offsetZ = position.x - originX, position.z - originZ
+		local along = if lineSq > 0 then math.clamp((offsetX * lineX + offsetZ * lineZ) / lineSq, 0, 1) else 0
+		local sideX, sideZ = offsetX - lineX * along, offsetZ - lineZ * along
+		if sideX * sideX + sideZ * sideZ > tubeSq then continue end
 		local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
-		if not position or not enemyData or enemyData.AimPieces then continue end
+		if not enemyData or enemyData.AimPieces then continue end
 		local aim = EnemiesCore.AimShape(enemyData)
 		GunsCore.AddBody(bodies, position :: any, aim.z, aim.y)
 		bodyEntities[bodies.Count] = enemyEntity
@@ -224,40 +239,39 @@ local function shoot(
 	gun: TData.TGun,
 	origin: Vector3,
 	direction: Vector3,
-	seed: number,
-	damageScale: number
+	seed: number
 )
 	local pellets = math.min(gun.Pellets, GunsTune.MAX_PELLETS)
-	local pelletDamage = gun.Damage / gun.Pellets * damageScale
-	local pad = gun.HitRadius + Tune.LAG_PAD
+	local pelletDamage = gun.Damage / gun.Pellets
+	local pad = gun.HitRadius + GunsTune.LAG_PAD
 	local splashRadius = gun.SplashRadius
 	local pierce = gun.Pierce or 0
-	gatherBodies(origin, direction, gun.Range, gun.SpreadDeg)
+	gatherBodies(origin, direction, gun.Range, gun.SpreadDeg, pad)
 	GunsCore.PelletDirections(direction, seed, gun.SpreadDeg, pellets, pelletDirections)
 
 	for pellet = 1, pellets do
 		local unit = pelletDirections[pellet]
 		local wall, wallDistance = sightCast(origin, unit * gun.Range)
-		local index, distance = GunsCore.CastBodies(bodies, origin, unit, wallDistance, pad, -1)
+		local hitCount = GunsCore.CastBodiesAll(bodies, origin, unit, wallDistance, pad, castIndices, castDistances)
 		-- The pellet hurts the first body in its way and the `pierce` behind it, each in full. It stops in the last of
 		-- those, or goes on to the arena when it runs out of bodies first (`distance` is then the wall's).
 		-- A long body's pieces come one after another along the ray: the body is hit once, and the next piece of it is
 		-- no new body to pierce.
 		local stoppedIn = nil
+		local distance = wallDistance
 		local piercesLeft = pierce
 		local lastHit = nil
-		while index > 0 do
-			local enemyEntity = bodyEntities[index]
-			if enemyEntity ~= lastHit then
-				lastHit = enemyEntity
-				hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + pelletDamage
-				if piercesLeft == 0 then
-					stoppedIn = enemyEntity
-					break
-				end
-				piercesLeft -= 1
+		for hit = 1, hitCount do
+			local enemyEntity = bodyEntities[castIndices[hit]]
+			if enemyEntity == lastHit then continue end
+			lastHit = enemyEntity
+			hitDamage[enemyEntity] = (hitDamage[enemyEntity] or 0) + pelletDamage
+			if piercesLeft == 0 then
+				stoppedIn = enemyEntity
+				distance = castDistances[hit]
+				break
 			end
-			index, distance = GunsCore.CastBodies(bodies, origin, unit, wallDistance, pad, distance)
+			piercesLeft -= 1
 		end
 
 		if splashRadius and (stoppedIn or wall) then
@@ -316,14 +330,7 @@ ClientNetworkWeapons.Fire.On(function(player: Player, aimPoint: Vector3)
 	entry.NextShotAt = now + entry.Gun.FireInterval / rate * Tune.RATE_TOLERANCE
 	entry.ShotCount = (entry.ShotCount + 1) % 65536
 
-	shoot(
-		characterEntity,
-		entry.Gun,
-		origin,
-		toAim.Unit,
-		entry.ShotCount,
-		1 + upgradeStats.Get(player, EUpgradesIds.Damage)
-	)
+	shoot(characterEntity, entry.Gun, origin, toAim.Unit, entry.ShotCount)
 
 	local instanceId = World:get(characterEntity, Components.InstanceId)
 	if instanceId then ServerNetworkWeapons.Shot.FireExcept(player, instanceId, aimPoint, entry.ShotCount) end

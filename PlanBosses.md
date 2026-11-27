@@ -400,6 +400,60 @@ Then the Pumpkin Head and the Giant Spider, by the same steps: copy `Assets/mode
 library is rig-agnostic except `build_rig.py`'s bone map, the leg solver's digitigrade foot and the arm check's
 pieces) and start from Animations.md section 16's order of work.
 
+**The Giant Spider (2026-11-26):** modelled (memory and `Spider/concepts/`), re-rigged into 70 rigid pieces with
+per-joint leg bones and `Tip` end effectors (Models.md section 16), its Death and every other clip of its set built
+(Animations.md sections 18 and 19), exported, uploaded and in the Game place, and its fight in code (below, "As built:
+the Giant Spider"). It is Baseplate's filler: waves 15 / 30 / 45 go T-Rex / Spider / T-Rex. Played once in Studio,
+one player, every move forced from the console. Still to do: its own effects and sounds (placeholders now), its
+picture, a playtest of the fight as drawn, and the dodge numbers measured the T-Rex's way.
+
+### The Giant Spider's set
+
+The checklist answered with the spider's own body: eight scythe blades, fangs, spinnerets, a neon core. No move is a
+T-Rex shape. Sizes are the `.blend`'s studs (feet about 11 out from the middle, belly 4.6 up).
+
+| Move (clips) | Checklist item | What happens | Answer and punish window |
+| --- | --- | --- | --- |
+| **Scythe Cross** (`ScytheCross`, impact 0.85) | close punish, front | rears, both front blades cocked over the front, chopped down side by side and raked apart: two Lines in a chevron in front | stand clear of the two lines; the blades stick in the floor about 0.5 s |
+| **Impale** (`Impale`) | close punish, all round | rises tall and stabs each foot in turn round its body: a small circle at each foot | in close inside the ring of feet, or out of it; it stands high and open meanwhile |
+| **Pounce** (`PounceCrouch`, `PounceAir`, `PounceLand`) | the way to the player, and onto decks | crouches, leaps on an arc onto its target, lands with a circle | step out of the circle; it lands crouched and slow to rise |
+| **Web Volley** (`WebVolley`) | ranged, aimed at players | lifts its abdomen and spits 3 web globs, one at each player in range; each leaves a sticky patch that slows | keep moving, then watch the ground |
+| **Scythe Flurry** (`ScytheFlurry`, phase 2) | the sequence with a finisher | left, right, left (each a Line on its own side), then the Scythe Cross | read the side, step to the other; the finisher's answer differs |
+| **Brood** (`BroodRise`, `BroodHang`, `BroodDrop`) | goal-changer, at each boss bar break | hauls itself up on a web line and hangs out of reach while 4 egg sacs pulse round the arena; a sac still whole at the end hatches small spiders | split up and pop the sacs; it drops onto its belly, dazed: the big punish window |
+
+Phase 2: the volley spits 5 (`WebVolley5`), the Impale goes round twice, the second lap faster (`Impale2`), a Pounce
+can chain, and the Flurry joins the draw. Its Intro (`Intro`, 10 s): lowered on its thread, hanging nose-down; it
+levels onto its feet, studies the players, sharpens its blades on each other as a threat, salutes and bows them, and
+settles into the Idle. New code each move needs: the chevron's two lines, the ring of feet, the sticky web patch, the
+hang out of reach with the sacs.
+
+### As built: the Giant Spider (2026-11-26)
+
+- **Data**: `Data/Enemies/GiantSpider.luau` (id 102), `EggSac.luau` (7) and `Spiderling.luau` (8). Spots are in the
+  body's frame, +X its left, +Z ahead, read off `Spider/anim/clips.json`.
+- **New on an attack** (`TData`): `Strikes` (a Slam made of several shapes, a Line from/to or a Circle, each landing at
+  its clip second and shown `Delay` before it: the chevron, the flurry's sides, the ring of stabs); `PatchRadius` /
+  `PatchSeconds` (a volley's glob leaves a web patch that slows the body in it to 0.45, on the client,
+  `TimeController`); `ClipImpact` (a crowd body's clip made for a boss); the `Pounce` and `Brood` kinds.
+- **New on an enemy**: `ModelScale` (the spiderling is the spider's rig at 0.22) and `HasLegIK` (no walk clip; the
+  IK stands and walks the legs, Animations.md section 19).
+- **Server** (`BossService`): a front strike is turned up to 0.55 rad off its target to lay a blade on them, and made
+  only if one would land (`aimedYaw`). The pounce lands Lead of the way to where its target runs, on a nav node, its
+  circle shown from the crouch; Root flies `BossesCore.LeapPoint`, out of the hash (`Tags.Submerged`) meanwhile. It
+  is taken at range like the charge (MinRange 24, or after `ChaseSeconds`), and when its target stands where it
+  cannot walk, onto their deck. Under 50% it chains once. The brood is the goal-changer at each bar break: up its
+  line and out of reach (Submerged, immune) from `BroodUp`, four sacs laid at `BROOD_LAY` round the arena (the
+  guards' spots, the boss bar's marks), and down when they are all popped or 16 s pass: sacs left hatch three
+  spiderlings each, the drop's circle shows 1.2 s, and it lies dazed `BossesCore.BROOD_DAZE` past its clip.
+- **Client** (`BossController/Spider.luau`, `Utils/spiderFx`, `Utils/spiderSounds`, `Utils/spiderLegs`): blades cut
+  red gashes and throw sparks where the server's lines are, stabs burst at their circles, the leap is drawn on the
+  server's arc and lands with a stamp and a wave, globs arc off the spinnerets and splat into patches, the silk line
+  is shot up and snaps on the drop, sacs are tied to it by silk and pop, a footfall where each leg group lands, the
+  hurt rears its thorax and throws its jaws up. Effects reuse the T-Rex's floor kit; the sounds are T-Rex takes
+  standing in (`spiderSounds.STAND_INS`), to replace after a listening round.
+- **Intro**: `BossIntroController` plays any boss's: each has a `STYLES` entry (grade, handheld wander, title colours
+  and moment) and its own beats.
+
 ## As built (code, 2026-11-24)
 
 - **Server.** `BossService` runs every boss's fight: it draws its move among those that would land on its target where

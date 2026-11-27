@@ -14,6 +14,13 @@ BossesCore.ROAR_SPEED = 0.3
 BossesCore.ROAR_SLOW = 0.7
 BossesCore.ROAR_RAMP = 0.6
 
+-- A pounce's arc over the straight line from where it leaves to where it lands: this many studs plus this share of
+-- its length, at its middle.
+BossesCore.POUNCE_ARC_MIN = 5
+BossesCore.POUNCE_ARC_SHARE = 0.22
+-- A brood's drop leaves it dazed this long after its BroodDrop clip ends: the party's window.
+BossesCore.BROOD_DAZE = 1.5
+
 -- A turn on the spot goes to its left (the way its turn clip is authored) up to this far round, else the short way to
 -- its right. Past a chained charge's widest turn (180 + BossService's CHAIN_ARC of 45), so the client's drawn yaw
 -- being a little off never flips one.
@@ -82,10 +89,47 @@ BossesCore.INTRO_SHOTS = table.freeze({
 			key(12.9, V(4.0, 9.0, -24.0), V(0, 4.0, -2.0), 60, 0, "InOut"),
 		},
 	}),
+	-- The Giant Spider's, authored on its rig at the size it is played (its Intro clip: lowered on its thread to the
+	-- floor by 3.0 s, its study of the players, the sharpening 4.7-7.3, the salute, the bow and the fang click at 8.8).
+	Spider = table.freeze({
+		-- From the floor, looking up the thread as it comes down out of the sky, spinning on it.
+		{
+			key(0.0, V(10, 1.5, -30), V(0, 34, -8), 62, -4),
+			key(1.3, V(8.5, 2, -27), V(0, 12, -3), 58, 2, "Out"),
+		},
+		-- Down at its feet as they reach the floor, one pair after the other.
+		{
+			key(1.3, V(-15, 1, -9), V(0, 5, -3), 52, 3),
+			key(3.3, V(-13, 1.3, -8), V(0, 3.5, -2), 50, 0, "Out"),
+		},
+		-- Eye to eye with it as it studies the players, creeping in.
+		{
+			key(3.3, V(2, 6.5, -24), V(0, 6, 0), 45, 0),
+			key(4.8, V(1.5, 6.2, -20), V(0, 5.8, 0), 42, 0, "InOut"),
+		},
+		-- Close on the blades in front of its jaws while it sharpens them.
+		{
+			key(4.8, V(-7, 7, -34), V(0, 4.5, -12.5), 30, 0),
+			key(7.3, V(-5, 6, -30), V(0, 4.5, -12.5), 27, -2, "InOut"),
+		},
+		-- Low and in front for the salute, its blades raised over the camera.
+		{
+			key(7.3, V(5, 1.5, -19), V(0, 9, -2), 60, -5),
+			key(8.4, V(4, 1.8, -17.5), V(0, 8.5, -2), 57, -3, "Out"),
+		},
+		-- The bow and the click, then pulled back and up for the title.
+		{
+			key(8.4, V(0, 5.5, -16), V(0, 5, -2), 48, 0),
+			key(10.6, V(6, 10, -32), V(0, 5, 0), 55, 0, "InOut"),
+		},
+	}),
 })
--- The delivered body's scale times the rig's (built at 0.7, ScaleTo'd 1.25 in the place): a key's studs at the size
--- the boss is played.
-BossesCore.INTRO_KEY_SCALE = 2.2859 * 0.875
+-- A key's studs at the size the boss is played: the T-Rex's are the delivered body's scale times the rig's (built at
+-- 0.7, ScaleTo'd 1.25 in the place); the spider's were authored on its rig.
+BossesCore.INTRO_KEY_SCALES = table.freeze({
+	TRex = 2.2859 * 0.875,
+	Spider = 1,
+})
 
 -- "Front", "Behind" or "Beside": where `target` stands round a body at `at` facing `yaw` (TEnemyBoss's arcs).
 function BossesCore.Facing(kit: TData.TEnemyBoss, at: vector, yaw: number, target: vector): TData.TEnemyAttackFacing
@@ -110,6 +154,14 @@ function BossesCore.WindupTempo(kit: TData.TEnemyBoss, share: number): number
 	return math.max(BossesCore.Tempo(kit, share), kit.WindupTempoMin)
 end
 
+-- Where a pounce from `from` to `to` is `u` of the way through its flight (0 to 1): the straight line, arced.
+function BossesCore.LeapPoint(from: vector, to: vector, u: number): vector
+	local flat = from + (to - from) * u
+	local distance = vector.magnitude(vector.create(to.x - from.x, 0, to.z - from.z))
+	local arc = BossesCore.POUNCE_ARC_MIN + distance * BossesCore.POUNCE_ARC_SHARE
+	return vector.create(flat.x, flat.y + arc * 4 * u * (1 - u), flat.z)
+end
+
 -- How far a skid has slid `seconds` in: `speed` bled off evenly over `stop` seconds.
 function BossesCore.SkidDistance(speed: number, stop: number, seconds: number): number
 	local t = math.clamp(seconds, 0, stop)
@@ -124,11 +176,14 @@ function BossesCore.TurnDelta(fromYaw: number, toYaw: number): number
 end
 
 -- The intro's clock after `seconds` of real time: (the cutscene's clock, the clip's time, the clip's speed now). The
--- clip runs at full speed, slows for the roar and ramps back, and stops at its end (speed 0, the cue to hand over to
--- the idle) while the clock runs on to End.
+-- clip runs at full speed, slows for a roar (TEnemyBossIntro.Roar) and ramps back, and stops at its end (speed 0, the
+-- cue to hand over to the idle) while the clock runs on to End.
 function BossesCore.IntroClock(intro: TData.TEnemyBossIntro, seconds: number): (number, number, number)
 	local roar = intro.Roar
-	if seconds <= roar then return seconds, seconds, 1 end
+	if not roar or seconds <= roar then
+		if seconds <= intro.Length then return seconds, seconds, 1 end
+		return seconds, intro.Length, 0
+	end
 
 	local slow, ramp, speed = BossesCore.ROAR_SLOW, BossesCore.ROAR_RAMP, BossesCore.ROAR_SPEED
 	local clip: number
@@ -151,13 +206,14 @@ end
 
 -- The intro's length in real seconds: until its clock reaches End.
 function BossesCore.IntroSeconds(intro: TData.TEnemyBossIntro): number
+	if not intro.Roar then return intro.End end
 	local slow, ramp, speed = BossesCore.ROAR_SLOW, BossesCore.ROAR_RAMP, BossesCore.ROAR_SPEED
 	local covered = slow * speed + ramp * (1 + speed) / 2
 	return intro.End + (slow + ramp) - covered
 end
 
 -- The frame the intro's camera keys are in, for a boss standing at `stage`: ShotsAhead in front of it, turned round,
--- since the delivered body faced -Z and ours face +Z.
+-- since the delivered T-Rex faced -Z and ours face +Z (the spider's keys keep that frame: x to its right, -z ahead).
 function BossesCore.IntroFrame(stage: CFrame, intro: TData.TEnemyBossIntro): CFrame
 	return stage * CFrame.new(0, 0, intro.ShotsAhead) * CFrame.Angles(0, math.pi, 0)
 end

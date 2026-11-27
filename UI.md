@@ -79,6 +79,14 @@ Notice's first round was sent back as "too childish when the UI is modern-lookin
   cut off.
 - **An atlas glyph is fitted inside its cell**, so to land his glyph at its measured size the icon is drawn in
   `Components.GlyphBox(longest)` (a Picture in `Components.PictureBox(longest)`, below).
+- **`TextBounds` is in screen px, scaled by every UIScale above the label** (rur's `docs/layout.md`, measured against
+  Studio), while a width written back as `UDim2.fromOffset` is in design px. A word measured by a hidden copy
+  (`vide.changed("TextBounds", ...)`) is divided by the root's scale (`vide.untrack(state.Scale)` or `PageScale`), or
+  on any screen under 1080 the slot comes out too narrow: every receipt's count overlapped its word on a 960 x 540
+  render until it was. Check a measured layout at 960 x 540 (`--viewport 960x540 --scale 1`), not only at 1080.
+- **`Motion.Progress` reads 0 before its start**, so a landing flash written as `1 - Progress(t, LAND, FLASH)` flashes
+  for the whole way in, not from the landing. Gate it: `if t < LAND then 1 else Progress(...)` (the gift toast and the
+  party invite card both shipped that bug; `Ribbon` had the gate).
 
 ### Icons: every one is a rendered picture, named in EIcons
 
@@ -115,11 +123,12 @@ not to let any icon escape. So:
 `GlobalClient/UI/Notice` is the chip a button wears while something waits behind it, in both places and on every
 button that has something to say: an up arrow while the Gems held buy or raise something there, "!" or a count while
 something is new or ready. Today: WEAPONS (a gun to buy or raise) and CLASSES (an ability to raise) wear the arrow,
-QUESTS (finished, unclaimed) and INDEX (found in a run, not shown yet) their count, and the top bar's Daily its count
-(its gold pill became the chip, so the lobby has one badge). Inside the weapons screen it took his gold chevron badge's
-place, same spot and size: on a tier's tab (something in it to buy or raise) and in an owned gun's corner (a level to
-pay for). The slab and the tabs share one rule, `WeaponsController/Parts.HasOffer`. The signals are
-`WeaponsController.CanUpgrade`,
+QUESTS (finished, unclaimed), INDEX (found in a run, not shown yet), LAB (a brew to make) and the top bar's Daily a
+"!" (its gold pill became the chip, so the lobby has one badge). The lobby wears one sign for "something waits", never
+a count beside a "!" (the user's call, 2026-11-26).
+Inside the weapons screen it took his gold chevron badge's place, same spot and size: on a tier's tab (something in
+it to buy or raise) and in an owned gun's corner (a level to pay for). The slab and the tabs share one rule,
+`WeaponsController/Parts.HasOffer`. The signals are `WeaponsController.CanUpgrade`,
 `IndexController.NewCount`, `QuestsController.ReadyCount` and LobbyController's `canUpgradeClasses`, written into the
 lobby state (`CanUpgradeWeapons`, `CanUpgradeClasses`, `IndexCount`, `QuestsReady`). The looks side by side, with every
 moment, are `src/Lobby/Client/Stories/Notice.story.luau` (UI Labs, and rur with `Offline`); in place on the HUD,
@@ -133,7 +142,8 @@ moment, are `src/Lobby/Client/Stories/Notice.story.luau` (UI Labs, and rur with 
   key badge's sibling; the Tag is a flat block like the index's old NEW chip; Framed is the Plaque under his white brackets. The
   accents are his gold (can raise) and his pink (calls), not a new red. `Notice.GAME_LOOK` is what the game draws.
 - **Its middle is exactly on the button's top left corner**, over the bracket's corner, and it is a little bigger than
-  the key badge (40 on a rail card, 48 at his size on a slab, 26 on the top bar). The first round straddled the corner
+  the key badge (40 on a rail card, 48 at his size on a slab, 26 on the top bar). On the top bar it is the top RIGHT
+  corner of the panel: the bar's buttons line up on the right. The first round straddled the corner
   a few px in and sat on the side stroke; the second stood on the top edge past the bracket and was too small and
   timid. Inside the piece the hand scales, so it rides the hover and the press.
 - **Its mark takes the accent by tint**: the white-plastic `ArrowUp` and `Exclamation` multiplied by gold or pink on
@@ -569,10 +579,10 @@ draw them on the shell. Previews in `Assets/ui/daily/preview`.
   finished showing (the card settled, the week turned, the Gems landed: `DailyRewardsController.ClaimsShown`, a
   source), the screen's effect picks SPIN, and SPIN beckons once as the page lands. The tab's glyph strikes on any
   pick (`TabAt`), so a pick the screen makes looks like one the hand makes.
-- **A button that leads to things waiting wears their count** (`Topbar.Dress`'s `Count` and `CallAt`): a gold pill on
-  its corner that grows in, punches when the number goes up and shrinks away still wearing its last number; the glow
-  is up and the lobby's call crosses it while the count is above 0. The count is mounted on TopbarPlus's button, not
-  in the skin: the skin is under TopbarPlus's own image and caption. Daily, Codes and Settings shut each other.
+- **A button that leads to things waiting wears a "!"** (`Topbar.Dress`'s `Count` and `CallAt`): a Notice on its top
+  right corner, up while the count is above 0; the glow is up and the lobby's call crosses it meanwhile. The "!" is
+  mounted on TopbarPlus's button, not in the skin: the skin is under TopbarPlus's own image and caption. Daily, Codes
+  and Settings shut each other.
 
 ### Brackets, picked and side by side (2026-11-23)
 
@@ -603,7 +613,9 @@ places follows them; a new piece follows them before it is shown.
 - **A wide card that only selects is Operate, not Take** (the class card, the day cards): a Take card 256 px wide grows
   8 px a side under the hand before its brackets move.
 - **A screen over the HUD sends it aside** (lobby: daily, settings, codes, as classes and weapons do; a match hides its
-  HUD under settings). The Gems pill stays, and the level plate stays over the daily screen, where spin XP lands:
+  HUD under settings). The Gems pill stays over every screen but settings, which has no use for it (it slides up out
+  of the way as the others do, and the settings panel stands under its row), and the level plate stays over the daily
+  screen, where spin XP lands:
   both stand in Roblox's top bar strip, in a gui of their own above the lobby's screens, the plate left of the pill
   and shrunk to stop short of Roblox's buttons (`GuiService.TopbarInset.Min.X`) on a narrow screen.
 - **"Touch me" is a jelly, not a turn**: a turned frame stops clipping, and the brackets' windows clip. SPIN's
@@ -680,6 +692,19 @@ speed, sheets, Menu, Buy).
   stamped from 1.55x; Epic and up get the Showcase rays behind the bottle, a Mythic's card shakes.
 - **Each potion flies out of its own card** (`Flight.Plan` per card, staggered), the bottle leaving the card as its
   picture takes off.
+
+### The lab in a match: the soul chip and the potions banner (2026-11-26, rendered in rur, not playtested)
+
+`Game/Client/Controllers/MutationController`. Bench: `tools/uimatt/MatchMutation.story.luau`, the real controller on
+rur's loopback client while `MatchMutation.harness.luau` fires its real Blink events from the server; previews in
+`Assets/ui/hud/preview/mutation`.
+
+- **Fading a panel's words is not fading the panel.** Both faded their text and pictures while the panel's face, glow
+  and brackets stayed solid until `Visible` went false: "disappear in a snap". Each panel now sits in a CanvasGroup
+  standing `MARGIN` out round it (Announce's way), faded whole for its whole life, its exit shrinking as before.
+- **A chip beside a plate grows from its side**: left middle, so its punch swells away from the money plate it stands
+  by. It had grown from its top left.
+- **A new kind takes the chip over in place**, punched: restarting its way in blinked it out for a frame.
 
 ### A page under another screen's tab: Equipment (2026-11-23)
 
@@ -833,7 +858,7 @@ Play / Hurry / Done / Leave, Offline); previews in `Assets/ui/shop/preview/recei
 | Lines | Each slides out from under the card and the lines above it, grows from 0.6, lands (Deal), rolls its count (8 Ticks), stamps (one flash, one ring, the count punched; a gun or class line PickLegendary, else PickRare); the Gems line's Gems burst into the pill | first +0.62, gaps 0.4 closing x0.9 to 0.2 |
 | Ribbon | FOREVER on a pass, NEW on the featured gun (Ribbon's own slap, Index Unlock) | +0.22 after the last line |
 | Finale | The light and the art cheer again, the card thumps and the light crosses it | +0.25 |
-| AWESOME! | His green slab grows in from 0.6 (MenuIn); idle, the light crosses the card every 2.6 s, nothing bobs | +0.35 |
+| AWESOME! | His green slab grows in from 0.6; idle, the light crosses the card every 2.6 s, nothing bobs | +0.35 |
 
 - **What a receipt says is the server's.** A bundle's gun already owned and a pass given to someone who held it are
   paid as Gems; Shop.Granted carries that refund (`grant` returns it), which prints as its own Gems line and flies.
@@ -882,6 +907,88 @@ a Million Monkeys' boss bar in his style. Three rounds; what each taught:
 - **A panel fading as a whole** is a CanvasGroup with room round it for the shade (`body`, `SHADE_ROOM`): the
   shade is a UIShadow, which a group clips ("A `CanvasGroup` clips the shade off"), and the pieces laid on the panel stay outside the group so only
   the panel is faded.
+
+### The loading screen (2026-11-26, rendered in rur, played in the Game place)
+
+`GlobalClient/UI/LoadingScreen` (Backdrop, Title, Bar), run by `GlobalFirstShared/LoadingScreen.client` in
+both places; Last Wave's screen restyled, without its studio mark. Bench: `tools/uimatt/Loading.story.luau` (Join,
+Slow, Fast); previews in `Assets/ui/loading/preview`.
+
+- **Covered from the first frame.** The script puts up a flat frame of the backdrop's base colour by hand (vide and
+  the UI modules have not replicated yet) and only then removes Roblox's default screen; `DefaultRobloxUI` no longer
+  removes it. The vide backdrop draws the same colour, and its shading, streaks and pixels come in over it.
+- **The place says when it is ready, the screen says when it lifts** (`UI/LoadingGate`, required by the StarterPlayer
+  path from both sides so there is one copy): the lobby is ready with the profile, a run with `MatchStarted`
+  (`WAITING FOR THE SQUAD` meanwhile). The lobby's HUD enters on `OnLifted`, so its arrival is seen; anything new that
+  pops up on joining should wait on it too. The gate lifts itself after 120 s, so a broken screen never keeps the HUD
+  out.
+- **Every moment is a stamp, math.huge until it happens, and an infinite age is NaN** for any curve that does more
+  than clamp it (`cos`, `sin`, `%`): the skip prompt drew from frame one, NaN-transparent. Ages go through
+  `clock.Since`, -1 before the moment.
+- **A loading screen is a loading screen.** The first round (a skull on rays, a skull on each quarter of the bar that
+  lit with a kick, a ring and a sound, letters flashing and catching the light, a sound per letter and per moment) was
+  sent back as "too much to be just a loading ui, too much sounds and too much things". What stayed: the title dealt
+  in once, the bar (the fill chases the load, with a floor on its speed once complete), a flash and READY when full,
+  a few pixels in the backdrop, and ONE sound, the exit's.
+- **It leaves in squares, as Last Wave's did**: the backdrop is cut into 9 rows of squares that shrink to their
+  middles from the screen's centre out, smooth rather than pixel-snapped. The swap to squares must not show, and two
+  takes did: squares in the shading's colour at their middles read as blocks, and the streaks fading off flattened
+  it. Each square is now a window (`ClipsDescendants`) onto its own copy of the whole backdrop held where the whole
+  one lies, built hidden while the screen loads; the swap frame changes no more pixels than the drifting pixels do,
+  at 1080, 1440 and 768. A 1 px texture cannot go in such a copy (the panel streaks): the window and the copy round to
+  pixels apart and the lines jumped, so the loading backdrop has no streaks; smooth shading does not show a pixel.
+- **The content leaves by its own parts, never through a CanvasGroup made for the way out**: a group switched on mid
+  screen draws nothing for its first frames, and in-game the title and bar blinked out (rur drew the fade). The bar
+  closes back to its middle as it opened, its words fade, and each letter fades as it shrinks.
+- **A curve for a moment that has not come reads no clock** (`clockOf`'s way-out curves, the squares' sizes): it
+  answers from its stamp alone until the stamp is set, so the bindings on it are not worked out again every frame at
+  rest. Read the stamp first, return early on NEVER, then read `Now`.
+- **Measure a swap, don't eyeball it**: film the moment at 60 fps with `rur-native sequence` and count the pixels
+  that change between frames outside the content; a swap that shows is a spike over the frames round it.
+- **A component made from plain code builds every derive inside its own `vide.root`.** The first version made its
+  shared curves before the root: in-game `new` threw "cannot use derive() outside a stable or reactive scope" and the
+  screen never drew, yet rur drew it, because a story runs inside UI Labs' vide scope (and so does anything it
+  `task.spawn`s, which runs at once). A story standing in for a script calls it from `task.defer`.
+- **Big Montserrat caps stand wide apart**: MONSTERS at 132 px is pulled in 6 px a letter to read as one word.
+
+### A surprise offer: the invite gift toast (2026-11-26, rendered in rur, not playtested)
+
+`InviteGiftController` (init: the offer, the friend, the clock; `Toast`: the card) offers 5,000 Gems once a lobby visit
+for a friend's first join by its invite (`InvitesService`, `Invites.Gift`), after Survive a Million Monkeys' "Invite
+@Name to play!" prompt. Bench: `tools/uimatt/InviteGift.story.luau` (Rest, Enter, Call, Invite, Close; Friend Online,
+Offline, None); previews in `Assets/ui/lobby/preview/invite_gift`. The payout is the shop's receipt (GIFT UNLOCKED!).
+
+- **Something the player did not ask for never covers the screen.** The first take dropped the shop's receipt card
+  over a dim with INVITE and EXIT; sent back: "it should be just a prompt on the right ... you should not cover the
+  entire screen with something he doesn't expect". The receipt is for what the player is owed (the friend joined).
+  An unasked offer is a toast on the right in the party invite card's language (a tag over the top edge, a head in his
+  plaque, the slab, the squad screen's pink X), sliding in from the edge and standing aside while any screen, pad, party
+  invite or the loading screen is up (`SetBlocked`, from LobbyController's `update`).
+- **The reference's size, measured, not the sibling's.** Built at the party card's scale (460 x 168, two lines of
+  words, a 104 px head) it was "too big, compare it", and its X hung off the corner: "the 'x' should be inside the
+  ui". Measured on the reference's 1080 screenshot, its prompt is 392 x 97 with its right edge 38 px in; ours is now
+  392 x 100 there, one line ("Invite @name to play!", shrinking to fit before the X), a 72 px head with the
+  reference's green online dot, and the X inside the top right corner.
+- **An offer that is not always there gets taken.** It goes by itself after 8 s (`Toast.LAPSE_SECONDS`; the
+  reference's stays about 10), its time draining along its bottom in the party invite card's bar (gold, warming to
+  pink over the last 3 s). Running out is not a turn-down: the server is not told, so it comes again next visit, and a
+  player who let it go once is readier to press INVITE then. Bench: the story's Lapse moment.
+- **A bar under a button stands clear of the button's brackets open under the hand** (its bottom + `BRACKET_OUTSET`
+  4 + `BRACKET_OPEN` 2), not of the button: the first bar sat 6 px under INVITE, exactly where its brackets reach.
+- **An X is the one already in the UI**: the squad screen's (`HudController/Squad`'s `closeButton`), his pink slab
+  with two thin white bars that turn a quarter under the hand. A key badge with an "X" letter in it was sent back:
+  "get the 'x' button style like we did the 'x' before". Look in the tree and its history before drawing a control
+  that exists.
+- **Name one friend, as the reference does.** `ExperienceInviteOptions.InviteUser` points Roblox's invite at one friend.
+  The friend is picked on the client: online now (`Player:GetFriendsOnline`, which since 2025 lists only friends whose
+  online status their privacy shows) before the rest of the list (`Players:GetFriendsAsync`), never one in this server
+  and never one who has played this game (`Player:GetFriendsWhoPlayedAsync`, released June 2026), since only a first
+  join pays. Each call is guarded; none at all, the toast says "Invite a friend" with the gift's picture.
+- **Anchor what animates at its middle** (round 5 of the shop, again): the holder that swells on INVITE, the head dealt
+  in and the ring at their centres, the tag at its left middle. The first take swelled from the top left.
+- **A stamped reward on a small card**: the gem grows in from nothing and the count stamps down from 1.7x in gold,
+  cooling to white, both punched once; its own sound (`UI.InviteGift` `Stamp`) plays from the controller's clock as it
+  lands. INVITE and the X play only the universal button sounds.
 
 ### Superseded here
 
@@ -13422,7 +13529,39 @@ as a flat silhouette that a discovery burns white and comes through. What the ro
   only while the reveal runs; one that is over is told by `os.clock()` first, so a card revealed long ago is not worked
   out again on every tick of a later gesture.
 - **The Lobby place needs the Game place's rigs and clips.** `Models.Enemies` and `Animations.Enemies` are Studio-owned
-  in both places; a missing rig draws nothing and warns once.
+  in both places; a missing rig draws nothing and warns once. A new boss's clip folder goes into the Lobby too (the
+  T-Rex stood in its rest pose until `Animations.Enemies.TRex` was added, 2026-11-26).
+- **Draw the body as the game draws it, not as its rig is saved.** The game draws every body solid once it has arrived
+  (the guard's `Revenant` is saved at 0.75 transparency) and lights a guard in its `TEnemy.Glow` Highlight fill. A
+  viewport draws no Highlight, so the glow is a flat blank copy over the lit one at the fill's transparency.
+- **A long body is framed by its measured outline, never its bounding box.** The T-Rex framed by height ran out of the
+  box; framed by its footprint's diagonal it came out a third of a zombie's size and the user sent it back ("feels less
+  powerful than the zombies"). Its box's corners are far outside its real outline. `FRAMINGS` holds its rest turn, how
+  far back the camera stands and where it looks, measured on every frame of its walk over the stage's sway and a card's
+  turn to face you, feet on the zombies' line, centred at rest (`Assets/models/Bosses/TRex/anim/index_fit.py`). The
+  user picked its rest from the stage (-21 degrees: more of its side than -7, which left the card's left side empty);
+  there it already fills the box's width, so it takes none of the stage's sway (`FRAMINGS.Sway`): 5 degrees each way
+  would shrink it from 0.68 of the box's height to 0.58.
+- **A picture that turns under the hand gets the whole card to turn in** (`Picture` `Room`, the stage's `EnemyRoom`).
+  Its viewports grow about the box's middle to cover the card's face, clipped to it, and the camera's field of view
+  grows with their height (`tan(FOV / 2) * room.Y`) from the same spot: every body is drawn exactly as in the box, and a
+  spun T-Rex runs to the card's edge instead of being cut at the box's.
+- **Every enemy walks in its picture, bosses too.** The user wants the T-Rex walking like the zombies, not idling.
+- **A card's hover turns its enemy to face you as a share, not in degrees** (`Picture` `Face`, 0 to 1 of the way from
+  its rest). The old 28 degrees was the zombies' rest undone; a body resting at another turn would have turned past
+  you. The stage's sway and drags stay in degrees (`Yaw`).
+- **Measure a framing on the rig's own .blend, headless.** `blender -b <.blend> --python <script>` poses every frame of a
+  clip and reads the deformed vertices (`evaluated_get(...).to_mesh()`); Blender's (x, y, z) are Roblox's (-x, z, y)
+  for a rig facing +Z (the rest box's centre came out at the Roblox rig's `(-0.58, _, 2.47)` exactly, so the mapping
+  and its mirror were checked, which matters since a turn's sign does). Roblox's skinned `Size` is the rest mesh's box
+  times its import scale (1.25 here): work in ratios. Checking the result without a screen: a probe in the Lobby
+  that builds or opens the picture and warns each viewport's `AbsoluteSize`, `AbsolutePosition`, camera
+  `FieldOfView` and held copy. That checks the numbers, not the look: say so when Studio was off screen.
+- **The index's words describe, never coach** (TEnemy.Description, user, 2026-11-26): what the enemy is and does, no
+  "kill it before", "step out", "keep your distance". Three lines of the panel at most, about 110 letters at
+  `DESCRIPTION_TEXT` 19 over 392 px (rendered in rur: 107 fit, 155 ran out). A tag names what it does in a word the
+  player would use: a boss whose moves share one attack kind names them itself (`TEnemy.IndexTags`, the T-Rex's
+  BITES, CHARGES, DIVES; its kind, SLAM, named none).
 
 ### The card's padlock: one lock that opens, no corner badges (2026-11-23)
 

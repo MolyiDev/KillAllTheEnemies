@@ -881,6 +881,7 @@ local function shareLine(
 			Size = UDim2.new(0, Layout.SHARE_PERCENT, 1, 0),
 			TextXAlignment = Enum.TextXAlignment.Right,
 			TextColor3 = lit,
+			AutoLocalize = false,
 			Text = function()
 				return string.format("%.1f%%", 100 * line.Share())
 			end,
@@ -1696,6 +1697,7 @@ function BossBar.Build(state: Types.THudState): Frame
 				TextColor3 = function()
 					return Palette.White:Lerp(Palette.Pink, broke())
 				end,
+				AutoLocalize = false,
 				Text = function()
 					-- The chase can dip a hair under nothing as the last blow lands.
 					return string.format("%.1f%%", 100 * math.max(fill(), 0))

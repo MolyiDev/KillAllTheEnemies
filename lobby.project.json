@@ -1,9 +1,8 @@
 {
     "name": "Lobby",
-    // Rojo serves only into the new Lobby place. The OLD Lobby place is 105859632802526: kept only to read its
-    // code and instances with Tripwire (pick it by placeId in list_studios), never to serve into.
+    // The universe's start place (its id cannot change), so the lobby was published over the old one there.
     "servePlaceIds": [
-        97384805316642
+        105859632802526
     ],
     "globIgnorePaths": [
         "**/package.json",

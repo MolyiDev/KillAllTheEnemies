@@ -4,7 +4,7 @@ local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 
--- The Skeleton T-Rex (PlanBosses.md): Pirate Cove's and Grass Lands' principal boss. What it does is decided by where
+-- The Skeleton T-Rex (PlanBosses.md): Baseplate's principal boss. What it does is decided by where
 -- its target stands round it: a bite in front, the tail behind, a stamp on any side close in, a charge at a runner, a
 -- volley of spines at the back line, a dive at anyone it cannot walk to or keeps away. At each quarter of its health
 -- gone it raises four guards and shields itself; under 50% its moves grow, and the lower its health the faster it all
@@ -15,7 +15,9 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TEnemy = {
 	Id = EEnemiesIds.TRex,
 	Name = "Skeleton T-Rex",
-	Description = "Bites what is in front, sweeps its tail behind and stamps beside it. Charges runners and rains spines on the back line. Kill its guards to break its shield.",
+	Description = "An ancient king of bones, still on the hunt. It bites, sweeps its tail, charges and dives under the ground.",
+	-- Every move but the charge and the dive is a Slam, a word that names none of them.
+	IndexTags = { "BITES", "CHARGES", "DIVES" },
 	ModelName = "TRex",
 	AnimationSet = "TRex",
 	-- Only its growl here: every other sound of its fight is BossController's, on its moves (Client/Utils/trexSounds).

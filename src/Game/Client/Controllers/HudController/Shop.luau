@@ -1,7 +1,7 @@
 --!nonstrict
 -- The ABILITIES column on the right (UIMatt.md, Abilities), his cards on his drawn rects: the class's two abilities,
--- then his ULT card with its charge bar beside it, for the class's ultimate. The run's defenses
--- are not offered for now.
+-- then his ULT card with its charge bar beside it, for the class's ultimate, and CHARGE NOW under them. The run's
+-- defenses are not offered for now.
 -- Each card draws its ability as AbilityPicture does, as the lobby's classes screen does.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -11,6 +11,10 @@ local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local AbilityPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AbilityPicture)
 local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local GemPayout = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GemPayout)
+local Upgrades = require(script.Parent.Upgrades)
+local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
+local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local Types = require(script.Parent.Types)
 
 local create = vide.create
@@ -55,6 +59,42 @@ local CHARGE_BAR_SIZE = Vector2.new(26, 118)
 local CHARGE_TAG = Vector2.new(38, 26)
 local CHARGE_TEXT = 16
 local CHARGE_EDGE = Color3.fromRGB(144, 109, 44)
+-- A bolt landing whitens the bar's fill and its tag this much, falling off over LANDED_SECONDS: landings 30 to 70 ms
+-- apart keep it hot for the whole stream, a colour and never a kick.
+local LANDED_SECONDS = 0.22
+local LANDED_FILL = 0.75
+local LANDED_TAG = 0.55
+-- CHARGE NOW, a gold slab under the ULT card and its bar, from the bar's left edge to the card's right. Its top stands
+-- 24 under the card: the card's brackets reach 13 px at a press, the price tag rises 9 over the slab, and 2 px of air
+-- (UI.md, "Brackets, picked and side by side").
+local BUY_RIGHT = RIGHT - CARD
+local BUY_GAP = 24
+local BUY = Vector2.new(CHARGE_RIGHT - BUY_RIGHT, 56)
+local BUY_BOLT = Vector2.new(25, 28)
+local BUY_BOLT_SIZE = 38
+local BUY_TEXT_LEFT = 46
+local BUY_TEXT = 20
+-- Offered from this round on.
+local BUY_FROM_ROUND = 11
+local BUY_PRICE = "R$ 19"
+local BUY_TAG_WIDTH = 60
+-- Room round the slab for its glow, brackets and tag while it fades in a group that clips.
+local BUY_MARGIN = 32
+-- In and out of the way (before its round, once the meter is full or the beam is out): faded, grown from this and
+-- risen this far on a calm spring, never past the mark.
+local BUY_AWAY_SCALE = 0.75
+local BUY_AWAY_DROP = 10
+local BUY_PERIOD = 0.45
+-- The slab as a bought fill arrives: it swells, goes white, and the light crosses it as its bolt flares and throws.
+local BOUGHT_SECONDS = 0.5
+local BOUGHT_POP = 0.12
+local BOUGHT_FLASH = 0.8
+local BOUGHT_BOLT_POP = 0.45
+-- Under the hand: how much the bolt grows with the slab's rise.
+local BOLT_RISE = 0.18
+-- A bought fill's flight is counted in thousandths of the meter: its pieces are 4 + the root of the amount
+-- (GemPayout), so a fill from 60% up flies the most (24) and even the last tenth flies 14.
+local FLIGHT_UNITS = 1000
 -- A refused click shakes the card this far to each side (Motion.Shake).
 local JOLT = 7
 local JOLT_SECONDS = 0.16
@@ -69,6 +109,10 @@ local READY_POP = 0.14
 local SHADE = 0.3
 
 local Shop = {}
+
+-- How far from the screen's right edge the column reaches at the bottom (its charge bar and CHARGE NOW), for what
+-- shares the corner (the debug readout) to stand clear of.
+Shop.CORNER = CHARGE_RIGHT
 
 -- The model of ability `kind` where a card's glyph sits (AbilityPicture). `spec` holds sources: Rotation (a turn in
 -- the card's plane, deg), Transparency and Scale. The Decoy is the player's own avatar once `doll` has one.
@@ -90,7 +134,7 @@ local function abilityCard(state: Types.THudState, actions: Types.TActions, inde
 	end
 
 	local canUse = function(): boolean
-		return not isCooling() and state.Gold() >= ability.Cost
+		return not isCooling() and state.Gold() >= ability.Cost()
 	end
 	local hand = Hand.React("Take", canUse)
 
@@ -177,8 +221,9 @@ local function abilityCard(state: Types.THudState, actions: Types.TActions, inde
 				TextTransparency = function()
 					return if isCooling() or canUse() then 0 else 0.35
 				end,
+				AutoLocalize = false,
 				Text = function()
-					return if isCooling() then `{ability.Seconds()}s` else `${Components.Commas(ability.Cost)}`
+					return if isCooling() then `{ability.Seconds()}s` else `${Components.Commas(ability.Cost())}`
 				end,
 			}),
 			create("TextLabel")({
@@ -231,10 +276,10 @@ local function abilityCard(state: Types.THudState, actions: Types.TActions, inde
 	}) :: TextButton
 end
 
--- His ULT card and the charge bar beside it, for the class's ultimate. Steel while the meter fills (the bar climbing
+-- His ULT card and the charge bar beside it, for the class's ultimate, and the bar's well. Steel while the meter fills (the bar climbing
 -- with every kill, the tag counting the percent); gold, breathing and reading READY once it is full; a flash as it is
 -- used, and the bar then drains with what is left of it. A press it refuses knocks the card sideways.
-local function ultimate(state: Types.THudState, actions: Types.TActions, top: number): { Frame }
+local function ultimate(state: Types.THudState, actions: Types.TActions, top: number): ({ Frame }, Frame)
 	local ult = state.Ultimate
 	local hand = Hand.React("Take", ult.IsReady)
 
@@ -244,7 +289,7 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 
 	local breath = function(): number
 		if not ult.IsReady() then return 0 end
-		return 0.5 + 0.5 * math.sin(state.Now() * math.pi * 2 * PLACING_HZ)
+		return 0.5 + 0.5 * math.sin(state.Breath() * math.pi * 2 * PLACING_HZ)
 	end
 
 	local used = function(): number
@@ -265,6 +310,12 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 	local fill = function(): number
 		local burning = ult.Burning()
 		return if burning > 0 then burning else ult.Charge()
+	end
+
+	-- 1 as a bought bolt lands in the bar, falling off.
+	local landed = function(): number
+		local k = Motion.Fade(state.Now(), ult.LandedAt(), LANDED_SECONDS)
+		return k * k
 	end
 
 	local card = Components.Button({
@@ -373,6 +424,28 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 		}),
 	})
 
+	-- Inside the bar's edge, where the fill climbs (and a bought fill's bolts land).
+	local well = create("Frame")({
+		Name = "Well",
+		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundColor3 = Palette.Ink,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		create("Frame")({
+			Name = "Fill",
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.fromScale(0, 1),
+			BorderSizePixel = 0,
+			Size = function()
+				return UDim2.fromScale(1, fill())
+			end,
+			BackgroundColor3 = function()
+				return Palette.Gold:Lerp(Palette.White, math.max(0.5 * breath(), 1 - charged(), LANDED_FILL * landed()))
+			end,
+		}),
+	})
+
 	local charge = create("Frame")({
 		Name = "Charge",
 		Position = UDim2.new(1, -CHARGE_RIGHT, 0, top),
@@ -385,30 +458,14 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 			BackgroundColor3 = CHARGE_EDGE,
 			BorderSizePixel = 0,
 			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			create("Frame")({
-				Position = UDim2.fromOffset(2, 2),
-				Size = UDim2.new(1, -4, 1, -4),
-				BackgroundColor3 = Palette.Ink,
-				BackgroundTransparency = 0.15,
-				BorderSizePixel = 0,
-				create("Frame")({
-					Name = "Fill",
-					AnchorPoint = Vector2.new(0, 1),
-					Position = UDim2.fromScale(0, 1),
-					BorderSizePixel = 0,
-					Size = function()
-						return UDim2.fromScale(1, fill())
-					end,
-					BackgroundColor3 = function()
-						return Palette.Gold:Lerp(Palette.White, math.max(0.5 * breath(), 1 - charged()))
-					end,
-				}),
-			}),
+			well,
 		}),
 		create("Frame")({
 			Name = "Tag",
 			Size = UDim2.fromOffset(CHARGE_TAG.X, CHARGE_TAG.Y),
-			BackgroundColor3 = Palette.Gold,
+			BackgroundColor3 = function()
+				return Palette.Gold:Lerp(Palette.White, LANDED_TAG * landed())
+			end,
 			BorderSizePixel = 0,
 			ZIndex = 2,
 			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
@@ -418,6 +475,7 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 				FontFace = Font.Display,
 				TextSize = CHARGE_TEXT,
 				TextColor3 = Palette.Ink,
+				AutoLocalize = false,
 				Text = function()
 					return tostring(math.floor(ult.Charge() * 100))
 				end,
@@ -425,16 +483,176 @@ local function ultimate(state: Types.THudState, actions: Types.TActions, top: nu
 		}),
 	})
 
-	return { card, charge }
+	return { card, charge }, well
 end
 
-function Shop.Abilities(state: Types.THudState, actions: Types.TActions): Frame
+-- CHARGE NOW: a gold slab like the Gold packs, its bolt and its price, prompting the product. It comes in from
+-- BUY_FROM_ROUND while the meter fills and goes once it is full or the beam is out. A bought fill punches it white with
+-- a light across it, its bolt flares, and the bolts thrown from it (chargeFlight) fill the bar. Returns its fading
+-- pair (Components.FadeGroup) and the bolt, where the flight sets off.
+local function chargeNow(state: Types.THudState, actions: Types.TActions, top: number): ({ Instance }, GuiObject)
+	local ult = state.Ultimate
+	-- Derived: Burning moves every step of a beam, and what hangs off this should wake only when the answer flips.
+	local isOffered = vide.derive(function(): boolean
+		local phase = state.Phase()
+		if phase ~= "Preparing" and phase ~= "Fighting" then return false end
+		if state.Round() < BUY_FROM_ROUND then return false end
+		return not ult.IsReady() and ult.Burning() == 0
+	end)
+	local shown = Hand.Spring(function()
+		return if isOffered() then 1 else 0
+	end, BUY_PERIOD, 1)
+	local hand = Hand.React("Take", isOffered)
+
+	-- 0 to 1 through the moment a bought fill arrives; 1 at rest. Derived, so the frames it is not moving redraw nothing.
+	local bought = vide.derive(function(): number
+		return Motion.Progress(state.Now(), ult.BoughtAt(), BOUGHT_SECONDS)
+	end)
+	local pop = function(): number
+		local k = 1 - bought()
+		return k * k
+	end
+
+	local bolt = Components.Picture(EIcons.EnergyBolt, {
+		Name = "Bolt",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(BUY_BOLT.X, BUY_BOLT.Y),
+		Size = Components.PictureBox(BUY_BOLT_SIZE),
+		ZIndex = 3,
+		create("UIScale")({
+			Scale = function()
+				return 1 + BOLT_RISE * hand.Rise() + BOUGHT_BOLT_POP * pop()
+			end,
+		}),
+	})
+
+	local slab = Components.Button({
+		Name = "ChargeNow",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = function()
+			local drop = math.round(BUY_AWAY_DROP * (1 - shown()))
+			return UDim2.fromOffset(BUY_MARGIN + BUY.X / 2, BUY_MARGIN + BUY.Y / 2 + drop)
+		end,
+		Size = UDim2.fromOffset(BUY.X, BUY.Y),
+		BackgroundTransparency = 1,
+		Activated = function()
+			if not isOffered() then return end
+			hand.Commit()
+			actions.BuyProduct(EProducts.ChargeUltimate)
+		end,
+		hand.Events,
+		create("UIScale")({
+			Scale = function()
+				return Motion.Lerp(BUY_AWAY_SCALE, 1, shown()) * hand.Scale() + BOUGHT_POP * pop()
+			end,
+		}),
+		Components.Slab({
+			Kind = "Gold",
+			Marks = true,
+			Brackets = hand.Rise,
+			GlowTransparency = function()
+				return 0.6 - math.max(0.35 * hand.Light(), 0.4 * pop())
+			end,
+		}, {
+			Size = UDim2.fromScale(1, 1),
+			create("Frame")({
+				Name = "Flash",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Palette.White,
+				BorderSizePixel = 0,
+				ZIndex = 5,
+				BackgroundTransparency = function()
+					return 1 - math.max(BOUGHT_FLASH * pop(), hand.Wash())
+				end,
+				create("UICorner")({ CornerRadius = UDim.new(0, 4) }),
+			}),
+			create("Frame")({
+				Name = "SheenWindow",
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+				ZIndex = 5,
+				Components.Sheen(Hand.Sheen(hand, bought), 5),
+			}),
+			bolt,
+			create("TextLabel")({
+				Name = "Label",
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, BUY_TEXT_LEFT, 0.5, 0),
+				Size = UDim2.new(1, -BUY_TEXT_LEFT, 0, BUY_TEXT),
+				BackgroundTransparency = 1,
+				FontFace = Font.Display,
+				TextSize = BUY_TEXT,
+				TextColor3 = Palette.White,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 3,
+				Text = "CHARGE NOW",
+			}),
+			Upgrades.PriceTag(BUY_TAG_WIDTH, BUY_PRICE),
+		}),
+	})
+
+	local group = Components.FadeGroup("ChargeNow", shown, {
+		Position = UDim2.new(1, -BUY_RIGHT - BUY.X - BUY_MARGIN, 0, top - BUY_MARGIN),
+		Size = UDim2.fromOffset(BUY.X + 2 * BUY_MARGIN, BUY.Y + 2 * BUY_MARGIN),
+		Visible = function()
+			return shown() > 0.01
+		end,
+	}, { slab })
+
+	return group, bolt
+end
+
+-- What carries a bought fill into the bar: `Layer` goes in a full-screen frame with no scale of its own (GemPayout),
+-- `Step` moves it each frame, `Throw` sets it off from CHARGE NOW's bolt with the meter's share before the buy,
+-- calling `onLand` with the share of the meter still in the air at each landing (0 on the last).
+export type TChargeFlight = {
+	Layer: Frame,
+	Step: (now: number) -> boolean,
+	Throw: (fromShare: number, now: number, onLand: (owed: number) -> ()) -> (),
+}
+
+-- The bolts land up the bar's well from where the fill stood to its top, one after another, so the bar climbs to full
+-- as they arrive.
+local function chargeFlight(state: Types.THudState, bolt: GuiObject, well: GuiObject): TChargeFlight
+	local fromShare = 0
+	local payout = GemPayout.Build(state.Scale, function(share: number): Vector2?
+		if not well.Parent then return nil end
+		local head = fromShare + (1 - fromShare) * share
+		local at, size = well.AbsolutePosition, well.AbsoluteSize
+		return at + Vector2.new(size.X / 2, size.Y * (1 - head))
+	end, EIcons.EnergyBolt, "Reel")
+
+	return {
+		Layer = payout.Layer,
+		Step = payout.Step,
+		Throw = function(share: number, now: number, onLand: (owed: number) -> ())
+			fromShare = share
+			local units = math.max(math.round((1 - share) * FLIGHT_UNITS), 1)
+			payout.Burst(bolt.AbsolutePosition + bolt.AbsoluteSize / 2, units, now, function(owed: number)
+				onLand(owed / FLIGHT_UNITS)
+			end)
+		end,
+	}
+end
+
+-- The column, and the flight a bought fill takes into the ULT card's bar (nil with no CHARGE NOW product).
+function Shop.Abilities(state: Types.THudState, actions: Types.TActions): (Frame, TChargeFlight?)
 	local cards = table.create(#state.Abilities)
 	for index in state.Abilities do
 		cards[index] = abilityCard(state, actions, index)
 	end
 
-	return create("Frame")({
+	local ultTop = TOP + STEP * #state.Abilities
+	local ultimateCard, well = ultimate(state, actions, ultTop)
+	local buy, flight = nil, nil
+	if state.Ultimate.CanBuy then
+		local bolt
+		buy, bolt = chargeNow(state, actions, ultTop + CARD + BUY_GAP)
+		flight = chargeFlight(state, bolt, well)
+	end
+
+	local column = create("Frame")({
 		Name = "Abilities",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -455,8 +673,11 @@ function Shop.Abilities(state: Types.THudState, actions: Types.TActions): Frame
 			Text = "ABILITIES",
 		}),
 		cards,
-		ultimate(state, actions, TOP + STEP * #state.Abilities),
+		ultimateCard,
+		buy,
 	})
+
+	return column, flight
 end
 
 return Shop

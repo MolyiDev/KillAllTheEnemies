@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local nukeFx = {}
 
@@ -139,7 +140,7 @@ end
 
 local function emit(layers: TLayers, layer: string, count: number)
 	local emitter = layers.Emitters[layer]
-	if emitter and count > 0 then emitter:Emit(count) end
+	if emitter and count > 0 then fxBudget.Emit(emitter, count) end
 end
 
 local function roll(range: NumberRange): number
@@ -222,9 +223,9 @@ local function stepFront(found: TKit, origin: Vector3, now: number)
 
 		local ground = floor.Position
 		attachment.CFrame = CFrame.new(ground + lift)
-		if flash then flash:Emit(1) end
-		if fence then fence:Emit(random:NextInteger(fenceLeast, fenceMost)) end
-		if puffs and random:NextNumber() < Tune.FRONT_PUFF_CHANCE then puffs:Emit(1) end
+		if flash then fxBudget.Emit(flash, 1, ground) end
+		if fence then fxBudget.Emit(fence, random:NextInteger(fenceLeast, fenceMost), ground) end
+		if puffs and random:NextNumber() < Tune.FRONT_PUFF_CHANCE then fxBudget.Emit(puffs, 1, ground) end
 
 		if #bricks == 0 or random:NextNumber() > Tune.BRICK_CHANCE then continue end
 		if thrownPieces.Allowed(pieces, 1, distance) == 0 then continue end

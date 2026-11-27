@@ -222,10 +222,21 @@ function InertialBlend.Step(self: TInertialBlend, dt: number, rate: number)
 			local fresh = if current == written[i] then bases[i] else current
 			local turn = if offset.Turn then at(offset.Turn, t) else 0
 			local slide = if offset.Slide then at(offset.Slide, t) else 0
-			if turn ~= 0 or slide ~= 0 then isLive = true end
-			local pose = CFrame.new(fresh.Position + offset.Shift * slide)
-				* CFrame.fromAxisAngle(offset.Axis, turn)
-				* fresh.Rotation
+			-- The same pose as CFrame.new(position) * fromAxisAngle(axis, turn) * rotation, built with fewer CFrames, and
+			-- none for a joint whose curves have run out (`at` is 0 for good past a span): it gets its fresh pose once
+			-- more and is skipped from then on (performance/optimization-2026-11-26).
+			local pose
+			if turn ~= 0 then
+				isLive = true
+				pose = CFrame.fromAxisAngle(offset.Axis, turn) * fresh.Rotation
+					+ (fresh.Position + offset.Shift * slide)
+			elseif slide ~= 0 then
+				isLive = true
+				pose = fresh + offset.Shift * slide
+			else
+				offsets[i] = false
+				pose = fresh
+			end
 			bases[i] = fresh
 			written[i] = pose
 			joint.Transform = pose

@@ -103,7 +103,9 @@ end
 -- Run inside a batch: the sources are written together, and only those that changed redraw anything.
 local function updateFrame()
 	local now = os.clock()
+	-- A screen that freed the mouse has Roblox's pointer on it instead.
 	local isVisible = isShown
+		and not CameraController.IsMouseFreed()
 		and (UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter or UserInputService.MouseEnabled)
 	state.IsVisible(isVisible)
 	if not isVisible then return end

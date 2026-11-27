@@ -227,12 +227,14 @@ Enemy counts reach the hundreds, so an enemy's effect is costed at a full wave o
     rebuild: scale a template once, unparented, and pool the scaled copies (`MortarHatFx` `FinalBallPool`).
   - **A run of the same blast is thinned**: Detonator's 50 pops a second draw a whole blast every third
     (`Tune.ChainFullEvery`); the rest are a flash and sparks under the same sound run.
-  - **Every burst goes through `Utils/fxRings`** (the ring of pooled emitters, the cached `Tinted` / `Faded` /
-    `Scaled` sequences, `Aim`), which asks `Utils/fxLod`: past 90 studs from the camera's focus half the particles,
-    past 220 or behind the camera none (High; Medium 70 / 170, Low 50 / 120 at a 0.35 share). That is what keeps other
-    players' effects cheap without each call knowing whose it is.
-  - **One particle budget for everything** (`ParticleHelper.Emit`): an estimate of the burst particles alive, by tier
-    (Low 180, Medium 300, High 700). Past it a burst is thinned, never dropped. Emitters with a `Rate` are not in it.
+  - **Every burst goes through `GlobalClient/Utils/fxBudget`** (`fxBudget.Emit(emitter, count, at?)`, never
+    `emitter:Emit`): the count is scaled by the graphics tier (High 1, Medium 0.6, Low 0.35), thinned with distance
+    from the camera's focus (past 90 studs half, past 220 or behind the camera none on High; Medium 70 / 170, Low 50 /
+    120 at 0.35), and spent from one estimate of the burst particles alive (High 700, Medium 300, Low 180), past
+    which a burst is thinned, never dropped. That is what keeps other players' effects cheap without each call knowing
+    whose it is. Emitters with a `Rate` are not in it, and neither are ground warnings (`telegraphFx`): a warning is
+    the hitbox. Measured: performance/optimization-2026-11-26 (a heavy fight's 3,000 particles a second asked: High
+    draws 1,501, Medium 658, Low 368).
   - **A sprite drawn over a whole blast stops growing**: a Mortar Hat shell's Flash and Fireball are drawn for a radius
     of at most `Tune.ScreenRadiusMax`; the floor sheets still show the whole reach. GPU fill is the screen covered.
   - **Stuck things past a count are data**: past `StuckModelMax` Detonator shells keep no ball, only a blink.
@@ -241,10 +243,11 @@ Enemy counts reach the hundreds, so an enemy's effect is costed at a full wave o
     and at most `SweepMax` of the identical Around the World discs are drawn. Another player's strings are straight
     and move every other frame (`RemoteStringEvery`).
   - **Pool what a chain repeats** (Detonator's link Beams), and cache any `NumberSequence` built per shot.
-  - **The Particles setting follows the device**: unsaved Visual settings default from the Roblox graphics level
-    (`GlobalShared/Utils/qualityDefaults`: Medium caps Particles at 0.6, Low at 0.35), so `ParticleHelper.Multiplier`
-    is already lower on a phone. On Automatic a run that cannot hold 45 fps over its first 20 seconds drops a tier
-    (`SettingsController`, only ever down). Effects never read the tier directly: `fxLod` and `ParticleHelper` do.
+  - **The tier follows the device and the Roblox graphics level** (`GraphicsQualityController`, no setting of its
+    own): levels 1-3 Low, 4-6 Medium, 7-10 High; Automatic is High on a PC and Medium on a phone, and drops a tier if
+    the place cannot hold 45 fps over its first 20 seconds after a 10-second warmup (only ever down). Its `Scale` (0.4
+    at level 1 to 1.6 at 10; on Automatic 1, then 0.7 and 0.4 after a drop) multiplies the enemies' animation distance and cap, their render distance
+    and the damage numbers' reach. Effects never read the tier directly: `fxBudget` does.
 
 ## 6. Engine facts this cost
 
@@ -1983,7 +1986,11 @@ that chase the player come toward the camera.
 - **ree: the Animator writes every pose a clip has, every frame**, zero-Weight containers included (the R6 clips'
   `Root`), which the engine leaves alone. A `PreRender` write of `Root.Transform` still draws, but a read anywhere else
   (a kill handler starting a ragdoll) gets the clip's pose, near the origin: keep the placement in a variable.
-  `RunService.PreAnimation` never fires in ree.
+  `RunService.PreAnimation` does fire in ree 0.7.0 (30 times in 30 frames, checked 2026-11-26), though an earlier note
+  here said it never did.
+- **ror draws a Brick SpecialMesh's `Scale` in the wrong axes once its part is pitched** (yaw alone is right): judge
+  a stretched mesh piece (sparks, streaks, `motorParts`) in the engine, not in ror.
+  `performance/optimization-2026-11-26/ror-mesh-axes.png` has the comparison.
 - **A `ror render` still runs the scene live; `ror video` plays its recording back.** Judge motion and placement on the
   video: a still once looked right while the video did not.
 - **An enemy rig in ror**: its model id is in `Assets/models/Enemies/fbx/asset_ids.json`, its mesh id is its
@@ -2964,3 +2971,33 @@ What it rests on:
   (the controllers' numbers copied into the scene per mode), damage numbers included, and a sound review lays each
   candidate on the After film through `mix_sounds.py --extra` without filming again (`Assets/sounds/Review/BossHits`).
   How the numbers get into a ror film is section 25.
+
+## 42. Kill All The Monsters: a downed body's pile of bricks (built 2026-11-26, seen in ror, unplayed)
+
+`src/Game/Client/Utils/reviveFx.luau`'s `Crumble`; the kit and its renders are `Assets/effects/death` (its README).
+
+- **What a body wears is not its colour.** A Shirt, Pants, T-shirt or face is an image drawn over the part, and an
+  accessory's mesh texture hides its part's Color. Bricks coloured by `Part.Color` alone came out skin and grey under a
+  blue shirt. Each brick now carries its own window of every image on its faces: one Decal a face and layer, with
+  `UVScale` the window's size and `UVOffset` its corner, both as shares of the whole image (the image is sampled at
+  face uv * UVScale + UVOffset). The classic template's rectangles for each R6 face are in the module; a face inside the
+  part shows the nearest side's window, so a brick from inside a sleeve is the sleeve's colour. An accessory's texture
+  has no layout to cut by: a random patch of it. A Decal over a Studs face hides its studs.
+- **A Decal on a Top face is turned half round** from the template's Up rectangle (front edge at the bottom). The window
+  lands in the right place and only the print within it turns. `check_clothing.sh` renders a labelled test shirt cut
+  into bricks from each side to check any change to the windows. ror drew no clothes on the reference body there, so
+  the labels are the check.
+- **Debris, not a heap of ghosts.** Thrown straight off the body's middle, the torso's bricks only went left and right,
+  and bricks resting where they landed sat inside each other. Each brick is now thrown any way across the floor
+  (leaning out), tumbles about one axis, bounces twice as `thrownPieces` does, then rolls flat onto its studs keeping
+  its yaw and slides to the nearest free floor (rings round where it came down, the first spot facing out of the pile;
+  footprints tested by separating axes). With nothing free near, it stacks: small heaps where the pile is dense.
+- **A floor looked for once is wrong by the time the brick lands.** Looked for at the top of its throw, a brick that
+  then flew off a ledge lay at the ledge's height in the air, and the slide to a free spot never asked. A falling brick
+  now looks again every half stud it moves across and right under it as it touches (off an edge it falls on, onto a
+  step it stands on), from 1.2 studs over itself so a deck over it is never taken for its floor; it slides only to a
+  spot on the same floor with nothing between (`preview_step.sh`).
+- **Born white-hot**: Neon white for 0.06 s, then cooling over 0.16 s. A slower cool read as washed out, not hot.
+- **Cost** (ree, a body with two big accessories: 68 bricks, 370 decals): the crumble's frame 1.7 ms, then 0.12 ms a
+  frame (worst 0.39 ms) while it lands and settles. The free-spot search is the worst frame: no table built per test,
+  each resting brick's footprint kept from when it settled.

@@ -299,13 +299,18 @@ end
 
 -- `name` is one clip, or a bag of takes to roll. False when it is not in the tree, so a caller can fall back to
 -- another; true when it is, even when merged into the one that just played (a fallback would stack a second sound).
-function SoundsCore.PlayWorldNamed(group: string, name: string, position: Vector3, volumeScale: number?): boolean
+-- The Sound comes second when one started, for a caller that may have to fade it.
+function SoundsCore.PlayWorldNamed(
+	group: string,
+	name: string,
+	position: Vector3,
+	volumeScale: number?
+): (boolean, Sound?)
 	local source, node = resolveNamed(group, name)
-	if not source then return false end
-	if not claim(node, distSqFromCamera(position)) then return true end
+	if not source then return false, nil end
+	if not claim(node, distSqFromCamera(position)) then return true, nil end
 
-	SoundsCore.PlayWorldSound(source, position, volumeScale)
-	return true
+	return true, SoundsCore.PlayWorldSound(source, position, volumeScale)
 end
 
 -- PlayWorldNamed riding `part`: anything a body does that rings on while it moves (Sounds.md, "Where a one-shot is

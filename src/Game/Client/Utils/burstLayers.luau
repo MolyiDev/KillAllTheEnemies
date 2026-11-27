@@ -3,6 +3,7 @@
 -- of its own, so the caller says how many each layer throws. Every copy runs on one time scale (SetTimeScale), so a
 -- stopped match holds what is already in the air.
 local Workspace = game:GetService("Workspace")
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local burstLayers = {}
 
@@ -47,7 +48,7 @@ end
 
 function burstLayers.Emit(layers: TLayers, layer: string, count: number)
 	local emitter = layers.Emitters[layer]
-	if emitter and count > 0 then emitter:Emit(count) end
+	if emitter and count > 0 then fxBudget.Emit(emitter, count) end
 end
 
 -- A whole number out of `range`, so no two bursts match.

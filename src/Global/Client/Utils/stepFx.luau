@@ -7,6 +7,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local thrownPieces = require(script.Parent.thrownPieces)
+local fxBudget = require(script.Parent.fxBudget)
 
 local stepFx = {}
 
@@ -267,7 +268,7 @@ local function dustFan(
 		local angle = start + (i - 0.5 + random:NextNumber(-0.3, 0.3)) / count * arc
 		local out = ahead * math.cos(angle) + side * math.sin(angle)
 		attachment.CFrame = facing(center + out * radius, (out + lean).Unit)
-		puffs:Emit(1)
+		fxBudget.Emit(puffs, 1)
 	end
 end
 
@@ -279,7 +280,7 @@ end
 
 local function emit(copy: TCopy, layer: string, count: number)
 	local emitter = copy.Emitters[layer]
-	if emitter and count > 0 then emitter:Emit(count) end
+	if emitter and count > 0 then fxBudget.Emit(emitter, count) end
 end
 
 local function landParams(): RaycastParams?

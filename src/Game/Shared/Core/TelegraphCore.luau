@@ -146,6 +146,11 @@ function TelegraphCore.Footprint(
 	local maxStep = ArenaCore.MAX_STEP
 	local height = TelegraphCore.HEIGHT
 	local c, s = math.cos(yaw), math.sin(yaw)
+	-- The nav buffers read here, as enemiesUpdate does: a boss's ring walks thousands of links, and three ArenaCore
+	-- calls a link were most of its cost (performance/optimization-2026-11-26).
+	local heights, links, cells = nav.NodeHeight, nav.NodeLinks, nav.NodeCell
+	local originX, originZ, gridWidth, cellSize = nav.OriginX, nav.OriginZ, nav.Width, nav.CellSize
+	local distance = TelegraphCore.Distance
 	local queue = { start }
 	local head = 1
 	out[start] = true
@@ -153,18 +158,18 @@ function TelegraphCore.Footprint(
 	while head <= #queue do
 		local node = queue[head]
 		head += 1
-		local nodeY = ArenaCore.NodeHeight(nav, node)
-		for d = 1, 8 do
-			local next = ArenaCore.Link(nav, node, d)
+		local nodeY = buffer.readf32(heights, node * 4)
+		local linkAt = node * 32
+		for d = 0, 28, 4 do
+			local next = buffer.readi32(links, linkAt + d)
 			if next == NO_NODE or out[next] then continue end
-			local nextY = ArenaCore.NodeHeight(nav, next)
+			local nextY = buffer.readf32(heights, next * 4)
 			-- A step carries it on; a drop off a ledge or a climb onto a deck does not.
 			if math.abs(nextY - nodeY) > maxStep or math.abs(nextY - floorY) > height then continue end
-			local wx, wz = ArenaCore.NodeXZ(nav, next)
-			local dx, dz = wx - center.x, wz - center.z
-			if TelegraphCore.Distance(kind, size, width, dx * c - dz * s, dx * s + dz * c) > CELL_REACH then
-				continue
-			end
+			local cell = buffer.readu32(cells, next * 4)
+			local dx = originX + (cell % gridWidth) * cellSize - center.x
+			local dz = originZ + (cell // gridWidth) * cellSize - center.z
+			if distance(kind, size, width, dx * c - dz * s, dx * s + dz * c) > CELL_REACH then continue end
 			out[next] = true
 			queue[#queue + 1] = next
 		end

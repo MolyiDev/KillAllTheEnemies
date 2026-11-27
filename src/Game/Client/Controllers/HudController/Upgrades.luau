@@ -86,6 +86,32 @@ local PACK_COINS_RISE = 0.18
 
 local Upgrades = {}
 
+-- A Robux buy's green price tag over the top-right corner of the slab it is put in, as the packs wear theirs.
+function Upgrades.PriceTag(width: number, price: string): Frame
+	return create("Frame")({
+		Name = "Price",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -TAG_RIGHT, 0, TAG_TOP),
+		Size = UDim2.fromOffset(width, TAG_HEIGHT),
+		BackgroundColor3 = TAG_COLOR,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
+		create("TextLabel")({
+			Position = UDim2.fromOffset(TAG_PAD, 0),
+			Size = UDim2.new(1, -TAG_PAD, 1, 0),
+			BackgroundTransparency = 1,
+			FontFace = Font.Display,
+			TextColor3 = Palette.White,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextSize = TAG_TEXT,
+			ZIndex = 3,
+			Text = price,
+		}),
+	}) :: Frame
+end
+
 -- The weapon card's picture: its centre on the screen, its side and its lean, for the bought gun's flight to start
 -- from (WeaponUpgrade).
 Upgrades.WEAPON_PICTURE = UDim2.fromOffset(LEFT + PICTURE_CENTER.X, TOP + STEP + PICTURE_CENTER.Y)
@@ -490,23 +516,7 @@ local function pack(state: Types.THudState, index: number, actions: Types.TActio
 				TextSize = PACK_TEXT,
 				Text = product.Value,
 			}),
-			create("Frame")({
-				Name = "Price",
-				AnchorPoint = Vector2.new(1, 0),
-				Position = UDim2.new(1, -TAG_RIGHT, 0, TAG_TOP),
-				Size = UDim2.fromOffset(product.TagWidth, TAG_HEIGHT),
-				BackgroundColor3 = TAG_COLOR,
-				BorderSizePixel = 0,
-				ZIndex = 4,
-				create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-				text({
-					Position = UDim2.fromOffset(TAG_PAD, 0),
-					Size = UDim2.new(1, -TAG_PAD, 1, 0),
-					TextYAlignment = Enum.TextYAlignment.Center,
-					TextSize = TAG_TEXT,
-					Text = product.Price,
-				}),
-			}),
+			Upgrades.PriceTag(product.TagWidth, product.Price),
 		}),
 	})
 end

@@ -12,10 +12,14 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local vide = require(ReplicatedStorage.Packages.vide)
+local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
+local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
 local AbilityController = require(script.Parent.AbilityController)
 local BossController = require(script.Parent.BossController)
 local CoinsController = require(script.Parent.CoinsController)
 local DefensePlacementController = require(script.Parent.DefensePlacementController)
+local DownedController = require(script.Parent.DownedController)
+local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CameraController)
 local EnemiesController = require(script.Parent.EnemiesController)
 local EquipmentDropController = require(script.Parent.EquipmentDropController)
 local HealthController = require(script.Parent.HealthController)
@@ -23,9 +27,11 @@ local MatchController = require(script.Parent.MatchController)
 local UpgradePickController = require(script.Parent.UpgradePickController)
 local WeaponRunController = require(script.Parent.WeaponRunController)
 local copyCharacter = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Utils.copyCharacter)
+local equipmentPieces = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Utils.equipmentPieces)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one loads a second ProfileController, which
 -- Ignis refuses as already registered (the first playtest of the HUD).
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
+local DebugInfoController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.DebugInfoController)
 local SettingsController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.SettingsController)
 local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.WeaponController)
 local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
@@ -43,7 +49,10 @@ local Announce = require(script.Announce)
 local AbilityPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AbilityPicture)
 local AvatarPose = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AvatarPose)
 local BarJuice = require(script.BarJuice)
+local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local BossBar = require(script.BossBar)
+local Down = require(script.Down)
 local HealthUpgrade = require(script.HealthUpgrade)
 local Hotbar = require(script.Hotbar)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
@@ -52,6 +61,7 @@ local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion
 local Topbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Topbar)
 local Overhead = require(script.Overhead)
 local Overlays = require(script.Overlays)
+local QuestToast = require(script.QuestToast)
 local Results = require(script.Results)
 local Shop = require(script.Shop)
 local Squad = require(script.Squad)
@@ -69,6 +79,8 @@ local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local LocalPlayer = Players.LocalPlayer
+local ServerNetworkQuests = NetworkMeta.Server.Quests
+local ClientNetworkCharacters = Network.Client.Characters
 local ENEMIES = DataCore.Enemies.ById
 local DEFENSES = DataCore.Defenses.ById
 -- Everybody's class until the server says otherwise.
@@ -92,6 +104,18 @@ local Tune = table.freeze({
 	-- hit.
 	WAVE_DONE_PEAK = 0.5,
 	WAVE_DONE_SECONDS = 1.2,
+	-- Down: the edge holds the blow's red at DOWN_PEAK and cools over DOWN_COOL into a dark frame at DOWN_HOLD for as
+	-- long as the player is down, gone as the rebuild starts; the lower HUD steps aside over LOWER_PERIOD, and the
+	-- fight's HUD at the top lifts FIGHT_LIFT px off as it fades; the down's clock runs this long past the body showing,
+	-- for the plate's way out.
+	DOWN_PEAK = 0.75,
+	DOWN_COOL = 1.4,
+	DOWN_HOLD = 0.45,
+	DOWN_OUT = 0.6,
+	DOWN_EDGE = Color3.fromRGB(20, 8, 24),
+	LOWER_PERIOD = 0.35,
+	FIGHT_LIFT = 24,
+	DOWN_CLOCK_AFTER = 1,
 	-- The camera this close to the head is first person (Roblox's own zoom-in puts it at the head).
 	FIRST_PERSON_STUDS = 1.5,
 	-- More enemies than this and NUKE ALL asks to be bought; under this share of health, HEAL ALL does.
@@ -113,6 +137,9 @@ local Tune = table.freeze({
 		FoamCannon = Theme.Palette.Steel,
 	},
 })
+-- The HUD's roots (hudRoot): over the floating numbers (-3), under the mutation and drop cards (2). The squad screen
+-- opens over the upgrade cards (10) and the hurt vignette (11) too, under the settings screen (15).
+local HUD_DISPLAY_ORDERS = table.freeze({ Base = -2, Live = -1, Top = 0, Squad = 12 })
 
 local HudController = {}
 
@@ -141,7 +168,7 @@ for slot, ability in AbilityController.Class.Abilities do
 		Kind = ability.Kind,
 		Key = AbilityController.KEYS[slot],
 		Accent = Tune.ABILITY_ACCENTS[ability.Kind] or Theme.Palette.Steel,
-		Cost = ability.Cost or 0,
+		Cost = source(ability.Cost or 0),
 		Cooling = source(0),
 		Seconds = source(0),
 		UsedAt = source(-math.huge),
@@ -153,6 +180,7 @@ end
 local state: Types.THudState = {
 	Scale = source(1),
 	Now = source(os.clock()),
+	Breath = source(os.clock()),
 	Phase = source("Waiting" :: Types.TPhase),
 	PhaseAt = source(-math.huge),
 	PreviousPhase = source("Waiting" :: Types.TPhase),
@@ -217,10 +245,23 @@ local state: Types.THudState = {
 	BarMax = source(0),
 	HealthTrack = BarJuice.NewTrack(),
 	IsDown = source(false),
+	Down = {
+		Clock = source(0),
+		At = source(-math.huge),
+		SwitchedAt = source(-math.huge),
+		RebuildAt = source(-math.huge),
+		StoodAt = source(-math.huge),
+		IsRebuilding = source(false),
+		Watched = source(""),
+		WatchedHealth = source(0),
+		WatchedMax = source(0),
+	},
+	Downed = source(table.freeze({}) :: { Player }),
 	Head = source(nil :: BasePart?),
 	IsFirstPerson = source(false),
 	Vignette = source(0),
 	VignetteColor = source(Theme.Color.Hurt),
+	Shock = source(0),
 	Defenses = defenses,
 	Squad = source(table.freeze({}) :: { Types.TSquadMember }),
 	IsSquadOpen = source(false),
@@ -238,6 +279,13 @@ local state: Types.THudState = {
 	GoldPack = {
 		Amount = source(0),
 		At = source(-math.huge),
+	},
+	Quest = {
+		Id = source(0),
+		Board = source(1),
+		At = source(-math.huge),
+		Hold = source(QuestToast.HOLD),
+		Clock = source(0),
 	},
 	Gun = source(nil :: any),
 	GunModel = source(nil :: Model?),
@@ -280,9 +328,12 @@ local state: Types.THudState = {
 		ChargedAt = source(-math.huge),
 		UsedAt = source(-math.huge),
 		DeniedAt = source(-math.huge),
+		CanBuy = EProducts.ChargeUltimate ~= 0,
+		BoughtAt = source(-math.huge),
+		LandedAt = source(-math.huge),
 	},
-	IsReviveOffered = source(false),
 	CanRevive = EProducts.Revive ~= 0,
+	CanQuickRevive = EProducts.QuickRevive ~= 0,
 	Keys = table.freeze({
 		Skip = MatchController.SKIP_KEY,
 		Turn = DefensePlacementController.TURN_KEY,
@@ -329,6 +380,18 @@ local settingsIcon: any = nil
 local motionUntil = -math.huge
 -- os.clock until which the squad's announcement is up.
 local announceUntil = -math.huge
+-- CHARGE NOW's bolts (Shop), the last bought fill seen, the share of the meter still flying into the bar, and the last
+-- time the meter filled that the ULT card has answered: a bought fill's answer waits for its last bolt.
+local chargeFlight: Shop.TChargeFlight? = nil
+local lastBoughtAt = -math.huge
+local owedShare = 0
+local chargedSeen = -math.huge
+-- Quests finished and not shown yet, as (board, quest Id), oldest first; questClock until which the card on show runs.
+local questQueue: { { number } } = {}
+local questUntil = -math.huge
+-- Seconds the HUD has been drawn: a card on show stands still while the HUD is hidden (the upgrade cards over it), so
+-- it is never missed.
+local questClock = 0
 -- os.clock until which the results' clock runs (the last of their one-off gestures to end), and whether a purchase
 -- prompt opened from them is up.
 local resultsUntil = -math.huge
@@ -450,8 +513,8 @@ local function updateRound(now: number, gameNow: number)
 		if phase == "Preparing" then
 			stamp(state.CountdownAt, now)
 			-- The upgrade screen's tick takes, quieter, so the game counts down in one voice. Silent on GO, and under the
-			-- cards: they hide the square and tick their own count.
-			if countdown > 0 and not UpgradePickController.IsCovering() then
+			-- cards: they hide the square and tick their own count. Silent while down too: the square has stepped aside.
+			if countdown > 0 and not UpgradePickController.IsCovering() and not state.IsDown() then
 				SoundsCore.PlayUINamed("UI", "CountdownTick")
 			end
 		end
@@ -561,7 +624,7 @@ local function updateHealth(now: number, dt: number)
 	if bite > 0 then motionUntil = now + Tune.MOTION_SECONDS end
 	BarJuice.Write(state.HealthTrack, healthChase, bite, if barMax > 0 then barHealth / barMax else 0, now)
 
-	local isDown = MatchController.IsRunning and HealthController.IsDown()
+	local isDown = MatchController.IsRunning and DownedController.IsDown
 	state.Health(health)
 	state.MaxHealth(maxHealth)
 	state.BarHealth(barHealth)
@@ -582,8 +645,22 @@ local function updateHealth(now: number, dt: number)
 		else 0
 	local red = math.max(hurt, low)
 	local waveDone = Tune.WAVE_DONE_PEAK * fade(MatchController.WaveDoneAt, Tune.WAVE_DONE_SECONDS, now)
-	state.Vignette(math.max(red, waveDone))
-	state.VignetteColor(if waveDone > red then Theme.Palette.Green else Theme.Color.Hurt)
+	-- Down: the blow's red held, cooling into the dark frame that stays until the rebuild starts.
+	local downEdge, downColor = 0, Theme.Color.Hurt
+	if isDown then
+		local cooled = Motion.Out(Motion.Progress(now, DownedController.DownAt, Tune.DOWN_COOL))
+		local gone = Motion.Decelerate(Motion.Progress(now, DownedController.RebuildAt, Tune.DOWN_OUT))
+		local isGoing = DownedController.RebuildAt > DownedController.DownAt
+		downEdge = (Tune.DOWN_PEAK + (Tune.DOWN_HOLD - Tune.DOWN_PEAK) * cooled) * (if isGoing then 1 - gone else 1)
+		downColor = Theme.Color.Hurt:Lerp(Tune.DOWN_EDGE, cooled)
+	end
+	local edge = math.max(red, downEdge)
+	state.Vignette(math.max(edge, waveDone))
+	local shock = DownedController.Shock(now)
+	if shock ~= state.Shock() then state.Shock(shock) end
+	state.VignetteColor(
+		if waveDone > edge then Theme.Palette.Green elseif downEdge > red then downColor else Theme.Color.Hurt
+	)
 
 	-- The nuke is the bigger save, so it asks first.
 	local isNuke = MatchController.IsRunning and not isDown and EnemiesController.Count > Tune.NUKE_PROMPT_ENEMIES
@@ -731,6 +808,14 @@ local function mirrorStamp(at: vide.Source<number>, value: number, now: number)
 	motionUntil = now + Tune.MOTION_SECONDS
 end
 
+-- Each bolt of a bought fill landing in the bar: a tick, and on the last the ULT card's moment of filling (stamped by
+-- updateAbilities once nothing is owed).
+local function landCharge(owed: number)
+	owedShare = owed
+	stamp(state.Ultimate.LandedAt, os.clock())
+	SoundsCore.PlayUINamed("UI.UpgradePick", if owed > 0 then "Tick" else "RevealLegendary")
+end
+
 -- `gameNow` for what runs on the match's clock (cooldowns, the beam), `now` for the HUD's own gestures.
 local function updateAbilities(now: number, gameNow: number)
 	local slots = AbilityController.Slots
@@ -738,13 +823,15 @@ local function updateAbilities(now: number, gameNow: number)
 		local slot = slots[card.Slot]
 		if not slot then continue end
 		local left = math.max(slot.ReadyAt - gameNow, 0)
-		local cooling = math.ceil(left / (slot.Ability.Cooldown or 1) * Tune.COOLDOWN_STEPS) / Tune.COOLDOWN_STEPS
+		local cooldown = if slot.Ability.Cooldown then AbilityController.CooldownOf(slot.Ability) else 1
+		local cooling = math.ceil(left / cooldown * Tune.COOLDOWN_STEPS) / Tune.COOLDOWN_STEPS
+		card.Cost(AbilityController.CostOf(slot))
 		if cooling == 0 and card.Cooling() > 0 then stamp(card.ReadyAt, now) end
 		card.Cooling(cooling)
 		card.Seconds(math.ceil(left))
 		mirrorStamp(card.UsedAt, slot.UsedAt, now)
 		-- Short of Gold, the counter says so too.
-		if card.DeniedAt() ~= slot.DeniedAt and cooling == 0 and MatchController.Gold < card.Cost then
+		if card.DeniedAt() ~= slot.DeniedAt and cooling == 0 and MatchController.Gold < card.Cost() then
 			goldDeniedAt = now
 		end
 		mirrorStamp(card.DeniedAt, slot.DeniedAt, now)
@@ -753,8 +840,18 @@ local function updateAbilities(now: number, gameNow: number)
 	local ultimate = state.Ultimate
 	local slot = slots[ultimate.Slot]
 	if not slot then return end
-	local needed = slot.Ability.ChargeKills or 1
-	local share = math.clamp(AbilityController.Charge / needed, 0, 1)
+	local needed = if slot.Ability.ChargeKills then AbilityController.ChargeKillsOf(slot.Ability) else 1
+	if AbilityController.BoughtAt ~= lastBoughtAt then
+		lastBoughtAt = AbilityController.BoughtAt
+		local from = AbilityController.BoughtFrom
+		if from < needed and chargeFlight then
+			owedShare = 1 - from / needed
+			stamp(ultimate.BoughtAt, now)
+			chargeFlight.Throw(from / needed, now, landCharge)
+		end
+	end
+
+	local share = math.clamp(AbilityController.Charge / needed - owedShare, 0, 1)
 	local beamLeft = AbilityController.BeamUntil - gameNow
 	ultimate.Charge(math.floor(share * Tune.CHARGE_STEPS) / Tune.CHARGE_STEPS)
 	ultimate.IsReady(share >= 1)
@@ -763,7 +860,10 @@ local function updateAbilities(now: number, gameNow: number)
 			then math.ceil(beamLeft / math.max(AbilityController.BeamSeconds, 1e-3) * Tune.CHARGE_STEPS) / Tune.CHARGE_STEPS
 			else 0
 	)
-	mirrorStamp(ultimate.ChargedAt, AbilityController.ChargedAt, now)
+	if AbilityController.ChargedAt ~= chargedSeen and owedShare == 0 then
+		chargedSeen = AbilityController.ChargedAt
+		stamp(ultimate.ChargedAt, now)
+	end
 	mirrorStamp(ultimate.UsedAt, slot.UsedAt, now)
 	mirrorStamp(ultimate.DeniedAt, slot.DeniedAt, now)
 end
@@ -801,9 +901,9 @@ end
 local function updateResults(now: number)
 	local results = state.Results
 	local run = MatchController.Results
-	state.IsReviveOffered(MatchController.ReviveProductId ~= 0)
 	if (run ~= nil) ~= results.IsOpen() then
 		results.IsOpen(run ~= nil)
+		CameraController.SetMouseFreed("Results", run ~= nil)
 		results.ToggledAt(now)
 		resultsUntil = now + (if run then Results.Seconds.OPEN else Tune.RESULTS_CLOSE_SECONDS)
 		-- The total as the run ended, which already holds its Gems: what a doubling adds is counted onto it as its
@@ -855,6 +955,87 @@ local function updateResults(now: number)
 	results.HasVoted(run.HasVoted)
 end
 
+-- Whether the HUD is drawn. The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to
+-- them. The settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too. A boss's
+-- intro fades it out (UiFade).
+local function isHudUp(): boolean
+	return not UpgradePickController.IsCovering() and not SettingsController.IsOpen() and UiFade.IsUp()
+end
+
+-- The squad screen can be opened over the upgrade cards (its own root, over theirs), so only the settings screen and a
+-- boss's intro take it away.
+local function isSquadUp(): boolean
+	return not SettingsController.IsOpen() and UiFade.IsUp()
+end
+
+-- Runs the quest card on show, and brings up the next one waiting once it has gone, only while the HUD is drawn (a
+-- quest finished as a wave clears lands under the upgrade pick, and waits for it).
+local function updateQuest(dt: number)
+	if not isHudUp() then return end
+	questClock += dt
+	local now = questClock
+	local notice = state.Quest
+	if now < questUntil then
+		notice.Clock(now)
+		return
+	end
+	if notice.Id() ~= 0 then
+		notice.Clock(now)
+		notice.Id(0)
+	end
+
+	local nextQuest = questQueue[1]
+	if not nextQuest then return end
+	table.remove(questQueue, 1)
+	local hold = if questQueue[1] then QuestToast.SHORT_HOLD else QuestToast.HOLD
+	questUntil = now + QuestToast.Seconds(hold)
+	notice.Board(nextQuest[1])
+	notice.Hold(hold)
+	notice.At(now)
+	notice.Clock(now)
+	notice.Id(nextQuest[2])
+end
+
+-- The down's fields (DownedController), each written only as it changes, and the squadmates down for the chips.
+local downedList: { Player } = {}
+local function updateDown(now: number)
+	local down = state.Down
+	local isDown = state.IsDown()
+	if down.At() ~= DownedController.DownAt then down.At(DownedController.DownAt) end
+	if down.SwitchedAt() ~= DownedController.SwitchedAt then down.SwitchedAt(DownedController.SwitchedAt) end
+	if down.RebuildAt() ~= DownedController.RebuildAt then down.RebuildAt(DownedController.RebuildAt) end
+	if down.StoodAt() ~= DownedController.StoodAt then down.StoodAt(DownedController.StoodAt) end
+	local isRebuilding = isDown and DownedController.RebuildAt > DownedController.DownAt
+	if down.IsRebuilding() ~= isRebuilding then down.IsRebuilding(isRebuilding) end
+	local watched = DownedController.Watched
+	local name = if isDown and watched then watched.DisplayName else ""
+	if down.Watched() ~= name then down.Watched(name) end
+	if watched then
+		local health, max = HealthController.HealthOf(watched)
+		if down.WatchedHealth() ~= health then down.WatchedHealth(health) end
+		if down.WatchedMax() ~= max then down.WatchedMax(max) end
+	end
+	if isDown or now - DownedController.StoodAt < Tune.DOWN_CLOCK_AFTER then down.Clock(now) end
+
+	local count = 0
+	local isChanged = false
+	if MatchController.IsRunning then
+		for _, player in Players:GetPlayers() do
+			if player == LocalPlayer or not HealthController.IsPlayerDown(player) then continue end
+			count += 1
+			if downedList[count] ~= player then
+				downedList[count] = player
+				isChanged = true
+			end
+		end
+	end
+	for index = #downedList, count + 1, -1 do
+		downedList[index] = nil
+		isChanged = true
+	end
+	if isChanged then state.Downed(table.freeze(table.clone(downedList))) end
+end
+
 local function update(dt: number)
 	local now = os.clock()
 	local gameNow = TimeCore.GameClock
@@ -867,20 +1048,15 @@ local function update(dt: number)
 	updateHealth(now, dt)
 	updateDefenses(now)
 	updateGun(now, updateWeapon(now))
+	if chargeFlight then chargeFlight.Step(now) end
 	updateAbilities(now, gameNow)
 	updateSquad(now, dt)
 	updateResults(now)
-	-- A prompted item breathes for as long as it asks, and a full ultimate for as long as it waits, so the clock runs
-	-- with them.
-	if
-		now < motionUntil
-		or now < announceUntil
-		or state.IsNukePrompted()
-		or state.IsHealPrompted()
-		or state.Ultimate.IsReady()
-	then
-		state.Now(now)
-	end
+	updateQuest(dt)
+	updateDown(now)
+	if now < motionUntil or now < announceUntil then state.Now(now) end
+	-- A prompted item breathes for as long as it asks, and a full ultimate for as long as it waits.
+	if state.IsNukePrompted() or state.IsHealPrompted() or state.Ultimate.IsReady() then state.Breath(now) end
 end
 
 local function rebuildSquad()
@@ -934,7 +1110,11 @@ local actions: Types.TActions = {
 	UpgradeHealth = HealthController.Upgrade,
 	CastAbility = AbilityController.Cast,
 	Revive = function()
-		prompt(MatchController.ReviveProductId)
+		prompt(EProducts.Revive)
+	end,
+	Spectate = DownedController.Spectate,
+	QuickRevive = function(player: Player?)
+		ClientNetworkCharacters.Revive.Fire(player or LocalPlayer)
 	end,
 	BuyProduct = function(productId: number)
 		if productId ~= 0 then MarketplaceService:PromptProductPurchase(LocalPlayer, productId) end
@@ -1047,6 +1227,11 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(function()
 	MatchController.SetBuying(false)
 end)
 
+-- A quest finished: its card waits its turn (updateQuest).
+ServerNetworkQuests.Completed.On(function(board: number, questId: number)
+	table.insert(questQueue, { board, questId })
+end)
+
 MatchController.OnHealedAll:Connect(function(buyer: Player)
 	announce("Heal", buyer, 0)
 end)
@@ -1086,26 +1271,23 @@ HudController.OnPlayerDisconnected = function(player: Player)
 	rebuildSquad()
 end :: TPlayerEvents.OnPlayerDisconnected
 
--- The Decoy's card draws the avatar, in the doll's pose, once its clothes and hats are on it. The last copy is kept when the
--- body goes, so the card is never empty. Yields.
+-- The Decoy's card draws the avatar, in the doll's pose, once its clothes and hats are on it. Copied from the first
+-- body only: the avatar never changes in a match, and a revived body comes in hidden on this client until it is built
+-- out of its bricks (reviveFx), so a copy of it would draw nothing. Yields.
 local function copyAvatar(character: Model)
-	local player = Players.LocalPlayer
-	if not player:HasAppearanceLoaded() then player.CharacterAppearanceLoaded:Wait() end
-	if player.Character ~= character then return end
+	if state.Avatar() then return end
+	if not LocalPlayer:HasAppearanceLoaded() then LocalPlayer.CharacterAppearanceLoaded:Wait() end
+	if LocalPlayer.Character ~= character then return end
 	local copy = AbilityPicture.Doll(character)
 	if not copy then return end
-
-	local old = state.Avatar()
 	state.Avatar(copy)
-	if old then old:Destroy() end
 
-	-- The results draw it too, arms folded.
+	-- The results draw it too, arms folded, alone as on the card: the equipment may not have arrived yet.
 	local folded = copyCharacter(character)
 	if not folded then return end
+	equipmentPieces.Strip(folded)
 	AvatarPose.Apply(folded, AvatarPose.CROSSED)
-	local oldFolded = state.Results.Avatar()
 	state.Results.Avatar(folded)
-	if oldFolded then oldFolded:Destroy() end
 end
 
 HudController.OnSelfCharacterAdded = function(character: TCharacter.TCharacter)
@@ -1121,64 +1303,135 @@ HudController.OnSelfCharacterRemoving = function()
 	heldModel = nil
 end :: TCharacterEvents.OnCharacterRemoving
 
+-- One of the HUD's ScreenGuis, drawn while `isUp` says (isHudUp unless given). Any write in a ScreenGui lays out every visible element in it again
+-- (performance/runui-2026-11-09), and the items' breathing and the wave's countdown write every frame of a prompt or a
+-- countdown: kept in their own root, they relay ~120 elements instead of the whole HUD's ~340
+-- (performance/optimization-2026-11-26). DisplayOrder paints the calm pieces, then the live ones (ZIndex 1 among
+-- themselves but a prompted item's 3, Down over the wave), then the flights, banners and screens over everything. The
+-- wave and the items now paint over the calm pieces instead of under them; they do not overlap them (rur diffs of
+-- Hud.story, 62 of 62 identical).
+local function hudRoot(
+	name: string,
+	displayOrder: number,
+	pieces: { any },
+	unscaled: { any }?,
+	isUp: (() -> boolean)?
+): ScreenGui
+	return create("ScreenGui")({
+		Name = name,
+		ResetOnSpawn = false,
+		DisplayOrder = displayOrder,
+		Enabled = isUp or isHudUp,
+		IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		UiFade.Group({
+			-- Scaled from a 1080-tall design: the root is sized 1 / scale so that after its UIScale it fills the screen.
+			create("Frame")({
+				Name = "Root",
+				BackgroundTransparency = 1,
+				Size = function()
+					local scale = state.Scale()
+					return UDim2.fromScale(1 / scale, 1 / scale)
+				end,
+				create("UIScale")({ Scale = state.Scale }),
+				pieces,
+			}),
+			-- Pieces measured in screen px (GemPayout's layers), beside the scaled root.
+			unscaled,
+		}),
+	})
+end
+
 HudController.OnStart = function()
 	-- The HUD's own bar replaces the platform's, which would show the same number twice.
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+	DebugInfoController.Track("ENEMIES", function(): number
+		return EnemiesController.Count
+	end)
+	DebugInfoController.Track("COINS", CoinsController.InAir)
+	DebugInfoController.SetClear(Shop.CORNER)
 
 	createTopbarIcons()
 	update(0)
 	vide.mount(function()
+		-- The debug readout gives way to the upgrade cards with the HUD (isHudUp).
+		vide.effect(function()
+			DebugInfoController.SetCovered(UpgradePickController.IsCovering())
+		end)
 		-- The settings screen shuts by its own X too: the icon is let go with it.
 		vide.effect(function()
 			if not SettingsController.IsOpen() and settingsIcon then settingsIcon:deselect() end
 		end)
+		vide.effect(function()
+			UpgradePickController.IsOverlaid = state.IsSquadOpen() or SettingsController.IsOpen()
+		end)
+
+		-- Built in this order (each card's marks are drawn at random as it is built), then split by how often they are
+		-- written (hudRoot).
+		local wave = Wave.Build(state, actions)
+		local items = Items.Build(state, actions)
+		local announceBanner = Announce.Build(state)
+		local upgrades = Upgrades.Build(state, actions)
+		local abilitySlots, flight = Shop.Abilities(state, actions)
+		chargeFlight = flight
+		local hotbar = Hotbar.Build(state)
+		local weaponUpgrade =
+			WeaponUpgrade.Build(state, Upgrades.WEAPON_PICTURE, Upgrades.PICTURE_SIZE, Upgrades.PICTURE_TILT)
+		local healthUpgrade = HealthUpgrade.Build(state, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE)
+		local squad = Squad.Build(state, actions)
+		local down = Down.Build(state, actions)
+		-- The gold, the hotbar and the upgrade and ability columns step aside while down; so does everything about the
+		-- fight (the wave plate, the boss bar, SKIP WAVE, HEAL ALL and NUKE ALL, the squad's banners), lifting off the
+		-- top, and YOU DIED takes the wave plate's place. The top comes back as the body shows, so the wave plate drops
+		-- back in as YOU DIED lifts out of its place. Out of the renderer once gone.
+		local lowerShown = Hand.Spring(function()
+			return if state.IsDown() then 0 else 1
+		end, Tune.LOWER_PERIOD, 1)
+		local fightShown = Hand.Spring(function()
+			local downState = state.Down
+			return if state.IsDown() and downState.StoodAt() < downState.At() then 0 else 1
+		end, Tune.LOWER_PERIOD, 1)
+		local function stepsAside(name: string, content: { any }): Frame
+			return create("Frame")({
+				Name = name,
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Visible = function()
+					return fightShown() > 0.005
+				end,
+				Components.FadeGroup(name, fightShown, {
+					Size = UDim2.fromScale(1, 1),
+					Position = function()
+						return UDim2.fromOffset(0, -math.round(Tune.FIGHT_LIFT * (1 - fightShown())))
+					end,
+				}, content),
+			})
+		end
+		local results = Results.Build(state, actions)
+		local questToast = QuestToast.Build(state)
 
 		-- A list: mount keeps only the first value a component returns.
 		return {
-			create("ScreenGui")({
-				Name = "Hud",
-				ResetOnSpawn = false,
-				-- The upgrade cards are parts in the world, which a ScreenGui draws over: the HUD gives way to them. The
-				-- settings screen stands over the items, the wave and the hotbar, so the HUD gives way to it too. A boss's
-				-- intro fades it out (UiFade).
-				Enabled = function()
-					return not UpgradePickController.IsCovering() and not SettingsController.IsOpen() and UiFade.IsUp()
-				end,
-				IgnoreGuiInset = true,
-				ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
-				ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-				UiFade.Group({
-					-- Scaled from a 1080-tall design: the root is sized 1 / scale so that after its UIScale it fills the
-					-- screen.
-					create("Frame")({
-						Name = "Root",
-						BackgroundTransparency = 1,
-						Size = function()
-							local scale = state.Scale()
-							return UDim2.fromScale(1 / scale, 1 / scale)
-						end,
-						create("UIScale")({ Scale = state.Scale }),
-						Wave.Build(state, actions),
-						Items.Build(state, actions),
-						Announce.Build(state),
-						Upgrades.Build(state, actions),
-						Shop.Abilities(state, actions),
-						Hotbar.Build(state),
-						WeaponUpgrade.Build(
-							state,
-							Upgrades.WEAPON_PICTURE,
-							Upgrades.PICTURE_SIZE,
-							Upgrades.PICTURE_TILT
-						),
-						HealthUpgrade.Build(state, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE),
-						Squad.Build(state, actions),
-						Overlays.Down(state, actions),
-						Results.Build(state, actions),
-					}),
-				}),
+			hudRoot("Hud", HUD_DISPLAY_ORDERS.Base, {
+				Components.FadeGroup(
+					"Lower",
+					lowerShown,
+					{ Size = UDim2.fromScale(1, 1) },
+					{ upgrades, abilitySlots, hotbar }
+				),
 			}),
+			hudRoot("HudLive", HUD_DISPLAY_ORDERS.Live, { stepsAside("Fight", { wave, items }), down }),
+			hudRoot(
+				"HudTop",
+				HUD_DISPLAY_ORDERS.Top,
+				{ stepsAside("Banners", { announceBanner }), weaponUpgrade, healthUpgrade, questToast, results },
+				{ if flight then flight.Layer else nil }
+			),
+			hudRoot("HudSquad", HUD_DISPLAY_ORDERS.Squad, { squad }, nil, isSquadUp),
 			Overlays.Vignette(state),
+			Overlays.Shock(state),
 			Overhead.Build(state),
 		}
 	end, LocalPlayer:WaitForChild("PlayerGui"))

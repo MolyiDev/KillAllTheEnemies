@@ -1,7 +1,12 @@
 -- Developer product ids (GDD 19). 0 means not created yet: its offer is hidden and its handler never runs.
 return table.freeze({
-	-- Back up in the run: after a clear while down, or on the results once everybody is.
+	-- Back up on the results, once the whole squad is down: the held run goes on (67 Robux).
 	Revive = 3734217095,
+	-- A downed player back up now during a run, bought by them (their down plate) or by a squadmate (the chip by the
+	-- boss bar), 9 Robux.
+	QuickRevive = 3736735611,
+	-- CHARGE NOW under the HUD's ultimate: its meter full at once during a run, 19 Robux.
+	ChargeUltimate = 3736778238,
 	-- The results' DOUBLE YOUR GEMS, by how many Gems the run earned (Shared/Utils/doubleGems): 11, 22 and 33 Robux.
 	DoubleGemsSmall = 3734217097,
 	DoubleGemsMedium = 3734217103,

@@ -5,7 +5,8 @@
 -- write clones the whole profile.
 --
 -- A potion drunk adds its effects to the run upgrades' sums (upgradeStats), so every service that reads an upgrade
--- reads the potion too, and is used up by one match (a Mythic by two).
+-- reads the potion too, from the run's start. It is used up by one match (a Mythic by two), counted only once the player
+-- reaches the wave after SPEND_AFTER_ROUNDS: leaving or falling before that keeps it.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -14,6 +15,7 @@ local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local NetworkMeta = require(ServerScriptService.GlobalServer.NetworkMeta)
 local DatabaseService = require(ServerScriptService.GlobalServer.Services.DatabaseService)
 local EnemiesService = require(script.Parent.EnemiesService)
+local RoundService = require(script.Parent.RoundService)
 local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local PotionsCore = require(ReplicatedStorage.GlobalShared.Core.PotionsCore)
@@ -24,6 +26,7 @@ local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local ServerNetworkMutation = NetworkMeta.Server.Mutation
 
 local FLUSH_SECONDS = 3
+local SPEND_AFTER_ROUNDS = 5
 
 local MutationService = {}
 
@@ -31,45 +34,66 @@ local random = Random.new()
 -- Per player: energy dropped and not written yet, by enemy data Name.
 local pending: { [Player]: { [string]: number } } = {}
 local nextFlushAt = 0
+-- Per player: the Ids of the potions drunk this run and not spent yet.
+local unspent: { [Player]: { number } } = {}
 local potionsByName: { [string]: TData.TPotion } = {}
 for _, potion in DataCore.Potions.All do
 	potionsByName[potion.Name] = potion
 end
 
--- Each player drinks what is in their slots: its effects go on the run's sums, it loses a match, and one with none
--- left goes from the lab. Called as a run starts, after the run upgrades are cleared.
+-- Each player drinks what is in their slots: its effects go on the run's sums, and the match it costs is spent later
+-- (spendAll). Called as a run starts, after the run upgrades are cleared.
 function MutationService.DrinkAll(players: { Player })
+	table.clear(unspent)
 	for _, player in players do
-		local drunk: { { Data: TData.TPotion, Rarity: number } } = {}
-		DatabaseService.Update(player, function(profile)
+		local profile = DatabaseService.Get(player)
+		local mutation = if profile then profile.Mutation else nil
+		if not mutation then continue end
+
+		local ids: { number }, recipeIds: { number }, rarities: { number } = {}, {}, {}
+		local count = 0
+		for _, potion in mutation.Potions do
+			local data = potionsByName[potion.Name]
+			if not data or not table.find(mutation.Equipped, potion.Id) then continue end
+			local rarity = (ERarities :: any)[potion.Rarity] or ERarities.Common
+			for _, effect in PotionsCore.Effects(data, rarity) do
+				upgradeStats.Add(player, effect.Upgrade, effect.Amount)
+			end
+			count += 1
+			ids[count] = potion.Id
+			recipeIds[count] = data.Id
+			rarities[count] = rarity
+		end
+
+		if count == 0 then continue end
+		unspent[player] = ids
+		ServerNetworkMutation.Drunk.Fire(player, recipeIds, rarities)
+	end
+end
+
+-- Each potion drunk this run loses a match, and one with none left goes from the lab.
+local function spendAll()
+	for player, ids in unspent do
+		local isSpent = DatabaseService.Update(player, function(profile)
 			local mutation = profile.Mutation
-			if not mutation or #mutation.Equipped == 0 then return false end
+			if not mutation then return false end
+			local isChanged = false
 			for index = #mutation.Potions, 1, -1 do
 				local potion = mutation.Potions[index]
-				local slot = table.find(mutation.Equipped, potion.Id)
-				local data = potionsByName[potion.Name]
-				if not slot or not data then continue end
-				table.insert(drunk, 1, { Data = data, Rarity = (ERarities :: any)[potion.Rarity] or ERarities.Common })
+				if not table.find(ids, potion.Id) then continue end
+				isChanged = true
 				potion.Matches -= 1
 				if potion.Matches > 0 then continue end
 				table.remove(mutation.Potions, index)
-				table.remove(mutation.Equipped, slot)
+				local slot = table.find(mutation.Equipped, potion.Id)
+				if slot then table.remove(mutation.Equipped, slot) end
 			end
-			return #drunk > 0
+			return isChanged
 		end)
-		if #drunk == 0 then continue end
-
-		local recipeIds, rarities = table.create(#drunk), table.create(#drunk)
-		for index, entry in drunk do
-			for _, effect in PotionsCore.Effects(entry.Data, entry.Rarity) do
-				upgradeStats.Add(player, effect.Upgrade, effect.Amount)
-			end
-			recipeIds[index] = entry.Data.Id
-			rarities[index] = entry.Rarity
-		end
-		ServerNetworkMutation.Drunk.Fire(player, recipeIds, rarities)
-		DatabaseService.SaveAsync(player)
+		if isSpent then DatabaseService.SaveAsync(player) end
 	end
+
+	table.clear(unspent)
 end
 
 local function drop(player: Player, enemy: TData.TEnemy)
@@ -101,6 +125,7 @@ end
 MutationService.OnPlayerDisconnected = function(player: Player)
 	flush(player)
 	pending[player] = nil
+	unspent[player] = nil
 end :: TPlayerEvents.OnPlayerDisconnected
 
 RunService.Heartbeat:Connect(function()
@@ -110,6 +135,10 @@ RunService.Heartbeat:Connect(function()
 	for player in pending do
 		flush(player)
 	end
+end)
+
+RoundService.OnRoundStarted:Connect(function(round: number)
+	if round > SPEND_AFTER_ROUNDS then spendAll() end
 end)
 
 EnemiesService.OnEnemyDied:Connect(function(_, enemy: TData.TEnemy, killer: Player?)

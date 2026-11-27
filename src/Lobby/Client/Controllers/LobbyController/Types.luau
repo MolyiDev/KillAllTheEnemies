@@ -161,11 +161,11 @@ export type TLobbyState = {
 	-- last one opened or shut: the HUD steps aside, as those screens stand over its pieces.
 	IsCovered: Source<boolean>,
 	CoveredAt: Source<number>,
-	-- The same, less the daily screen: the level plate stays up over it, as a spin's XP flies into it.
+	-- The same, less the daily and codes screens: the level plate stays up over them, as their XP flies into it.
 	IsPlateCovered: Source<boolean>,
 	PlateCoveredAt: Source<number>,
-	-- A screen that takes the whole view is up (the results of a run), and when that last changed: even the pills,
-	-- which stay up over the shops, step aside.
+	-- A screen that takes the whole view is up (the results of a run, a pad), or settings, and when that last changed:
+	-- even the Gems counter, which stays up over the shops, steps aside.
 	IsBare: Source<boolean>,
 	BareAt: Source<number>,
 	-- The classes screen: whether it is up, and when it last opened or shut.

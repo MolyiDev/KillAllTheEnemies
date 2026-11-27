@@ -33,14 +33,15 @@ bodies per mesh, tint vs Highlight flash) are why the enemy flash is a Highlight
 
 | | Place id (served by Rojo) | Old place (read only) |
 | --- | --- | --- |
-| Lobby (`lobby.project.json`) | 97384805316642 | 105859632802526 |
+| Lobby (`lobby.project.json`) | 105859632802526 (the start place) | none: published over (`LobbyOld.rbxl`) |
 | Game (`game.project.json`) | 113327793187086 | 104435679031452 |
 
 All four are in universe **10768635421**, owned by group **34796361**. Audio and animations play only in games their
 owner owns: anything uploaded by the earlier games' group (35115431) or a user needs this universe granted use of it
-(Tripwire `grant_asset_permissions`) or a re-upload by 34796361. The old places hold an earlier version of this game:
-read their code and instances with Tripwire to see what to keep or improve; never serve Rojo into them or teleport to
-them. The ids live in the project files (`servePlaceIds`, old ones in a comment) and in `EPlaceIds`.
+(Tripwire `grant_asset_permissions`) or a re-upload by 34796361. The old Game place holds an earlier version of this
+game: read its code and instances with Tripwire to see what to keep or improve; never serve Rojo into it or teleport
+to it. The earlier lobby is in `LobbyOld.rbxl` and its place's version history; 97384805316642 is a spare. The ids
+live in the project files (`servePlaceIds`, old ones in a comment) and in `EPlaceIds`.
 
 ## Tooling
 
@@ -65,7 +66,14 @@ them. The ids live in the project files (`servePlaceIds`, old ones in a comment)
   wall, 255 enemies through the real `enemiesUpdate`, the packer round trip, the ground warnings' footprints);
   `tools/lune/ragdoll.luau` (death ragdoll); `tools/lune/coins.luau` (kill coins' flight);
   `lune run tools/lune/guns.luau "$PWD"` (how fast each weapon ladder step kills, one body at a distance and a crowd of
-  each round's mix: run it after changing a ladder gun, since damage a second does not show a step down).
+  each round's mix: run it after changing a ladder gun, since damage a second does not show a step down);
+  `lune run tools/lune/aim.luau "$PWD" "<Gun Name>"` (how many bodies a shot goes into, aimed plain and lined up, on
+  flat ground, slopes, a deck and stairs: run it after changing how a shot is aimed).
+- **Performance benches:** `performance/optimization-2026-11-26/harness/` runs the game's own modules in ree
+  (`mounts.sh` for server code, `runfx.sh` for client utils, an older copy stood in through `Context.StandIn` for a
+  before / after) and prices them with `Context.WorkSeconds()`. ree runs no GC, so judge allocation-bound work by
+  `--profile alloc`, not its clock; rur's `benchmark.json` heartbeat times story Luau, and its layout timing only
+  ranks. The Studio ones (`studio_*_bench.py`) drive a playtest through the Tripwire daemon with a 230-body crowd.
 - **Maps:** built in Studio, saved with the Game place under `ServerStorage.Maps` (a Model per `MapsCore` name:
   `PirateCove`, `GrassLands`), never mapped in Rojo. Optional `Blockers` (invisible walls round the play area: never
   floor; the nav grid covers only their footprint) and `Backdrop` (scenery moved out of the arena before the bake: the
@@ -187,13 +195,17 @@ Lobby pad -> token in MemoryStore -> TeleportToPrivateServer (Game place)
   `ReplicatedStorage.Models.Guns` from `Assets/models/Guns`). A gun is a Tool built from its model
   (`GlobalServer.Utils.buildGunTool`). The client sends only its aim point (`Weapons.Fire`); the server shoots from the
   character's head with its own seed and spread, tests the arena and the enemies' aim shapes (`GunsCore.RayCylinder`
-  over the spatial hash; no rewind yet, a `LAG_PAD` instead) and pays one `DamageMultiple` per damage figure. Bullets
-  can go on through bodies (`TGun.Pierce`) and a shot can shove survivors (`TGun.Knockback`,
-  `EnemyMovementService.Push`). Client: `WeaponController` (trigger, tracers, flash, sound, kick; holding a gun, the
-  body faces the aim with the cursor free too), `BodyPoseController` (every R6 body's sprung lean, legs turned toward
-  the walk, a backwards walk clip when backpedalling, an armed body's arms and torso on its aim; others' aim relayed
-  by `Weapons.Aims` from the camera sync), `ViewmodelController` (first person; `Viewmodel.md` is how to add or fix a
-  gun's hold and measure it for the back). Console: `gun <name>` swaps the gun.
+  over the spatial hash; no rewind yet, `GunsCore.Tune.LAG_PAD` instead) and pays one `DamageMultiple` per damage
+  figure. Bullets can go on through bodies (`TGun.Pierce`) and a shot can shove survivors (`TGun.Knockback`,
+  `EnemyMovementService.Push`). **A shot is a line from the head, not the camera's**: the point under the crosshair,
+  shot from the head, climbs over the bodies behind or digs into the floor, so every gun's shot is lined up on the
+  client (`GunsCore.LineUp`: still into the aimed body, through as many as its pierce allows, past floors and ledges,
+  judged with the server's pad), and tracers are the head's line drawn from the muzzle. Client: `WeaponController`
+  (trigger, tracers, flash, sound, kick; holding a gun, the body faces the aim with the cursor free too),
+  `BodyPoseController` (every R6 body's sprung lean, legs turned toward the walk, a backwards walk clip when
+  backpedalling, an armed body's arms and torso on its aim; others' aim relayed by `Weapons.Aims` from the camera sync),
+  `ViewmodelController` (first person; `Viewmodel.md` is how to add or fix a gun's hold and measure it for the back).
+  Console: `gun <name>` swaps the gun.
 - **AbilityService** + **AbilitiesCore**: classes (`Data/Classes`, two abilities and an ultimate each; everybody is
   Human until a class is picked, `TProfile.SelectedClass`). The client sends a slot and its aim (`Abilities.Cast`);
   cooldowns, the ultimate's meter (kills, never time) and every effect are the server's. A Decoy is a lure
@@ -248,8 +260,33 @@ This is the part that makes the game: keep its rules when the enemies change.
   flood a frame). "Nearest" is path cost, so a player on a deck reached by stairs is as far as the stairs make them.
   `enemiesUpdate` steers down the field, refuses any step onto no standable floor, and goes straight when point-blank
   on the same level.
-- `Enemies.Positions` carries an `EnemyPacker` buffer: 9 bytes per enemy, 2,297 bytes at 255, reliable and whole,
-  since an unreliable event's ~1,000-byte payload limit would force chunking.
+- `Enemies.Positions` carries an `EnemyPacker` buffer, reliable and whole (an unreliable event's ~1,000-byte payload
+  limit would force chunking): a 9-byte absolute record or a 6-byte delta from the last position sent, at most 2,299
+  bytes at 255. Both ends keep that last position per id (the server's per-player `sentQ` in `AOIService`, the
+  client's `netBase`), written only by the stream; a body with no send time (`sentAt`) goes absolute, so anything that
+  forgets a body for a player must clear its `sentAt`. Bodies far from a player's camera are sent less often (every
+  tick within 160 studs, the farthest a client animates, 0.15 s to 240, 0.35 s past it), bosses always every tick
+  (`OutEveryTick`).
+- **Only the nearest bodies animate** (`EnemiesController`): within an animation distance and the nearest
+  `maxAnimated` of those (the radius shrinks past the cap), the rest hold their mesh's rest pose (`holdStill` blends
+  them out) and play no attack clip; one past the distance is drawn on each packet's spot and skipped between packets.
+  Bosses and driven bodies always animate and are seen to 400 studs. Every playing track is Animator work each frame
+  (218 bodies, 420 tracks: 0.34 ms on a PC, ~20x on a phone): never start a looping clip on a body outside the set.
+
+### What a client draws (graphics quality)
+
+There is no graphics setting of our own: `GraphicsQualityController` (global) turns the player's Roblox graphics level
+into a tier (levels 1-3 Low, 4-6 Medium, 7-10 High; Automatic is High on a PC, Medium on a phone, one tier down if the
+place cannot hold 45 fps over its first 20 s) and a `Scale` (0.4 at level 1 to 1.6 at 10, 1 on Automatic). The norm
+is the device's (PC / phone) and the slider moves it. New distances and counts a client spends on (bodies drawn or
+animated, numbers, effects) read `Scale()` and follow `OnChanged`; never a settings row for them.
+
+- **Every particle burst goes through `fxBudget.Emit(emitter, count, at?)`**, never `emitter:Emit`: scaled by tier,
+  thinned with distance from the camera's focus (none behind it), and spent from one estimate of live burst particles.
+  Ground warnings (`telegraphFx`) stay out: a warning is the hitbox. VFX.md section 5 has the numbers.
+- The tier also switches the place's own Lighting (Medium: SunRays, DepthOfField off; Low: Bloom, shadows off).
+- The measurements behind all of it, the harnesses to re-run, and how far ree / rur / ror match Studio:
+  `performance/optimization-2026-11-26/RESULTS.md`.
 
 ### The lobby
 
@@ -273,6 +310,15 @@ UI is `vide` (`src/Global/Client/UI`: `Theme`, `Components`, `ConsoleUI`; the HU
 - Corner brackets stand one distance off everything (`Components.Brackets`, never a number per screen), a picked piece
   closes its own brackets into an outline, and two pieces stand far enough apart for the worst case (a press with the
   hand on one): `UI.md`, "Brackets, picked and side by side", is the check every new piece passes.
+- **A write anywhere in a ScreenGui lays out every visible element in it again**, the same value excepted
+  (performance/runui-2026-11-09: ~1.15 us an element on a PC, the phone's biggest UI cost). So the HUD is three
+  ScreenGuis by how often they are written (`HudController`'s `hudRoot`: calm `Hud`, `HudLive` for Wave, Items and
+  Down, `HudTop` for flights, banners and screens): a piece that moves every frame goes in `HudLive`, never in `Hud`.
+  An idle loop gets its own clock (`state.Breath`, not `state.Now`), a spring that can go back to 0 is a
+  `Hand.Spring` (a bare vide spring heading to 0 never settles), a number label rewritten most frames has
+  `AutoLocalize = false`, and a ScreenGui with nothing showing is switched off. Check a UI change's cost with the
+  census probe (`performance/optimization-2026-11-26/harness/studio-hud-census.client.luau`) and its look with rur
+  pixel diffs of `tools/uimatt` stories.
 - `GlobalShared.TopbarPlus` is a vendored TopbarPlus v3 with local changes (Butler instead of Janitor, a `PixelSkin`
   feature that is Ballarc's look): update it by hand, never from Wally.
 
@@ -539,6 +585,11 @@ No automated tests: a change is checked by reasoning, the linters, the headless 
 - Several Studios can be connected to Tripwire at once (this game's Lobby and Game, the old places), all possibly
   titled "Place1". Check `list_studios` and pick by `placeId` (Places table) with `set_active_studio` before any edit
   or playtest: the active one is whichever connected first. Never edit an old place.
+- Rojo can stop syncing without a word (it did twice on 2026-11-26): before a playtest that checks a change, look for a
+  line of it in Studio (`grep_scripts`), and push the files with
+  `performance/optimization-2026-11-26/harness/studio_sync.py <repo files>` (compares with disk). Never create a new
+  module by hand in Studio: Rojo adds its own copy once it syncs, and two modules of one name break Ignis ("already
+  registered") and every controller requiring them. Never push files another session is editing.
 - Tripwire cannot start a playtest while Studio is minimized: `start_playtest` answers `started` and every later call
   says "No live server peer". Ask the user to bring Studio up, and delete the probe you created meanwhile.
 - Say what was actually verified: linted, run headless, rendered in ror / rur, played in Studio, or reasoned only.

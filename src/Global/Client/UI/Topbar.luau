@@ -29,7 +29,7 @@ local HOVER_PERIOD = 0.12
 -- comes back the same way, critically damped over about SHOW_PERIOD.
 local SHOW_PERIOD = 0.3
 local SHOW_LIFT = 10
--- The count (a Notice, as every lobby button wears): its side; its middle is on the panel's top left corner.
+-- The "!" (a Notice, as every lobby button wears): its side; its middle is on the panel's top right corner.
 local BADGE = 26
 -- While something waits: the glow lit this much, and the light crossing in CALL_SECONDS.
 local CALL_GLOW = 0.6
@@ -45,7 +45,7 @@ export type TOptions = {
 	OnPress: (settledAt: number) -> (),
 	-- Whether the icon is up; nil for always. Read as a vide source.
 	IsShown: (() -> boolean)?,
-	-- How many things wait behind the icon, worn as a count on its corner while above 0; nil for none. While above 0
+	-- How many things wait behind the icon, worn as a "!" on its corner while above 0; nil for none. While above 0
 	-- the icon also glows, and the light crosses it each time `CallAt` (an os.clock stamp on `Now`) is stamped. Read as
 	-- vide sources.
 	Count: (() -> number)?,
@@ -208,11 +208,15 @@ function Topbar.Dress(icon: any, options: TOptions)
 				then Notice.Build({
 					Kind = "New",
 					Size = BADGE,
-					Count = options.Count,
+					IsShown = function()
+						return options.Count() > 0
+					end,
 					Now = options.Now,
 					CallAt = options.CallAt,
 				}, {
-					Position = UDim2.fromOffset(INSET, INSET),
+					-- TopbarPlus's theme resizes and moves anything named "Notice" inside an icon.
+					Name = "Waiting",
+					Position = UDim2.new(1, -INSET, 0, INSET),
 					ZIndex = 20,
 				})
 				else nil,

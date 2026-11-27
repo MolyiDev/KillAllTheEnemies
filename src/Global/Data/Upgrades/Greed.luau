@@ -1,4 +1,5 @@
--- Kill Gold is paid this much over.
+-- Every gold its player earns in the match is paid this much over (RoundService: kills and wave clears), never the
+-- gold bought with Robux.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -10,7 +11,7 @@ local data: TData.TUpgrade = {
 	Icon = EIcons.UpgradeGreed,
 	Value = 0.1,
 	MaxLevel = 5,
-	Description = "+%d%% Gold from kills",
+	Description = "+%d%% gold",
 	PercentScale = 100,
 }
 

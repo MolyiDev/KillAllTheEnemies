@@ -248,6 +248,8 @@ return {
 			DataId = {
 			},
 		},
+		Invites = {
+		},
 	},
 
 }

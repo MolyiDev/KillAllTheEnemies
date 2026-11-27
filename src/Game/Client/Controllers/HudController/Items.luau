@@ -18,17 +18,14 @@ local spring = vide.spring
 local Palette = Theme.Palette
 local Font = Theme.Font
 
--- His drawn rects at 1080: the pair's left edge from the screen's right and its top, a card, the gap, the count badge
--- over each card's corner, the glyph and the label; and where a prompted card goes (its centre, from the pair's
--- top-left), clear of the skip block above and the abilities below.
+-- His drawn rects at 1080: the pair's left edge from the screen's right and its top, a card, the gap, the glyph and
+-- the label; and where a prompted card goes (its centre, from the pair's top-left), clear of the skip block above and
+-- the abilities below.
 local RIGHT = 244
 local TOP = 176
 local CARD = Vector2.new(100, 96)
 -- 18, not his 8: under a press a card's brackets reach 11 px out, and at his HEAL ALL's crossed NUKE's.
 local GAP = 18
-local BADGE = Vector2.new(70, -8)
-local BADGE_SIZE = 30
-local BADGE_TEXT = 17
 local GLYPH = Vector2.new(47, 40)
 -- The picture's longer side.
 local PICTURE_SIZE = 54
@@ -56,7 +53,6 @@ type TItem = {
 	Accent: Color3,
 	Home: Vector2,
 	IsPrompted: () -> boolean,
-	Count: () -> number,
 	ProductId: number,
 }
 
@@ -76,11 +72,11 @@ local function card(state: Types.THudState, actions: Types.TActions, item: TItem
 	local wave = function(): number
 		local e = emphasis()
 		if e < 0.01 then return 0 end
-		return math.sin(state.Now() * math.pi * 2 * BREATH_HZ) * math.clamp(e, 0, 1)
+		return math.sin(state.Breath() * math.pi * 2 * BREATH_HZ) * math.clamp(e, 0, 1)
 	end
 
 	local sheenAt = function(): number
-		local now = state.Now()
+		local now = state.Breath()
 		return Motion.Progress(now % SHEEN_EVERY, 0, SHEEN_SECONDS)
 	end
 
@@ -160,39 +156,7 @@ local function card(state: Types.THudState, actions: Types.TActions, item: TItem
 			Text = item.Label,
 			ZIndex = 2,
 		}),
-		-- His count badge over the top-right corner: how many of the item the player holds.
-		create("Frame")({
-			Name = "Count",
-			Position = UDim2.fromOffset(BADGE.X, BADGE.Y),
-			Size = UDim2.fromOffset(BADGE_SIZE, BADGE_SIZE),
-			BackgroundColor3 = item.Accent:Lerp(Palette.White, 0.4),
-			BorderSizePixel = 0,
-			ZIndex = 4,
-			create("UICorner")({ CornerRadius = UDim.new(0, 2) }),
-			create("Frame")({
-				Position = UDim2.fromOffset(1, 1),
-				Size = UDim2.new(1, -2, 1, -2),
-				BackgroundColor3 = item.Accent,
-				BorderSizePixel = 0,
-				create("UICorner")({ CornerRadius = UDim.new(0, 1) }),
-				create("TextLabel")({
-					Size = UDim2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					FontFace = Font.Display,
-					TextSize = BADGE_TEXT,
-					TextColor3 = Palette.Ink,
-					Text = function()
-						return tostring(item.Count())
-					end,
-				}),
-			}),
-		}),
 	}) :: TextButton
-end
-
--- A buy is used at once, so nothing holds a stock of either item: both badges read 0.
-local function noCount(): number
-	return 0
 end
 
 function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
@@ -212,7 +176,6 @@ function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
 			Accent = Palette.Green,
 			Home = CARD / 2,
 			IsPrompted = state.IsHealPrompted,
-			Count = noCount,
 			ProductId = EProducts.HealAll,
 		}),
 		card(state, actions, {
@@ -222,7 +185,6 @@ function Items.Build(state: Types.THudState, actions: Types.TActions): Frame
 			Accent = Palette.Gold,
 			Home = Vector2.new(CARD.X * 1.5 + GAP, CARD.Y / 2),
 			IsPrompted = state.IsNukePrompted,
-			Count = noCount,
 			ProductId = EProducts.NukeAll,
 		}),
 	})

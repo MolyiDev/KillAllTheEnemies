@@ -23,6 +23,7 @@ local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local UpgradesCore = require(ReplicatedStorage.Shared.Core.UpgradesCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
@@ -31,6 +32,8 @@ local getCharacterEntityFromPlayer =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterEntityFromPlayer)
 local getCharacterFeet = require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterFeet)
 local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
+local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
@@ -82,6 +85,8 @@ type TLoadout = {
 	Abilities: { TData.TAbility },
 	-- TimeCore.GameClock each slot can next be cast at.
 	ReadyAt: { [number]: number },
+	-- Casts each slot has paid for this run: its price (AbilitiesCore.CastCost).
+	Casts: { number },
 	-- Kills banked toward the ultimate.
 	Charge: number,
 }
@@ -144,7 +149,7 @@ local function countBody()
 end
 
 local function sendState(player: Player, loadout: TLoadout)
-	ServerNetworkAbilities.State.Fire(player, loadout.Class.Id, loadout.Levels, loadout.Charge)
+	ServerNetworkAbilities.State.Fire(player, loadout.Class.Id, loadout.Levels, loadout.Casts, loadout.Charge)
 end
 
 -- The class a player plays, and its abilities' levels, are the profile's the first time it is asked this run: the
@@ -166,6 +171,7 @@ local function loadoutOf(player: Player): TLoadout
 		Levels = levels,
 		Abilities = abilities,
 		ReadyAt = {},
+		Casts = table.create(#levels, 0),
 		Charge = 0,
 	}
 	loadouts[player] = made
@@ -602,11 +608,26 @@ function AbilityService.GetClass(player: Player): TData.TClass
 	return loadoutOf(player).Class
 end
 
--- Fills `player`'s ultimate (the console's `ult`).
-function AbilityService.FillUltimate(player: Player)
+-- The kills `player`'s ultimate needs, after their Overcharge.
+local function chargeKillsOf(player: Player, loadout: TLoadout): number
+	local kills = loadout.Abilities[AbilitiesCore.UltimateSlot(loadout.Class)].ChargeKills or 0
+	return UpgradesCore.ChargeKills(kills, upgradeStats.Get(player, EUpgradesIds.Overcharge))
+end
+
+-- Fills `player`'s ultimate (the console's `ult`, and CHARGE NOW). A bought fill is told first, so the client shows it
+-- filling instead of the meter jumping.
+function AbilityService.FillUltimate(player: Player, isBought: boolean?)
 	local loadout = loadoutOf(player)
-	loadout.Charge = loadout.Abilities[AbilitiesCore.UltimateSlot(loadout.Class)].ChargeKills or 0
+	if isBought then ServerNetworkAbilities.UltimateBought.Fire(player, loadout.Charge) end
+	loadout.Charge = chargeKillsOf(player, loadout)
 	sendState(player, loadout)
+end
+
+-- Whether a fill would do anything: the meter not full yet, and no beam out (kills do not fill it meanwhile either).
+function AbilityService.CanFillUltimate(player: Player): boolean
+	if beams[player] then return false end
+	local loadout = loadoutOf(player)
+	return loadout.Charge < chargeKillsOf(player, loadout)
 end
 
 -- The intent only: a slot and where the crosshair was. The guards are this side's: the match not paused, a standing
@@ -631,10 +652,15 @@ ClientNetworkAbilities.Cast.On(function(player: Player, slot: number, aimPoint: 
 	local cooldown = ability.Cooldown
 	if cooldown then
 		if now < (loadout.ReadyAt[slot] or 0) then return end
-		if not EconomyService.TrySpendGold(player, ability.Cost or 0) then return end
-		loadout.ReadyAt[slot] = now + cooldown * Tune.COOLDOWN_TOLERANCE
+		local price = AbilitiesCore.CastCost(ability, loadout.Casts[slot])
+		local cost = UpgradesCore.Cost(price, upgradeStats.Get(player, EUpgradesIds.Discount))
+		if not EconomyService.TrySpendGold(player, cost) then return end
+		local haste = upgradeStats.Get(player, EUpgradesIds.Haste)
+		loadout.ReadyAt[slot] = now + UpgradesCore.Cooldown(cooldown, haste) * Tune.COOLDOWN_TOLERANCE
+		loadout.Casts[slot] += 1
+		sendState(player, loadout)
 	else
-		if beams[player] or loadout.Charge < (ability.ChargeKills or math.huge) then return end
+		if beams[player] or loadout.Charge < chargeKillsOf(player, loadout) then return end
 		loadout.Charge = 0
 		sendState(player, loadout)
 	end
@@ -647,7 +673,7 @@ end)
 EnemiesService.OnEnemyKilled:Connect(function(killerPlayer: Player?, count: number)
 	if not killerPlayer or beams[killerPlayer] then return end
 	local loadout = loadoutOf(killerPlayer)
-	local needed = loadout.Abilities[AbilitiesCore.UltimateSlot(loadout.Class)].ChargeKills or 0
+	local needed = chargeKillsOf(killerPlayer, loadout)
 	if loadout.Charge >= needed then return end
 	loadout.Charge = math.min(loadout.Charge + count, needed)
 	sendState(killerPlayer, loadout)

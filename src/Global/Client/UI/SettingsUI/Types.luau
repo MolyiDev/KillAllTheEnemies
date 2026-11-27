@@ -26,6 +26,8 @@ export type TToggleRow = {
 
 export type TSettingsState = {
 	Scale: Source<number>,
+	-- The panel's height in design px: as tall as the screen leaves it under the top of the screen (SettingsUI.HeightFor).
+	Height: Source<number>,
 	-- os.clock, written only in frames where something on the screen is moving (SettingsController's motion window).
 	Now: Source<number>,
 	IsOpen: Source<boolean>,

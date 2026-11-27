@@ -6,6 +6,9 @@
 -- Nothing is dealt while a boss is coming or up (RoundService.IsBossTime): a hand up as it comes is put away as it
 -- stands (its cards, its redeals, its seconds left) and offered again as it was once the boss's fall has been seen.
 --
+-- A player down as the wave's kills are done is revived then (MatchService) and dealt once their body is built
+-- (CharacterService.OnStood), so the hand does not cover the rebuild; the countdown waits for them as for a hand up.
+--
 -- A player is picking from the deal until the card they took has left their screen (UpgradesCore.SHOW_SECONDS).
 -- Meanwhile they are out of the fight (Tags.Picking): no blow lands on them, the crowd ignores them and no body enters
 -- round them. Everybody is told so, and while every player is picking the match eases to a stop (TimeService). Alone
@@ -70,13 +73,17 @@ local Tune = table.freeze({
 	-- it would hide.
 	AFTER_BOSS_SECONDS = 6.2,
 	AFTER_DROP_SECONDS = 0.4,
+	-- Real seconds after NUKE ALL is set off before a hand comes, so the blast, the bodies coming apart and its banner
+	-- are seen whole first (the banner is up HudController/Announce.SECONDS from the blast's start).
+	AFTER_NUKE_SECONDS = 3.6,
 })
 
 local UpgradesService = {}
 
 local runs: { [Player]: TRun } = {}
 local random = Random.new()
--- Whether a boss was coming or up last frame, and the os.clock the hands it held back are dealt at (0 for none).
+-- Whether a boss was coming or up last frame, and the os.clock the hands a fallen boss or a nuke held back are dealt
+-- at (0 for none).
 local wasBossTime = false
 local resumeAt = 0
 
@@ -96,7 +103,7 @@ end
 -- every upgrade at its last level is owed nothing more.
 local function dealNext(player: Player)
 	local run = runs[player]
-	if not run or run.Hand then return end
+	if not run or run.Hand or not CharacterService.IsStanding(player) then return end
 	if RoundService.State == RoundService.ERoundState.Idle or RoundService.IsBossTime() or resumeAt > 0 then return end
 	-- A round finished by a kill on the boss's own frame comes before the Heartbeat sets resumeAt.
 	if wasBossTime then return end
@@ -136,6 +143,12 @@ function UpgradesService.Grant(player: Player, round: number)
 	if not run then return end
 	run.Owed[#run.Owed + 1] = round
 	dealNext(player)
+end
+
+-- NUKE ALL was set off: no hand is dealt until it has played out. Called before its first kill, so the wave it
+-- finishes is owed, not dealt; a hand already up stays.
+function UpgradesService.HoldForNuke()
+	resumeAt = math.max(resumeAt, os.clock() + Tune.AFTER_NUKE_SECONDS)
 end
 
 -- A new run: every level and every hand owed is gone.
@@ -242,14 +255,14 @@ RoundService.OnRoundKilled:Connect(function(round: number)
 	for _, player in Players:GetPlayers() do
 		UpgradesService.Grant(player, round)
 		local run = runs[player]
-		if run and run.Hand then isDealt = true end
+		if run and (run.Hand or not CharacterService.IsStanding(player)) then isDealt = true end
 	end
 
 	if isDealt then RoundService.HoldNextPrepare(UpgradesCore.AUTO_PICK_SECONDS) end
 end)
 
--- A clear while a boss holds hands back (it is coming or up, or its fall is still being seen): the countdown it opens
--- waits for them. Told before that countdown opens.
+-- A clear while a boss or a nuke holds hands back (a boss coming or up, its fall or the blast still being seen): the
+-- countdown it opens waits for them. Told before that countdown opens.
 RoundService.OnRoundCleared:Connect(function()
 	for _, run in runs do
 		if run.Stashed or (run.Owed[1] and not run.Hand) then
@@ -266,6 +279,12 @@ EnemiesService.OnEnemyDied:Connect(function(_, _, killer: Player?)
 	if heal <= 0 then return end
 	local characterEntity = getCharacterEntityFromPlayer(killer)
 	if characterEntity then CharacterService.Heal(characterEntity, heal) end
+end)
+
+-- A revived body built: the hand it is owed, and the countdown let go if that was all it waited for.
+CharacterService.OnStood:Connect(function(player: Player)
+	dealNext(player)
+	releaseRoundIfDone()
 end)
 
 -- A body revived mid-pick is as safe as the one it replaces.

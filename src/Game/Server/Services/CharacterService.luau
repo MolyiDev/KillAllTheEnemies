@@ -6,6 +6,8 @@
 -- The network id is CharacterIdsService's: a character counts once it has one on every side (OnCharacterReady).
 --
 -- CharacterAutoLoads is off (game.project.json): this loads every rig, and a death lasts until MatchService revives.
+-- A downed body stays where it fell, frozen and passed through (every client draws it as a pile of bricks); a revive
+-- stands the new body there, held still and unhurt while the clients build it back (REVIVE_HOLD_SECONDS).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -51,6 +53,14 @@ local Tune = table.freeze({
 	REGEN_DELAY_SECONDS = 4,
 	REGEN_PER_SECOND = 5,
 	HEALTH_SYNC_SECONDS = 0.25,
+	-- How long a revived body is held still and unhurt while every client builds it out of the old body's bricks:
+	-- Client/Utils/reviveFx's MORPH_AT + MORPH (1.78 s) and a margin for the body reaching a client late. Change both.
+	REVIVE_HOLD_SECONDS = 2.1,
+	-- How long the revived notice goes ahead of the body: a few frames, past Blink's once-a-frame send.
+	REVIVED_LEAD_SECONDS = 0.05,
+	-- An R6 root's centre over its feet, and how far under where a body fell its floor is looked for.
+	ROOT_HEIGHT = 3,
+	FLOOR_PROBE = 60,
 })
 
 local CharacterService = {}
@@ -60,6 +70,8 @@ local CharacterService = {}
 CharacterService.OnCharacterReady = CharacterIdsService.OnCharacterReady
 -- (characterEntity, player)
 CharacterService.OnCharacterDied = Signal.new()
+-- (player) A revived body let go: in the fight again.
+CharacterService.OnStood = Signal.new()
 
 local RegenQuery = World
 	:query(Components.CurrentHealth, Components.MaxHealth, Components.LastHurtAt, Components.Humanoid)
@@ -71,6 +83,11 @@ local regenerated: { jecs.Entity<any> } = {}
 local healthLevels: { [Player]: number } = {}
 -- The players the `god` command made unhurtable, kept across deaths and runs until it is toggled off.
 local godPlayers: { [Player]: true } = {}
+-- Where each downed player's body fell (its root), for the revive to stand them there.
+local fellAt: { [Player]: CFrame } = {}
+-- The os.clock until which a revived player's new body is held still and unhurt; math.huge while it loads. Real
+-- seconds, as the clients' rebuild runs: the game clock is reset by a new run and stops under a pause.
+local heldUntil: { [Player]: number } = {}
 
 -- A character's max health with no HEALTH level bought: the base and what the equipment it wears adds.
 local function baseMaxHealth(player: Player?): number
@@ -98,11 +115,76 @@ function CharacterService.IsAlive(player: Player): boolean
 	return (World:get(characterEntity, Components.CurrentHealth) or 0) > 0
 end
 
+-- Alive and in the fight: not down, and not a revived body still being built.
+function CharacterService.IsStanding(player: Player): boolean
+	return heldUntil[player] == nil and CharacterService.IsAlive(player)
+end
+
+-- Where a body that fell at `fell` stands up: on the floor under it, facing the way it faced.
+local function standingOver(fell: CFrame): CFrame
+	local position = fell.Position
+	local arena = Workspace:FindFirstChild("Arena")
+	if arena then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { arena }
+		local hit = Workspace:Raycast(position + Vector3.yAxis * 2, Vector3.yAxis * -Tune.FLOOR_PROBE, params)
+		if hit then position = hit.Position + Vector3.yAxis * Tune.ROOT_HEIGHT end
+	end
+
+	local look = fell.LookVector * Vector3.new(1, 0, 1)
+	return CFrame.lookAlong(position, if look.Magnitude > 1e-3 then look else -Vector3.zAxis)
+end
+
+-- Brings `player` back if down: the new body stands where the old one fell, held still and unhurt while the clients
+-- build it. One whose body was never seen to fall (never spawned) spawns as at the start. Yields.
+function CharacterService.Revive(player: Player)
+	if heldUntil[player] or CharacterService.IsAlive(player) then return end
+	local fell = fellAt[player]
+	fellAt[player] = nil
+	if fell then
+		heldUntil[player] = math.huge
+		-- Before the body loads, so every client knows the body that comes is built from the pile. Blink sends its queue
+		-- once a frame, and the body replicates the moment it loads: the wait lets the notice go out first.
+		ServerNetworkCharacters.Revived.FireAll(player)
+		task.wait(Tune.REVIVED_LEAD_SECONDS)
+		if not player.Parent then
+			heldUntil[player] = nil
+			return
+		end
+	end
+	CharacterService.Spawn(player)
+	if not fell then return end
+
+	local character = player.Character
+	if not character or not player.Parent then
+		heldUntil[player] = nil
+		return
+	end
+	-- By the root, not PivotTo: a body loaded from a description has its Head as PrimaryPart.
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		root.CFrame = standingOver(fell)
+		root.Anchored = true
+	end
+	heldUntil[player] = os.clock() + Tune.REVIVE_HOLD_SECONDS
+end
+
+-- A run started over: every player spawns afresh where the map spawns them, standing or down, and nothing is left of
+-- where anybody fell. Yields per player in their own thread.
+function CharacterService.RespawnAll()
+	table.clear(fellAt)
+	table.clear(heldUntil)
+	for _, player in Players:GetPlayers() do
+		task.spawn(CharacterService.Spawn, player)
+	end
+end
+
 -- Brings back every player without a living character. MatchService decides when.
 function CharacterService.ReviveDead()
 	for _, player in Players:GetPlayers() do
 		if CharacterService.IsAlive(player) then continue end
-		task.spawn(CharacterService.Spawn, player)
+		task.spawn(CharacterService.Revive, player)
 	end
 end
 
@@ -127,6 +209,25 @@ function CharacterService.ToggleGod(player: Player): boolean
 	return isGod
 end
 
+-- Health just reached 0: the body is frozen where it fell and passed through (every client hides it under its pile of
+-- bricks), and kept for the revive.
+local function fall(characterEntity: jecs.Entity<any>, player: Player?)
+	local root = World:get(characterEntity, Components.HumanoidRootPart)
+	if root then
+		if player then fellAt[player] = root.CFrame end
+		local model = root.Parent
+		if model then
+			for _, part in model:GetDescendants() do
+				if not part:IsA("BasePart") then continue end
+				part.Anchored = true
+				part.CanCollide = false
+			end
+		end
+	end
+
+	CharacterService.OnCharacterDied:Fire(characterEntity, player)
+end
+
 -- One blow on a character. The amount is the server's own (an enemy's Damage), never a client's.
 function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: number)
 	if amount <= 0 then return end
@@ -138,7 +239,7 @@ function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: numb
 	local hurtUntil = World:get(characterEntity, Components.HurtUntil) or 0
 	if now < hurtUntil then return end
 	local player = getPlayerFromCharacterEntity(characterEntity)
-	if player and godPlayers[player] then return end
+	if player and (godPlayers[player] or heldUntil[player]) then return end
 	World:set(characterEntity, Components.HurtUntil, now + Tune.HURT_WINDOW_SECONDS)
 	World:set(characterEntity, Components.LastHurtAt, now)
 
@@ -156,7 +257,18 @@ function CharacterService.Damage(characterEntity: jecs.Entity<any>, amount: numb
 	sendHealth(characterEntity)
 
 	if current > 0 then return end
-	CharacterService.OnCharacterDied:Fire(characterEntity, player)
+	fall(characterEntity, player)
+end
+
+-- The `kill` command: down at once, whatever the hurt window, the god command or a hold.
+function CharacterService.Kill(characterEntity: jecs.Entity<any>)
+	if not World:has(characterEntity, Tags.Alive) then return end
+	if (World:get(characterEntity, Components.CurrentHealth) or 0) <= 0 then return end
+	World:set(characterEntity, Components.CurrentHealth, 0)
+	local humanoid = World:get(characterEntity, Components.Humanoid)
+	if humanoid then humanoid.Health = 0 end
+	sendHealth(characterEntity)
+	fall(characterEntity, getPlayerFromCharacterEntity(characterEntity))
 end
 
 function CharacterService.Heal(characterEntity: jecs.Entity<any>, amount: number)
@@ -236,6 +348,8 @@ end :: TPlayerEvents.OnDataLoaded
 CharacterService.OnPlayerDisconnected = function(player: Player)
 	healthLevels[player] = nil
 	godPlayers[player] = nil
+	fellAt[player] = nil
+	heldUntil[player] = nil
 end :: TPlayerEvents.OnPlayerDisconnected
 
 CharacterService.OnCharacterAdded = function(character, characterEntity)
@@ -249,6 +363,8 @@ CharacterService.OnCharacterAdded = function(character, characterEntity)
 		-- The Humanoid never heals itself: its bar is a mirror of CurrentHealth.
 		local regen = character:FindFirstChild("Health")
 		if regen then regen:Destroy() end
+		-- A downed body keeps its shape where it fell (fall), for every client to draw as one pile of bricks.
+		humanoid.BreakJointsOnDeath = false
 		humanoid.MaxHealth = maxHealth
 		humanoid.Health = maxHealth
 	end
@@ -268,7 +384,20 @@ CharacterService.OnCharacterRemoving = function(_, characterEntity)
 	NavService.RemoveCharacter(instanceId)
 end :: TCharacterEvents.OnCharacterRemoving
 
+-- A revived body built: let go, into the fight.
+local function releaseHeld(now: number)
+	for player, untilAt in heldUntil do
+		if now < untilAt then continue end
+		heldUntil[player] = nil
+		local characterEntity = getCharacterEntityFromPlayer(player)
+		local root = if characterEntity then World:get(characterEntity, Components.HumanoidRootPart) else nil
+		if root then root.Anchored = false end
+		CharacterService.OnStood:Fire(player)
+	end
+end
+
 RunService.Heartbeat:Connect(function(dt: number)
+	if next(heldUntil) then releaseHeld(os.clock()) end
 	if TimeCore.IsPaused then return end
 	local now = TimeCore.GameClock
 	local scaledDt = TimeCore.GetDeltaTime(dt)

@@ -90,15 +90,10 @@ local PICTURE_BACK = 0.18
 
 -- Each map's colour, so the showcase, its card and the read-back all speak in it.
 local ACCENTS = table.freeze({
-	PirateCove = Color3.fromRGB(89, 191, 255),
-	GrassLands = Palette.Green,
+	Baseplate = Palette.Violet,
 })
--- Each map's picture (Assets/ui/party/maps); a map without one shows its initials on its colour. Still the old lobby's
--- ids, not uploaded by this game's group yet.
-Parts.PICTURES = table.freeze({
-	PirateCove = "rbxassetid://90290960375821",
-	GrassLands = "rbxassetid://101532776698527",
-} :: { [string]: string })
+-- Each map's picture (Assets/ui/party/maps); a map without one shows its initials on its colour.
+Parts.PICTURES = table.freeze({} :: { [string]: string })
 -- A party by its size, as the read-back and the pad's board name it.
 Parts.PARTY_NAMES = table.freeze({ "SOLO", "DUO", "TRIO", "QUAD" })
 -- Each difficulty's slab and colour, easiest first.

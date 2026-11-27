@@ -13,9 +13,9 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local NetworkMeta = require(StarterPlayer.StarterPlayerScripts.GlobalClient.NetworkMeta)
 -- Through PlayerScripts, the copy that runs: requiring the StarterPlayer one would load a second controller.
 local ProfileController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.ProfileController)
+local LoadingGate = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.LoadingGate)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
-local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local Header = require(script.Header)
 local Squad = require(script.Squad)
 local Stage = require(script.Stage)
@@ -193,7 +193,6 @@ local function show(record: TProfile.TMatchRecord)
 		state.Now(now)
 	end)
 
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 	task.spawn(stage, generation)
 	for _, member in members do
 		task.spawn(loadAvatar, member, generation)
@@ -209,7 +208,6 @@ local actions: Types.TActions = {
 			state.IsOpen(false)
 			state.ToggledAt(now)
 		end)
-		SoundsCore.PlayUINamed("UI", "MenuOut")
 
 		-- Once it has gone, the avatars go with it.
 		local closedGeneration = generation
@@ -231,7 +229,13 @@ local function update()
 	if state.IsOpen() or now - state.ToggledAt() < Timing.CLOSE + Timing.CUT_CLOSE + 0.1 then state.Now(now) end
 end
 
-ServerNetworkResults.Show.On(show)
+-- Sent as the profile loads, while the loading screen still covers the lobby: held until it lifts, so the cut in
+-- and the squad's arrival are seen.
+ServerNetworkResults.Show.On(function(record: TProfile.TMatchRecord)
+	LoadingGate.OnLifted(function()
+		show(record)
+	end)
+end)
 
 LobbyEnteringController.OnStart = function()
 	ProfileController.OnChanged:Connect(function()

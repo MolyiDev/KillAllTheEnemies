@@ -4,7 +4,10 @@
 --     --story tools/uimatt/Hud.story.luau --viewport 1920x1080 --scale 1 --background 40,40,60 --time 1.5 \
 --     --controls '{"Phase": "Fighting"}' --dir <out>
 -- The weapon card's moments (Moment: Ready, Denied, Buy, Maxed), the gun slot's (Arrive, Swap) and the squad's
--- announcements (Nuke, Heal), a bought Gold pack (GoldPack, GoldPackBig) and the squad screen's (Squad opens it,
+-- announcements (Nuke, Heal), a bought Gold pack (GoldPack, GoldPackBig), CHARGE NOW bought (UltBought from 62%,
+-- UltBoughtEmpty from nothing), CHARGE NOW coming in as wave 11 starts (ChargeArrive) and going as the meter fills
+-- (ChargeLeave), a quest finished (Quest, QuestWeekly,
+-- QuestLong) and the squad screen's (Squad opens it,
 -- SquadKill opens it and scores on the second row a second later, SquadClose shuts it) start 0.2 s in, for
 -- `rur-native sequence`. The squad's four are his render's numbers; their faces cannot be fetched offline. The boss's
 -- bar: Boss (up mid-fight, still), BossArrive, BossFight (a stream of hits that empties a segment, then a big one),
@@ -91,6 +94,7 @@ local EEnemiesIds = require(ReplicatedStorage.Types.Enums.Data.EEnemiesIds)
 local EEquipmentIds = require(ReplicatedStorage.Types.Enums.Data.EEquipmentIds)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local AvatarPose = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.AvatarPose)
+local DebugInfoUI = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.DebugInfoUI)
 
 local hud = StarterPlayer.StarterPlayerScripts.Client.Controllers.HudController
 local Wave = require(hud.Wave)
@@ -103,6 +107,7 @@ local Shop = require(hud.Shop)
 local Hotbar = require(hud.Hotbar)
 local HealthBar = require(hud.HealthBar)
 local Squad = require(hud.Squad)
+local QuestToast = require(hud.QuestToast)
 local BarJuice = require(hud.BarJuice)
 local BossBar = require(hud.BossBar)
 
@@ -328,6 +333,7 @@ local function state(phase: string, moment: string)
 	return {
 		Scale = source(1),
 		Now = source(os.clock()),
+		Breath = source(os.clock()),
 		Phase = source(phase),
 		PhaseAt = source(-math.huge),
 		PreviousPhase = source(if phase == "Preparing" then "Fighting" else "Preparing"),
@@ -415,6 +421,13 @@ local function state(phase: string, moment: string)
 			Amount = source(0),
 			At = source(-math.huge),
 		},
+		Quest = {
+			Id = source(0),
+			Board = source(1),
+			At = source(-math.huge),
+			Hold = source(QuestToast.HOLD),
+			Clock = source(os.clock()),
+		},
 		Gun = source(nil),
 		GunModel = source(heldModel(LADDER[1].Gun)),
 		GunAt = source(-math.huge),
@@ -454,7 +467,7 @@ local function state(phase: string, moment: string)
 				Kind = "Decoy",
 				Key = Enum.KeyCode.Q,
 				Accent = Color3.fromRGB(255, 46, 139),
-				Cost = 40,
+				Cost = source(40),
 				Cooling = source(0),
 				Seconds = source(0),
 				UsedAt = source(-math.huge),
@@ -467,7 +480,7 @@ local function state(phase: string, moment: string)
 				Kind = "FoamCannon",
 				Key = Enum.KeyCode.E,
 				Accent = Color3.fromRGB(158, 186, 217),
-				Cost = 50,
+				Cost = source(50),
 				Cooling = source(0.6),
 				Seconds = source(7),
 				UsedAt = source(-math.huge),
@@ -486,6 +499,9 @@ local function state(phase: string, moment: string)
 			ChargedAt = source(-math.huge),
 			UsedAt = source(-math.huge),
 			DeniedAt = source(-math.huge),
+			CanBuy = true,
+			BoughtAt = source(-math.huge),
+			LandedAt = source(-math.huge),
 		},
 		Avatar = source(avatar()),
 		Keys = { Skip = Enum.KeyCode.N, Turn = Enum.KeyCode.T, Upgrade = Enum.KeyCode.V, Health = Enum.KeyCode.C },
@@ -510,6 +526,8 @@ return {
 	vide = vide,
 	controls = {
 		Phase = { "Preparing", "Fighting" },
+		-- The debug readout up in the corner, as the settings' DEBUG INFO draws it in a match.
+		Debug = false,
 		Moment = {
 			"Rest",
 			"Ready",
@@ -535,15 +553,24 @@ return {
 			"Heal",
 			"GoldPack",
 			"GoldPackBig",
+			"UltBought",
+			"UltBoughtEmpty",
+			"ChargeArrive",
+			"ChargeLeave",
 			"Squad",
 			"SquadKill",
 			"SquadClose",
+			"Quest",
+			"QuestWeekly",
+			"QuestLong",
 		},
 	},
 	story = function(props)
 		standIns()
 		local moment = props.controls.Moment()
 		local hudState = state(props.controls.Phase(), moment)
+		-- Built with the column below; the moments that throw it run later.
+		local chargeFlight = nil
 		local weapon = hudState.Weapon
 		local startedAt = os.clock()
 		local at = startedAt + MOMENT_AT
@@ -592,6 +619,12 @@ return {
 			hudState.Announce.Name("Molyi")
 			hudState.Announce.Count(137)
 			hudState.Announce.At(at)
+		elseif string.sub(moment, 1, 5) == "Quest" then
+			-- A daily quest, a weekly one, and the longest title on either board.
+			local id = if moment == "QuestWeekly" then 110 elseif moment == "QuestLong" then 10 else 1
+			hudState.Quest.Board(if moment == "QuestWeekly" then 2 else 1)
+			hudState.Quest.Id(id)
+			hudState.Quest.At(at)
 		elseif moment == "GoldPack" or moment == "GoldPackBig" then
 			-- The counter lands on the new amount as the last coin does (CoinsController holds it back until then).
 			local amount = if moment == "GoldPack" then 1000 else 99999
@@ -599,6 +632,38 @@ return {
 			hudState.GoldPack.At(at)
 			task.delay(MOMENT_AT + 1.5, function()
 				hudState.GoldShown(hudState.GoldShown() + amount)
+			end)
+		elseif moment == "UltBought" or moment == "UltBoughtEmpty" then
+			-- CHARGE NOW bought with the meter at 62% or empty, as HudController plays it: the bar climbs with each
+			-- landing, and the card fills on the last.
+			local ult = hudState.Ultimate
+			local from = if moment == "UltBought" then 0.62 else 0
+			hudState.Round(12)
+			ult.Charge(from)
+			task.delay(MOMENT_AT, function()
+				local now = os.clock()
+				ult.BoughtAt(now)
+				chargeFlight.Throw(from, now, function(owed: number)
+					ult.LandedAt(os.clock())
+					ult.Charge(1 - owed)
+					if owed == 0 then
+						ult.IsReady(true)
+						ult.ChargedAt(os.clock())
+					end
+				end)
+			end)
+		elseif moment == "ChargeArrive" then
+			hudState.Round(10)
+			task.delay(MOMENT_AT, hudState.Round, 11)
+		elseif moment == "ChargeLeave" then
+			-- The meter fills by kills: the card answers, the slab goes.
+			local ult = hudState.Ultimate
+			hudState.Round(12)
+			ult.Charge(0.97)
+			task.delay(MOMENT_AT, function()
+				ult.Charge(1)
+				ult.IsReady(true)
+				ult.ChargedAt(os.clock())
 			end)
 		elseif moment == "Squad" or moment == "SquadKill" then
 			hudState.Round(2)
@@ -755,9 +820,12 @@ return {
 			local isGrowing = hudState.BarMax() ~= hudState.MaxHealth()
 			local bite = BarJuice.Step(healthChase, hudState.BarHealth(), hudState.BarMax(), dt, now, isGrowing)
 			BarJuice.Write(hudState.HealthTrack, healthChase, bite, hudState.BarHealth() / hudState.BarMax(), now)
+			if chargeFlight then chargeFlight.Step(now) end
 			hudState.Now(os.clock())
+			hudState.Breath(os.clock())
 			weapon.Clock(os.clock())
 			hudState.Vital.Clock(os.clock())
+			hudState.Quest.Clock(os.clock())
 			-- The bar's growth, as HudController walks it.
 			local landAt = hudState.Vital.LandAt()
 			local grown = 1 - (1 - math.clamp((os.clock() - landAt) / HealthUpgrade.Timing.GROW, 0, 1)) ^ 3
@@ -766,27 +834,71 @@ return {
 			hudState.BarMax(barMax)
 			hudState.BarHealth(hudState.Health() - (max - barMax))
 		end)
+		-- The HUD's three ScreenGuis (HudController's hudRoot) as three layers, which paint in the same order.
+		local function layer(z: number, children: { Instance }): Frame
+			local frame = create("Frame")({
+				Name = "Layer" .. z,
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				ZIndex = z,
+			})
+			for _, child in children do
+				child.Parent = frame
+			end
+			return frame
+		end
+		-- Built in the HUD's own order (each card's marks are drawn at random in build order), then layered.
+		local wave = Wave.Build(hudState, ACTIONS)
+		local items = Items.Build(hudState, ACTIONS)
+		local announce = Announce.Build(hudState)
+		local upgrades = Upgrades.Build(hudState, ACTIONS)
+		local abilities, flight = Shop.Abilities(hudState, ACTIONS)
+		chargeFlight = flight
+		local hotbar = Hotbar.Build(hudState)
+		local weaponUpgrade =
+			WeaponUpgrade.Build(hudState, Upgrades.WEAPON_PICTURE, Upgrades.PICTURE_SIZE, Upgrades.PICTURE_TILT)
+		local healthUpgrade = HealthUpgrade.Build(hudState, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE)
+		-- Where the designer drew the bar over his character.
+		local healthBar = HealthBar.Build(hudState, {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(1241, 505),
+			Size = UDim2.fromOffset(200, 22),
+		})
+		local squad = Squad.Build(hudState, ACTIONS)
+		local questToast = QuestToast.Build(hudState)
 		local root = create("Frame")({
 			Name = "Root",
 			BackgroundTransparency = 1,
 			Size = UDim2.fromScale(1, 1),
-			Wave.Build(hudState, ACTIONS),
-			Items.Build(hudState, ACTIONS),
-			Announce.Build(hudState),
-			Upgrades.Build(hudState, ACTIONS),
-			Shop.Abilities(hudState, ACTIONS),
-			Hotbar.Build(hudState),
-			WeaponUpgrade.Build(hudState, Upgrades.WEAPON_PICTURE, Upgrades.PICTURE_SIZE, Upgrades.PICTURE_TILT),
-			-- Where the designer drew the bar over his character.
-			HealthUpgrade.Build(hudState, Upgrades.HEALTH_PICTURE, Upgrades.HEALTH_PICTURE_SIZE),
-			-- Where the designer drew the bar over his character.
-			HealthBar.Build(hudState, {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromOffset(1241, 505),
-				Size = UDim2.fromOffset(200, 22),
-			}),
-			Squad.Build(hudState, ACTIONS),
+			layer(1, { upgrades, abilities, hotbar, healthBar }),
+			layer(2, { wave, items }),
+			layer(
+				3,
+				{ announce, weaponUpgrade, healthUpgrade, questToast, squad, if flight then flight.Layer else nil }
+			),
 		})
+		if props.controls.Debug() then
+			-- The lines a match draws, shown long ago; kept clear of the ability column as HudController asks.
+			local lines = {}
+			for _, name in { "FPS", "PING", "SPEED", "PROJECTILES", "PARTICLES", "ENEMIES", "COINS" } do
+				table.insert(lines, {
+					Name = name,
+					Value = source("60"),
+					Color = source(Color3.fromRGB(51, 217, 128)),
+					IsUsed = source(true),
+				})
+			end
+			local debugUi = DebugInfoUI.Build({
+				Scale = source(1),
+				Now = source(os.clock()),
+				IsShown = source(true),
+				ToggledAt = source(-math.huge),
+				Lift = source(0),
+				Clear = source(Shop.CORNER),
+				Lines = lines,
+			})
+			layer(4, { debugUi }).Parent = root
+		end
 		swapImages(root)
 		return root
 	end,

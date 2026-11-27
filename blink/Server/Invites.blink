@@ -1,9 +1,21 @@
 -- To one player, once a friend's first join by their invite has paid them, in the same frame as the profile it paid:
--- the friend's display name, the Gems, and how many friends have paid them of the most that can.
--- (name, gems, friends, most)
+-- the friend's display name, the Gems, how many friends have paid them of the most that can, and whether the invite
+-- was the surprise gift's (InvitesService's Tune.GIFT_GEMS).
+-- (name, gems, friends, most, isGift)
 event Rewarded {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (string, u32, u8, u8)
+	data: (string, u32, u8, u8, boolean)
+}
+
+-- To one player on their load into the lobby while the surprise gift is still theirs to win: the Gems a friend's first
+-- join by an invite sent from its toast pays, and the seconds from now the toast comes in (once nothing covers it).
+-- No Gems: the gift was paid, and the toast is taken back.
+-- (gems, seconds)
+event Gift {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u32, u8)
 }

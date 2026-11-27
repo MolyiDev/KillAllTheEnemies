@@ -7,7 +7,7 @@ local data: TData.TPotion = {
 	Id = EPotionsIds.GoldRush,
 	Name = "Gold Rush",
 	Energies = { EEnemiesIds.Fast, EEnemiesIds.TRex },
-	Description = "Bubbles like a jackpot. More shots, and more Gold for each kill.",
+	Description = "Bubbles like a jackpot. More shots, and more gold.",
 }
 
 return table.freeze(data)

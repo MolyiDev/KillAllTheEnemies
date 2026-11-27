@@ -17,6 +17,7 @@ local WeaponController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.
 local EnemiesController = require(script.Parent.EnemiesController)
 local MatchController = require(script.Parent.MatchController)
 local TweensController = require(script.Parent.TweensController)
+local UpgradePickController = require(script.Parent.UpgradePickController)
 local burstLayers = require(script.Parent.Parent.Utils.burstLayers)
 local decoyFx = require(script.Parent.Parent.Utils.decoyFx)
 local foamFx = require(script.Parent.Parent.Utils.foamFx)
@@ -26,11 +27,13 @@ local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local AbilitiesCore = require(ReplicatedStorage.GlobalShared.Core.AbilitiesCore)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local UpgradesCore = require(ReplicatedStorage.Shared.Core.UpgradesCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local EnemyWorldRef = require(ReplicatedStorage.GlobalShared.ECS.References.EnemyWorldRef)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local sightCast = require(ReplicatedStorage.GlobalShared.Utils.sightCast)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 local TData = require(ReplicatedStorage.Types.TData)
 
@@ -78,6 +81,8 @@ export type TSlot = {
 	ReadyAt: number,
 	UsedAt: number,
 	DeniedAt: number,
+	-- Casts paid for this run, as the server last said: the slot's price.
+	Casts: number,
 }
 
 -- A beam as this client keeps it: when it lands and burns out, whether it has shaken the view for landing, and when it
@@ -105,6 +110,9 @@ AbilityController.Charge = 0
 AbilityController.ChargedAt = -math.huge
 AbilityController.BeamUntil = 0
 AbilityController.BeamSeconds = 0
+-- os.clock CHARGE NOW last filled the meter, and the kills it held before.
+AbilityController.BoughtAt = -math.huge
+AbilityController.BoughtFrom = 0
 
 local selfCharacter: Model? = nil
 local selfRoot: BasePart? = nil
@@ -138,6 +146,7 @@ local function setClass(class: TData.TClass, levels: { number })
 			ReadyAt = 0,
 			UsedAt = -math.huge,
 			DeniedAt = -math.huge,
+			Casts = 0,
 		}
 	end
 
@@ -184,6 +193,24 @@ local function castAhead(ability: TData.TAbility, root: BasePart, aim: Vector3)
 	end
 end
 
+-- What `slot`'s next cast costs, and what an ability cools for and needs, after the local player's cards, worked out
+-- as the server does.
+function AbilityController.CostOf(slot: TSlot): number
+	local price = AbilitiesCore.CastCost(slot.Ability, slot.Casts)
+	return UpgradesCore.Cost(price, UpgradePickController.GetStat(EUpgradesIds.Discount))
+end
+
+function AbilityController.CooldownOf(ability: TData.TAbility): number
+	return UpgradesCore.Cooldown(ability.Cooldown or 0, UpgradePickController.GetStat(EUpgradesIds.Haste))
+end
+
+function AbilityController.ChargeKillsOf(ability: TData.TAbility): number
+	return UpgradesCore.ChargeKills(
+		ability.ChargeKills or math.huge,
+		UpgradePickController.GetStat(EUpgradesIds.Overcharge)
+	)
+end
+
 -- Uses the ability in `slot` where the crosshair is. Refused here, for the HUD to show it, when the match is stopped,
 -- the body is down, a beam is already out, the slot is not ready or its Gold is short; the server checks them all
 -- again.
@@ -195,10 +222,11 @@ function AbilityController.Cast(slot: number)
 	local now = os.clock()
 	local gameNow = TimeCore.GameClock
 	local isStanding = root ~= nil and humanoid ~= nil and humanoid.Health > 0 and selfId ~= 0
+	local isCharged = AbilityController.Charge >= AbilityController.ChargeKillsOf(ability)
 	local isReady = if ability.Cooldown
 		then gameNow >= state.ReadyAt
-		else gameNow >= AbilityController.BeamUntil and AbilityController.Charge >= (ability.ChargeKills or math.huge)
-	local canPay = MatchController.Gold >= (ability.Cost or 0)
+		else gameNow >= AbilityController.BeamUntil and isCharged
+	local canPay = MatchController.Gold >= AbilityController.CostOf(state)
 	if TimeCore.IsPaused or not isStanding or not isReady or not canPay then
 		state.DeniedAt = now
 		return
@@ -207,7 +235,7 @@ function AbilityController.Cast(slot: number)
 	local aim = aimPoint(root :: BasePart)
 	ClientNetworkAbilities.Cast.Fire(slot, aim)
 	state.UsedAt = now
-	state.ReadyAt = gameNow + (ability.Cooldown or 0)
+	state.ReadyAt = gameNow + AbilityController.CooldownOf(ability)
 	castAhead(ability, root :: BasePart, aim)
 end
 
@@ -309,14 +337,24 @@ local function step(dt: number)
 	orbitalFx.Step(gameDt)
 end
 
-ServerNetworkAbilities.State.On(function(classId: number, levels: { number }, charge: number)
+ServerNetworkAbilities.State.On(function(classId: number, levels: { number }, casts: { number }, charge: number)
 	-- Sent as each character is ready, which is once every client knows its id: this is where the local one is read.
 	selfId = CharacterController.GetLocalCharacterId() or 0
 	setClass(AbilitiesCore.ClassOf(classId), levels)
+	for slot, state in AbilityController.Slots do
+		state.Casts = casts[slot] or 0
+	end
+
 	local ultimate = AbilityController.Slots[AbilitiesCore.UltimateSlot(AbilityController.Class)]
-	local needed = ultimate.Ability.ChargeKills or math.huge
+	local needed = AbilityController.ChargeKillsOf(ultimate.Ability)
 	if charge >= needed and AbilityController.Charge < needed then AbilityController.ChargedAt = os.clock() end
 	AbilityController.Charge = charge
+end)
+
+-- Comes just before the State that fills the meter.
+ServerNetworkAbilities.UltimateBought.On(function(from: number)
+	AbilityController.BoughtAt = os.clock()
+	AbilityController.BoughtFrom = from
 end)
 
 ServerNetworkAbilities.DecoyThrown.On(

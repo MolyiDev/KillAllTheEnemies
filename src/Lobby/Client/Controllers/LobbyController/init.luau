@@ -33,6 +33,7 @@ local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local Icons = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Icons)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Topbar = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Topbar)
+local LoadingGate = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.LoadingGate)
 local MapsCore = require(ReplicatedStorage.GlobalShared.Core.MapsCore)
 local PadsCore = require(ReplicatedStorage.Shared.Core.PadsCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
@@ -49,8 +50,10 @@ local LobbyEnteringController = require(script.Parent.LobbyEnteringController)
 local SpinsController = require(script.Parent.SpinsController)
 local QuestsController = require(script.Parent.QuestsController)
 local ShopController = require(script.Parent.ShopController)
+local InviteGiftController = require(script.Parent.InviteGiftController)
 local MutationController = require(script.Parent.MutationController)
 local RangeController = require(script.Parent.RangeController)
+local panelTop = require(script.Parent.Parent.Utils.panelTop)
 local Hud = require(script.Hud)
 local Party = require(script.Party)
 local Queue = require(script.Party.Queue)
@@ -429,8 +432,19 @@ local function updateCover()
 	local isCovered = isScreenUp()
 	local isDocked = state.IsClassesOpen() or WeaponsController.IsOpen()
 	if state.IsGemsDocked() ~= isDocked then state.IsGemsDocked(isDocked) end
-	restamp(state.IsPlateCovered, state.PlateCoveredAt, isCovered and not DailyController.IsOpen())
-	restamp(state.IsBare, state.BareAt, LobbyEnteringController.IsOpen() or state.CurrentPad() ~= 0)
+	-- The level plate stays up over the daily and codes screens: what they pay in XP flies into it.
+	restamp(
+		state.IsPlateCovered,
+		state.PlateCoveredAt,
+		isCovered and not DailyController.IsOpen() and not CodesController.IsOpen()
+	)
+	-- The Gems counter stays up over the shops, where Gems are spent and land, and goes for settings, which has no use
+	-- for it.
+	restamp(
+		state.IsBare,
+		state.BareAt,
+		LobbyEnteringController.IsOpen() or state.CurrentPad() ~= 0 or SettingsController.IsOpen()
+	)
 	if not restamp(state.IsCovered, state.CoveredAt, isCovered) then return end
 
 	RangeController.SetCovered(isCovered)
@@ -471,7 +485,6 @@ local function setClassesOpen(isOpen: boolean)
 	updateCover()
 	SoundsCore.SetMuffled("Classes", isOpen)
 	BlurController.SetBlurred("Classes", isOpen)
-	SoundsCore.PlayUINamed("UI", if isOpen then "MenuIn" else "MenuOut")
 end
 
 -- Shuts every screen the player opened; whether one was up.
@@ -587,7 +600,6 @@ local function updateChoosing()
 	updateCover()
 	SoundsCore.SetMuffled("Party", isChoosing)
 	BlurController.SetBlurred("Party", isChoosing)
-	SoundsCore.PlayUINamed("UI", if isChoosing then "MenuIn" else "MenuOut")
 
 	if not isChoosing then table.clear(dueSounds) end
 	playUnlock(opening, now + Party.UNLOCK_OPEN_DELAY)
@@ -772,7 +784,6 @@ local function setInviteOpen(isOpen: boolean)
 	end)
 	stir(now + Invite.SETTLE_SECONDS)
 	BlurController.SetBlurred("Invite", isOpen)
-	SoundsCore.PlayUINamed("UI", if isOpen then "MenuIn" else "MenuOut")
 end
 
 -- Writes what the server answered about an invite to `userId`, or takes it off with nil.
@@ -854,6 +865,8 @@ local function updateInvitation(now: number)
 		return
 	end
 
+	-- None comes on under the loading screen.
+	if not LoadingGate.IsLifted then return end
 	if #invitationQueue == 0 or now < state.InvitationGoneAt() + Invitation.LEAVE_SECONDS then return end
 	while invitationQueue[1] and not isInvitationLive(invitationQueue[1], now) do
 		table.remove(invitationQueue, 1)
@@ -897,10 +910,7 @@ local actions: Types.TLobbyActions = {
 		if not invitation or state.InvitationGoneAt() >= state.InvitationAt() then return end
 		dismissInvitation(if isJoining then "Join" else "Decline")
 		ClientNetworkLobby.AnswerInvite.Fire(invitation.Pad, isJoining)
-		if not isJoining then
-			SoundsCore.PlayUINamed("UI", "MenuOut")
-			return
-		end
+		if not isJoining then return end
 		closeScreens()
 		SoundsCore.PlayUINamed("UI.UpgradePick", "RevealEpic")
 	end,
@@ -1192,7 +1202,11 @@ local function update()
 		heldLevels = nil
 	end
 	if now >= nextDailyCall and not state.IsCovered() and isAnythingWaiting() then
-		local isFree = state.CurrentPad() == 0 and not SettingsController.IsOpen() and not CodesController.IsOpen()
+		-- Not over a receipt either: one granted on joining comes on as the loading screen lifts.
+		local isFree = state.CurrentPad() == 0
+			and not SettingsController.IsOpen()
+			and not CodesController.IsOpen()
+			and not ShopController.HasReceipt()
 		if state.IsDailyReady() and not hasOpenedDaily and isFree then
 			hasOpenedDaily = true
 			DailyController.Open()
@@ -1201,6 +1215,10 @@ local function update()
 		state.CallAt(now)
 		stir(now + math.max(DAILY_CALL_SHEEN, Hud.NOTICE_CALL_SECONDS))
 	end
+	-- The surprise gift's toast waits for the loading screen to lift, and stands aside while anything covers the lobby or
+	-- a party's invite is on show.
+	local isInvited = state.Invitation() ~= nil and state.InvitationGoneAt() < state.InvitationAt()
+	InviteGiftController.SetBlocked(not LoadingGate.IsLifted or isScreenUp() or isInvited)
 	if now >= nextPartyCall then
 		nextPartyCall = now + Party.CALL_SECONDS
 		state.PartyCallAt(now)
@@ -1469,6 +1487,7 @@ end :: TPlayerEvents.OnPlayerDisconnected
 
 LobbyController.OnStart = function()
 	CameraController.UseRobloxMouse()
+	SettingsController.SetTopReach(panelTop.Reach)
 
 	for index, part in PadsCore.GetPads() do
 		pads[index] = {
@@ -1567,13 +1586,18 @@ LobbyController.OnStart = function()
 		IsShown = isTopbarShown,
 	})
 
-	state.EnteredAt(os.clock() + ENTER_DELAY)
-	stir(state.EnteredAt() + Hud.ARRIVE_SECONDS)
-	nextDailyCall = state.EnteredAt() + Hud.ARRIVE_SECONDS
-	nextGemGlint = state.EnteredAt() + Hud.ARRIVE_SECONDS + GEM_GLINT_SECONDS
-	nextPlayCall = nextGemGlint + PLAY_CALL_OFFSET
-	if ProfileController.IsLoaded then showProfile() end
-	ProfileController.OnChanged:Connect(showProfile)
+	-- The loading screen holds until the profile is in, and the HUD comes in as it lifts, so its arrival is seen.
+	if ProfileController.IsLoaded then LoadingGate.MarkReady() end
+	ProfileController.OnChanged:Connect(LoadingGate.MarkReady)
+	LoadingGate.OnLifted(function()
+		state.EnteredAt(os.clock() + ENTER_DELAY)
+		stir(state.EnteredAt() + Hud.ARRIVE_SECONDS)
+		nextDailyCall = state.EnteredAt() + Hud.ARRIVE_SECONDS
+		nextGemGlint = state.EnteredAt() + Hud.ARRIVE_SECONDS + GEM_GLINT_SECONDS
+		nextPlayCall = nextGemGlint + PLAY_CALL_OFFSET
+		if ProfileController.IsLoaded then showProfile() end
+		ProfileController.OnChanged:Connect(showProfile)
+	end)
 	syncLevel()
 	ProfileController.OnChanged:Connect(syncLevel)
 

@@ -10,6 +10,7 @@ local vide = require(ReplicatedStorage.Packages.vide)
 local Components = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Components)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
@@ -213,7 +214,7 @@ local function row(
 		local accent = ACCENTS[(index - 1) % #ACCENTS + 1]
 		local delay = Timing.ROW_DELAY + Timing.ROW_STAGGER * (index - 1)
 		local isHovered = source(false)
-		local hover = spring(function()
+		local hover = Hand.Spring(function()
 			return if isHovered() then 1 else 0
 		end, 0.2, 0.9)
 
@@ -309,6 +310,7 @@ local function row(
 					),
 					Size = UDim2.fromOffset(100, Layout.NUMBER_SIZE),
 					TextSize = Layout.NUMBER_SIZE,
+					AutoLocalize = false,
 					Text = function()
 						return Components.Commas(math.round(member().Kills() * counted()))
 					end,
@@ -328,6 +330,7 @@ local function row(
 						local sting = stung()
 						return Palette.Pink:Lerp(Palette.White, sting * sting)
 					end,
+					AutoLocalize = false,
 					Text = function()
 						return tostring(math.round(member().Deaths() * counted()))
 					end,
@@ -338,6 +341,7 @@ local function row(
 					Size = UDim2.fromOffset(126, Layout.CASH_SIZE),
 					TextSize = Layout.CASH_SIZE,
 					TextColor3 = Palette.Gold,
+					AutoLocalize = false,
 					Text = function()
 						return `${Components.Commas(math.round(member().Cash() * counted()))}`
 					end,
@@ -369,7 +373,7 @@ end
 local function closeButton(actions: Types.TActions): TextButton
 	local isHovered = source(false)
 	local isPressed = source(false)
-	local hover = spring(function()
+	local hover = Hand.Spring(function()
 		return if isHovered() then 1 else 0
 	end, 0.22, 0.85)
 	local scale = spring(function()

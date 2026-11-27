@@ -24,3 +24,12 @@ event Claimed {
 	call: SingleAsync,
 	data: (u8, u8[], u32)
 }
+
+-- To one player, in a match (QuestProgressService): a quest just reached its goal, waiting to be claimed in the lobby.
+-- (board: 1 Daily, 2 Weekly; the quest's Id)
+event Completed {
+	from: Server,
+	type: Reliable,
+	call: SingleAsync,
+	data: (u8, u8)
+}

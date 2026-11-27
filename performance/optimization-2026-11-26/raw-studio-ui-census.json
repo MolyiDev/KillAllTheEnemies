@@ -1,0 +1,103 @@
+[
+ {
+  "top": [
+   "Vignette.FadeStill.Fade.Frame:BackgroundTransparency=2396",
+   "Command Executor.Frame.Frame.TextLabel:ContentText=257",
+   "Command Executor.Frame.Frame.TextLabel:Text=257",
+   "Holder.Revive.Face.SheenWindow.Sheen.UIGradient:Offset=193",
+   "ReviveButton.Holder.Revive.Face.SheenWindow.Sheen:BackgroundTransparency=193",
+   "Revive.Face.Caption.Frame.ImageLabel.UIScale:Scale=175",
+   "Results.Window.Chrome.Panel.Badge.Seconds:TextTransparency=146",
+   "Results.Window.Chrome.Panel.Badge.UIScale:Scale=48",
+   "Results.Window.Chrome.Panel.Bar.Fill:Size=24",
+   "Results.Window.Chrome.Panel.Badge.Seconds:Position=21",
+   "Chrome.Panel.Header.Words.Title.TextLabel:Text=3",
+   "Results.Window.Chrome.Panel.Badge.Seconds:ContentText=3",
+   "Chrome.Panel.Header.Words.Title.TextLabel:ContentText=3",
+   "Results.Window.Chrome.Panel.Badge.Seconds:Text=3",
+   "ReviveButton.Holder.Revive.Face.SheenWindow.Sheen:Visible=2"
+  ],
+  "enemies": 137,
+  "dtP95Ms": 5.59360021725297,
+  "viewport": "1919, 1080",
+  "phase": "fight-early",
+  "roots": [
+   {
+    "root": "Hud",
+    "writes": 814,
+    "framesWritten": 359,
+    "shown": 248
+   },
+   {
+    "root": "Vignette",
+    "writes": 2396,
+    "framesWritten": 599,
+    "shown": 6
+   },
+   {
+    "root": "Command Executor",
+    "writes": 514,
+    "framesWritten": 257,
+    "shown": 0
+   }
+  ],
+  "frames": 600,
+  "dtMedianMs": 4.331899806857109
+ },
+ {
+  "top": [
+   "Command Executor.Frame.Frame.TextLabel:ContentText=255",
+   "Command Executor.Frame.Frame.TextLabel:Text=255",
+   "Fade.Root.HealthBar.Well.Track.Cut:Position=191",
+   "Root.Hotbar.Health.Well.Track.Fill:Size=191",
+   "Root.Hotbar.Health.Well.Track.Cut:Position=191",
+   "Fade.Root.HealthBar.Well.Track.Fill:Size=191",
+   "FadeStill.Fade.Root.Wave.Countdown.Beat:BackgroundTransparency=167",
+   "Fade.Root.Wave.Countdown.Number.UIScale:Scale=167",
+   "Wave.Skip.SkipWave.Face.Cooldown.Frame:Size=151",
+   "Fade.Root.Wave.Countdown.Shockwave.UIStroke:Transparency=110",
+   "Fade.Root.Hotbar.GunSlot.Gun.Shadow:Rotation=86",
+   "Fade.Root.Hotbar.GunSlot.Gun.Art:Rotation=86",
+   "FadeStill.Fade.Root.Hotbar.GunSlot.UIScale:Scale=86",
+   "Root.Hotbar.Health.Well.Track.Trail:Size=58",
+   "Fade.Root.HealthBar.Well.Track.Trail:Size=58",
+   "FadeStill.Fade.Root.Wave.Countdown.UIScale:Scale=29",
+   "Fade.Root.Wave.Plate.Window.Caption:TextTransparency=15",
+   "FadeStill.Fade.Root.Wave.Countdown.Shockwave:Size=12",
+   "FadeStill.Fade.Root.Wave.Countdown.Number:Text=3",
+   "FadeStill.Fade.Root.Wave.Countdown.Number:ContentText=3",
+   "Chrome.Panel.Header.Words.Title.TextLabel:ContentText=2",
+   "Chrome.Panel.Header.Words.Title.TextLabel:Text=2",
+   "Root.Hotbar.Health.Well.Track.Trail:BackgroundColor=1",
+   "Root.Hotbar.Health.Well.Track.Trail:BackgroundColor3=1",
+   "Fade.Root.HealthBar.Well.Track.Trail:BackgroundColor3=1",
+   "Fade.Root.HealthBar.Well.Track.Trail:BackgroundColor=1"
+  ],
+  "enemies": 0,
+  "dtP95Ms": 4.9437000416219234,
+  "viewport": "1919, 1080",
+  "phase": "fight-late",
+  "roots": [
+   {
+    "root": "Hud",
+    "writes": 1361,
+    "framesWritten": 385,
+    "shown": 340
+   },
+   {
+    "root": "OwnHealth",
+    "writes": 442,
+    "framesWritten": 191,
+    "shown": 54
+   },
+   {
+    "root": "Command Executor",
+    "writes": 510,
+    "framesWritten": 255,
+    "shown": 0
+   }
+  ],
+  "frames": 600,
+  "dtMedianMs": 4.16909996420145
+ }
+]

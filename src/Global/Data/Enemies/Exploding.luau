@@ -9,7 +9,7 @@ local TData = require(ReplicatedStorage.Types.TData)
 local data: TData.TEnemy = {
 	Id = EEnemiesIds.Exploding,
 	Name = "Exploding Zombie",
-	Description = "Lights its fuse up close and blows up everything around it. Kill it before the fuse runs out.",
+	Description = "Carries its own fuse. Once it gets close, it lights up and takes everything nearby with it.",
 	ModelName = "Bomber",
 	AnimationSet = "MonsterR6",
 	Sounds = { Group = "Enemies.Zombie", Idle = "Idle", Attack = "Attack", Death = "Death" },

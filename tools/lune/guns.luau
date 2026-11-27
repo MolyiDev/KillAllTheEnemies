@@ -2,7 +2,7 @@
 -- gun of the tiers below (the last table), so each step of a run's ladder (GunsCore.Ladder) is a step up whatever
 -- the player equipped. Shots are resolved as WeaponService resolves them (GunsCore's pellets against the bodies' aim
 -- shapes, the pierce, the splash), from a player standing still who aims at the chest of the nearest body, as the aim
--- assist does. A shove is only a step back here: the second a shoved body then takes to get back up to speed
+-- assist does, with the shot lined up through the bodies behind it as the game lines it up (GunsCore.LineUp). A shove is only a step back here: the second a shoved body then takes to get back up to speed
 -- (enemiesUpdate) is not modelled, so a shoving gun holds a crowd off better than this shows. Three readings:
 --   * one Basic alone at a distance: seconds to put it down (the starters' ladder);
 --   * a crowd of the round's own mix walking in from the spawn ring, kept at a count: kills a second (the same);
@@ -23,8 +23,8 @@ local GunsCore = H.require("ReplicatedStorage/GlobalShared/Core/GunsCore")
 local EnemiesCore = H.require("ReplicatedStorage/Shared/Core/EnemiesCore")
 local RoundCore = H.require("ReplicatedStorage/Shared/Core/RoundCore")
 
--- WeaponService's Tune.LAG_PAD and KNOCKBACK_MIN_SHARE, and EnemiesService's OVERKILL_DAMAGE_RATIO: keep them in step.
-local LAG_PAD = 0.75
+-- WeaponService's Tune.KNOCKBACK_MIN_SHARE and EnemiesService's OVERKILL_DAMAGE_RATIO: keep them in step.
+local LAG_PAD = GunsCore.Tune.LAG_PAD
 local KNOCKBACK_MIN_SHARE = 0.25
 local OVERKILL_RATIO = 4
 -- An R6 body's root over its feet: the shot leaves EYE_HEIGHT above it.
@@ -102,6 +102,31 @@ local function resolve(gun, crowd, aim, seed)
 	return damage, direction
 end
 
+-- Where a shot at the chest of `target` in `crowd` goes, lined up as WeaponController lines it up (no floor or wall
+-- here). The crowd's own bodies are each one's owner.
+local shot = {
+	Bodies = bodies,
+	Owners = {},
+	Origin = EYE,
+	CastWall = function(_, vector)
+		return vector.Magnitude
+	end,
+}
+local function lineUp(gun, crowd, target)
+	bodies.Count = 0
+	for index, body in crowd do
+		GunsCore.AddBody(bodies, Vector3.new(body.x, 0, body.z), body.aim.z, body.aim.y)
+		if body == target then shot.Body = index end
+	end
+
+	shot.Owners = crowd
+	shot.Target = Vector3.new(target.x, target.aim.x, target.z)
+	shot.Pierce = gun.Pierce or 0
+	shot.Range = gun.Range
+	shot.Pad = gun.HitRadius + LAG_PAD
+	return GunsCore.LineUp(shot)
+end
+
 local function newBody(enemyData, healthScale, speedScale, x, z)
 	local health = enemyData.BaseMaxHealth * healthScale
 	return {
@@ -144,7 +169,7 @@ local function killRate(gun, round, alive, seed)
 	local random = H.Random.new(seed)
 	local healthScale, _, speedScale = RoundCore.GetScales(round)
 	local pool = {}
-	local weight = RoundCore.GetPool(round, "GrassLands", DataCore.Enemies.All, pool)
+	local weight = RoundCore.GetPool(round, "Baseplate", DataCore.Enemies.All, pool)
 	local function spawn(minRadius)
 		local enemyData = RoundCore.Draw(pool, weight, random:NextNumber())
 		local radius = random:NextNumber(minRadius, RING_MAX)
@@ -197,7 +222,7 @@ local function killRate(gun, round, alive, seed)
 			end
 		end
 
-		local damage, direction = resolve(gun, crowd, chestOf(target), seed * 7919 + shots)
+		local damage, direction = resolve(gun, crowd, lineUp(gun, crowd, target), seed * 7919 + shots)
 		for index = #crowd, 1, -1 do
 			local body = crowd[index]
 			local taken = damage[body]

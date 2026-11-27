@@ -53,6 +53,7 @@ type TShot = {
 
 type TSpark = {
 	Part: BasePart,
+	Mesh: SpecialMesh,
 	From: Vector3,
 	Velocity: Vector3,
 	Born: number,
@@ -67,6 +68,9 @@ local random = Random.new()
 local folder: Instance? = nil
 local pool: { BasePart } = {}
 local sparkPool: { BasePart } = {}
+-- Each spark part's mesh: a spark is stretched every frame of its life, and a Part.Size write costs ~5x a
+-- SpecialMesh.Scale write (performance/optimization-2026-11-26).
+local sparkMeshes: { [BasePart]: SpecialMesh } = {}
 local flying: { TShot } = {}
 local sparking: { TSpark } = {}
 local madeCount = 0
@@ -99,13 +103,21 @@ local function takeTracer(): BasePart?
 	return newPart("Tracer", Tune.COLOR, Vector3.new(Tune.WIDTH, Tune.WIDTH, Tune.LENGTH))
 end
 
+local function newSpark(): BasePart
+	local part = newPart("Spark", Tune.SPARK_COLOR, Vector3.one)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Brick
+	mesh.Parent = part
+	sparkMeshes[part] = mesh
+	return part
+end
+
 local function takeSpark(): BasePart?
 	local free = table.remove(sparkPool)
 	if free then return free end
 	if sparksMadeCount >= Tune.SPARK_LIMIT then return nil end
 	sparksMadeCount += 1
-	local size = Tune.SPARK_THICKNESS
-	return newPart("Spark", Tune.SPARK_COLOR, Vector3.new(size, size, size))
+	return newSpark()
 end
 
 -- Builds the pools under `parent`. Once, before the first shot.
@@ -118,9 +130,13 @@ function tracers.Init(parent: Instance)
 
 	for _ = 1, Tune.SPARK_POOL do
 		sparksMadeCount += 1
-		local size = Tune.SPARK_THICKNESS
-		sparkPool[#sparkPool + 1] = newPart("Spark", Tune.SPARK_COLOR, Vector3.new(size, size, size))
+		sparkPool[#sparkPool + 1] = newSpark()
 	end
+end
+
+-- Tracers in flight now (the debug readout's).
+function tracers.Flying(): number
+	return #flying
 end
 
 -- A burst of sparks out of a muzzle facing along `muzzle`'s look.
@@ -136,6 +152,7 @@ function tracers.Sparks(muzzle: CFrame, isClose: boolean)
 			* CFrame.Angles(random:NextNumber(0, cone), 0, 0)
 		sparking[#sparking + 1] = {
 			Part = part,
+			Mesh = sparkMeshes[part],
 			From = muzzle.Position,
 			Velocity = aim.LookVector * random:NextNumber(Tune.SPARK_SPEED_MIN, Tune.SPARK_SPEED_MAX),
 			Born = now,
@@ -199,7 +216,7 @@ local function stepSparks(now: number, count: number): number
 		local left = 1 - age / spark.Life
 		local thick = spark.Thickness * (0.4 + 0.6 * left)
 		local long = math.max(thick, velocity.Magnitude * Tune.SPARK_STRETCH * left)
-		spark.Part.Size = Vector3.new(thick, thick, long)
+		spark.Mesh.Scale = Vector3.new(thick, thick, long)
 		movedFrames[count] = CFrame.lookAt(at, at + velocity) * CFrame.new(0, 0, long / 2)
 	end
 

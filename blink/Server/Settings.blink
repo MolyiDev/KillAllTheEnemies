@@ -1,8 +1,9 @@
 -- To one player: their saved settings, once their profile loads.
--- (music, sound effects, menu sounds (whole percents), isCameraShakeReduced, isDragFireToAim)
+-- (music, sound effects, menu sounds (whole percents), isCameraShakeReduced, isDragFireToAim,
+-- shouldShowDamageNumbers, shouldShowDebugInfo)
 event Sync {
 	from: Server,
 	type: Reliable,
 	call: SingleAsync,
-	data: (u8, u8, u8, boolean, boolean)
+	data: (u8, u8, u8, boolean, boolean, boolean, boolean)
 }

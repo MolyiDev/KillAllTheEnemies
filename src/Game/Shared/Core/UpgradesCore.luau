@@ -1,6 +1,7 @@
 -- The rules of the run upgrades, pure so both sides agree without being told and the numbers can be checked in lune:
--- what a card adds, how a hand of three is dealt, what a redeal costs. UpgradesService deals and applies them; the
--- client reads the same tables for what a card says.
+-- what a card adds, how a hand of three is dealt, what a redeal costs, and what the ability and walk cards make of the
+-- numbers they change. UpgradesService deals and applies them; the client reads the same tables for what a card says
+-- and what its HUD shows.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -19,6 +20,11 @@ UpgradesCore.SHOW_SECONDS = 1.6
 UpgradesCore.REROLL_PRICE = 50
 -- Armor never takes off more than this share of a blow.
 UpgradesCore.MAX_ARMOR = 0.6
+-- Discount never takes off more than this share of an ability's price.
+UpgradesCore.MAX_DISCOUNT = 0.5
+-- Speed never adds more than this share to the walk (22 to 30.8 studs a second): the boss warnings are measured
+-- against a 22 stud/s player, and the fastest enemy already runs 20.
+UpgradesCore.MAX_SPEED = 0.4
 
 -- A rarer card is the same upgrade with more of it. The rarity is rolled for each card as it is dealt.
 UpgradesCore.MULTIPLIERS = table.freeze({
@@ -50,6 +56,26 @@ end
 -- The card's line: its own amount, as the player reads it.
 function UpgradesCore.Describe(data: TData.TUpgrade, rarity: number): string
 	return string.format(data.Description, math.floor(UpgradesCore.Amount(data, rarity) * data.PercentScale + 0.5))
+end
+
+-- An ability's cooldown after Haste: divided, so it shortens less with each pick and never reaches 0.
+function UpgradesCore.Cooldown(seconds: number, haste: number): number
+	return seconds / (1 + haste)
+end
+
+-- An ability's gold price after Discount, in whole gold as the HUD shows it.
+function UpgradesCore.Cost(gold: number, discount: number): number
+	return math.floor(gold * (1 - math.min(discount, UpgradesCore.MAX_DISCOUNT)) + 0.5)
+end
+
+-- The kills an ultimate needs after Overcharge, whole since the meter counts kills.
+function UpgradesCore.ChargeKills(kills: number, overcharge: number): number
+	return math.ceil(kills / (1 + overcharge))
+end
+
+-- What the body's walk is multiplied by after Speed.
+function UpgradesCore.WalkScale(speed: number): number
+	return 1 + math.min(speed, UpgradesCore.MAX_SPEED)
 end
 
 -- Gold the next redeal of a hand costs, after `rerolls` of it.

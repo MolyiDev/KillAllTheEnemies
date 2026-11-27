@@ -27,8 +27,6 @@ local SWAPS = {
 	[Icons.Pictures.SurvivorVest.Image] = ROOT .. "rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "hud/Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "hud/PanelTexture.png",
-	[Parts.PICTURES.PirateCove] = ROOT .. "party/maps/PirateCove.png",
-	[Parts.PICTURES.GrassLands] = ROOT .. "party/maps/GrassLands.png",
 }
 -- Offline there are no avatar thumbnails: the head is drawn as the rendered player bust instead.
 local HEAD = Icons.Pictures.Player

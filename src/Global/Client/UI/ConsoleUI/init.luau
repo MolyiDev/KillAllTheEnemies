@@ -207,15 +207,25 @@ local function app()
 
 	local nextCursorPosition: false | number = false
 
+	-- Seconds since the console was built, ticked only while a command runs: the spinner is shown only then, and a
+	-- clock ticking every frame for nothing rewrote its label every other frame (performance/optimization-2026-11-26).
 	local loadingDt = source(0)
 	local loadingSteps = { "-", "/", "|", "\\" }
-	local loadingThread = task.spawn(function()
-		while true do
-			loadingDt(loadingDt() + task.wait())
-		end
+	local builtAt = os.clock()
+	local loadingThread: thread? = nil
+	effect(function()
+		if not working() then return end
+		if loadingThread then task.cancel(loadingThread) end
+		loadingThread = task.defer(function()
+			while working() do
+				loadingDt(os.clock() - builtAt)
+				task.wait()
+			end
+			loadingThread = nil
+		end)
 	end)
 	cleanup(function()
-		task.cancel(loadingThread)
+		if loadingThread then task.cancel(loadingThread) end
 	end)
 
 	local inputText = source("")

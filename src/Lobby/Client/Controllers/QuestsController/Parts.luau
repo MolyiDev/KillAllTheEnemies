@@ -6,6 +6,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local vide = require(ReplicatedStorage.Packages.vide)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
+local QuestLook = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.QuestLook)
 local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
 local panelTop = require(script.Parent.Parent.Parent.Utils.panelTop)
 local Types = require(script.Parent.Types)
@@ -33,37 +34,22 @@ Parts.Timing = table.freeze({
 	SETTLED = 1.6,
 })
 
--- A card's accent by its quest's group, as his: green, steel, violet, pink and gold cards. A card's edge is its accent
--- a little darker; the glow is the accent itself.
-Parts.ACCENTS = table.freeze({
-	Slay = Palette.Green,
-	Hunt = Palette.Steel,
-	Survive = Palette.Violet,
-	Boss = Palette.Pink,
-	Skill = Palette.Gold,
-})
-Parts.EDGE_SHARE = 0.85
+-- A card's accent by its quest's group. A card's edge is its accent a little darker; the glow is the accent itself.
+Parts.ACCENTS = QuestLook.ACCENTS
+Parts.EdgeOf = QuestLook.EdgeOf
 -- His claimed card: the accent gone to a grey violet.
 Parts.CLAIMED = Color3.fromRGB(100, 88, 116)
--- His bars: pink while it fills, green once it is full, a deep green once it is claimed, on a dark lavender track.
-Parts.BAR_FILLING = Color3.fromRGB(251, 47, 142)
-Parts.BAR_FULL = Color3.fromRGB(52, 224, 131)
-Parts.BAR_CLAIMED = Color3.fromRGB(38, 130, 89)
-Parts.BAR_TRACK = Color3.fromRGB(58, 50, 86)
--- The reward's colour on each board: his gold Daily, his blue Weekly.
-Parts.REWARD_COLORS = table.freeze({ Palette.Gold, Color3.fromRGB(89, 191, 255) })
--- A card's scroll tile: the card's dark face, warmed toward its accent where it is drawn.
-Parts.TILE_FACE = Color3.fromRGB(19, 19, 40)
+Parts.BAR_FILLING = QuestLook.BAR_FILLING
+Parts.BAR_FULL = QuestLook.BAR_FULL
+Parts.BAR_CLAIMED = QuestLook.BAR_CLAIMED
+Parts.BAR_TRACK = QuestLook.BAR_TRACK
+Parts.REWARD_COLORS = QuestLook.REWARD_COLORS
+Parts.TILE_FACE = QuestLook.TILE_FACE
 -- His thin rule under the tabs.
 Parts.RULE = Color3.fromRGB(60, 38, 88)
--- His dark plaque (IN PROGRESS, CLAIMED, the tab not on show): a dim pink edge round an ink face.
-Parts.PLAQUE_EDGE = Color3.fromRGB(116, 26, 72)
-Parts.PLAQUE_FACE = Color3.fromRGB(10, 7, 21)
-
-function Parts.EdgeOf(accent: Color3): Color3
-	local share = Parts.EDGE_SHARE
-	return Color3.new(accent.R * share, accent.G * share, accent.B * share)
-end
+-- His dark plaque (IN PROGRESS, CLAIMED, the tab not on show).
+Parts.PLAQUE_EDGE = QuestLook.PLAQUE_EDGE
+Parts.PLAQUE_FACE = QuestLook.PLAQUE_FACE
 
 function Parts.Label(props: { [any]: any }): TextLabel
 	return create("TextLabel")({

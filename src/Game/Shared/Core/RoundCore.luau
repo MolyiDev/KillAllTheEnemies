@@ -122,10 +122,9 @@ function RoundCore.GetBoss(
 	isReady: ((TData.TEnemy) -> boolean)?
 ): TData.TEnemy?
 	local map = MapsCore.MAPS[mapName]
-	local bosses = if map then map.Bosses elseif mapName == MapsCore.DEFAULT then MapsCore.DEFAULT_BOSSES else nil
-	if not bosses then return nil end
+	if not map then return nil end
 	local ready: { TData.TEnemy } = {}
-	for _, id in bosses do
+	for _, id in map.Bosses do
 		local enemyData = byId[id]
 		if enemyData and (not isReady or isReady(enemyData)) then ready[#ready + 1] = enemyData end
 	end

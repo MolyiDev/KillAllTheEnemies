@@ -149,6 +149,7 @@ local Queue: any = {
 }
 
 export type Client_Characters_CharacterInstanceId_Type = number
+export type Client_Characters_Player_Type = Player
 export type Client_Defenses_DataId_Type = number
 export type Client_Defenses_Vec_Type = Vector3
 export type Client_Weapons_Vec_Type = Vector3
@@ -197,6 +198,8 @@ return {
 		},
 		Characters = {
 			CharacterInstanceId = {
+			},
+			Player = {
 			},
 		},
 		PlayerSync = {

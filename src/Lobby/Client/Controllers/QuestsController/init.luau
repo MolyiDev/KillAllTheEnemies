@@ -155,7 +155,6 @@ function QuestsController.Open()
 	stir(Screen.DEAL_SECONDS)
 	SoundsCore.SetMuffled("Quests", true)
 	BlurController.SetBlurred("Quests", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function QuestsController.Close()
@@ -164,7 +163,6 @@ function QuestsController.Close()
 	stamp(state.ToggledAt, os.clock())
 	SoundsCore.SetMuffled("Quests", false)
 	BlurController.SetBlurred("Quests", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function refuse(slot: number)

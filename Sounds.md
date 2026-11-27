@@ -980,6 +980,32 @@ held trigger of every gun with its hits and kills (`beds`), the boss's cues at t
 - **Save a bank's lines before rewriting them.** The first before / after render read the already-written bank for
   "before" and played the new mix twice; `Review/Mix/before.json` holds the old lines, `mix.py --before` reads them.
 
+### The surprise gift toast (2026-11-26, `Assets/sounds/Review/InviteGift/`, D Retro Zap shipped)
+
+- **A cue the user names is reused as is, everything else gets its own.** The toast comes in on the quest card's arrive
+  (`UI.UpgradePick` `Deal`, "I like its sound of coming out, so it can be reused"). Borrowing the quest's COMPLETE stamp
+  for its Gems as well was sent back: "no, get new sounds other than the 'coming in' sound".
+- **A button is never given a sound of its own.** Every `Components.Button` plays the universal hover and click
+  (`Components.ButtonSounds`). A borrowed cue stacked on INVITE and the X, then a round of new candidates for them, drew
+  "Don't come up with new click / hover sounds, use the universal ones that the ui is already using". A UI piece's
+  review covers only its own moments (an arrival, a stamp, a reward landing), never its presses.
+- **Most Pixel Combat families no review has used are hiss.** `survey.py` measured 33 of them: over half are past 50%
+  energy above 6.5 kHz (Coin Toss, Metallic Item, Chirps, Generic Consume near 100%). Survey before naming candidates;
+  the usable mid-range ones left are Generic Use, Tonal Item, Retro Zap, Coin Zap, Tonal Click, Energy Riser, Bubbly
+  Gather, Casting Buff and Pew Laser.
+- The stamp's level, -11, is a UI confirmation, under the quest's COMPLETE (-8.5): the Gems are on offer, not paid.
+
+### The match's potions banner and souls (2026-11-26, `Assets/sounds/Review/MatchMutation/`, D Potion Brew and A Zapbubble shipped)
+
+- **A count that stacks is a bag, not a climb.** The soul chip borrowed the upgrade pick's Tick, sped up 6% a soul in a
+  row from code; the pick (four Zapbubble takes, rolled) replaced it, played as authored.
+- **zapsplat's `Attach_Single_Block_Base` 1 and 4 rattle** (13 and 8 clicks over 0.7 and 0.9 s): as a snap under a
+  short take they doubled its length. Takes 2, 3 and 5 are one click each.
+- **A HUD moment driven by the server is filmed whole**: rur's loopback runs the real controller while a server harness
+  fires its real Blink events (`tools/uimatt/MatchMutation.story.luau` and `.harness.luau`); each event's frame is
+  read off the trace (the chip's punch), and the sounds are laid on there.
+- Levels: the banner -11 (a UI confirmation once a run), a soul -15 (the kill coin's, 2 dB under a kill).
+
 ### Sources
 
 - The library at `/mnt/HDD/Assets/Sounds` gained the user's packs on 2026-11-21: `Balloon/`, `Rubber/`, `Plastic/`,

@@ -3,8 +3,8 @@
 --
 -- THE WARNING IS THE HITBOX: what resolves is exactly the shape sent as the ground warning, same centre, same size,
 -- same floor (TelegraphCore's footprint), same moment. Once shown it resolves on schedule even if its caster is
--- staggered, frozen, knocked away or killed (GDD 13), except an exploding zombie killed during its fuse, whose warning
--- is taken back.
+-- staggered, frozen, knocked away or killed (GDD 13), except an exploding zombie killed during its fuse and a boss,
+-- whose warnings are taken back: its moves stop with it (BossController lets their sounds and effects go).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -198,7 +198,7 @@ local function resolve(entry: TPending)
 		hitArea(entry)
 		-- It is gone with the blast, credited to nobody: a blast is not a kill a player earned.
 		EnemiesService.Kill(nil, entry.Entity, 0)
-	elseif kind == "Slam" or kind == "Dive" then
+	elseif kind == "Slam" or kind == "Dive" or kind == "Pounce" or kind == "Brood" then
 		hitArea(entry)
 	elseif kind == "Shockwave" or kind == "Summon" then
 		table.insert(rings, {
@@ -217,11 +217,11 @@ local function resolve(entry: TPending)
 	ServerNetworkEnemies.TelegraphEnded.FireAll(entry.TelegraphId)
 end
 
--- Kill-to-cancel: a fuse whose body is gone takes its warning back with it.
+-- Kill-to-cancel: a fuse or a boss whose body is gone takes its warnings back with it.
 EnemiesService.OnEnemyRemoving:Connect(function(entity)
 	for i = #pending, 1, -1 do
 		local entry = pending[i]
-		if entry.Entity ~= entity or entry.Attack.Kind ~= "Explode" then continue end
+		if entry.Entity ~= entity or (entry.Attack.Kind ~= "Explode" and not entry.Warning.IsBoss) then continue end
 		ServerNetworkEnemies.TelegraphEnded.FireAll(entry.TelegraphId)
 		table.remove(pending, i)
 		table.remove(warnings, i)

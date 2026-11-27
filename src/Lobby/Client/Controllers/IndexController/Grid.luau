@@ -84,8 +84,6 @@ local Timing = table.freeze({
 	-- The header's word slides in as the page changes.
 	TITLE = 0.25,
 	TITLE_SLIDE = 14,
-	-- Under the hand a card's enemy turns to face you.
-	HOVER_TURN = 28,
 	-- A reveal, from the moment the enemy starts coming through: the card pops, flashes and throws a ring.
 	POP_PERIOD = 0.28,
 	POP_DAMPING = 0.5,
@@ -251,9 +249,7 @@ local function enemyCard(
 				Lit = lit,
 				-- Under the hand it turns to face you and walks.
 				Moving = hand.IsHovered,
-				Yaw = function()
-					return Timing.HOVER_TURN * hand.Rise()
-				end,
+				Face = hand.Rise,
 			}, {
 				Name = "Enemy",
 				AnchorPoint = Vector2.new(0.5, 0.5),

@@ -4,6 +4,7 @@
 -- WAIT_FOR_PARTY_SECONDS. A join with no token (Studio, a follow) is a party of one on the easy map. The first
 -- arrival's token picks the map (arenaMap), so every map is played in this one place.
 local AdService = game:GetService("AdService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -39,7 +40,6 @@ local Tags = require(ReplicatedStorage.GlobalShared.ECS.Tags)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local getCharacterEntityFromPlayer =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterEntityFromPlayer)
-local getCharacterIdFromPlayer = require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterIdFromPlayer)
 local EPlaceIds = require(ReplicatedStorage.Types.Enums.EPlaceIds)
 local EProducts = require(ReplicatedStorage.Types.Enums.EProducts)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -48,6 +48,7 @@ local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 local TProfile = require(ReplicatedStorage.Types.TProfile)
 
 local ServerNetworkGame = Network.Server.Game
+local ClientNetworkCharacters = Network.Client.Characters
 local ServerNetworkEnemies = Network.Server.Enemies
 local ServerNetworkRounds = Network.Server.Rounds
 local ClientNetworkGame = Network.Client.Game
@@ -138,6 +139,9 @@ local dataPlayers: { [Player]: boolean } = {}
 local readyPlayers: { [Player]: boolean } = {}
 local takenTokens: { [string]: TJoinData.TMessage } = {}
 local teleportTries: { [Player]: number } = {}
+-- Players whose return to the lobby is on its way. A second TeleportAsync for one of them errors ("already in
+-- progress"), so LEAVE pressed again, or the countdown running out after it, asks for nothing.
+local returning: { [Player]: boolean } = {}
 local scores: { [Player]: TScore } = {}
 -- TimeCore.GameClock the squad screen's lines next go out at.
 local nextScoresAt = 0
@@ -155,6 +159,11 @@ local playAgainVotes: { [Player]: boolean } = {}
 local wasHeld = false
 -- Players bought back up whose new body is not ready yet: nobody stands, and it is not a wipe.
 local reviving: { [Player]: boolean } = {}
+-- Players the `killtest` command downed: down, but not a wipe even alone, until they are revived.
+local testDowns: { [Player]: boolean } = {}
+-- The downed player each buyer last picked to revive (themselves or a squadmate), for the receipt
+-- (EProducts.QuickRevive).
+local reviveTargets: { [Player]: Player } = {}
 
 local function getAllEnemyIds(): { number }
 	local ids = table.create(#DataCore.Enemies.All)
@@ -275,6 +284,8 @@ local function resetRun()
 	table.clear(buying)
 	table.clear(playAgainVotes)
 	table.clear(reviving)
+	table.clear(testDowns)
+	table.clear(reviveTargets)
 	RoundService.Stop()
 	EnemyMovementService.IsRunning = false
 	EnemyAttacksService.Reset()
@@ -282,24 +293,25 @@ local function resetRun()
 	DefenseService.ClearAll()
 end
 
--- Studio's loop, and the fallback when there is no lobby: clear the arena, bring everyone back, play again.
+-- PLAY AGAIN, Studio's loop and the fallback when there is no lobby: clear the arena and start over from nothing,
+-- every player on a fresh body where the map spawns them.
 function MatchService.Restart()
 	resetRun()
 	MatchService.State = EMatchState.Waiting
 
-	-- Only a character still standing with an id counts as ready; the revived register again through
-	-- OnCharacterReady, which calls tryStart.
-	for player in readyPlayers do
-		if not getCharacterIdFromPlayer(player) or not CharacterService.IsAlive(player) then
-			readyPlayers[player] = nil
-		end
-	end
+	-- Every body is replaced: each registers again through OnCharacterReady, which calls tryStart.
+	table.clear(readyPlayers)
 
-	-- The results held the clock: the revived are spawned under a running one.
+	-- The results held the clock: the new bodies are spawned under a running one.
 	TimeService.SetTimeScale(1)
-	CharacterService.ReviveDead()
+	CharacterService.RespawnAll()
 	isWaitOver = true
 	tryStart()
+end
+
+-- The `killtest` command: `player` stays down without ending the run, even alone, until something revives them.
+function MatchService.HoldDown(player: Player)
+	testDowns[player] = true
 end
 
 -- A bought Gold pack: `amount` run Gold to `player`, and the show of it arriving to everybody. Both go out in one
@@ -309,11 +321,30 @@ function MatchService.GrantGold(player: Player, amount: number)
 	ServerNetworkGame.GoldBought.FireAll(player, amount)
 end
 
--- One player at a time, so one who cannot be teleported does not hold back the rest.
+local function isRunOver(): boolean
+	return MatchService.State == EMatchState.Ended or MatchService.State == EMatchState.Returning
+end
+
+-- Counts a failed return. True when it may be tried again; past RETURN_RETRIES the player is kicked with a message,
+-- since the run is over and cleared and there is nothing left to keep them in.
+local function countFailedReturn(player: Player): boolean
+	returning[player] = nil
+	local tries = (teleportTries[player] or 0) + 1
+	teleportTries[player] = tries
+	if tries <= Tune.RETURN_RETRIES then return true end
+	player:Kick("Could not get you back to the lobby. Please rejoin.")
+	return false
+end
+
+-- One player at a time, so one who cannot be teleported does not hold back the rest. A call that errors is tried
+-- again a moment later, as is one that fails after it returned (TeleportInitFailed).
 local function teleportToLobby(player: Player)
-	if not player.Parent then return end
+	if not player.Parent or returning[player] or not isRunOver() then return end
+	returning[player] = true
 	local ok, err = pcall(TeleportService.TeleportAsync, TeleportService, EPlaceIds.Lobby, { player })
-	if not ok then warn(`[MatchService] return of {player.Name} to the lobby failed: {err}`) end
+	if ok then return end
+	warn(`[MatchService] return of {player.Name} to the lobby failed: {err}`)
+	if countFailedReturn(player) then task.delay(Tune.RETURN_RETRY_SECONDS, teleportToLobby, player) end
 end
 
 local function returnToLobby()
@@ -436,7 +467,7 @@ local function endMatch()
 end
 
 local function checkWiped()
-	if MatchService.State ~= EMatchState.Running or next(reviving) ~= nil then return end
+	if MatchService.State ~= EMatchState.Running or next(reviving) ~= nil or next(testDowns) ~= nil then return end
 	if CharacterService.CountAlive() > 0 then return end
 	endMatch()
 end
@@ -554,6 +585,7 @@ MatchService.OnPlayerDisconnected = function(player: Player)
 	dataPlayers[player] = nil
 	readyPlayers[player] = nil
 	teleportTries[player] = nil
+	returning[player] = nil
 	scores[player] = nil
 	bestAtStart[player] = nil
 	bonusGems[player] = nil
@@ -561,6 +593,8 @@ MatchService.OnPlayerDisconnected = function(player: Player)
 	buying[player] = nil
 	playAgainVotes[player] = nil
 	reviving[player] = nil
+	testDowns[player] = nil
+	reviveTargets[player] = nil
 	-- Leaving can be what makes the rest of the party "everyone", or what leaves nobody standing.
 	task.defer(tryStart)
 	task.defer(checkWiped)
@@ -570,6 +604,7 @@ end :: TPlayerEvents.OnPlayerDisconnected
 CharacterService.OnCharacterReady:Connect(function(_, player: Player)
 	readyPlayers[player] = true
 	reviving[player] = nil
+	testDowns[player] = nil
 	tryStart()
 end)
 
@@ -609,8 +644,8 @@ EnemiesService.OnEnemyDied:Connect(function(_, enemyData: TData.TEnemy)
 	end
 end)
 
--- After a clear, every player who is down is offered a revive for the next round, and every player here has earned
--- its Xp (RoundService pays all of them), a boss wave's as BOSSES on the lobby's record.
+-- After a clear, every player here has earned its Xp (RoundService pays all of them), a boss wave's as BOSSES on the
+-- lobby's record.
 RoundService.OnRoundCleared:Connect(function(round: number)
 	local _, _, xpPercent = RoundCore.GetClearRewards(round)
 	local isBoss = RoundCore.IsBossRound(round)
@@ -623,25 +658,38 @@ RoundService.OnRoundCleared:Connect(function(round: number)
 		elseif run then
 			run.XpWaves += paidXp
 		end
-
-		if EProducts.Revive ~= 0 and not CharacterService.IsAlive(player) then
-			ServerNetworkRounds.ReviveOffer.Fire(player, EProducts.Revive)
-		end
 	end
 end)
 
--- Charged only when it can be fulfilled: the buyer is down, in a running match or under the results, where it
--- picks the held run back up.
-PurchasesService.Register(EProducts.Revive, function(player: Player)
-	local state = MatchService.State
-	if state ~= EMatchState.Running and state ~= EMatchState.Ended then return false, nil end
-	if CharacterService.IsAlive(player) then return false, nil end
-	return true,
-		function()
-			if MatchService.State == EMatchState.Ended then resumeMatch(player) end
-			CharacterService.Spawn(player)
-		end
+-- The wave's kills done: everybody down stands back up for free, as the upgrade hands are dealt (UpgradesService deals
+-- a revived player's once their body is built).
+RoundService.OnRoundKilled:Connect(function()
+	if MatchService.State ~= EMatchState.Running then return end
+	CharacterService.ReviveDead()
 end)
+
+-- The results' revive, once the whole squad is down: charged only there, where it picks the held run back up. Both
+-- revives wait for the purchase dialog's OK, so the player sees the body built instead of the dialog over it.
+PurchasesService.Register(EProducts.Revive, function(player: Player)
+	if MatchService.State ~= EMatchState.Ended then return false, nil end
+	if CharacterService.IsAlive(player) then return false, nil end
+	return true, function()
+		resumeMatch(player)
+		CharacterService.Revive(player)
+	end
+end, true)
+
+-- A revive during the run, the buyer's own or a squadmate's: charged only while the one they picked is still down in a
+-- running match (a free revive at the wave's end may have beaten the receipt).
+PurchasesService.Register(EProducts.QuickRevive, function(player: Player)
+	local target = reviveTargets[player]
+	if MatchService.State ~= EMatchState.Running then return false, nil end
+	if not target or not target.Parent or CharacterService.IsAlive(target) then return false, nil end
+	return true, function()
+		reviveTargets[player] = nil
+		CharacterService.Revive(target)
+	end
+end, true)
 
 -- DOUBLE YOUR GEMS: as many Gems again as the buyer's play has earned this run and not doubled yet. Charged only
 -- under the results, and only for the product that amount is priced at.
@@ -669,6 +717,9 @@ registerDoubleGems(EProducts.DoubleGemsSmall)
 registerDoubleGems(EProducts.DoubleGemsMedium)
 registerDoubleGems(EProducts.DoubleGemsLarge)
 
+-- The HUD's items and Gold packs wait for the purchase dialog's OK, as the revives do, so what they do plays in front of
+-- the buyer instead of under the dialog.
+--
 -- Charged only with something to kill. The buyer is the killer, so the kills pay their Gold. The blast starts at the
 -- buyer, or at a squad mate when the buyer is down.
 PurchasesService.Register(EProducts.NukeAll, function(player: Player)
@@ -686,9 +737,10 @@ PurchasesService.Register(EProducts.NukeAll, function(player: Player)
 
 			local origin = if root then root.Position else Vector3.zero
 			ServerNetworkGame.NukedAll.FireAll(player, origin, EnemiesService.GetCount())
+			UpgradesService.HoldForNuke()
 			EnemiesService.KillAll(buyerEntity, origin)
 		end
-end)
+end, true)
 
 PurchasesService.Register(EProducts.HealAll, function(player: Player)
 	if MatchService.State ~= EMatchState.Running then return false, nil end
@@ -696,7 +748,17 @@ PurchasesService.Register(EProducts.HealAll, function(player: Player)
 		ServerNetworkGame.HealedAll.FireAll(player)
 		CharacterService.HealAll()
 	end
-end)
+end, true)
+
+-- CHARGE NOW: charged only while the buyer's meter has room and no beam is out, in a running match (ResetRun empties it).
+PurchasesService.Register(EProducts.ChargeUltimate, function(player: Player)
+	if MatchService.State ~= EMatchState.Running or not AbilityService.CanFillUltimate(player) then
+		return false, nil
+	end
+	return true, function()
+		AbilityService.FillUltimate(player, true)
+	end
+end, true)
 
 -- Run Gold, so only during a run: before it starts, ResetRun would wipe it.
 local function registerGoldPack(productId: number, amount: number)
@@ -705,13 +767,23 @@ local function registerGoldPack(productId: number, amount: number)
 		return true, function()
 			MatchService.GrantGold(player, amount)
 		end
-	end)
+	end, true)
 end
 
 registerGoldPack(EProducts.GoldPackSmall, 1000)
 registerGoldPack(EProducts.GoldPackLarge, 99999)
 
--- The client's listeners are up. Nothing to validate: it only gates the start for this player.
+-- A revive during the run picked: the buyer's own or a squadmate's, that player down in a running match. The pick is
+-- kept for the receipt (on this server only: the run is), then the product is prompted.
+ClientNetworkCharacters.Revive.On(function(player: Player, target: Player)
+	if EProducts.QuickRevive == 0 or MatchService.State ~= EMatchState.Running then return end
+	if not target.Parent or CharacterService.IsAlive(target) then return end
+	reviveTargets[player] = target
+	MarketplaceService:PromptProductPurchase(player, EProducts.QuickRevive)
+end)
+
+-- The client's loading screen has its assets in and its listeners are up. Nothing to validate: it only gates the
+-- start for this player.
 ClientNetworkGame.GameLoaded.On(function(player: Player)
 	loadedPlayers[player] = true
 	resendScores()
@@ -795,11 +867,14 @@ end)
 -- the player for, so it tries again, a few times, a moment later.
 TeleportService.TeleportInitFailed:Connect(function(player: Player, result: Enum.TeleportResult, message: string)
 	warn(`[MatchService] teleport of {player.Name} failed: {result.Name} {message}`)
-	if MatchService.State ~= EMatchState.Ended and MatchService.State ~= EMatchState.Returning then return end
-	local tries = (teleportTries[player] or 0) + 1
-	teleportTries[player] = tries
-	if tries > Tune.RETURN_RETRIES then return end
-	task.delay(Tune.RETURN_RETRY_SECONDS, teleportToLobby, player)
+	if not returning[player] then return end
+	-- A revive picked the run back up meanwhile: they stay, and may leave again from the next results.
+	if not isRunOver() then
+		returning[player] = nil
+		return
+	end
+
+	if countFailedReturn(player) then task.delay(Tune.RETURN_RETRY_SECONDS, teleportToLobby, player) end
 end)
 
 return Ignis.Register(MatchService)

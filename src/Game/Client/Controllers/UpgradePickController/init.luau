@@ -57,6 +57,9 @@ local UpgradePickController = {}
 UpgradePickController.IsCovering = source(false)
 -- The server has this player out of the fight for a pick (Tags.Picking): from the deal until the card taken has left.
 UpgradePickController.IsPicking = false
+-- A screen stands over the cards (the squad, the settings; HudController says which). The cards read the mouse
+-- themselves, past the full-screen catch that eats every press, so they would take that screen's clicks too.
+UpgradePickController.IsOverlaid = false
 
 local Tune = table.freeze({
 	-- Design px between two cards' middles, and how far under the screen's middle they stand (his rects).
@@ -376,7 +379,11 @@ local function close(now: number)
 end
 
 local function canInput(now: number): boolean
-	return phase == "Open" and now >= inputFrom and not askedIndex and not rerollTo
+	return phase == "Open"
+		and now >= inputFrom
+		and not askedIndex
+		and not rerollTo
+		and not UpgradePickController.IsOverlaid
 end
 
 -- Asks the server for card `index` of the hand. The card answers the hand at once; it is taken when the server says.
@@ -698,7 +705,7 @@ local function step(dt: number)
 	screen.Clock(math.huge)
 	screen.IsEnabled(false)
 	stage:SetParent(nil)
-	CameraController.IsMouseFreed = false
+	CameraController.SetMouseFreed("UpgradePick", false)
 	ContextActionService:UnbindAction("UpgradePick")
 
 	-- After the curtain, so the body's light is not dimmed under it.
@@ -777,7 +784,7 @@ local function open(newHand: THand)
 	stage:SetParent(Workspace.CurrentCamera)
 	screen.IsEnabled(true)
 	screen.IsCatching(true)
-	CameraController.IsMouseFreed = true
+	CameraController.SetMouseFreed("UpgradePick", true)
 	SoundsCore.SetMuffled("UpgradePick", true)
 	SoundsCore.PlayUINamed(SOUNDS, "Open")
 	ContextActionService:BindActionAtPriority(

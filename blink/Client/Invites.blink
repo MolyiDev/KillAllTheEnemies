@@ -1,0 +1,8 @@
+-- The surprise gift's toast (InvitesService): turned down with its X. Whether it was offered and how many times it may
+-- be turned down are the server's.
+event DeclineGift {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: ()
+}

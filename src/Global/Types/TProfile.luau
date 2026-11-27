@@ -1,7 +1,7 @@
 -- The saved profile. Run state (Gold, run upgrades, placed defenses) is never in here: it lives in the match server's
 -- memory and is gone when the run ends.
 
--- Highest round per map and party category ("PirateCove:Solo", "GrassLands:Squad").
+-- Highest round per map and party category ("Baseplate:Solo", "Baseplate:Squad").
 export type TRecord = {
 	HighestReached: number,
 	HighestCompleted: number,
@@ -114,6 +114,11 @@ export type TMutation = {
 	BrewsBought: number?,
 }
 
+export type TInviteGift = {
+	IsPaid: boolean,
+	Declines: number,
+}
+
 export type TProfile = {
 	Version: number,
 	Gems: number,
@@ -162,6 +167,9 @@ export type TProfile = {
 	-- The friends whose first join by this player's invite paid them (InvitesService), by user id, oldest first. Nil
 	-- until the first.
 	InvitedFriends: { number }?,
+	-- The lobby's surprise gift (InvitesService): whether a friend's join by an invite from its toast has paid it, and
+	-- how many times its toast was turned down. Nil until either.
+	InviteGift: TInviteGift?,
 	Achievements: { [string]: number },
 	Records: { [string]: TRecord },
 	-- How many times this player was in the run as a boss fell, by map Name: what opens the map after it (MapsCore).
@@ -191,6 +199,8 @@ export type TProfile = {
 		MenuSoundsVolume: number?,
 		IsCameraShakeReduced: boolean?,
 		IsDragFireToAim: boolean?,
+		ShouldShowDamageNumbers: boolean?,
+		ShouldShowDebugInfo: boolean?,
 	},
 }
 

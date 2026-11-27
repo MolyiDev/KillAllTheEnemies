@@ -10,6 +10,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local CharacterController = require(script.Parent.CharacterController)
+local GraphicsQualityController = require(script.Parent.GraphicsQualityController)
 local WeaponController = require(script.Parent.WeaponController)
 local targetHits = require(script.Parent.Parent.Utils.targetHits)
 local Theme = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Theme)
@@ -181,9 +182,17 @@ type TPopup = {
 	Stacks: number,
 	Drift: number,
 	TiltDeg: number,
+	-- What the label's Rotation and its text and stroke Transparency were last written to: both hold still between the
+	-- punch and the fade, and an unchanged write is still a reflection call (performance/optimization-2026-11-26).
+	ShownRotation: number,
+	ShownTransparency: number,
 }
 
 local DamageNumbersController = {}
+
+-- The settings screen's DAMAGE NUMBERS switch (SettingsController). Off, no blow shows a number; a kill's Gold still
+-- does, since it is pay, not damage.
+DamageNumbersController.IsDamageShown = true
 
 local popups: { TPopup } = table.create(Tune.MAX_POPUPS)
 local lastGold: TPopup? = nil
@@ -191,6 +200,11 @@ local selfCharacterId: number? = nil
 local ownSpawns = 0
 local allySpawns = 0
 local viewportScale = 1
+-- The reaches and per-frame caps at this graphics scale (GraphicsQualityController), refreshed as it moves.
+local ownDistance = Tune.OWN_DISTANCE
+local allyDistance = Tune.ALLY_DISTANCE
+local maxOwnSpawns = Tune.MAX_OWN_SPAWNS_PER_FRAME
+local maxAllySpawns = Tune.MAX_ALLY_SPAWNS_PER_FRAME
 local driftSide = 1
 local random = Random.new()
 
@@ -199,8 +213,8 @@ screenGui.Name = "FloatingNumbers"
 -- WorldToViewportPoint counts from the top of the window, under the topbar too.
 screenGui.IgnoreGuiInset = true
 screenGui.ResetOnSpawn = false
--- Under the HUD: a number never covers a button.
-screenGui.DisplayOrder = -1
+-- Under the HUD's three roots (HudController, -2 to 0): a number never covers a button.
+screenGui.DisplayOrder = -3
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local function newPopup(): TPopup
@@ -241,6 +255,8 @@ local function newPopup(): TPopup
 		Stacks = 0,
 		Drift = 0,
 		TiltDeg = 0,
+		ShownRotation = 0,
+		ShownTransparency = 0,
 	}
 end
 
@@ -309,6 +325,7 @@ end
 local function spawn(style: TStyle, anchor: Vector3, amount: number, delaySeconds: number): TPopup
 	local popup = take()
 	popup.IsLive = true
+	if not screenGui.Enabled then screenGui.Enabled = true end
 	popup.Anchor = anchor
 	popup.Age = -delaySeconds
 	popup.Amount = amount
@@ -354,18 +371,16 @@ local function anchorOf(bodyId: number, attackerId: number, at: Vector3, halfWid
 end
 
 local function showBlow(attackerId: number, damage: number, anchor: Vector3, style: TStyle)
-	if damage < 0.5 then return end
+	if damage < 0.5 or not DamageNumbersController.IsDamageShown then return end
 
 	if not isOwn(attackerId) then
-		if allySpawns >= Tune.MAX_ALLY_SPAWNS_PER_FRAME or not isWorthShowing(anchor, Tune.ALLY_DISTANCE) then
-			return
-		end
+		if allySpawns >= maxAllySpawns or not isWorthShowing(anchor, allyDistance) then return end
 		allySpawns += 1
 		spawn(Styles.Ally, anchor, damage, 0)
 		return
 	end
 
-	if ownSpawns >= Tune.MAX_OWN_SPAWNS_PER_FRAME or not isWorthShowing(anchor, Tune.OWN_DISTANCE) then return end
+	if ownSpawns >= maxOwnSpawns or not isWorthShowing(anchor, ownDistance) then return end
 	ownSpawns += 1
 	spawn(style, anchor, damage, 0)
 end
@@ -385,7 +400,7 @@ function DamageNumbersController.ShowGold(position: Vector3, amount: number)
 		return
 	end
 
-	if not isWorthShowing(anchor, Tune.OWN_DISTANCE) then return end
+	if not isWorthShowing(anchor, ownDistance) then return end
 	lastGold = spawn(Styles.Gold, anchor, amount, Tune.GOLD_DELAY)
 end
 
@@ -418,8 +433,10 @@ local function update(dt: number)
 	local now = os.clock()
 	-- Faded with every screen's UI for a cutscene.
 	local shown = UiFade.Shown()
+	local liveCount = 0
 	for _, popup in popups do
 		if not popup.IsLive then continue end
+		liveCount += 1
 		local style = popup.Style
 		popup.Age += dt
 		local age = popup.Age
@@ -461,15 +478,26 @@ local function update(dt: number)
 			* stampScale(popup.PunchFrom, punch)
 			* (1 - Tune.FADE_SHRINK * fade)
 		label.Position = UDim2.fromOffset(x, y)
-		label.Rotation = popup.TiltDeg * (Tune.TILT_SETTLED + (1 - Tune.TILT_SETTLED) * (1 - punch))
+		local rotation = popup.TiltDeg * (Tune.TILT_SETTLED + (1 - Tune.TILT_SETTLED) * (1 - punch))
+		if rotation ~= popup.ShownRotation then
+			popup.ShownRotation = rotation
+			label.Rotation = rotation
+		end
 
 		local isWhite = popup.PunchAge < Tune.WHITE_SECONDS
 		if popup.Gradient.Enabled == isWhite then popup.Gradient.Enabled = not isWhite end
 		local transparency = 1 - (1 - style.BaseTransparency) * (1 - fade) * shown
-		label.TextTransparency = transparency
-		popup.Stroke.Transparency = transparency
+		if transparency ~= popup.ShownTransparency then
+			popup.ShownTransparency = transparency
+			label.TextTransparency = transparency
+			popup.Stroke.Transparency = transparency
+		end
 		if not label.Visible then label.Visible = true end
 	end
+
+	-- Off while nothing shows: a touch device walks every enabled ScreenGui each frame (1.26 ms over 116 calls on a
+	-- Samsung A13, performance/runui-2026-11-09). spawn switches it back on.
+	if liveCount == 0 and screenGui.Enabled then screenGui.Enabled = false end
 end
 
 targetHits.Damaged:Connect(function(bodyId: number, attackerId: number, damage: number, at: Vector3, halfWidth: number?)
@@ -483,7 +511,17 @@ targetHits.Killed:Connect(
 	end
 )
 
+local function applyGraphicsScale()
+	local scale = GraphicsQualityController.Scale()
+	ownDistance = Tune.OWN_DISTANCE * scale
+	allyDistance = Tune.ALLY_DISTANCE * scale
+	maxOwnSpawns = math.max(1, math.round(Tune.MAX_OWN_SPAWNS_PER_FRAME * scale))
+	maxAllySpawns = math.max(1, math.round(Tune.MAX_ALLY_SPAWNS_PER_FRAME * scale))
+end
+
 DamageNumbersController.OnStart = function()
+	applyGraphicsScale()
+	GraphicsQualityController.OnChanged:Connect(applyGraphicsScale)
 	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 	refreshViewportScale()
 	Camera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshViewportScale)

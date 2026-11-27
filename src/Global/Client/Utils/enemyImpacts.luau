@@ -14,6 +14,7 @@ local Workspace = game:GetService("Workspace")
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local TData = require(ReplicatedStorage.Types.TData)
+local fxBudget = require(script.Parent.fxBudget)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")
 
@@ -455,9 +456,10 @@ local function fire(pool: TBurstPool, look: TBodyLook, frame: CFrame)
 
 	burst.Attachment.CFrame = frame
 	local least, most = pool.Least, pool.Most
+	local at = burst.Attachment.WorldPosition
 	for i, emitter in emitters do
 		local low, high = least[i], most[i]
-		emitter:Emit(if low == high then low else random:NextInteger(low, high))
+		fxBudget.Emit(emitter, if low == high then low else random:NextInteger(low, high), at)
 	end
 end
 

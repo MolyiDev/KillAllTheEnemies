@@ -6,6 +6,9 @@ export type TJoin = {
 	}?,
 	-- Set by Roblox on a join through a player's invite or referral link: that player's user id (0 or nil for none).
 	ReferredByPlayerId: number?,
+	-- Set by Roblox from the invite's ExperienceInviteOptions.LaunchData: the surprise gift's tag on an invite sent from
+	-- its toast (InvitesService).
+	LaunchData: string?,
 }
 
 export type TMessage = {

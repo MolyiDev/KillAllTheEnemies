@@ -143,15 +143,30 @@ local table_clear = table.clear
 -- Center-bucket shapes need an extent-expanded broad phase. Keep metadata out of
 -- Records so packing/iteration still sees only entity IDs. Removed large shapes
 -- may leave a conservative upper bound until Reset or the next full decode.
-type QueryBounds = { x: number, z: number, recursive: boolean }
+-- A centre-bucketed shape wider than LARGE_SHARE of a cell (a boss among a crowd) does not widen that bound: it is kept
+-- in `large` and tested once per query after the cell walk, which skips it. Widening every query by one boss's extent
+-- made each crowd collision query walk ~2.5x the cells for the rest of the match (+41% on the enemy tick,
+-- performance/optimization-2026-11-26).
+local LARGE_SHARE = 0.5
+type QueryBounds = {
+	x: number,
+	z: number,
+	recursive: boolean,
+	large: { [EntityId]: boolean },
+	largeCount: number,
+}
 local queryExtents: { [Records]: QueryBounds } = setmetatable({}, { __mode = "k" }) :: any
-local function trackExtents(records: Records, hx: number, hz: number, recursive: boolean?)
+local function boundsOf(records: Records): QueryBounds
 	local bounds = queryExtents[records]
 	if not bounds then
-		bounds = { x = 0, z = 0, recursive = false }
+		bounds = { x = 0, z = 0, recursive = false, large = {}, largeCount = 0 }
 		queryExtents[records] = bounds
 	end
 
+	return bounds
+end
+local function trackExtents(records: Records, hx: number, hz: number, recursive: boolean?)
+	local bounds = boundsOf(records)
 	if recursive then
 		bounds.recursive = true
 	else
@@ -159,9 +174,28 @@ local function trackExtents(records: Records, hx: number, hz: number, recursive:
 		bounds.z = max(bounds.z, hz)
 	end
 end
-local function getExtents(records: Records)
+-- A centre-bucketed shape: tracked as large past LARGE_SHARE of a cell, otherwise in the bound.
+local function trackCentred(self: SpatialHash, entity: EntityId, hx: number, hz: number)
+	if max(hx, hz) <= self.CELL_SIZE * LARGE_SHARE then
+		trackExtents(self.Records, hx, hz)
+		return
+	end
+
+	local bounds = boundsOf(self.Records)
+	if bounds.large[entity] then return end
+	bounds.large[entity] = true
+	bounds.largeCount += 1
+end
+local function untrackLarge(records: Records, entity: EntityId)
 	local bounds = queryExtents[records]
-	if bounds then return bounds.x, bounds.z, bounds.recursive end
+	if not bounds or not bounds.large[entity] then return end
+	bounds.large[entity] = nil
+	bounds.largeCount -= 1
+end
+-- The bound to widen a query by, whether shapes span cells, and the large set (nil when empty).
+local function getExtents(records: Records): (number, number, boolean, { [EntityId]: boolean }?)
+	local bounds = queryExtents[records]
+	if bounds then return bounds.x, bounds.z, bounds.recursive, if bounds.largeCount > 0 then bounds.large else nil end
 
 	-- Public static queries may receive an independently constructed Records map.
 	local hx, hz = 0, 0
@@ -175,7 +209,7 @@ local function getExtents(records: Records)
 		end
 	end
 
-	return hx, hz, true
+	return hx, hz, true, nil
 end
 
 local function ihash(ix: number, iz: number): number
@@ -466,7 +500,7 @@ function SpatialHash.Reset(self: SpatialHash, cellSize: number?, coarseFactor: n
 	table_clear(self.CoarseBuckets)
 	table_clear(self.Records)
 	table_clear(self.RecordsInfo)
-	queryExtents[self.Records] = { x = 0, z = 0, recursive = false }
+	queryExtents[self.Records] = { x = 0, z = 0, recursive = false, large = {}, largeCount = 0 }
 end
 
 function SpatialHash.AddPoint(self: SpatialHash, entity: EntityId, position: vector)
@@ -478,7 +512,7 @@ end
 
 function SpatialHash.AddAABB(self: SpatialHash, entity: EntityId, position: vector, halfSize: vector)
 	if self.Records[entity] then return end
-	trackExtents(self.Records, halfSize.x, halfSize.z)
+	trackCentred(self, entity, halfSize.x, halfSize.z)
 	self.Records[entity] = {
 		x = position.x,
 		y = position.y,
@@ -493,7 +527,7 @@ end
 
 function SpatialHash.AddCircle(self: SpatialHash, entity: EntityId, position: vector, radius: number)
 	if self.Records[entity] then return end
-	trackExtents(self.Records, radius, radius)
+	trackCentred(self, entity, radius, radius)
 	self.Records[entity] = {
 		x = position.x,
 		y = position.y,
@@ -646,6 +680,7 @@ end
 function SpatialHash.Remove(self: SpatialHash, entity: EntityId)
 	local record = self.Records[entity]
 	if record == nil then return end
+	untrackLarge(self.Records, entity)
 	local info = self.RecordsInfo[entity]
 	if info == nil then
 		if record.shape ~= EShape.Point then
@@ -745,7 +780,7 @@ function SpatialHashStatic.QueryAABB(
 		minZ, maxZ = maxZ, minZ
 	end
 
-	local hx, hz, recursive = getExtents(records)
+	local hx, hz, recursive, large = getExtents(records)
 	local seen = if recursive then {} else nil
 	local minIx, minIz = cellIndexSize(minX - hx, minZ - hz, size)
 	local maxIx, maxIz = cellIndexSize(maxX + hx, maxZ + hz, size)
@@ -791,6 +826,7 @@ function SpatialHashStatic.QueryAABB(
 			if rel == ERelation.Inside and not recursive then
 				for i = #bucket, 1, -1 do
 					local entity = bucket[i]
+					if large and large[entity] then continue end
 					if not seen or not seen[entity] then
 						if seen then seen[entity] = true end
 						func(entity)
@@ -799,6 +835,7 @@ function SpatialHashStatic.QueryAABB(
 			else
 				for i = #bucket, 1, -1 do
 					local entity = bucket[i]
+					if large and large[entity] then continue end
 					if seen then
 						if seen[entity] then continue end
 						seen[entity] = true
@@ -841,6 +878,29 @@ function SpatialHashStatic.QueryAABB(
 			end
 		end
 	end
+
+	if not large then return end
+	for entity in large do
+		local rec = records[entity]
+		if not rec then continue end
+		if rec.shape == EShape.Circle then
+			local r = (rec :: RecordCircle).radius
+			if circleVsAABB(rec.x, rec.z, r * r, minX, maxX, minZ, maxZ) then func(entity) end
+		elseif
+			aabbVsAABB(
+				rec.x - (rec :: RecordAABB).halfx,
+				rec.x + (rec :: RecordAABB).halfx,
+				rec.z - (rec :: RecordAABB).halfz,
+				rec.z + (rec :: RecordAABB).halfz,
+				minX,
+				maxX,
+				minZ,
+				maxZ
+			)
+		then
+			func(entity)
+		end
+	end
 end
 
 function SpatialHashStatic.QueryRadius(
@@ -854,7 +914,7 @@ function SpatialHashStatic.QueryRadius(
 ): ()
 	local r2 = radius * radius
 	local minx, maxx, minz, maxz = cx - radius, cx + radius, cz - radius, cz + radius
-	local hx, hz, recursive = getExtents(records)
+	local hx, hz, recursive, large = getExtents(records)
 	local seen = if recursive then {} else nil
 	local minIx, minIz = cellIndexSize(minx - hx, minz - hz, size)
 	local maxIx, maxIz = cellIndexSize(maxx + hx, maxz + hz, size)
@@ -900,6 +960,7 @@ function SpatialHashStatic.QueryRadius(
 			if rel == ERelation.Inside and not recursive then
 				for i = #bucket, 1, -1 do
 					local entity = bucket[i]
+					if large and large[entity] then continue end
 					if not seen or not seen[entity] then
 						if seen then seen[entity] = true end
 						func(entity)
@@ -908,6 +969,7 @@ function SpatialHashStatic.QueryRadius(
 			else
 				for i = #bucket, 1, -1 do
 					local entity = bucket[i]
+					if large and large[entity] then continue end
 					if seen then
 						if seen[entity] then continue end
 						seen[entity] = true
@@ -939,6 +1001,27 @@ function SpatialHashStatic.QueryRadius(
 					end
 				end
 			end
+		end
+	end
+
+	if not large then return end
+	for entity in large do
+		local record = records[entity]
+		if not record then continue end
+		if record.shape == EShape.Circle then
+			if circleVsCircle(record.x, record.z, (record :: RecordCircle).radius, cx, cz, radius) then func(entity) end
+		elseif
+			circleVsAABB(
+				cx,
+				cz,
+				r2,
+				record.x - (record :: RecordAABB).halfx,
+				record.x + (record :: RecordAABB).halfx,
+				record.z - (record :: RecordAABB).halfz,
+				record.z + (record :: RecordAABB).halfz
+			)
+		then
+			func(entity)
 		end
 	end
 end
@@ -1331,12 +1414,11 @@ function SpatialHashStatic.UnpackRecords(buf: buffer): Records
 	local n = buffer.readu16(buf, 0)
 	local out = table_create(n) :: Records
 	local off = HEADER
-	local bounds = queryExtents[out]
-	if not bounds then
-		bounds = { x = 0, z = 0, recursive = false }
-		queryExtents[out] = bounds
-	end
+	-- Decoded shapes all widen the bound (none goes in the large set), which is exact, only slower for a wide one.
+	local bounds = boundsOf(out)
 	bounds.x, bounds.z = 0, 0
+	table_clear(bounds.large)
+	bounds.largeCount = 0
 
 	for _ = 1, n do
 		if off + 15 > lenBuf then break end
@@ -1383,12 +1465,11 @@ function SpatialHashStatic.UnpackRecordsInto(buf: buffer, reuse: Records, epochs
 
 	local n = buffer.readu16(buf, 0)
 	local off = HEADER
-	local bounds = queryExtents[reuse]
-	if not bounds then
-		bounds = { x = 0, z = 0, recursive = false }
-		queryExtents[reuse] = bounds
-	end
+	-- Decoded shapes all widen the bound (none goes in the large set), which is exact, only slower for a wide one.
+	local bounds = boundsOf(reuse)
 	bounds.x, bounds.z = 0, 0
+	table_clear(bounds.large)
+	bounds.largeCount = 0
 
 	for _ = 1, n do
 		if off + 15 > lenBuf then break end

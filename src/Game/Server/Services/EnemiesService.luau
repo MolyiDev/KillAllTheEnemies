@@ -21,8 +21,10 @@ local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
 local IdGenerator = require(ReplicatedStorage.GlobalShared.Utils.IdGenerator)
 local getPlayerFromCharacterEntity =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getPlayerFromCharacterEntity)
+local upgradeStats = require(script.Parent.Parent.Utils.upgradeStats)
 local EConfigKeys = require(ReplicatedStorage.Types.Enums.EConfigKeys)
 local EGenerator = require(ReplicatedStorage.Types.Enums.EGenerator)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
@@ -121,6 +123,13 @@ end
 local function getKillerPlayer(inflictorEntity: jecs.Entity<any>?): Player?
 	if not inflictorEntity or not World:contains(inflictorEntity) then return nil end
 	return getPlayerFromCharacterEntity(inflictorEntity)
+end
+
+-- The Damage card is on every blow its player deals, whatever deals it (a gun, an ability, a turret in its owner's
+-- name), so it is laid on here, where they all land, and on nothing else.
+local function withDamageCard(inflictorEntity: jecs.Entity<any>?, damage: number): number
+	local player = getKillerPlayer(inflictorEntity)
+	return if player then damage * (1 + upgradeStats.Get(player, EUpgradesIds.Damage)) else damage
 end
 
 -- `landed` is what the blow took off, never past what the boss had left, so the parts add up to its bar.
@@ -402,7 +411,7 @@ function EnemiesService.Damage(
 	local enemyData = EnemyWorld:get(enemyEntity, Components.Data)
 	if not currentHealth or not enemyData then return nil end
 
-	damage *= EnemyWorld:get(enemyEntity, Components.Brittle) or 1
+	damage = withDamageCard(inflictorEntity, damage) * (EnemyWorld:get(enemyEntity, Components.Brittle) or 1)
 	if enemyData.IsBoss then creditBoss(inflictorEntity, math.min(damage, currentHealth)) end
 	currentHealth -= damage
 	if currentHealth <= 0 then
@@ -486,6 +495,7 @@ function EnemiesService.DamageMultiple(
 	enemyEntities: { jecs.Entity<any> },
 	damage: number
 ): number
+	damage = withDamageCard(inflictorEntity, damage)
 	table.clear(reusableBrittle)
 	local killCount, brittleScale = damageBatch(inflictorEntity, enemyEntities, damage, false)
 	if #reusableBrittle > 0 then

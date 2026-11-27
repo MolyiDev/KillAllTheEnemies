@@ -27,7 +27,21 @@ export type TEnemyModel = Model & {
 --   Dive    sinks into the floor (nothing can hit it), runs under it, steering after its target, and bursts up
 --           under them in a circle of Radius.
 --   Summon  roars (a ring of Radius at Speed to jump) and raises Count bodies of Summons, shielded until they fall.
-export type TEnemyAttackKind = "Melee" | "Explode" | "Slam" | "Shockwave" | "Charge" | "Dive" | "Summon"
+--   Pounce  crouches and leaps onto where its target is going, landing in a circle of Radius (Speed: its flight's
+--           studs a second over the floor).
+--   Brood   hauls itself up out of reach on a web line and hangs there while Count bodies of Summons lie round the
+--           arena; any still standing after ShieldSeconds hatch Hatch bodies of HatchType each, then it drops back down
+--           onto its belly in a circle of Radius.
+export type TEnemyAttackKind =
+	"Melee"
+	| "Explode"
+	| "Slam"
+	| "Shockwave"
+	| "Charge"
+	| "Dive"
+	| "Summon"
+	| "Pounce"
+	| "Brood"
 
 -- Where a boss's close attack reaches round its body; it is taken only on a target it would catch (BossService).
 --   Front   whoever is in the front arc (BossesCore's arcs), its head turned onto them.
@@ -94,15 +108,39 @@ export type TEnemyAttack = {
 	Summons: number?,
 	Count: number?,
 	ShieldSeconds: number?,
-	-- Summon: made each time its health share falls under one of these (a blow past two is one roar). nil: once.
+	-- Summon or Brood: made each time its health share falls under one of these (a blow past two is one). nil: once.
 	HealthLines: { number }?,
+	-- A crowd body's attack clip: seconds into it the blow lands, when not EnemiesCore.ATTACK_CLIP_IMPACT (a clip made
+	-- for a boss, played by a small one). It is played faster or slower to land it on Delay.
+	ClipImpact: number?,
+	-- A Slam made of several shapes round the body instead of one (a blade's line each, a stab's circle each), each
+	-- landing at its own clip second and shown Delay before it. Spots are in the body's frame, studs: +X its left,
+	-- +Z ahead. Its Shape and Width are each strike's.
+	Strikes: { TEnemyStrike }?,
+	-- A Volley's glob leaves a web patch this wide for this long where it lands, slowing whoever walks in it.
+	PatchRadius: number?,
+	PatchSeconds: number?,
+	-- Brood: how many bodies of HatchType each sac still standing at the end lets out.
+	Hatch: number?,
+	HatchType: number?,
+}
+
+-- One shape of a Slam's Strikes: a Line from From to To, or a Circle round From.
+export type TEnemyStrike = {
+	At: number,
+	From: Vector3,
+	To: Vector3?,
 }
 
 export type TEnemy = {
 	Id: number,
 	Name: string,
-	-- One or two plain sentences for the lobby's index: what it does and how to answer it.
+	-- One or two plain sentences for the lobby's index: what it is and what it does, never how to beat it. Three lines
+	-- of the index's panel at most (about 110 letters).
 	Description: string,
+	-- The index's words for what it does, in place of its attacks' kinds (IndexController Parts.AttackWords): for a
+	-- boss whose moves share one kind that names none of them.
+	IndexTags: { string }?,
 	-- Rig under ReplicatedStorage.Models.Enemies. A name rather than the instance, so the data loads before the
 	-- model has been put in the place (EnemiesCore.GetModel resolves it).
 	ModelName: string,
@@ -144,6 +182,12 @@ export type TEnemy = {
 	AnimationSet: string,
 	-- A boss's fight past its attacks (BossService, BossController); nil for an ordinary body.
 	Boss: TEnemyBoss?,
+	-- Its rig played at this size (the template ScaleTo'd once on each client, clips with it): a small kind of a big
+	-- rig. nil: as put in the place.
+	ModelScale: number?,
+	-- Its legs are stood and walked by the game's IK (Client/Utils/spiderLegs) wherever its Idle is all it plays: no
+	-- walk clip, each foot steps onto the floor where it is.
+	HasLegIK: boolean?,
 	-- Its own Highlight lit in this colour while it lives (a guard's glow), at BossesCore.GLOW_TRANSPARENCY. Never a
 	-- Highlight of its own (EnemiesCore.MAX_ALIVE).
 	Glow: Color3?,
@@ -221,6 +265,20 @@ export type TEnemyBoss = {
 	-- The Death clip: on the floor at DeathDown, and lasting DeathLength (then held on its last frame).
 	DeathDown: number,
 	DeathLength: number,
+	-- A Pounce's clips: PounceCrouch leaves the floor at PounceLeave; PounceLand lasts PounceLandLength from the landing.
+	PounceLeave: number?,
+	PounceLandLength: number?,
+	-- A Brood's clips: BroodRise shoots its line up at BroodShoot and is out of reach from BroodUp, lasting
+	-- BroodRiseLength; BroodDrop lands at BroodLand and lasts BroodDropLength. Its line hangs from BroodThread over
+	-- Root (its own frame, studs).
+	BroodShoot: number?,
+	BroodUp: number?,
+	BroodRiseLength: number?,
+	BroodLand: number?,
+	BroodDropLength: number?,
+	BroodThread: Vector3?,
+	-- Its spinnerets, in the Tail bone's frame (studs): where its line and its globs come out.
+	Spinnerets: Vector3?,
 	-- The intro (its Intro clip): how long the match is held for it, and its beats.
 	Intro: TEnemyBossIntro,
 }
@@ -230,15 +288,16 @@ export type TEnemyBossIntro = {
 	-- (BossesCore.INTRO_SHOTS: the delivered RootPart's ground point, in studs at the size it is played).
 	Length: number,
 	ShotsAhead: number,
-	-- Feet landing in the walk-in (seconds into the clip, the side "l" or "r"), the stomp, the roar, the chomp, and the
-	-- frame it holds on.
-	Steps: { { Time: number, Side: string } },
+	-- The T-Rex's beats (BossIntroController's own for any other): feet landing in the walk-in (seconds into the clip,
+	-- the side "l" or "r"), the stomp, the roar, the chomp.
+	Steps: { { Time: number, Side: string } }?,
 	-- When the neck's hunt starts: its sound (Sounds.Bosses.TRex.Hunt) is one file played from there.
-	Hunt: number,
-	Stomp: number,
-	StompSide: string,
-	Roar: number,
-	Chomp: number,
+	Hunt: number?,
+	Stomp: number?,
+	StompSide: string?,
+	-- The clip slows to BossesCore.ROAR_SPEED here (BossesCore.IntroClock); nil: never.
+	Roar: number?,
+	Chomp: number?,
 	-- The clip ends settled into the Idle: its last frame is the Idle clip's frame at this time, where the Idle takes
 	-- over with nothing left to blend.
 	IdleAt: number,
@@ -396,8 +455,11 @@ export type TAbility = {
 	Name: string,
 	-- What it does, in a line, for the lobby's classes screen.
 	Description: string?,
-	-- Run Gold each cast costs. An ultimate has none: it is paid for in kills (ChargeKills).
+	-- Run Gold the first cast of a run costs. An ultimate has none: it is paid for in kills (ChargeKills).
 	Cost: number?,
+	-- What each cast adds to the next one's price, and what each cast adds to that step (AbilitiesCore.CastCost).
+	CostStep: number?,
+	CostStepGrowth: number?,
 	-- Seconds between two casts. An ultimate has none: it fills from kills (ChargeKills).
 	Cooldown: number?,
 	ChargeKills: number?,

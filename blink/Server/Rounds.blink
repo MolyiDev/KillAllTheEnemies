@@ -49,14 +49,6 @@ event Rewards {
 	data: (u16, u32, u32, f32)
 }
 
--- To a player who is down after a clear: the revive he may buy for the next round. (productId)
-event ReviveOffer {
-	from: Server,
-	type: Reliable,
-	call: SingleAsync,
-	data: (f64)
-}
-
 -- The way to the next boss: (its boss round, bodies killed on it, bodies it takes). Its boss comes once the run's kills
 -- reach the bodies of every wave up to its round, whichever bodies fell; the waves not opened yet are counted for the
 -- party as it stands. Sent as it moves, at most ten times a second, and full from then until that boss falls.

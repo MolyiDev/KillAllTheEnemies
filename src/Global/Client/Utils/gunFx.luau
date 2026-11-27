@@ -16,6 +16,7 @@ local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local motorParts = require(script.Parent.Parent.Parent.GlobalClient.Utils.motorParts)
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local EnemyImpacts = require(script.Parent.Parent.Parent.GlobalClient.Utils.enemyImpacts)
+local fxBudget = require(script.Parent.fxBudget)
 
 local Effects = ReplicatedStorage:WaitForChild("Effects")
 
@@ -569,7 +570,7 @@ local function emit(emitters: { ParticleEmitter }, least: { number }, most: { nu
 	for i, emitter in emitters do
 		local low, high = least[i], most[i]
 		local count = if low == high then low else random:NextInteger(low, high)
-		if count > 0 then emitter:Emit(count) end
+		if count > 0 then fxBudget.Emit(emitter, count) end
 	end
 end
 
@@ -864,7 +865,7 @@ local function dropTrail(flight: TFlight, shape: TBullet, head: number)
 	local perStud = count / (flight.Speed * shape.TrailLife)
 	while nextAt <= head do
 		at.Position = from + unit * nextAt
-		trails[math.min(math.floor((head - nextAt) * perStud) + 1, count)]:Emit(1)
+		fxBudget.Emit(trails[math.min(math.floor((head - nextAt) * perStud) + 1, count)], 1, at.Position)
 		nextAt += every
 	end
 	flight.NextTrail = nextAt

@@ -11,12 +11,14 @@ local CharacterService = require(script.Parent.CharacterService)
 local EconomyService = require(script.Parent.EconomyService)
 local EnemiesService = require(script.Parent.EnemiesService)
 local MatchService = require(script.Parent.MatchService)
+local QuestProgressService = require(script.Parent.QuestProgressService)
 local RoundService = require(script.Parent.RoundService)
 local TimeService = require(script.Parent.TimeService)
 local UpgradesService = require(script.Parent.UpgradesService)
 local WeaponService = require(script.Parent.WeaponService)
 local ArenaCore = require(ReplicatedStorage.Shared.Core.ArenaCore)
 local RoundCore = require(ReplicatedStorage.Shared.Core.RoundCore)
+local QuestsCore = require(ReplicatedStorage.GlobalShared.Core.QuestsCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
@@ -51,6 +53,24 @@ local function getGunId(name: string): number?
 	end
 
 	return nil
+end
+
+-- The players a command's `who` names: the caller when empty, everybody for "all", else every player whose name or
+-- display name starts with it (any case).
+local function getTargets(who: string?): { Player }
+	local caller = getContextPlayer()
+	if not who or who == "" then return if caller then { caller } else {} end
+	local wanted = string.lower(who)
+	if wanted == "all" then return Players:GetPlayers() end
+	local found = {}
+	for _, player in Players:GetPlayers() do
+		local name, display = string.lower(player.Name), string.lower(player.DisplayName)
+		if string.sub(name, 1, #wanted) == wanted or string.sub(display, 1, #wanted) == wanted then
+			table.insert(found, player)
+		end
+	end
+
+	return found
 end
 
 local function onOff(isOn: boolean): string
@@ -141,7 +161,7 @@ end
 local function registerBossMove()
 	Conch.register("bossmove", {
 		permissions = { PERMISSION_DEV },
-		description = "Make the boss up take a move next: chomp, tailsweep, stomp, quake, charge, barrage, barrage4, dive, summon.",
+		description = "Make the boss up take a move next. T-Rex: chomp, tailsweep, stomp, quake, charge, barrage, barrage4, dive, summon. Spider: scythecross, scytheflurry, impale, impale2, pounce, webvolley, webvolley5, brood.",
 		arguments = function()
 			return args.string("move", "The move: its clip's name or its kind.")
 		end,
@@ -237,6 +257,28 @@ local function registerGun()
 	})
 end
 
+-- `quest <daily|weekly|all>` finishes the board's quests as if played, so their notices come up in the HUD.
+local function registerQuest()
+	Conch.register("quest", {
+		permissions = { PERMISSION_DEV },
+		description = "Complete your daily or weekly quests, or both, and see their notices.",
+		arguments = function()
+			return CommandTypes.questBoardOrAll("board", "Daily, weekly, or all.")
+		end,
+		callback = function(target: string)
+			local player = getContextPlayer()
+			if not player then return end
+			local kind: QuestsCore.TBoardKind? = nil
+			for _, boardKind in QuestsCore.BOARDS do
+				if string.lower(boardKind) == target then kind = boardKind end
+			end
+
+			local finished = QuestProgressService.Complete(player, kind)
+			Conch.log("normal", `Completed {finished} quest(s).`)
+		end,
+	})
+end
+
 local function registerGold()
 	Conch.register("gold", {
 		permissions = { PERMISSION_DEV },
@@ -308,6 +350,65 @@ local function registerGod()
 	})
 end
 
+-- Down as a blow would down them: the body falls to bricks, and the run goes on (or ends, if nobody is left standing).
+local function registerKill()
+	Conch.register("kill", {
+		permissions = { PERMISSION_DEV },
+		description = "Down a player: you, a name, or all.",
+		arguments = function()
+			return args.optional(args.string("who", "A player's name (its start), or all. Default: you."))
+		end,
+		callback = function(who: string?)
+			local count = 0
+			for _, player in getTargets(who) do
+				local characterEntity = getCharacterEntityFromPlayer(player)
+				if not characterEntity then continue end
+				CharacterService.Kill(characterEntity)
+				count += 1
+			end
+			Conch.log("normal", `Downed {count} player(s).`)
+		end,
+	})
+end
+
+-- Down without ending the run, even alone, to see being down (spectating, the plate, REVIVE) until `revive`.
+local function registerKillTest()
+	Conch.register("killtest", {
+		permissions = { PERMISSION_DEV },
+		description = "Go down without ending the run, even alone; `revive` brings you back.",
+		arguments = function() end,
+		callback = function()
+			local player = getContextPlayer()
+			if not player then return end
+			local characterEntity = getCharacterEntityFromPlayer(player)
+			if not characterEntity then return end
+			MatchService.HoldDown(player)
+			CharacterService.Kill(characterEntity)
+			Conch.log("normal", "Down (the run goes on). `revive` to come back.")
+		end,
+	})
+end
+
+-- Back up as a wave's end or a bought revive brings a player: rebuilt where the body fell.
+local function registerRevive()
+	Conch.register("revive", {
+		permissions = { PERMISSION_DEV },
+		description = "Revive a downed player: you, a name, or all.",
+		arguments = function()
+			return args.optional(args.string("who", "A player's name (its start), or all. Default: you."))
+		end,
+		callback = function(who: string?)
+			local count = 0
+			for _, player in getTargets(who) do
+				if CharacterService.IsAlive(player) then continue end
+				task.spawn(CharacterService.Revive, player)
+				count += 1
+			end
+			Conch.log("normal", `Reviving {count} player(s).`)
+		end,
+	})
+end
+
 -- A hand of upgrade cards without clearing a wave, for seeing the pick. Only during a run.
 local function registerUpgrade()
 	Conch.register("upgrade", {
@@ -335,6 +436,10 @@ CommandsService.OnStart = function()
 	registerUlt()
 	registerGod()
 	registerUpgrade()
+	registerQuest()
+	registerKill()
+	registerKillTest()
+	registerRevive()
 end
 
 return Ignis.Register(CommandsService)

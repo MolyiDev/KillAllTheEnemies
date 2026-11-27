@@ -9,7 +9,7 @@ import sys
 import urllib.request
 
 URL = "http://127.0.0.1:44331/mcp"
-LOBBY_PLACE_ID = 97384805316642
+LOBBY_PLACE_ID = 105859632802526
 RANGE = "Workspace.Lobby.Map.Range"
 BATCH = 120
 ENUMS = {

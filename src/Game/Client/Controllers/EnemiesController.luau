@@ -16,11 +16,14 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local jecs = require(ReplicatedStorage.Packages.jecs)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
+local GraphicsQualityController =
+	require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.GraphicsQualityController)
 local MatchController = require(script.Parent.MatchController)
 local EnemyImpacts = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.enemyImpacts)
 local targetHits = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.targetHits)
 local InertialBlend = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Utils.inertialBlend)
 local Ragdoll = require(script.Parent.Parent.Utils.ragdoll)
+local spiderLegs = require(script.Parent.Parent.Utils.spiderLegs)
 local DataCore = require(ReplicatedStorage.GlobalShared.Core.DataCore)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local BossesCore = require(ReplicatedStorage.Shared.Core.BossesCore)
@@ -60,8 +63,6 @@ local TAU = 2 * math.pi
 local SNAP_DISTANCE_SQ = 25 * 25
 -- No packet for this long (EnemyClock): the server's cull dropped it, so park it rather than freeze it in place.
 local STALE_TIME = 1
-local RENDER_DISTANCE = 400
-local RENDER_DISTANCE_SQ = RENDER_DISTANCE * RENDER_DISTANCE
 
 local Tune = table.freeze({
 	-- Bodies kept ready per type. Spawns pour at RoundCore.SPAWNS_PER_SECOND (20), well under what the refill
@@ -97,6 +98,8 @@ local Tune = table.freeze({
 	-- boss is big and held in view, so its body settles over longer.
 	BLEND = 0.2,
 	BOSS_BLEND = 0.35,
+	-- A spider's legs go from the IK to a move's clip, and back, over this long.
+	LEG_HANDOVER = 0.25,
 	-- A fresh spawn drops in: drawn this high over its feet, settling and fading in over this long (enemy time).
 	ARRIVAL_HEIGHT = 6,
 	ARRIVAL_TIME = 0.5,
@@ -145,11 +148,35 @@ local Tune = table.freeze({
 	DEATH_CORPSES = 4,
 	-- A moving clip of its own fades in over this.
 	CLIP_FADE = 0.15,
+	-- Every playing track is the Animator's work each frame: 218 bodies playing 420 tracks stepped in 0.34 ms on a PC,
+	-- about 20x that on a phone (performance/optimization-2026-11-26). Only bodies this close to the camera play
+	-- their clips, and of those only the nearest MAX_ANIMATED (the radius shrinks past it); the rest hold their
+	-- mesh's rest pose, and one past the distance is drawn on each packet's spot and left alone between packets.
+	-- Bosses and driven bodies always play. Touch devices are the phones. All three, the render distance too, are
+	-- times the graphics scale (GraphicsQualityController).
+	ANIMATION_DISTANCE = 100,
+	MAX_ANIMATED = 100,
+	TOUCH_ANIMATION_DISTANCE = 50,
+	TOUCH_MAX_ANIMATED = 50,
+	-- Bodies farther than this from the camera are not drawn. Never past the server's AOI (400): nothing is streamed
+	-- beyond it.
+	RENDER_DISTANCE = 400,
+	TOUCH_RENDER_DISTANCE = 150,
+	MAX_RENDER_DISTANCE = 400,
+	-- Past the cap the radius is rescaled at once; under ANIMATED_REGROW of it, it grows back by this a frame, so
+	-- bodies at the edge do not start and stop every frame.
+	ANIMATED_REGROW = 0.75,
+	ANIMATED_GROWTH = 1.1,
 })
 
 local IDLE_PRIORITY = Enum.AnimationPriority.Idle
 local WALK_PRIORITY = Enum.AnimationPriority.Movement
 local ATTACK_PRIORITY = Enum.AnimationPriority.Action
+local IS_PHONE = GraphicsQualityController.IS_PHONE
+local BASE_ANIMATION_DISTANCE = if IS_PHONE then Tune.TOUCH_ANIMATION_DISTANCE else Tune.ANIMATION_DISTANCE
+local BASE_MAX_ANIMATED = if IS_PHONE then Tune.TOUCH_MAX_ANIMATED else Tune.MAX_ANIMATED
+local BASE_RENDER_DISTANCE = if IS_PHONE then Tune.TOUCH_RENDER_DISTANCE else Tune.RENDER_DISTANCE
+local MAX_RENDER_DISTANCE_SQ = Tune.MAX_RENDER_DISTANCE * Tune.MAX_RENDER_DISTANCE
 
 -- The R6 contract's limbs, in the order the ragdoll's limb ends are numbered (tools/rig/r6_zombie.py).
 local LIMB_NAMES = table.freeze({ "ArmLeft", "ArmRight", "LegLeft", "LegRight" })
@@ -176,6 +203,8 @@ EnemiesController.OnEnemyKilled = targetHits.Killed
 -- Plain maps keyed by instance id: the render loop reads several per body per frame and a hash read is cheaper
 -- than an ECS get. Every one is cleared in forgetId.
 local positions: { [number]: Vector3 } = {}
+-- The last position the stream sent per id, which its deltas count from (EnemyPacker).
+local netBase = EnemyPacker.CreateBaseline()
 local yaws: { [number]: number } = {}
 local moving: { [number]: boolean } = {}
 local lastUpdate: { [number]: number } = {}
@@ -186,6 +215,13 @@ local targetBuiltYaw: { [number]: number } = {}
 -- Lua-side animation state, so the loop never asks a track IsPlaying.
 local isWalking: { [number]: boolean } = {}
 local isShown: { [number]: boolean } = {}
+-- Shown bodies playing their clips (Tune.ANIMATION_DISTANCE), the distance and cap at this graphics level
+-- (applyGraphicsScale), and the radius the nearest maxAnimated fit in.
+local isAnimated: { [number]: boolean } = {}
+local animationDistanceSq = BASE_ANIMATION_DISTANCE * BASE_ANIMATION_DISTANCE
+local maxAnimated = BASE_MAX_ANIMATED
+local animatedRadiusSq = animationDistanceSq
+local renderDistanceSq = BASE_RENDER_DISTANCE * BASE_RENDER_DISTANCE
 -- Live hit flashes, only bodies hit in the last FLASH_TIME: a handful even in a full crowd.
 local flashTarget: { [number]: Highlight } = {}
 local flashEndsAt: { [number]: number } = {}
@@ -242,6 +278,8 @@ local blends: { [Model]: InertialBlend.TInertialBlend } = {}
 local steppingBlends: { [InertialBlend.TInertialBlend]: boolean } = {}
 local unscaledBlends: { [InertialBlend.TInertialBlend]: boolean } = {}
 local bossRigs: { [Model]: boolean } = {}
+-- Each spider body's legs on the IK (TEnemy.HasLegIK), by instance.
+local legRigs: { [number]: spiderLegs.TLegs } = {}
 -- Each rigged body's Flash, so a hit reaches it with one read (a name lookup on the model costs 10x: measured
 -- 2026-11-20, 8 ns against 82 ns for model.Flash and 103 ns for FindFirstChild).
 local flashHighlights: { [number]: Highlight } = {}
@@ -411,6 +449,11 @@ export type TClipOptions = {
 	IsUnscaled: boolean?,
 }
 
+-- A spider body's legs on the IK (Utils/spiderLegs), or nil: for its footfalls.
+function EnemiesController.GetLegs(instanceId: number): spiderLegs.TLegs?
+	return legRigs[instanceId]
+end
+
 -- The rig of a body this client draws, or nil (no rig yet, or gone).
 function EnemiesController.GetModel(instanceId: number): TData.TEnemyModel?
 	local entity = EnemyWorldRef:Search(instanceId)
@@ -482,6 +525,8 @@ local function getTemplate(enemyData: TData.TEnemy): TData.TEnemyModel?
 	end
 
 	local template = EnemiesCore.GetModel(enemyData):Clone()
+	-- A small kind of a big rig: its clips' translations scale with it.
+	if enemyData.ModelScale then template:ScaleTo(enemyData.ModelScale) end
 	-- No shadow: a skinned body casting one is skinned and drawn again into the shadow map, the whole crowd twice over,
 	-- and the cost of that lands hardest on the devices with the least to spare. Set here so no rig put in the place
 	-- can forget it, on every part (a boss is two).
@@ -524,7 +569,8 @@ local function getTemplate(enemyData: TData.TEnemy): TData.TEnemyModel?
 	end
 	task.spawn(ContentProvider.PreloadAsync, ContentProvider, preload)
 	local ragdollRig = buildRagdollRig(template)
-	if not ragdollRig and not clips.Death then
+	-- A body that never walks (a spider's egg sac) has nothing to fall with: it pops.
+	if not ragdollRig and not clips.Death and enemyData.BaseMovementSpeed > 0 then
 		warn(`[EnemiesController] {enemyData.ModelName} has not got the R6 bones; kills will not ragdoll`)
 	end
 
@@ -631,6 +677,25 @@ local function stopAll(model: TData.TEnemyModel)
 	end
 end
 
+-- A body leaving the animated radius: every clip it plays blended out at once, into its mesh's rest pose.
+local function holdStill(model: TData.TEnemyModel)
+	local tracks = modelTracks[model]
+	if not tracks then return end
+	local isPlaying = false
+	for _, track in tracks do
+		if playingTracks[track] then
+			isPlaying = true
+			break
+		end
+	end
+	if not isPlaying then return end
+
+	blendFrom(model)
+	for _, track in tracks do
+		stop(track, 0)
+	end
+end
+
 -- A body's clip by name off its set, loaded on its rig; nil while it has no rig or the set has no such clip.
 local function namedTrack(instanceId: number, name: string, options: TClipOptions?): AnimationTrack?
 	local entity = EnemyWorldRef:Search(instanceId)
@@ -727,6 +792,9 @@ local function attachRig(
 	-- Parked, not placed: the render loop reads the far-away CFrame as "coming into view" and snaps it onto its
 	-- live position on this same frame, or leaves it parked at no cost if it is off screen.
 	bone.Transform = FAR_AWAY_CFRAME
+	-- An arriving body fades in: off 0 before it is drawn, since taking a rendering skinned mesh off 0 is a rebuild
+	-- (performance/06). The loop writes its fade the frame it is first shown.
+	if arrivalEndsAt[instanceId] then model.PrimaryPart.Transparency = 1 end
 
 	-- Parented once fully built, so Workspace sees one hierarchy event carrying the highlight with it
 	-- (performance/14: attaching a Highlight to a model already rendering is the dearest order).
@@ -741,6 +809,10 @@ local function attachRig(
 	if clips.Walk then getTrack(model, clips.Walk, WALK_PRIORITY, true) end
 	jecs.bulk_insert(EnemyWorld, entity, { Components.Bone, Components.Model }, { bone, model })
 	EnemyWorld:set(entity, Components.CFrame, FAR_AWAY_CFRAME)
+	if enemyData.HasLegIK then
+		local legs = spiderLegs.New(model, model.PrimaryPart, bone)
+		if legs then legRigs[instanceId] = legs end
+	end
 end
 
 -- Gives out this frame's bodies and returns what is left of the clone budget for the refill. Getting a rig is queued
@@ -820,6 +892,7 @@ local function forgetId(instanceId: number)
 	targetBuiltYaw[instanceId] = nil
 	isWalking[instanceId] = nil
 	isShown[instanceId] = nil
+	isAnimated[instanceId] = nil
 	flashTarget[instanceId] = nil
 	flashEndsAt[instanceId] = nil
 	flashFrom[instanceId] = nil
@@ -832,6 +905,7 @@ local function forgetId(instanceId: number)
 	walkPaces[instanceId] = nil
 	glowing[instanceId] = nil
 	drivers[instanceId] = nil
+	legRigs[instanceId] = nil
 	EnemiesController.Bosses[instanceId] = nil
 end
 
@@ -1199,14 +1273,15 @@ local function onKilled(
 end
 
 -- ============================== Render ==============================
--- Any of the body's view sphere on screen, the same test as the server's (AOIService's isInView has the why).
-local function isVisible(position: Vector3, view: vector): boolean
+-- Any of the body's view sphere on screen within `maxDistanceSq`, the same test as the server's (AOIService's isInView
+-- has the why).
+local function isVisible(position: Vector3, view: vector, maxDistanceSq: number): boolean
 	local radius = view.y
 	local vx = position.X - cameraX
 	local vy = position.Y + view.x - cameraY
 	local vz = position.Z - cameraZ
 	local distSq = vx * vx + vy * vy + vz * vz
-	if distSq > RENDER_DISTANCE_SQ then return false end
+	if distSq > maxDistanceSq then return false end
 	if distSq < radius * radius then return true end
 	local shift = radius * apexShiftPerRadius
 	vx += lookX * shift
@@ -1266,6 +1341,7 @@ local function update(dt: number)
 	local enemyClock = TimeCore.EnemyClock
 	local staleBefore = enemyClock - STALE_TIME
 	local wantsIdleGroan = enemyClock >= nextIdleGroan
+	local animatedCount = 0
 
 	-- Fade every live hit flash. Driven off the fraction LEFT, not the live value: easing from the current reading
 	-- compounds into a framerate-dependent decay.
@@ -1421,13 +1497,18 @@ local function update(dt: number)
 
 		-- Never parked while driven: parking stops its clips, and a driven body is mid-move (an intro, a run).
 		local isStale = updatedAt == nil or updatedAt < staleBefore
-		if not driven and (isStale or not isVisible(targetPos, viewSpheresById[enemyData.Id])) then
+		-- A boss is seen from as far as the server streams it, whatever this device's render distance.
+		local maxDistanceSq = if enemyData.Boss ~= nil or enemyData.IsBoss
+			then MAX_RENDER_DISTANCE_SQ
+			else renderDistanceSq
+		if not driven and (isStale or not isVisible(targetPos, viewSpheresById[enemyData.Id], maxDistanceSq)) then
 			if isFar then continue end
 
 			-- Stop everything BEFORE parking: a playing Animator rewrites the root each frame and would walk the
 			-- hidden body back to the origin, in plain sight. Written once; next frame the isFar check skips it.
 			stopAll(EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel)
 			isShown[instanceId] = nil
+			isAnimated[instanceId] = nil
 			isWalking[instanceId] = nil
 			bone.Transform = FAR_AWAY_CFRAME
 			EnemyWorld:set(entity, Components.CFrame, FAR_AWAY_CFRAME)
@@ -1449,12 +1530,33 @@ local function update(dt: number)
 		local model: TData.TEnemyModel? = nil
 		-- A read from this module's own map: GetClips is a cross-module call, and this runs per body per frame.
 		local clips = clipsById[enemyData.Id]
+		-- Its clips play only inside the animated radius (Tune.ANIMATION_DISTANCE); a boss or a driven body always.
+		local toX, toY, toZ = targetPos.X - cameraX, targetPos.Y - cameraY, targetPos.Z - cameraZ
+		local cameraDistSq = toX * toX + toY * toY + toZ * toZ
+		local isAlwaysAnimated = driven ~= nil or enemyData.IsBoss == true or enemyData.Boss ~= nil
+		local shouldAnimate = isAlwaysAnimated or cameraDistSq <= animatedRadiusSq
+		if shouldAnimate and not isAlwaysAnimated then
+			animatedCount += 1
+		end
 		if not isShown[instanceId] then
 			isShown[instanceId] = true
-			model = EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
-			if clips.Idle then
+			isAnimated[instanceId] = shouldAnimate
+			if shouldAnimate and clips.Idle then
+				model = EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
 				local idleTrack = getTrack(model :: TData.TEnemyModel, clips.Idle, IDLE_PRIORITY, true)
 				play(idleTrack, 0)
+				if stiffYaws[instanceId] then idleTrack:AdjustSpeed(0) end
+			end
+		elseif shouldAnimate ~= isAnimated[instanceId] then
+			isAnimated[instanceId] = shouldAnimate
+			isWalking[instanceId] = nil
+			model = EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
+			if not shouldAnimate then
+				holdStill(model :: TData.TEnemyModel)
+			elseif clips.Idle then
+				-- Blended in from its rest pose; the walk below starts too if it is moving.
+				local idleTrack = getTrack(model :: TData.TEnemyModel, clips.Idle, IDLE_PRIORITY, true)
+				play(idleTrack, Tune.LOCOMOTION_FADE)
 				if stiffYaws[instanceId] then idleTrack:AdjustSpeed(0) end
 			end
 		end
@@ -1464,7 +1566,7 @@ local function update(dt: number)
 		local stiffYaw = stiffYaws[instanceId]
 		local isMoving = moving[instanceId] == true
 		local walkClip = clips.Walk
-		if isMoving ~= isWalking[instanceId] and walkClip and not stiffYaw then
+		if isAnimated[instanceId] and isMoving ~= isWalking[instanceId] and walkClip and not stiffYaw then
 			isWalking[instanceId] = isMoving
 			model = model or EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel
 			local walkTrack = getTrack(model :: TData.TEnemyModel, walkClip, WALK_PRIORITY, true)
@@ -1488,9 +1590,16 @@ local function update(dt: number)
 			targetBuiltYaw[instanceId] = yaw
 		end
 
+		-- Held still past the distance: drawn on each packet's spot and left alone between packets, since no clip
+		-- rewrites its root.
+		local isHeldFar = not isAnimated[instanceId] and cameraDistSq > animationDistanceSq
+		if isHeldFar and cf == target and not flinchStartedAt[instanceId] and not arrivalEndsAt[instanceId] then
+			continue
+		end
+
 		if driven then
 			cf = driven
-		elseif isFar then
+		elseif isFar or isHeldFar then
 			cf = target
 		else
 			local dx = targetPos.X - cfPos.X
@@ -1525,6 +1634,14 @@ local function update(dt: number)
 
 	-- Nothing visible had a groan to give: held shut a beat, or every visible body would test for one every frame.
 	if wantsIdleGroan then nextIdleGroan = enemyClock + Tune.IDLE_GROAN_MIN end
+
+	-- The count grows with the radius squared, so one rescale lands near the cap. Growing back is slow and stops short
+	-- of the cap, so bodies at the edge do not start and stop every frame.
+	if animatedCount > maxAnimated then
+		animatedRadiusSq *= maxAnimated / animatedCount
+	elseif animatedCount < maxAnimated * Tune.ANIMATED_REGROW then
+		animatedRadiusSq = math.min(animatedRadiusSq * Tune.ANIMATED_GROWTH, animationDistanceSq)
+	end
 	debug.profileend()
 end
 
@@ -1601,20 +1718,22 @@ ServerNetworkEnemies.AttackStarted.On(function(instanceId: number, attackIndex: 
 		SoundsCore.PlayWorldNamed(sounds.Group, sounds.Attack, at)
 	end
 
+	-- Its clip only where clips play (Tune.ANIMATION_DISTANCE): the snarl above is heard from anywhere.
+	if not isAnimated[instanceId] then return end
 	local model = EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel?
 	local attack = if enemyData then enemyData.Attacks[attackIndex] else nil
 	local animation = if enemyData then EnemiesCore.GetClips(enemyData).Attacks[attackIndex] else nil
 	if not model or not attack or not animation then return end
 
 	-- Stretched so its blow lands as the server's wind-up ends.
-	local speed = EnemiesCore.ATTACK_CLIP_IMPACT / math.max(attack.Delay, 0.05)
+	local speed = (attack.ClipImpact or EnemiesCore.ATTACK_CLIP_IMPACT) / math.max(attack.Delay, 0.05)
 	local track = getTrack(model, animation, ATTACK_PRIORITY, false)
 	play(track, Tune.ATTACK_FADE, speed)
 	blendOut(track)
 end)
 
 ServerNetworkEnemies.Positions.On(function(packet: buffer)
-	EnemyPacker.UnpackInto(packet, positions, yaws, moving, lastUpdate, TimeCore.EnemyClock)
+	EnemyPacker.UnpackInto(packet, netBase, positions, yaws, moving, lastUpdate, TimeCore.EnemyClock)
 end)
 
 -- Templates built and reserves opened before the first round, so the refill fills them during preparation.
@@ -1669,7 +1788,51 @@ local function stepBlends(dt: number)
 	end
 end
 
+-- Every spider body's legs (Utils/spiderLegs), last of all: on the IK while its Idle is all it plays, handed to its
+-- clips for every other move (each starts and ends in the IK's stance), eased between over LEG_HANDOVER. A one-shot
+-- a blend cut stays in playingTracks, so the engine is asked whether it still plays.
+local function stepLegs(dt: number)
+	local clipDt = dt * clipScale
+	for instanceId, legs in legRigs do
+		local entity = EnemyWorldRef:Search(instanceId)
+		local model = if entity then EnemyWorld:get(entity, Components.Model) :: TData.TEnemyModel? else nil
+		local enemyData = if entity then EnemyWorld:get(entity, Components.Data) else nil
+		if not model or not enemyData or not isAnimated[instanceId] then
+			if legs.IsPlanted then spiderLegs.Release(legs) end
+			continue
+		end
+
+		local clips = clipsById[enemyData.Id]
+		local idle = if clips then clips.Idle else nil
+		local isOwn = true
+		local tracks = modelTracks[model]
+		if tracks then
+			for animation, track in tracks do
+				if animation == idle or not playingTracks[track] or not track.IsPlaying then continue end
+				isOwn = false
+				break
+			end
+		end
+
+		local step = dt / Tune.LEG_HANDOVER
+		local weight = math.clamp(legs.Weight + (if isOwn then step else -step), 0, 1)
+		spiderLegs.Step(legs, if stiffYaws[instanceId] then 0 else clipDt, weight)
+	end
+end
+
+local function applyGraphicsScale()
+	local scale = GraphicsQualityController.Scale()
+	local distance = BASE_ANIMATION_DISTANCE * scale
+	animationDistanceSq = distance * distance
+	maxAnimated = math.max(1, math.round(BASE_MAX_ANIMATED * scale))
+	animatedRadiusSq = animationDistanceSq
+	local render = math.min(BASE_RENDER_DISTANCE * scale, Tune.MAX_RENDER_DISTANCE)
+	renderDistanceSq = render * render
+end
+
 EnemiesController.OnStart = function()
+	applyGraphicsScale()
+	GraphicsQualityController.OnChanged:Connect(applyGraphicsScale)
 	-- PreSimulation runs after the Animator has posed the rigs for the frame, so these root writes land last.
 	RunService.PreSimulation:Connect(function(dt: number)
 		EnemyImpacts.BeginFrame()
@@ -1677,6 +1840,7 @@ EnemiesController.OnStart = function()
 		refillReserves(budget)
 		update(dt)
 		stepBlends(dt)
+		stepLegs(dt)
 	end)
 end
 

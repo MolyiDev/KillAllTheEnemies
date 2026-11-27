@@ -502,13 +502,18 @@ in one pass with nothing redone; do it in this order.
    - the part's CFrame set to CANCEL Root's x and z (Animations.md §7): the Spitter's Root bone sits at
      `(-0.0487, -2.9375, -0.7404)` in the part, so the part goes at `(0.0487, 0, 0.7404)`. Y stays 0: the part is the
      mesh's box centre and Root sits at its bottom, as on the Runner;
-   - `PivotOffset` identity, `Anchored`, `CanCollide = false`, `CanTouch = false`, and the Model's `PrimaryPart`.
+   - `PivotOffset` identity, `Anchored`, `CanCollide = false`, `CanTouch = false`, and the Model's `PrimaryPart`;
+   - the MeshPart's `Transparency` 0. The game writes it only on a body that arrives (fading in from 1), so one shown
+     to a player who comes near after it spawned is drawn as saved. The `Revenant` (the Fossil Guard) was saved at 0.75
+     (2026-11-26); the lobby's index now draws every rig solid itself, the game does not.
    Then delete the import from `ServerStorage`.
 5. **The clips** are `Animation`s named as the data file expects under `ReplicatedStorage.Animations.Enemies.<Name>`,
-   made in one `mass_create` with each `AnimationId` set.
+   made in one `mass_create` with each `AnimationId` set, **in both places**: the Lobby's index plays the rig's Walk
+   and its first attack. The T-Rex went into the Game place only and stood in its rest pose in the index until its
+   folder was made in the Lobby too (2026-11-26, ids from `Assets/README.md`). The rig goes into both as well.
 6. **Check it in a playtest**: `GetExtentsSize()` must come back with Y as the height (the Spitter 5.875, X and Z not
    swapped), `TextureID` set, and one clip's KeyframeSequence read back (Animations.md §7).
-7. **Ask the user to save the place.** All of it lives in the place, not in Rojo.
+7. **Ask the user to save both places.** All of it lives in the places, not in Rojo.
 
 | Asset | Id |
 |---|---|
@@ -921,3 +926,59 @@ lune run tools/lobby/range_front.luau /tmp/old.rbxl Assets/models/Lobby/Range/Ra
   archivable asset type"): build and check the model offline first, upload once. An inserted model lands at its
   authored world position, so author it in place.
 - A shell mesh (the SHOP's body) cannot be given a door: build the room behind a lifted front from Parts.
+
+## 16. A boss as rigid pieces on one skinned mesh (the Giant Spider's rig, 2026-11-26)
+
+The spider is one mirrored mesh (`Neon` in `Assets/models/Bosses/Spider/Spider.blend`, a Mirror modifier on X, four
+materials) on 70 bones, every vertex 100% on one bone, so the walk can be solved per joint in game and the death can
+throw every bone apart with no skin stretched (Animations.md section 18). `Spider/anim/rerig.py` did it once on the
+mesh as it stood; the backup before it is `Spider_v10_before_rig.blend`. Do not run it again on the result.
+
+- **Bones**: `Root` > `Thorax` > `Head` > `Chelicera_L` > `Fang_L` (and `_R`); `Thorax` > `ThoraxRib1-3`;
+  `Thorax` > `Abdomen` > `AbdomenRib1-2`, `Tail`, `Spine1-8` (each plate with its neon spike); and per leg n (1 front,
+  4 rear) `Coxa{n}_L` > `Femur` > `Tibia` > `Metatarsus` > `Tarsus` (the steel blade) > `Tip{n}_L`. Each bone's head
+  is its piece's pivot: a leg bone at the centre of the joint lump it turns in, the abdomen at the waist, the head at
+  the back of the skull, a plate low on the midline.
+- **Every bone points up Blender +Z with zero roll**, as on every rig here: the exporter rederives bone axes and
+  drops the roll (Animations.md section 7), and a rest that is not identity breaks every clip's channels. So pose
+  channels are in the bone's frame (its y is up), never world axes: work in world deforms and convert (Animations.md
+  section 18).
+- **Side names end `_L` / `_R`.** The Mirror modifier flips a vertex group's name onto the other side only when it
+  ends in a separator and L/R (`_L`, `.L`, `-L`, ` L`); `Leg1L` did not flip, so the mirrored right legs were weighted
+  to the LEFT bones and the `R` bones moved nothing. Every `_R` group must exist on the object, empty, for the flip to
+  find it. Left is Blender -X (the spider faces +Y).
+- **A rigid piece is an island of its own.** Weights alone cannot let a closed tube come apart: each leg was one
+  manifold tube from hip to blade, so it was cut at every joint. A joint's lump (box, knee knob, band) belongs to the
+  PARENT; the bar leaving it belongs to the child, whose pivot is the lump's centre. The child's cut end is extruded
+  into the lump to the pivot and capped, the parent's hole capped, so a bend of 20-35 degrees shows no gap (checked
+  closed by masking one leg and bending every joint). Faces were assigned by vertex clusters (edges shorter than the
+  bars' long quads join a lump; a face spanning two lumps goes to the deeper bone), read off plots of each leg in its
+  own plane.
+- **The body's pieces were open shells before the rig** (rings, plates, spikes, the core open on the mirror plane):
+  they were split, never capped. Cap only what was closed, and never the rims on the mirror plane.
+- **`Tip` bones carry no skin**: the in-game IK's end effectors and the measure of where a blade touches. The importer
+  drops a bone with no weights (section 10, the Bloater's anchors), so `anim/export.py` gives each a 0.03-stud
+  triangle inside its blade's point, weighted to it: all sixteen came through the upload.
+- **Checks that settled it**: evaluate the mesh with the Mirror on and the Armature off, then every vertex has exactly
+  one group and none on the wrong side; no face has vertices on two bones; every bone pushed out from its parent breaks
+  the body into clean pieces. Loose vertices and edges with no face were deleted.
+- **The delivered clips** (Idle, Walk, Attack, Intro... from the old 11-bone rig) were re-pathed to the new names
+  (`Leg{n}L` -> `Coxa{n}_L`, `Body` -> `Thorax`, `Fangs` -> both `Chelicera`) and left unassigned, so Object mode shows
+  the rest pose. They turned whole legs from the hip only, and were replaced on 2026-11-26 by the clips of Animations.md
+  section 19 (Attack, Jump, Walk, Run and IntroStart deleted: the walk is the game's IK).
+- **In the place (2026-11-26)**: `ReplicatedStorage.Models.Enemies.GiantSpider`, four skinned MeshParts (`Bone`
+  primary, `Neon` in Neon, `Steel` in Metal, `Dark`) each joined to `Bone` by a `SkinJoint` WeldConstraint, rebuilt
+  into the contract as the T-Rex was (section 16 of Animations.md, Exporting): `Root` moved under `Bone` at
+  (0, -10.01, 1.45) in its frame, every part moved down 8.29 so Root sits at minus half the extents' height, the
+  importer's RootPart, Motor6Ds and InitialPoses deleted, an Animator added. Colours are the `.blend` materials'
+  Roblox values. Every bone's rest rotation came in identity, left +X, front +Z. Clips under
+  `ReplicatedStorage.Animations.Enemies.Spider`.
+- **Shaded flat, as the T-Rex** (2026-11-26): the `.blend`'s faces are smooth (a Smooth by Angle node softens them in
+  Blender), and exported that way the blocks came out rounded in Roblox. `anim/export.py` sets every face flat before
+  the FBX; the model asset's second version is the flat one (`preview/shading_smooth_vs_flat.png`). A boss mesh in this
+  game is exported with flat faces.
+- **Its egg sac** (`Spider/anim/build_sac.py`, `Spider/sac/`): a placeholder rig in the same contract (`Root` > `Sac`,
+  parts `Bone`, `Neon`, `Web`), with a pulsing `Idle` (`Animations.Enemies.EggSac`), as `Models.Enemies.SpiderEggSac`.
+- **The front coxae sit against the head.** Swung round far enough to reach across the face, a front coxa carries
+  its femur into the skull; a pose that crosses the front blades holds the coxa's swing back (Animations.md section
+  19). Check a pose against the head by sampling the leg surfaces, not counting vertices.

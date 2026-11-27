@@ -37,10 +37,10 @@ CONFIG_PATH = ROOT / "MainConfig.json"
 ENUM_PATH = ROOT / "src/Global/Types/Enums/EConfigKeys.luau"
 
 # Lobby and game places share one universe per environment, uploaded in this order. There is no test universe
-# yet: add it FIRST ("test": <id>) when one exists. The prod universe also holds the old lobby (105859632802526)
-# and old game (104435679031452) places, so a config published here is live for them too.
+# yet: add it FIRST ("test": <id>) when one exists. The prod universe also holds the old game place
+# (104435679031452), so a config published here is live for it too.
 UNIVERSES = {
-    "prod": 10768635421,  # lobby 97384805316642, game 113327793187086
+    "prod": 10768635421,  # lobby 105859632802526, game 113327793187086
 }
 
 API_BASE = "https://apis.roblox.com/creator-configs-public-api/v1/configs/universes/{}/repositories/InExperienceConfig"

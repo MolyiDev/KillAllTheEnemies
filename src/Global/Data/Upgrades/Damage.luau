@@ -1,4 +1,4 @@
--- Every bullet hits harder.
+-- Every blow its player deals hits harder, whatever deals it: EnemiesService scales each one by its inflictor.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TData = require(ReplicatedStorage.Types.TData)
@@ -10,7 +10,7 @@ local data: TData.TUpgrade = {
 	Icon = EIcons.UpgradeDamage,
 	Value = 0.1,
 	MaxLevel = 5,
-	Description = "+%d%% gun damage",
+	Description = "+%d%% damage",
 	PercentScale = 100,
 }
 

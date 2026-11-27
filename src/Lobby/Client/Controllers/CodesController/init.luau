@@ -3,7 +3,7 @@
 --
 -- An answer is held until the wind-up after the press has played, so a fast server never skips it. A code's Gems and
 -- XP are the profile's in the same frame as the answer: they are held back from the HUD's pill and level plate
--- (HeldGems, HeldXp) and let through a slice per piece as they fly into them (GemPayout).
+-- (HeldGems, HeldXp) and let through a slice per piece as they fly into them (GemPayout, the XP as a spin's does).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -130,12 +130,11 @@ local payout: GemPayout.TPayout? = nil
 local gemGlyph: ImageLabel? = nil
 
 -- What the level plate is held back by (percents of a level), and the plate's bar. As the XP lands the head of the
--- bar's fill runs from barFrom to barTo (shares of the bar), and the pieces still in the air aim at it.
+-- bar's fill runs from barFrom to barTo (shares of the bar), each piece landing where it has reached by then.
 local heldXp = source(0)
 local xpTarget: GuiObject? = nil
 local xpPayout: GemPayout.TPayout? = nil
 local xpGlyph: ImageLabel? = nil
-local flownXp = 0
 local barFrom, barTo = 0, 0
 
 local CodesController = {}
@@ -208,9 +207,8 @@ function CodesController.Open()
 			state.Xp(0)
 		end
 	end)
-	CameraController.IsMouseFreed = true
+	CameraController.SetMouseFreed("Codes", true)
 	stir(Tune.MOTION_SECONDS)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function CodesController.Close()
@@ -219,9 +217,8 @@ function CodesController.Close()
 		state.IsOpen(false)
 		state.ToggledAt(os.clock())
 	end)
-	CameraController.IsMouseFreed = false
+	CameraController.SetMouseFreed("Codes", false)
 	stir(Tune.MOTION_SECONDS)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 -- The box's text, normalized by the field. Each new letter pops in its cell (a paste's a beat apart), each one gone
@@ -295,7 +292,6 @@ local function answer(status: number, gems: number, xp: number, now: number)
 	if canFlyXp then
 		-- The profile has it already. Over a level the pieces fill the old level's bar to its end.
 		local before = (ProfileController.Xp - xp) / 100
-		flownXp = xp
 		barFrom = before % 1
 		barTo = if before < 0 then 1 else ProfileController.Xp / 100
 	end
@@ -422,14 +418,14 @@ CodesController.OnStart = function()
 			return glyph.AbsolutePosition + glyph.AbsoluteSize / 2
 		end)
 		payout = built
-		local builtXp = GemPayout.Build(state.Scale, function(): Vector2?
+		-- As a spin's XP: each piece lands where the fill will have reached once it has.
+		local builtXp = GemPayout.Build(state.Scale, function(share: number): Vector2?
 			local bar = xpTarget
 			if not bar or not bar.Parent then return nil end
-			-- Called only while a throw is out, so flownXp is set.
-			local head = barFrom + (barTo - barFrom) * (1 - heldXp() / flownXp)
+			local head = barFrom + (barTo - barFrom) * share
 			local size = bar.AbsoluteSize
 			return bar.AbsolutePosition + Vector2.new(size.X * head, size.Y / 2)
-		end, EIcons.Rank)
+		end, EIcons.Rank, "Reel")
 		xpPayout = builtXp
 		local children, glyph, xpCardGlyph = CodesUI.Build(state, actions)
 		gemGlyph = glyph

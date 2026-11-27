@@ -1,6 +1,6 @@
 -- What each player's run upgrades add up to, by upgrade id. A leaf holding state on purpose: UpgradesService writes
--- it, and the services whose numbers an upgrade changes (WeaponService, CharacterService, RoundService) read it
--- without requiring the service that requires them.
+-- it, and the services whose numbers an upgrade changes (EnemiesService, WeaponService, AbilityService,
+-- CharacterService, RoundService) read it without requiring the service that requires them.
 local upgradeStats = {}
 
 local stats: { [Player]: { [number]: number } } = {}

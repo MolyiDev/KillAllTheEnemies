@@ -48,6 +48,19 @@ local POSE_SECONDS = 1
 -- The point looked at and the height that fills the box, as shares of the body's height from its feet.
 local LOOK_AT = 0.5
 local SPAN = 1.16
+-- A body too long for the zombies' framing, by its ModelName: its turn at rest (degrees, in place of REST_YAW), how
+-- much further back the camera stands than for a body of its height (Fit), how far the point looked at moves in the
+-- camera's right and up (Look, shares of its height), and how much of the stage's sway it takes (Sway). Measured off
+-- its walk in its .blend (Assets/models/Bosses/TRex/anim/index_fit.py) so that through every frame of it, the sway and
+-- a card's turn to face you, it stays inside the zombies' air, centred at rest, its feet on their line, the stage's
+-- floor. The T-Rex at -21 already fills the box's width, so it holds still: any sway off it shrinks it.
+type TFraming = { Yaw: number, Fit: number, Look: Vector2, Sway: number }
+local FRAMINGS: { [string]: TFraming } = table.freeze({
+	TRex = table.freeze({ Yaw = -21, Fit = 1.26, Look = Vector2.new(-0.12, -0.04), Sway = 0 }),
+})
+-- A guard's glow (TEnemy.Glow) is its in-game Highlight's fill at this transparency: BossesCore.GLOW_TRANSPARENCY, a
+-- Game-place module.
+local GLOW_TRANSPARENCY = 0.55
 
 local Picture = {}
 
@@ -67,6 +80,12 @@ function Picture.Rig(enemy: TData.TEnemy): Model?
 	if rig and rig:IsA("Model") then return rig end
 	warnOnce(enemy.ModelName, `[IndexController] no rig ReplicatedStorage.Models.Enemies.{enemy.ModelName}`)
 	return nil
+end
+
+-- How much of the stage's sway `enemy` takes: all of it, or none for a body that fills the box at rest (FRAMINGS).
+function Picture.SwayShare(enemy: TData.TEnemy?): number
+	local framing = if enemy then FRAMINGS[enemy.ModelName] else nil
+	return if framing then framing.Sway else 1
 end
 
 -- `enemy`'s clip called `name` from its set, or nil.
@@ -118,9 +137,10 @@ local function pose(track: AnimationTrack)
 end
 
 -- One of the frames: the viewport, its world, whether it is drawn, and the copy it holds while it is, with that copy's
--- rest, its walk and its attack.
+-- rest, its walk and its attack. A blank one draws its body one flat colour (blank), and a silhouette never attacks.
 type TLayer = {
-	IsSilhouette: boolean,
+	IsBlank: boolean,
+	CanAttack: boolean,
 	Shown: () -> boolean,
 	View: ViewportFrame,
 	World: WorldModel,
@@ -131,44 +151,71 @@ type TLayer = {
 	Blend: InertialBlend.TInertialBlend?,
 }
 
--- A layer drawn `alpha()` solid (0 gone, 1 solid). The shadow is lit by nothing and multiplied to black on the way out,
--- so Neon, which ignores the light, is black too.
-local function layer(kind: "Lit" | "Silhouette" | "Shadow", alpha: () -> number, props: { [any]: any }?): TLayer
+-- A layer drawn `alpha()` solid (0 gone, 1 solid), `room()` times the box's size about its middle. The shadow is lit by
+-- nothing and multiplied to black on the way out, so Neon, which ignores the light, is black too. The glow is a flat
+-- body over the lit one, as a Highlight's fill is.
+local function layer(
+	kind: "Lit" | "Silhouette" | "Glow" | "Shadow",
+	alpha: () -> number,
+	room: () -> Vector2,
+	props: { [any]: any }?
+): TLayer
 	local isSilhouette = kind == "Silhouette"
+	local isBlank = isSilhouette or kind == "Glow"
 	local isShadow = kind == "Shadow"
 	local shown = vide.derive(function(): boolean
 		return alpha() > SHOWN_FLOOR
 	end)
-	local camera = create("Camera")({ FieldOfView = FOV })
+	-- The field of view grows with the viewport's height and the camera stays put: the body is drawn the same size, in
+	-- the same place and with the same perspective, with more around it.
+	local camera = create("Camera")({
+		FieldOfView = function()
+			return 2 * math.deg(math.atan(math.tan(math.rad(FOV / 2)) * room().Y))
+		end,
+	})
 	local world = create("WorldModel")({})
 	local view = create("ViewportFrame")({
 		Name = kind,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, if isShadow then 0.5 + SHADOW_DROP else 0.5),
-		Size = UDim2.fromScale(1, 1),
+		Position = function()
+			return UDim2.fromScale(0.5, if isShadow then 0.5 + SHADOW_DROP / room().Y else 0.5)
+		end,
+		Size = function()
+			local across = room()
+			return UDim2.fromScale(across.X, across.Y)
+		end,
 		BackgroundTransparency = 1,
 		BackgroundColor3 = FRINGE,
-		Ambient = if isSilhouette then Palette.White elseif isShadow then FRINGE else AMBIENT,
-		LightColor = if isSilhouette or isShadow then FRINGE else LIGHT,
+		Ambient = if isBlank then Palette.White elseif isShadow then FRINGE else AMBIENT,
+		LightColor = if isBlank or isShadow then FRINGE else LIGHT,
 		CurrentCamera = camera,
 		ImageColor3 = if isShadow then FRINGE else nil,
 		ImageTransparency = function()
 			return 1 - alpha()
 		end,
-		ZIndex = if isShadow then 1 elseif isSilhouette then 2 else 3,
+		ZIndex = if isShadow then 1 elseif isSilhouette then 2 elseif isBlank then 4 else 3,
 		Visible = shown,
 		camera,
 		world,
 		props,
 	}) :: ViewportFrame
-	return { IsSilhouette = isSilhouette, Shown = shown, View = view, World = world, Rest = CFrame.identity }
+	return {
+		IsBlank = isBlank,
+		CanAttack = not isSilhouette,
+		Shown = shown,
+		View = view,
+		World = world,
+		Rest = CFrame.identity,
+	}
 end
 
 -- A box drawing `enemy()` (nil draws nothing), redrawn when it changes. `spec` fields, each optional, the functions
--- sources: Yaw (degrees on top of the three-quarter rest, about the body's middle), Transparency (0 shown, 1 gone),
--- Burned and Lit (a reveal's halves, Parts.Burned / Lit: 0 and 0 is the silhouette, Lit 1 the enemy; leave both out for
--- an enemy always shown), Moving (whether it walks; it holds mid stride while not, and walks always when left out),
--- Poke (a stamp: each change plays its attack). `props` are the box's own.
+-- sources: Yaw (degrees on top of the three-quarter rest, about the body's middle), Face (how far it has turned from
+-- that rest to face you, 0 to 1), Transparency (0 shown, 1 gone), Burned and Lit (a reveal's halves, Parts.Burned /
+-- Lit: 0 and 0 is the silhouette, Lit 1 the enemy; leave both out for an enemy always shown), Moving (whether it walks;
+-- it holds mid stride while not, and walks always when left out), Poke (a stamp: each change plays its attack), Room
+-- (how many boxes wide and tall it is drawn, about the box's middle and at the box's scale: room for a long body to
+-- turn in; one box when left out). `props` are the box's own.
 --
 -- A layer holds its copy, and that copy its Animator and tracks, only while the layer is drawn: a card is nearly always
 -- lit or a silhouette, not both, and the stage turns whatever is held every frame.
@@ -181,20 +228,26 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 	end
 	local burned = spec.Burned
 	local yaw = spec.Yaw
+	local face = spec.Face
 	local moving = spec.Moving
+	local room = spec.Room or function()
+		return Vector2.one
+	end
 
 	local litLayer = layer(
 		"Lit",
 		vide.derive(function(): number
 			return lit() * (1 - faded())
-		end)
+		end),
+		room
 	)
 	-- Under the lit body and the silhouette alike, so it fades only with the whole picture.
 	local shadowLayer = layer(
 		"Shadow",
 		vide.derive(function(): number
 			return (1 - SHADOW_TRANSPARENCY) * (1 - faded())
-		end)
+		end),
+		room
 	)
 	local layers: { TLayer } = { litLayer, shadowLayer }
 	-- Only a picture that can be unknown has a silhouette.
@@ -205,6 +258,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 			vide.derive(function(): number
 				return (1 - lit()) * (1 - faded())
 			end),
+			room,
 			{
 				ImageColor3 = function()
 					return Parts.SILHOUETTE:Lerp(Palette.White, if burned then burned() else 0)
@@ -213,17 +267,36 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 		)
 		layers[3] = silhouetteLayer
 	end
+	-- Over the lit body, for an enemy that glows in the game.
+	local glowLayer = layer(
+		"Glow",
+		vide.derive(function(): number
+			local shownEnemy = enemy()
+			if not shownEnemy or not shownEnemy.Glow then return 0 end
+			return (1 - GLOW_TRANSPARENCY) * lit() * (1 - faded())
+		end),
+		room,
+		{
+			ImageColor3 = function()
+				local shownEnemy = enemy()
+				return if shownEnemy and shownEnemy.Glow then shownEnemy.Glow else Palette.White
+			end,
+		}
+	)
+	table.insert(layers, glowLayer)
 
-	-- What the enemy on show is drawn with, set as it changes: the rig copies are made from, its clips, and the axis a
-	-- turn goes round.
+	-- What the enemy on show is drawn with, set as it changes: the rig copies are made from, its clips, the axis a turn
+	-- goes round and its turn at rest.
 	local current: TData.TEnemy? = nil
 	local rig: Model? = nil
 	local loopClip: Animation? = nil
 	local attackClipNow: Animation? = nil
 	local axis = Vector3.zero
+	local restYaw = REST_YAW
 
 	local function turn()
-		local by = CFrame.new(axis) * CFrame.Angles(0, math.rad(REST_YAW + (if yaw then yaw() else 0)), 0)
+		local turned = restYaw * (1 - (if face then face() else 0)) + (if yaw then yaw() else 0)
+		local by = CFrame.new(axis) * CFrame.Angles(0, math.rad(turned), 0)
 		local around = CFrame.new(-axis)
 		for _, each in layers do
 			local copy = each.Copy
@@ -247,7 +320,9 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 	local function hold(each: TLayer)
 		if each.Copy or not rig then return end
 		local copy = rig:Clone()
-		if each.IsSilhouette then blank(copy) end
+		-- The game draws a body solid once it has arrived (EnemiesController), whatever its rig was saved with.
+		if copy.PrimaryPart then copy.PrimaryPart.Transparency = 0 end
+		if each.IsBlank then blank(copy) end
 		each.Rest = copy:GetPivot()
 		copy.Parent = each.World
 		each.Copy = copy
@@ -272,7 +347,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 			track:AdjustSpeed(speed())
 			each.Loop = track
 		end
-		if attackClipNow and not each.IsSilhouette then
+		if attackClipNow and each.CanAttack then
 			local track = playing:LoadAnimation(attackClipNow)
 			track.Priority = Enum.AnimationPriority.Action
 			track.Looped = false
@@ -282,7 +357,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 	end
 
 	-- Frames a new enemy: the camera in front of the body, a little over it, looking at LOOK_AT with SPAN filling the
-	-- box's height. A rig's face is on its +Z side: from -Z it is seen from behind.
+	-- box's height, or as its FRAMINGS says. A rig's face is on its +Z side: from -Z it is seen from behind.
 	local function frame(shownEnemy: TData.TEnemy?)
 		for _, each in layers do
 			drop(each)
@@ -297,10 +372,16 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 		local feet = box.Position.Y - size.Y / 2
 		axis = Vector3.new(box.Position.X, 0, box.Position.Z)
 		local target = Vector3.new(box.Position.X, feet + size.Y * LOOK_AT, box.Position.Z)
-		local distance = size.Y * SPAN / 2 / math.tan(math.rad(FOV / 2))
+		local framing = FRAMINGS[shownEnemy.ModelName]
+		restYaw = if framing then framing.Yaw else REST_YAW
+		local fit = if framing then framing.Fit else 1
+		local distance = fit * size.Y * SPAN / 2 / math.tan(math.rad(FOV / 2))
 		local pitch = math.rad(PITCH)
 		local eye = target + Vector3.new(0, math.sin(pitch), math.cos(pitch)) * distance
 		local cameraFrame = CFrame.lookAt(eye, target)
+		if framing then
+			cameraFrame *= CFrame.new(framing.Look.X * size.Y, framing.Look.Y * size.Y, 0)
+		end
 		local light = cameraFrame:VectorToWorldSpace(KEY_LIGHT)
 		for _, each in layers do
 			(each.View.CurrentCamera :: Camera).CFrame = cameraFrame
@@ -336,7 +417,8 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 
 	-- The copies follow the turn and the pace on their own, without being copied again.
 	local function follow()
-		yaw()
+		if yaw then yaw() end
+		if face then face() end
 		vide.untrack(turn)
 	end
 	local function pace()
@@ -347,7 +429,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 			end
 		end)
 	end
-	if yaw then vide.effect(follow) end
+	if yaw or face then vide.effect(follow) end
 	if moving then vide.effect(pace) end
 
 	-- Only a stamp made just now plays: the source also changes as it starts or stops being passed through (an enemy
@@ -370,6 +452,7 @@ function Picture.Build(enemy: () -> TData.TEnemy?, spec: { [any]: any }, props: 
 		shadowLayer.View,
 		if silhouetteLayer then silhouetteLayer.View else nil,
 		litLayer.View,
+		glowLayer.View,
 		props,
 	}) :: Frame
 end

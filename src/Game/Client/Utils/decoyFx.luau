@@ -10,6 +10,7 @@ local Workspace = game:GetService("Workspace")
 local thrownPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.thrownPieces)
 local burstLayers = require(script.Parent.burstLayers)
 local copyCharacter = require(script.Parent.Parent.Parent.GlobalClient.Utils.copyCharacter)
+local equipmentPieces = require(script.Parent.Parent.Parent.GlobalClient.Utils.equipmentPieces)
 local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
 
@@ -213,9 +214,11 @@ end
 
 -- The doll of `source`, parked out of sight: every part anchored and out of every query. A copied avatar keeps its
 -- parts' own Material and Reflectance: the engine paints the face and the clothes onto a body through its Humanoid
--- only while the parts are as the avatar loaded them, and a head repainted shows its face's texture black.
+-- only while the parts are as the avatar loaded them, and a head repainted shows its face's texture black. It is the
+-- avatar alone, as on the Decoy's card (AbilityPicture.Doll).
 local function buildDoll(source: Model?): TDoll
 	local copy = if source then copyCharacter(source) else nil
+	if copy then equipmentPieces.Strip(copy) end
 	local model = copy or blockBody()
 	model.Name = "Decoy"
 

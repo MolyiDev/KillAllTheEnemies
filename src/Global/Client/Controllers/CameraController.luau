@@ -119,8 +119,6 @@ CameraController.IsLocked = false
 CameraController.IsFacingAim = false
 -- Scales every shake (0 turns them off), for the Reduce Camera Shake setting. A weapon's kick is not a shake: it stays.
 CameraController.ShakeMultiplier = 1
--- A menu that needs the cursor is up: nothing here locks the mouse while this is true.
-CameraController.IsMouseFreed = false
 -- The camera as framed, before the cosmetic layers: where the player is actually looking.
 CameraController.AimCFrame = CFrame.identity
 
@@ -136,8 +134,14 @@ local recoilRollCoupling = 0.25
 local recoilX, recoilXVel, recoilY, recoilYVel = 0, 0, 0, 0
 
 local isMouseLocked = false
+-- The screens up that need the cursor, by name (SetMouseFreed): one shutting over another leaves the mouse free.
+local mouseFreedBy: { [string]: true } = {}
 -- A place with no guns (UseRobloxMouse): Roblox's own pointer and no Shift lock.
 local isRobloxMouse = false
+-- With Roblox's pointer, the place draws a crosshair in its place (SetPointerHidden).
+local isPointerHidden = false
+-- What MouseIconEnabled was last set to here; nil until the first frame writes it.
+local isPointerShown: boolean? = nil
 -- The dot, and what was last written to it. Off once a place draws its own crosshair on the mouse (HideDot).
 local isDotWanted = true
 local dot: Frame? = nil
@@ -226,6 +230,16 @@ function CameraController.AddRecoil(upImpulse: number, sideImpulse: number)
 	recoilXVel += sideImpulse
 end
 
+-- A screen that needs the cursor (`key` names it) is up or gone: while any is up the mouse is not locked, Roblox's
+-- pointer shows and the crosshair is not drawn.
+function CameraController.SetMouseFreed(key: string, isFreed: boolean)
+	mouseFreedBy[key] = if isFreed then true else nil
+end
+
+function CameraController.IsMouseFreed(): boolean
+	return next(mouseFreedBy) ~= nil
+end
+
 -- Takes the dot away for good, for a place that draws its own crosshair where the dot would be. Safe before or after
 -- this controller's OnStart.
 function CameraController.HideDot()
@@ -242,14 +256,12 @@ function CameraController.UseRobloxMouse()
 	CameraController.IsLocked = false
 	ContextActionService:UnbindAction("CameraLock")
 	CameraController.HideDot()
-	UserInputService.MouseIconEnabled = true
 end
 
 -- With Roblox's pointer (UseRobloxMouse), hides it while the place draws a crosshair on the mouse in its place (the
 -- lobby's shooting range), and brings it back after.
 function CameraController.SetPointerHidden(isHidden: boolean)
-	if not isRobloxMouse then return end
-	UserInputService.MouseIconEnabled = not isHidden
+	isPointerHidden = isHidden
 end
 
 -- Turns the view to face `target` on the next frame; the PlayerModule carries on from there.
@@ -285,9 +297,22 @@ function CameraController.ReleaseShot()
 	if not held.ReleasedAt then held.ReleasedAt = accumulatedTime end
 end
 
+-- Where Script(nil, `lookAt`) puts the camera: behind the player, looking at `lookAt` when given (else along the camera
+-- as it is), at the zoom and field of view they had before the script; and the subject it looks at. nil with no body.
+-- A script that glides here before handing back hands back without a cut.
+function CameraController.ReturnPose(lookAt: Vector3?): (CFrame?, number, Vector3?)
+	local root = selfRoot
+	if not root then return nil, scriptedFov, nil end
+	local subject = root.Position + Vector3.new(0, 1.5, 0)
+	local toward = if lookAt then lookAt - subject else Workspace.CurrentCamera.CFrame.LookVector
+	local flat = Vector3.new(toward.X, math.min(toward.Y, 0) * 0.2, toward.Z)
+	local look = if flat.Magnitude > 1e-3 then flat.Unit else -Vector3.zAxis
+	local eye = subject - look * math.max(scriptedZoom, 8) + Vector3.new(0, 2, 0)
+	return CFrame.lookAt(eye, subject), scriptedFov, subject
+end
+
 -- Takes the camera for a cutscene: from the next frame `step(dt)` builds it whole, (CFrame, field of view), and only
--- the shakes are laid on top. nil hands it back at once (behind a cut), behind the player and looking at `lookAt`
--- when given, at the zoom and field of view they had.
+-- the shakes are laid on top. nil hands it back at once (behind a cut) at ReturnPose(`lookAt`).
 function CameraController.Script(step: ((dt: number) -> (CFrame, number))?, lookAt: Vector3?)
 	local camera = Workspace.CurrentCamera
 	if step then
@@ -301,16 +326,11 @@ function CameraController.Script(step: ((dt: number) -> (CFrame, number))?, look
 	end
 	if not scripted then return end
 
+	local pose, fov, subject = CameraController.ReturnPose(lookAt)
 	scripted = nil
-	camera.FieldOfView = scriptedFov
-	local root = selfRoot
-	if root then
-		local subject = root.Position + Vector3.new(0, 1.5, 0)
-		local toward = if lookAt then lookAt - subject else camera.CFrame.LookVector
-		local flat = Vector3.new(toward.X, math.min(toward.Y, 0) * 0.2, toward.Z)
-		local look = if flat.Magnitude > 1e-3 then flat.Unit else -Vector3.zAxis
-		local eye = subject - look * math.max(scriptedZoom, 8) + Vector3.new(0, 2, 0)
-		camera.CFrame = CFrame.lookAt(eye, subject)
+	camera.FieldOfView = fov
+	if pose and subject then
+		camera.CFrame = pose
 		camera.Focus = CFrame.new(subject)
 	end
 	camera.CameraType = Enum.CameraType.Custom
@@ -425,10 +445,9 @@ end
 -- rotation, and would otherwise hand back a stale one. While locked the body is turned by faceAim, not by it.
 local function applyLock()
 	local isFirstPerson = firstPersonBlend > 0.5
+	local isFreed = CameraController.IsMouseFreed()
 	-- A held shot frames something to look at, usually with a screen over it: the pointer is free.
-	local shouldLockMouse = (CameraController.IsLocked or isFirstPerson)
-		and not CameraController.IsMouseFreed
-		and not held.IsActive
+	local shouldLockMouse = (CameraController.IsLocked or isFirstPerson) and not isFreed and not held.IsActive
 	if shouldLockMouse then
 		if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
 			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
@@ -437,6 +456,14 @@ local function applyLock()
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	end
 	isMouseLocked = shouldLockMouse
+
+	-- Without Roblox's pointer the place draws its own on the mouse (the dot, or a crosshair), but a freed mouse is
+	-- pointing at a screen: the plain pointer, which is what a player expects to click with.
+	local shouldShowPointer = isFreed or (isRobloxMouse and not isPointerHidden)
+	if shouldShowPointer ~= isPointerShown then
+		isPointerShown = shouldShowPointer
+		UserInputService.MouseIconEnabled = shouldShowPointer
+	end
 
 	-- First person sets CameraRelative itself every frame (BaseCamera); writing over it would flip it twice a frame.
 	if isFirstPerson then return end
@@ -468,7 +495,7 @@ end
 local function moveDot()
 	local frame = dot
 	if not frame then return end
-	local isVisible = isMouseLocked or UserInputService.MouseEnabled
+	local isVisible = (isMouseLocked or UserInputService.MouseEnabled) and not isPointerShown
 	if isVisible ~= isDotVisible then
 		isDotVisible = isVisible
 		frame.Visible = isVisible
@@ -617,6 +644,9 @@ local function update(dt: number)
 	local camera = Workspace.CurrentCamera
 	local step = scripted
 	if step then
+		-- The pointer still follows its owners (a downed player spectating clicks REVIVE).
+		applyLock()
+		moveDot()
 		local cframe, fov = step(dt)
 		CameraController.AimCFrame = cframe
 		camera.CFrame = if #activeShakes > 0 then cframe * computeShakeOffset() else cframe
@@ -767,7 +797,6 @@ CameraController.OnStart = function()
 			return Enum.ContextActionResult.Sink
 		end, false, LOCK_KEY)
 		createDot()
-		UserInputService.MouseIconEnabled = false
 	end
 
 	Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(sizeDot)

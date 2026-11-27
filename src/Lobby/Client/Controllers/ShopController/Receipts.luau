@@ -251,17 +251,18 @@ function Receipts.Build(offer: ShopCore.TOffer, context: TContext, featuredGun: 
 end
 
 -- The receipt for a friend's first join by this player's invite (Invites.Rewarded): `name` is the friend's, and
--- `friends` of the most there can be have paid now.
-function Receipts.Invite(name: string, gems: number, friends: number, most: number): Types.TReceipt
+-- `friends` of the most there can be have paid now. The surprise gift's (`isGift`) lands as hard as anything sold.
+function Receipts.Invite(name: string, gems: number, friends: number, most: number, isGift: boolean): Types.TReceipt
 	return {
 		Offer = "",
-		Tab = "FRIEND JOINED!",
+		Tab = if isGift then "GIFT UNLOCKED!" else "FRIEND JOINED!",
 		Name = string.upper(name),
 		Accent = Palette.Green,
-		Picture = EIcons.AddFriend,
+		Picture = if isGift then EIcons.InviteGift else EIcons.AddFriend,
 		Art = "Rays",
-		-- The lobby's INVITE FRIENDS card glows pink.
-		ArtAccent = Palette.Pink,
+		-- The lobby's INVITE FRIENDS card glows pink; the gift's box is tied in gold.
+		ArtAccent = if isGift then Palette.Gold else Palette.Pink,
+		Tier = if isGift then TOP_TIER else "Legendary",
 		Rows = {
 			gemsRow(gems, true),
 			{
@@ -273,7 +274,6 @@ function Receipts.Invite(name: string, gems: number, friends: number, most: numb
 				Picture = EIcons.AddFriend,
 			},
 		},
-		Tier = "Legendary",
 	}
 end
 

@@ -7,5 +7,8 @@ return table.freeze({
 	Exploding = 4,
 	Slammer = 5,
 	FossilGuard = 6,
+	EggSac = 7,
+	Spiderling = 8,
 	TRex = 101,
+	GiantSpider = 102,
 })

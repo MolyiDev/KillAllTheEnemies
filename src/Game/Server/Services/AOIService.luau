@@ -9,6 +9,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Network = require(ServerScriptService.GlobalServer.Network)
 local EnemiesCore = require(ReplicatedStorage.Shared.Core.EnemiesCore)
+local EnemyPacker = require(ReplicatedStorage.Shared.Packers.EnemyPacker)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local EnemyWorld = require(ReplicatedStorage.GlobalShared.ECS.Worlds.EnemyWorld)
 local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
@@ -44,6 +45,10 @@ export type TPlayerAOIState = {
 	-- 1 / sin(FOV/2): how far back along the look a sphere's radius moves the cone's apex (inViewSphere).
 	apexShiftPerRadius: number,
 	knownEnemies: { [number]: boolean },
+	-- os.clock each known body was last sent to this player at (EnemyPacker's send tiers), and the position it was
+	-- sent at (EnemyPacker's baseline, which its deltas count from). No send time: the next record is absolute.
+	sentAt: { [number]: number },
+	sentQ: buffer,
 }
 
 local playerStates: { [Player]: TPlayerAOIState } = {}
@@ -167,7 +172,10 @@ function AOIService.PopSubscribedPlayersInto(instanceId: number, out: { Player }
 	if not subs then return out end
 	for player in subs do
 		local state = playerStates[player]
-		if state then state.knownEnemies[instanceId] = nil end
+		if state then
+			state.knownEnemies[instanceId] = nil
+			state.sentAt[instanceId] = nil
+		end
 		out[#out + 1] = player
 	end
 
@@ -180,7 +188,10 @@ function AOIService.OnEnemyRemoved(instanceId: number)
 	if not subs then return end
 	for player in subs do
 		local state = playerStates[player]
-		if state then state.knownEnemies[instanceId] = nil end
+		if state then
+			state.knownEnemies[instanceId] = nil
+			state.sentAt[instanceId] = nil
+		end
 	end
 
 	enemySubscribers[instanceId] = nil
@@ -210,7 +221,10 @@ function AOIService.PopSubscribedPlayersMultiple(instanceIds: { number }, result
 		if not subs then continue end
 		for player in subs do
 			local state = playerStates[player]
-			if state then state.knownEnemies[instanceId] = nil end
+			if state then
+				state.knownEnemies[instanceId] = nil
+				state.sentAt[instanceId] = nil
+			end
 			local list = result[player]
 			if not list then
 				list = takeList()
@@ -256,6 +270,7 @@ function AOIService.Reset()
 	table.clear(enemySubscribers)
 	for _, state in playerStates do
 		table.clear(state.knownEnemies)
+		table.clear(state.sentAt)
 	end
 end
 
@@ -272,6 +287,8 @@ AOIService.OnPlayerConnected = function(player: Player)
 		thresholdSq = NO_FRUSTUM,
 		apexShiftPerRadius = 0,
 		knownEnemies = {},
+		sentAt = {},
+		sentQ = EnemyPacker.CreateBaseline(),
 	}
 end :: TPlayerEvents.OnPlayerConnected
 

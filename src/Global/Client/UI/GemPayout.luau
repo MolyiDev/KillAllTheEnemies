@@ -3,7 +3,8 @@
 -- lobby HUD's Gems pill (UI.md 5j), or a code's XP into the level plate's bar: thrown out
 -- round the gem against drag, they hang, then each is pulled home on its own bend, carrying on the way it was thrown
 -- before it turns. They land one at a time on a closing beat, each handing the pill its slice, so the count climbs in
--- ticks you can count, and the last one lands the whole amount.
+-- ticks you can count, and the last one lands the whole amount. The "Reel" look flies as a daily spin's prize does
+-- (SpinsController's Payout): plain pieces, as many as the amount calls for, each landing on its own spot.
 --
 -- Drawn in screen px on a full-screen layer with no scale of its own, since both ends are measured off the screen
 -- (the card's gem, the pill's glyph). A fixed pool, stepped by the controller every frame while it is busy.
@@ -60,6 +61,25 @@ local Tune = table.freeze({
 	DEADLINE = 1.8,
 })
 
+-- The "Reel" look: a daily spin's prize, the same numbers as SpinsController's Payout, so XP flies alike from either.
+local Reel = table.freeze({
+	-- How many pieces carry it: 4 + the root of the amount, within these.
+	MIN = 8,
+	MAX = 24,
+	SPREAD = 0.8,
+	REACH_MIN = 90,
+	REACH_MAX = 170,
+	-- How far it carries on the way it was thrown as it turns, as a share of the trip home.
+	CARRY = 0.25,
+	SIZE = 24,
+	-- It arrives at this share of its size, and fades in and out over these shares of its flight.
+	ARRIVE_SCALE = 0.55,
+	FADE_IN = 0.06,
+	FADE_OUT = 0.08,
+	-- Spread up and down the bar where they land.
+	LAND_JITTER = 3,
+})
+
 -- A lifted shade of what they came off (a chip at the exact colour of its source reads as a hole), the gem and white.
 local COLORS = table.freeze({
 	-- His gem blue (UIMatt.md, Daily Rewards).
@@ -85,8 +105,17 @@ local function cubic(a: Vector2, b: Vector2, c: Vector2, d: Vector2, t: number):
 end
 
 -- `scale` is the screen's px per design px; `target` where they land now, in screen px (nil while there is none: they
--- land where it was last seen). `picture` is what flies, the gem unless said.
-function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: string?): TPayout
+-- land where it was last seen). `picture` is what flies, the gem unless said. In the "Reel" look the pieces land in
+-- order along a line, from `target(0)` to `target(1)` for the last.
+function GemPayout.Build(
+	scale: () -> number,
+	target: (share: number) -> Vector2?,
+	picture: string?,
+	look: ("Burst" | "Reel")?
+): TPayout
+	local isReel = look == "Reel"
+	-- The numbers both looks have, by the same names.
+	local throw = if isReel then Reel else Tune
 	local random = Random.new()
 	local flown = Icons.Pictures[picture or EIcons.Gem]
 	local pieces = table.create(Tune.POOL)
@@ -133,6 +162,7 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 	local amount, count, landed = 0, 0, 0
 	local land: ((owed: number) -> ())? = nil
 	local lastTarget = Vector2.zero
+	local firstTarget = Vector2.zero
 	local lastNow = 0
 
 	-- Hands over everything up to the `rank`th landing.
@@ -158,11 +188,13 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 		end
 		table.clear(pieces)
 
-		amount, count, landed, land = total, Tune.COUNT, 0, onLand
+		amount, landed, land = total, 0, onLand
+		count = if isReel then math.clamp(math.round(4 + math.sqrt(total)), Reel.MIN, Reel.MAX) else Tune.COUNT
 		burstAt = now
 		lastNow = now
 		local unit = scale()
-		lastTarget = target() or lastTarget
+		lastTarget = target(1) or lastTarget
+		if isReel then firstTarget = target(0) or firstTarget end
 
 		-- Who lands when has nothing to do with where it was thrown.
 		local ranks = table.create(count)
@@ -178,27 +210,35 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 			cursor = cursor % Tune.POOL + 1
 			local rank = ranks[index]
 			local order = (rank - 1) / (count - 1)
-			local arrive = Tune.FIRST + Tune.SPREAD * order ^ Tune.CLOSE
-			local hangAt = random:NextNumber(
-				Tune.HANG_MIN,
-				math.max(Tune.HANG_MIN, math.min(Tune.HANG_MAX, arrive - Tune.PULL_MIN))
-			)
+			local arrive = Tune.FIRST + throw.SPREAD * order ^ Tune.CLOSE
+			local hangAt = if isReel
+				then math.clamp(
+					random:NextNumber(Tune.HANG_MIN, Tune.HANG_MAX),
+					Tune.HANG_MIN,
+					math.max(Tune.HANG_MIN, arrive - Tune.PULL_MIN)
+				)
+				else random:NextNumber(
+					Tune.HANG_MIN,
+					math.max(Tune.HANG_MIN, math.min(Tune.HANG_MAX, arrive - Tune.PULL_MIN))
+				)
 			-- Evenly round the circle, then jittered, so the star has no gap and no pattern.
 			local angle = (index + random:NextNumber(-0.4, 0.4)) / count * 2 * math.pi
 			local out = Vector2.new(math.cos(angle), math.sin(angle))
-			local glyph = random:NextNumber(Tune.SIZE_MIN, Tune.SIZE_MAX)
+			local glyph = if isReel then Reel.SIZE else random:NextNumber(Tune.SIZE_MIN, Tune.SIZE_MAX)
 			local color = COLORS[random:NextInteger(1, #COLORS)]
 			pieces[index] = {
 				Index = cursor,
 				IsLive = true,
 				From = from,
 				Out = out,
-				Reach = random:NextNumber(Tune.REACH_MIN, Tune.REACH_MAX) * unit,
+				Reach = random:NextNumber(throw.REACH_MIN, throw.REACH_MAX) * unit,
 				HangAt = hangAt,
 				Arrive = arrive,
 				Carry = random:NextNumber(Tune.CARRY_MIN, Tune.CARRY_MAX) * unit,
 				Bend = random:NextNumber(Tune.BEND_MIN, Tune.BEND_MAX),
-				Land = Vector2.new(random:NextNumber(-1, 1), random:NextNumber(-1, 1)) * Tune.LAND_JITTER * unit,
+				Land = if isReel
+					then Vector2.new(0, random:NextNumber(-1, 1) * Reel.LAND_JITTER * unit)
+					else Vector2.new(random:NextNumber(-1, 1), random:NextNumber(-1, 1)) * Tune.LAND_JITTER * unit,
 				Spin = if random:NextNumber() < 0.5 then Tune.SPIN else -Tune.SPIN,
 				Side = math.round(glyph / Icons.PICTURE_SHARE * unit),
 				Rank = rank,
@@ -208,6 +248,40 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 		end
 	end
 
+	-- A piece of the "Reel" look `age` after the burst: no spin, no streak, shrinking over its whole flight, landing on
+	-- the spot its rank is aimed at.
+	local function reelPiece(piece, icon: ImageLabel, age: number, layerAt: Vector2, layerSize: Vector2)
+		local reach = piece.Out * piece.Reach
+		local at: Vector2
+		if age < piece.HangAt then
+			at = piece.From + reach * (1 - math.exp(-Tune.DRAG * age))
+		else
+			local hang = piece.From + reach * (1 - math.exp(-Tune.DRAG * piece.HangAt))
+			local home = firstTarget + (lastTarget - firstTarget) * (piece.Rank / count) + piece.Land
+			local trip = home - hang
+			local distance = trip.Magnitude
+			local across = Vector2.new(-trip.Y, trip.X) / math.max(distance, 1)
+			local turn = if piece.Out:Dot(across) >= 0 then 1 else -1
+			local s = (age - piece.HangAt) / math.max(piece.Arrive - piece.HangAt, 1e-3)
+			at = cubic(
+				hang,
+				hang + piece.Out * distance * Reel.CARRY,
+				home - trip * Tune.HOME_SHARE + across * (turn * distance * piece.Bend),
+				home,
+				s * s
+			)
+		end
+
+		local share = age / piece.Arrive
+		local appear = math.clamp(share / Reel.FADE_IN, 0, 1)
+		local vanish = math.clamp((1 - share) / Reel.FADE_OUT, 0, 1)
+		local side = math.max(1, math.round(piece.Side * (1 - (1 - Reel.ARRIVE_SCALE) * share * share)))
+		icon.Position = UDim2.fromScale((at.X - layerAt.X) / layerSize.X, (at.Y - layerAt.Y) / layerSize.Y)
+		icon.Size = UDim2.fromOffset(side, side)
+		icon.ImageTransparency = 1 - math.min(appear, vanish)
+		icon.Visible = true
+	end
+
 	local function step(now: number): boolean
 		if not land and #pieces == 0 then return false end
 		local age = now - burstAt
@@ -215,7 +289,8 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 
 		local dt = math.max(now - lastNow, 1 / 240)
 		lastNow = now
-		lastTarget = target() or lastTarget
+		lastTarget = target(1) or lastTarget
+		if isReel then firstTarget = target(0) or firstTarget end
 		local layerAt = layer.AbsolutePosition
 		local layerSize = layer.AbsoluteSize
 		local unit = scale()
@@ -229,6 +304,11 @@ function GemPayout.Build(scale: () -> number, target: () -> Vector2?, picture: s
 				continue
 			end
 			isBusy = true
+
+			if isReel then
+				reelPiece(piece, icons[piece.Index], age, layerAt, layerSize)
+				continue
+			end
 
 			local reach = piece.Out * piece.Reach
 			local at: Vector2

@@ -88,6 +88,7 @@ local tick: enemiesUpdate.TTick = {
 	OutPositions = table.create(EnemiesCore.MAX_ALIVE),
 	OutYaws = table.create(EnemiesCore.MAX_ALIVE),
 	OutViews = table.create(EnemiesCore.MAX_ALIVE),
+	OutEveryTick = table.create(EnemiesCore.MAX_ALIVE),
 	OnAttackStarted = function(enemy: any, attackIndex: number, attack: TData.TEnemyAttack, center: vector, _)
 		if EnemyWorld:contains(enemy) then EnemyAttacksService.Start(enemy, attackIndex, attack, center) end
 	end,
@@ -195,6 +196,8 @@ end
 
 local function stream(count: number)
 	if count == 0 then return end
+	-- Real time: a paused match keeps streaming (streamFrozen), and the client parks a body whose packets stop.
+	local now = os.clock()
 
 	for player, state in AOIService.PlayerStates do
 		local packet = EnemyPacker.PackFiltered(
@@ -211,7 +214,11 @@ local function stream(count: number)
 			state.lookZ,
 			state.thresholdSq,
 			state.apexShiftPerRadius,
-			state.renderDistanceSq
+			state.renderDistanceSq,
+			state.sentAt,
+			state.sentQ,
+			tick.OutEveryTick,
+			now
 		)
 		if packet then ServerNetworkEnemies.Positions.Fire(player, packet) end
 	end
@@ -227,6 +234,7 @@ local function streamFrozen()
 		tick.OutPositions[count] = position
 		tick.OutYaws[count] = yaw
 		tick.OutViews[count] = EnemiesCore.ViewSphere(enemyData)
+		tick.OutEveryTick[count] = enemyData.IsBoss == true or enemyData.Boss ~= nil
 	end
 
 	stream(count)

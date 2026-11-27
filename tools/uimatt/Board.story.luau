@@ -2,7 +2,7 @@
 --   rur-native render --headless --offline --rojo <lobby.project.json without its comments> \
 --     --story tools/uimatt/Board.story.luau --viewport 600x420 --scale 1 --background 40,40,60 --time 2 \
 --     --controls '{"Moment": "Waiting"}' --dir <out>
--- Moment: Waiting (Pirate Cove on Nightmare, 2 of 4, 11 s), Full (4 of 4, 3 s), Going (teleporting), Join (a third
+-- Moment: Waiting (Baseplate on Nightmare, 2 of 4, 11 s), Full (4 of 4, 3 s), Going (teleporting), Join (a third
 -- player stepping on 0.2 s in), for `rur-native sequence`.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -26,8 +26,6 @@ local SWAPS = {
 	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "hud/Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "hud/PanelTexture.png",
-	[Parts.PICTURES.PirateCove] = ROOT .. "party/maps/PirateCove.png",
-	[Parts.PICTURES.GrassLands] = ROOT .. "party/maps/GrassLands.png",
 }
 
 local function swapImages(root: Instance)

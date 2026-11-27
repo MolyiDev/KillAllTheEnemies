@@ -168,6 +168,7 @@ end
 
 -- Its attacks' words, each once, in its pattern's order.
 function Parts.AttackWords(enemy: TData.TEnemy): { string }
+	if enemy.IndexTags then return enemy.IndexTags end
 	local words, seen = {}, {}
 	for _, attack in enemy.Attacks do
 		local word = ATTACK_WORDS[attack.Kind]

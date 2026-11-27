@@ -430,7 +430,7 @@ end
 
 -- What the pad is doing, on his dark plaque: bare gold is lost on the pad's lit yellow glow behind it. The plaque is
 -- sized by a hidden copy of the word, as the party screen's chips are.
-local function status(view: () -> { [string]: any }): Frame
+local function status(state: Types.TLobbyState, view: () -> { [string]: any }): Frame
 	local word = derive(function(): string
 		local current = view()
 		if current.Phase == EPhase.Teleporting then return "TELEPORTING" end
@@ -453,8 +453,9 @@ local function status(view: () -> { [string]: any }): Frame
 			TextSize = Layout.STATUS_TEXT,
 			TextTransparency = 1,
 			Text = word,
+			-- TextBounds is in screen px, under the root's UIScale; the width is in design px.
 			vide.changed("TextBounds", function(bounds: Vector2)
-				wordWidth(math.ceil(bounds.X))
+				wordWidth(math.ceil(bounds.X / math.max(vide.untrack(state.PageScale), 0.01)))
 			end),
 		}),
 		Label({
@@ -605,7 +606,7 @@ function Queue.Build(state: Types.TLobbyState, actions: Types.TLobbyActions): Sc
 				}),
 			}),
 			group("Bottom", 1, {
-				status(view),
+				status(state, view),
 				clock(state, actions, view, dealt(Timing.CLOCK_DELAY)),
 			}),
 		}),

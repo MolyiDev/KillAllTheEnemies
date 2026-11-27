@@ -2,7 +2,7 @@
 --   rur-native render --headless --offline --rojo <lobby.project.json without its comments> \
 --     --story tools/uimatt/Queue.story.luau --viewport 1920x1080 --scale 1 --background 40,40,60 --time 2 \
 --     --controls '{"Moment": "Rest"}' --dir <out>
--- Moment: Rest (Pirate Cove on Hard, friends only, 2 of 4 on, 12 s left), Enter (coming up 0.2 s in, after a
+-- Moment: Rest (Baseplate on Hard, friends only, 2 of 4 on, 12 s left), Enter (coming up 0.2 s in, after a
 -- CREATE), Tick (the countdown running from 6 s), Join (a third and then a fourth player stepping on, the clock dropping
 -- to 3 s), Teleport (the last seconds and the party going), Leave (EXIT), for `rur-native sequence`. Seconds are
 -- counted on the story's own clock, as the lobby counts the server's.
@@ -29,8 +29,6 @@ local SWAPS = {
 	[Icons.Pictures.SurvivorVest.Image] = "file:///home/molyi/Projects/KillAllTheMonsters/Assets/ui/rendered/Pictures5.png",
 	[Icons.IMAGE] = ROOT .. "hud/Icons.png",
 	[Icons.PANEL_TEXTURE] = ROOT .. "hud/PanelTexture.png",
-	[Parts.PICTURES.PirateCove] = ROOT .. "party/maps/PirateCove.png",
-	[Parts.PICTURES.GrassLands] = ROOT .. "party/maps/GrassLands.png",
 }
 local MOMENT_AT = 0.2
 

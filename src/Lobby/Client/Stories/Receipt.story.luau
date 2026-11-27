@@ -1,6 +1,6 @@
 -- The shop's Robux receipt (ShopController/Receipt) on its own, over a stand-in for the blurred lobby. Offer picks
 -- what was bought (a bought offer, a gift received, a gift sent, a bundle with a gun already owned) or a friend's
--- join by an invite (InvitesService); Moment: Play
+-- join by an invite (InvitesService), the surprise gift's included; Moment: Play
 -- (the whole reveal from MOMENT_AT), Hurry (a press 0.8 s in lands it all), Done (it is over, waiting for CONTINUE),
 -- Leave (CONTINUE pressed once it is over). Every change plays it again. The Gems' flight and the sounds are the
 -- controller's, so neither is here.
@@ -62,6 +62,13 @@ local OFFERS = {
 		Refund = 0,
 		Invite = { Name = "Builderman", Friends = 3, Most = 10 },
 	},
+	{
+		Label = "Surprise gift paid",
+		Offer = "",
+		Giver = "",
+		Refund = 0,
+		Invite = { Name = "Builderman", Friends = 1, Most = 20, Gems = 5000, IsGift = true },
+	},
 }
 local OFFER_LABELS = {}
 for index, pick in OFFERS do
@@ -95,7 +102,7 @@ local function bench(target: Frame, label: string, moment: string, isOffline: bo
 	local pick = pickOf(label)
 	local invite = pick.Invite
 	local receipt = if invite
-		then Receipts.Invite(invite.Name, 1000, invite.Friends, invite.Most)
+		then Receipts.Invite(invite.Name, invite.Gems or 1000, invite.Friends, invite.Most, invite.IsGift == true)
 		else Receipts.Build(ShopCore.ByName[pick.Offer], {
 			Giver = pick.Giver,
 			Receiver = pick.Receiver,
@@ -107,7 +114,9 @@ local function bench(target: Frame, label: string, moment: string, isOffline: bo
 	local plan = Receipts.Plan(receipt, start)
 	-- Done and Leave start where the reveal is already over.
 	if moment == "Done" or moment == "Leave" then plan = Receipts.Plan(receipt, start - plan.ButtonAt + start - 0.5) end
+	local scale = math.min(target.AbsoluteSize.X / DESIGN.X, target.AbsoluteSize.Y / DESIGN.Y)
 	local state = {
+		Scale = source(if scale > 0 then scale else 1),
 		ReceiptNow = source(os.clock()),
 		Receipt = source(receipt),
 		ReceiptPlan = source(plan),
@@ -127,7 +136,6 @@ local function bench(target: Frame, label: string, moment: string, isOffline: bo
 		connection:Disconnect()
 	end)
 
-	local scale = math.min(target.AbsoluteSize.X / DESIGN.X, target.AbsoluteSize.Y / DESIGN.Y)
 	local root = create("Frame")({
 		Name = "Root",
 		AnchorPoint = Vector2.new(0.5, 0.5),

@@ -1,5 +1,6 @@
 -- A boss's fight (PlanBosses.md): which of its attacks it makes and when, and the ones that are more than a ground
--- warning: a charge's run and skid, a dive under the floor, the guards it raises and the shield they hold up. Also
+-- warning: a charge's run and skid, a dive under the floor, the guards it raises and the shield they hold up, a pounce's
+-- leap, a brood's hang out of reach over the egg sacs it lays. Also
 -- what players' gadgets do to it: slowed by foam, baited by a decoy, each once in a while (canControl).
 --
 -- enemiesUpdate walks a boss between attacks and never starts one; while busy here its AttackWindup is positive (the
@@ -147,6 +148,18 @@ local Tune = table.freeze({
 	WISE_SECONDS = 15,
 	-- Slowed, it walks at this share of its speed and each move it starts takes 1 / this as long.
 	SLOW_PACE = 0.6,
+	-- A pounce's flight: its distance at the attack's Speed, held between these (seconds), on BossesCore.LeapPoint's
+	-- arc. A chained one goes this long after it lands, at a target at least CHAIN_POUNCE_MIN away.
+	POUNCE_FLIGHT = table.freeze({ 0.55, 1.4 }),
+	CHAIN_POUNCE_AFTER = 0.9,
+	CHAIN_POUNCE_MIN = 14,
+	-- A front strike aims its shapes onto its target by turning up to these offsets off the straight line (radians),
+	-- tried in order: a chevron's blades lie either side of its nose.
+	STRIKE_AIMS = table.freeze({ 0, 0.3, -0.3, 0.55, -0.55 }),
+	-- A brood: its sacs are laid this long after it starts (up its line by then).
+	BROOD_LAY = 1.4,
+	-- Its young hatch this far round where their sac stood.
+	HATCH_SPREAD = 2.5,
 })
 
 -- What players can do to a boss (canControl): slow it (foam), or bait its next move (a decoy).
@@ -195,6 +208,26 @@ type TBurrow = {
 	LegAt: number,
 }
 
+-- A pounce in the air (stepLeap): from where it left to where it lands, over Flight seconds from LeftAt.
+type TLeap = {
+	Index: number,
+	Attack: TData.TEnemyAttack,
+	From: vector,
+	To: vector,
+	LeftAt: number,
+	Flight: number,
+	Tempo: number,
+	ChainsLeft: number,
+}
+
+-- A brood under way: up its line until EndsAt (or every sac popped), then down.
+type TBrood = {
+	Index: number,
+	Attack: TData.TEnemyAttack,
+	EndsAt: number,
+	IsLaid: boolean,
+}
+
 type TStep = { At: number, Run: () -> () }
 
 type TBoss = {
@@ -220,6 +253,8 @@ type TBoss = {
 	ShieldEndsAt: number,
 	Run: TRun?,
 	Burrow: TBurrow?,
+	Leap: TLeap?,
+	Brood: TBrood?,
 	NextThinkAt: number,
 	-- The console's next move for it (ForceNext): an attack's clip name or kind, any range or cooldown.
 	Forced: string?,
@@ -473,8 +508,28 @@ local function finisherOf(attack: TData.TEnemyAttack): TData.TEnemyAttack
 	return ring
 end
 
--- A Slam round, in front of or behind the body: once, or once a beat with its last ring. Every time is `tempo`
--- times as long as authored.
+-- A spot in a body's frame (+X its left, +Z ahead) in the world, for the body at `position` facing `yaw`.
+local function strikePoint(position: vector, yaw: number, spot: Vector3): vector
+	local c, s = math.cos(yaw), math.sin(yaw)
+	local x, z = spot.X, spot.Z
+	return vector.create(position.x + x * c + z * s, position.y, position.z - x * s + z * c)
+end
+
+-- A strike's warning for the body at `position` facing `yaw`: (centre, yaw, length). A circle's yaw is 0 and its
+-- length nil (the attack's Radius).
+local function strikeShape(position: vector, yaw: number, strike: TData.TEnemyStrike): (vector, number, number?)
+	local from = strikePoint(position, yaw, strike.From)
+	local spot = strike.To
+	if not spot then return from, 0, nil end
+	local to = strikePoint(position, yaw, spot)
+	local flat = vector.create(to.x - from.x, 0, to.z - from.z)
+	local length = vector.magnitude(flat)
+	if length < 1e-3 then return from, yaw, 1 end
+	return from, math.atan2(flat.x, flat.z), length
+end
+
+-- A Slam round, in front of or behind the body: once, or once a beat with its last ring, or as its Strikes. Every
+-- time is `tempo` times as long as authored.
 local function startSlam(
 	boss: TBoss,
 	attack: TData.TEnemyAttack,
@@ -484,6 +539,21 @@ local function startSlam(
 	tempo: number
 )
 	local shapeYaw = if attack.Facing == "Behind" then yaw + math.pi else yaw
+	local strikes = attack.Strikes
+	if strikes then
+		-- Each strike shown Delay before it lands: a sequence reads one shape at a time.
+		for _, strike in strikes do
+			local landsAt = strike.At * tempo
+			local shownAt = math.max(landsAt - attack.Delay * tempo, 0)
+			schedule(boss, now + shownAt, function()
+				if not EnemyWorld:contains(boss.Entity) then return end
+				local center, strikeYaw, length = strikeShape(position, yaw, strike)
+				EnemyAttacksService.Telegraph(boss.Entity, attack, center, strikeYaw, landsAt - shownAt, length)
+			end)
+		end
+		return
+	end
+
 	local beats = attack.Beats
 	if not beats then
 		EnemyAttacksService.Telegraph(boss.Entity, attack, position, shapeYaw, attack.Delay * tempo)
@@ -1084,6 +1154,240 @@ local function startSummon(
 	end)
 end
 
+-- ============================== Pounce ==============================
+
+-- Where a pounce at a target at `feet` running at `velocity` lands `seconds` from now: Lead of the way to where they
+-- will be, on floor enemies stand on (the nav grid's), else under their feet. nil: no floor there at all.
+local function pounceSpot(attack: TData.TEnemyAttack, feet: vector, velocity: vector, seconds: number): vector?
+	local nav = ArenaCore.Nav
+	if not nav then return feet end
+	local aim = leadPoint(feet, velocity, seconds, attack.Lead or 0)
+	for _, spot in { aim, feet } do
+		local node = ArenaCore.NodeAt(nav, spot.x, feet.y + 0.75, spot.z, ArenaCore.MAX_STEP)
+		if node ~= NO_NODE then return vector.create(spot.x, ArenaCore.NodeHeight(nav, node), spot.z) end
+	end
+
+	return nil
+end
+
+-- A pounce's seconds in the air from `from` to `to`: its distance at the attack's Speed, within POUNCE_FLIGHT.
+local function flightOf(attack: TData.TEnemyAttack, from: vector, to: vector): number
+	local distance = vector.magnitude(vector.create(to.x - from.x, 0, to.z - from.z))
+	return math.clamp(distance / (attack.Speed or 45), Tune.POUNCE_FLIGHT[1], Tune.POUNCE_FLIGHT[2])
+end
+
+local function healthShare(entity: any): number
+	local health = EnemyWorld:get(entity, Components.CurrentHealth) or 1
+	local maxHealth = EnemyWorld:get(entity, Components.MaxHealth) or 1
+	return if maxHealth > 0 then health / maxHealth else 1
+end
+
+-- Crouched where it stands until its clip's PounceLeave, then off the floor onto its target (stepLeap); the circle
+-- where it lands is on the ground from the start. `chains`: how many more it makes after this one. False when there
+-- is no floor to land on near them.
+local function beginPounce(
+	boss: TBoss,
+	index: number,
+	attack: TData.TEnemyAttack,
+	now: number,
+	position: vector,
+	feet: vector,
+	characterEntity: any,
+	share: number,
+	chains: number
+): boolean
+	local kit = boss.Kit
+	local tempo = windupTempoOf(boss, share)
+	local leave = (kit.PounceLeave or 0.8) * tempo
+	local land = pounceSpot(attack, feet, flatVelocity(characterEntity), leave + flightOf(attack, position, feet))
+	if not land then return false end
+	local flight = flightOf(attack, position, land)
+	local toLand = flatDirection(position, land)
+	local yaw = if toLand then yawOf(toLand) else EnemyWorld:get(boss.Entity, Components.Yaw) or 0
+
+	EnemyWorld:set(boss.Entity, Components.Yaw, yaw)
+	fireMove(boss, EBossMoves.Attack, index, position, position, yaw, tempo)
+	boss.ReachedAt = now
+	boss.StrandedSince = nil
+	markUsed(boss, index, now)
+	local landLength = (kit.PounceLandLength or 1.7) * tempo
+	boss.ReadyAt[index] = now + leave + flight + landLength + attack.Cooldown * tempoOf(boss, share)
+	setBusy(boss, index, math.huge)
+	EnemyAttacksService.Telegraph(boss.Entity, attack, land, 0, leave + flight)
+
+	schedule(boss, now + leave, function()
+		local entity = boss.Entity
+		if not EnemyWorld:contains(entity) then return end
+		local from = EnemyWorld:get(entity, Components.Position) or position
+		-- Out of the hash while it flies: nothing may hit the floor it left, or a body its packets are not showing.
+		EnemyWorld:add(entity, Tags.Submerged)
+		EnemiesSpatialHash:Remove(entity)
+		boss.Leap = {
+			Index = index,
+			Attack = attack,
+			From = from,
+			To = land,
+			LeftAt = TimeCore.EnemyClock,
+			Flight = flight,
+			Tempo = tempo,
+			ChainsLeft = chains,
+		}
+		fireMove(boss, EBossMoves.Leap, index, from, land, flight)
+	end)
+	return true
+end
+
+-- A frame of the leap: along its arc, and down on its landing (the circle resolves there on its own timer). A chained
+-- one goes again at the nearest target once it has found its feet.
+local function stepLeap(boss: TBoss, leap: TLeap, now: number)
+	local u = math.min((now - leap.LeftAt) / leap.Flight, 1)
+	place(boss, BossesCore.LeapPoint(leap.From, leap.To, u))
+	if u < 1 then return end
+
+	boss.Leap = nil
+	local entity = boss.Entity
+	EnemyWorld:remove(entity, Tags.Submerged)
+	EnemiesSpatialHash:AddAABB(entity, leap.To, EnemyWorld:get(entity, Components.HalfExtents) :: vector)
+	place(boss, leap.To)
+	EnemyWorld:set(entity, Components.Velocity, vector.zero)
+	boss.BusyUntil = now + (boss.Kit.PounceLandLength or 1.7) * leap.Tempo
+	if leap.ChainsLeft <= 0 then return end
+
+	schedule(boss, now + Tune.CHAIN_POUNCE_AFTER * leap.Tempo, function()
+		if not EnemyWorld:contains(entity) or boss.Leap or boss.Brood then return end
+		local here = EnemyWorld:get(entity, Components.Position) or leap.To
+		local feet, characterEntity, _, distance = nearestTarget(here)
+		if not feet or distance < Tune.CHAIN_POUNCE_MIN then return end
+		local share = healthShare(entity)
+		beginPounce(
+			boss,
+			leap.Index,
+			leap.Attack,
+			TimeCore.EnemyClock,
+			here,
+			feet,
+			characterEntity,
+			share,
+			leap.ChainsLeft - 1
+		)
+	end)
+end
+
+-- ============================== Brood ==============================
+
+-- Up its line and out of reach (its clip hauls it up from BroodUp), its sacs laid round the arena once it hangs there.
+-- stepBrood brings it down when they are all popped or its time is up.
+local function startBrood(
+	boss: TBoss,
+	index: number,
+	attack: TData.TEnemyAttack,
+	now: number,
+	position: vector,
+	yaw: number,
+	share: number
+)
+	boss.Summoned = math.max(boss.Summoned, linesPassed(attack, share))
+	setBusy(boss, index, math.huge)
+	boss.Brood = { Index = index, Attack = attack, EndsAt = math.huge, IsLaid = false }
+
+	schedule(boss, now + (boss.Kit.BroodUp or 1.1), function()
+		local entity = boss.Entity
+		if not EnemyWorld:contains(entity) then return end
+		EnemyWorld:set(entity, Components.Immunity, Tune.UNDER_IMMUNITY)
+		EnemyWorld:add(entity, Tags.Submerged)
+		EnemiesSpatialHash:Remove(entity)
+	end)
+
+	schedule(boss, now + Tune.BROOD_LAY, function()
+		local entity = boss.Entity
+		local brood = boss.Brood
+		if not EnemyWorld:contains(entity) or not brood then return end
+		brood.IsLaid = true
+		brood.EndsAt = TimeCore.EnemyClock + (attack.ShieldSeconds or 16)
+		local sacData = if attack.Summons then ENEMIES[attack.Summons] else nil
+		if not sacData then return end
+
+		local health = EnemyWorld:get(entity, Components.MaxHealth) or boss.Data.BaseMaxHealth
+		local healthScale = health / boss.Data.BaseMaxHealth
+		local count = attack.Count or 4
+		for i = 1, count do
+			local spot = guardSpot(position, yaw, i, count) or position
+			local instanceId, sac = EnemiesService.Spawn(sacData.Id, spot, healthScale, 1)
+			if not instanceId or not sac then continue end
+			boss.Guards[sac] = instanceId
+			EnemiesService.ShowBodyToEveryone(instanceId)
+		end
+		boss.GuardTotal = count
+		sendShield(boss)
+	end)
+end
+
+-- A sac still whole bursts: it goes, and its young come out round where it stood.
+local function hatch(boss: TBoss, attack: TData.TEnemyAttack, sac: any)
+	local at = EnemyWorld:get(sac, Components.Position)
+	EnemiesService.Kill(nil, sac, 0)
+	local young = if attack.HatchType then ENEMIES[attack.HatchType] else nil
+	if not at or not young then return end
+
+	fireMove(boss, EBossMoves.Hatch, 0, at, at, 0)
+	local health = EnemyWorld:get(boss.Entity, Components.MaxHealth) or boss.Data.BaseMaxHealth
+	local damage = EnemyWorld:get(boss.Entity, Components.Damage) or boss.Data.BaseDamage
+	local healthScale = health / boss.Data.BaseMaxHealth
+	local damageScale = damage / boss.Data.BaseDamage
+	local count = attack.Hatch or 3
+	for i = 1, count do
+		local angle = i / count * 2 * math.pi
+		local spot = at + vector.create(math.cos(angle), 0, math.sin(angle)) * Tune.HATCH_SPREAD
+		EnemiesService.Spawn(young.Id, spot, healthScale, damageScale)
+	end
+end
+
+-- Down off its line: what sacs are left hatch, the circle under it shows for the attack's Delay, and it lands on its
+-- belly through it, dazed for a while (BossesCore.BROOD_DAZE past its clip).
+local function endBrood(boss: TBoss, brood: TBrood, now: number)
+	local entity = boss.Entity
+	local attack = brood.Attack
+	local kit = boss.Kit
+	boss.Brood = nil
+	local sacs = boss.Guards
+	boss.Guards = {}
+	for sac in sacs do
+		if EnemyWorld:contains(sac) then hatch(boss, attack, sac) end
+	end
+	sendShield(boss)
+
+	local position = EnemyWorld:get(entity, Components.Position) :: vector
+	local warning = attack.Delay
+	local landsAt = now + warning
+	EnemyAttacksService.Telegraph(entity, attack, position, 0, warning)
+	fireMove(boss, EBossMoves.Drop, brood.Index, position, position, warning)
+	boss.BusyUntil = landsAt + ((kit.BroodDropLength or 2.8) - (kit.BroodLand or 0.66)) + BossesCore.BROOD_DAZE
+	schedule(boss, landsAt, function()
+		if not EnemyWorld:contains(entity) then return end
+		EnemyWorld:remove(entity, Tags.Submerged)
+		EnemiesSpatialHash:AddAABB(entity, position, EnemyWorld:get(entity, Components.HalfExtents) :: vector)
+		EnemyWorld:set(entity, Components.Immunity, Tune.RISE_IMMUNITY)
+	end)
+end
+
+-- Its sacs counted each frame once laid: the boss bar's marks follow them, and it comes down when they are all popped
+-- or its time is up.
+local function stepBrood(boss: TBoss, brood: TBrood, now: number)
+	if not brood.IsLaid then return end
+	local isChanged = false
+	for sac in boss.Guards do
+		if EnemyWorld:contains(sac) then continue end
+		boss.Guards[sac] = nil
+		isChanged = true
+	end
+
+	if next(boss.Guards) == nil or now >= brood.EndsAt then
+		endBrood(boss, brood, now)
+	elseif isChanged then
+		sendShield(boss)
+	end
+end
+
 -- ============================== Control ==============================
 
 -- Not behind its shield nor under the floor: players' gadgets can reach it.
@@ -1213,13 +1517,17 @@ local function start(boss: TBoss, index: number, now: number, position: vector, 
 	local attack = boss.Data.Attacks[index]
 	local kind = attack.Kind
 	local bossTempo = tempoOf(boss, share)
-	-- The roar comes once, at its line, as authored.
-	local tempo = if kind == "Summon" then 1 else windupTempoOf(boss, share)
+	-- The roar and the brood come once, at their lines, as authored.
+	local tempo = if kind == "Summon" or kind == "Brood" then 1 else windupTempoOf(boss, share)
 	local length = (attack.Length or attack.Delay) * tempo
 	EnemyWorld:set(boss.Entity, Components.Yaw, yaw)
 	fireMove(boss, EBossMoves.Attack, index, position, position, yaw, tempo)
 	boss.ReadyAt[index] = now + length + attack.Cooldown * bossTempo
 	markUsed(boss, index, now)
+	if kind == "Brood" then
+		startBrood(boss, index, attack, now, position, yaw, share)
+		return
+	end
 	if kind == "Summon" then
 		startSummon(boss, attack, now, position, yaw, share)
 	elseif attack.IsVolley then
@@ -1285,9 +1593,16 @@ end
 
 -- Whether feet at `feet` are in `attack`'s shape made from `position` turned to `yaw`, on the floor its warning
 -- floods (EnemyAttacksService's own test, so no wall, ledge or deck between).
-local function isInArea(attack: TData.TEnemyAttack, position: vector, yaw: number, feet: vector): boolean
+local function isInArea(
+	attack: TData.TEnemyAttack,
+	position: vector,
+	yaw: number,
+	feet: vector,
+	sizeOverride: number?
+): boolean
 	local nav = ArenaCore.Nav
-	local kind, size, width = TelegraphCore.ShapeOf(attack)
+	local kind, shapeSize, width = TelegraphCore.ShapeOf(attack)
+	local size = sizeOverride or shapeSize
 	local shapeYaw = if kind == ETelegraphs.Cone or kind == ETelegraphs.Line then yaw else 0
 	-- The shape alone first: the flood is the costly part, and only someone inside the shape needs it.
 	local x, z = TelegraphCore.ToLocal(position, shapeYaw, feet)
@@ -1301,9 +1616,41 @@ end
 -- Whether a close slam made at `yaw` (slamYaw) would catch feet at `feet` where they stand now: in its shape (turned
 -- back for the tail) or in the ring its last beat rolls out. A move that would land on nothing is not made.
 local function wouldHit(attack: TData.TEnemyAttack, position: vector, yaw: number, feet: vector): boolean
+	local strikes = attack.Strikes
+	if strikes then
+		for _, strike in strikes do
+			local center, strikeYaw, length = strikeShape(position, yaw, strike)
+			if isInArea(attack, center, strikeYaw, feet, length) then return true end
+		end
+		return false
+	end
+
 	local shapeYaw = if attack.Facing == "Behind" then yaw + math.pi else yaw
 	if isInArea(attack, position, shapeYaw, feet) then return true end
 	return attack.FinisherRadius ~= nil and isInArea(finisherOf(attack), position, 0, feet)
+end
+
+-- The yaw a close slam on a target at `feet` would be made at to land on them (slamYaw), nil when none would: a front
+-- strike's shapes lie off its nose (a chevron's blades), so it is turned a little off the straight line to lay one on
+-- them (STRIKE_AIMS).
+local function aimedYaw(
+	kit: TData.TEnemyBoss,
+	attack: TData.TEnemyAttack,
+	position: vector,
+	yaw: number,
+	feet: vector
+): number?
+	local aimYaw = slamYaw(kit, attack, position, yaw, feet)
+	if not aimYaw then return nil end
+	if not attack.Strikes or attack.Facing ~= "Front" then
+		return if wouldHit(attack, position, aimYaw, feet) then aimYaw else nil
+	end
+
+	for _, offset in Tune.STRIKE_AIMS do
+		if wouldHit(attack, position, aimYaw + offset, feet) then return aimYaw + offset end
+	end
+
+	return nil
 end
 
 -- Its weight in a draw (Tune.FRESH_WEIGHT): more the longer since it was made, less if it was the last.
@@ -1342,8 +1689,8 @@ local function goForBait(boss: TBoss, now: number, position: vector, yaw: number
 	for index, attack in attacks do
 		if attack.Kind ~= "Slam" or attack.IsVolley then continue end
 		if distance > attack.Range or not isInPhase(attack, share) then continue end
-		local aimYaw = slamYaw(boss.Kit, attack, position, yaw, feet)
-		if not aimYaw or not wouldHit(attack, position, aimYaw, feet) then continue end
+		local aimYaw = aimedYaw(boss.Kit, attack, position, yaw, feet)
+		if not aimYaw then continue end
 		dropBait(boss)
 		start(boss, index, now, position, aimYaw, share)
 		local beats = attack.Beats
@@ -1391,6 +1738,8 @@ local function forced(
 			beginCharge(boss, index, attack, now, position, direction :: vector, length, tempo)
 		elseif attack.Kind == "Dive" then
 			beginDive(boss, index, attack, now, position, yaw, feet, share)
+		elseif attack.Kind == "Pounce" then
+			beginPounce(boss, index, attack, now, position, feet, characterEntity, share, attack.Chains or 0)
 		else
 			start(boss, index, now, position, if attack.Facing == "Front" then aimYaw else yaw, share)
 		end
@@ -1416,7 +1765,8 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 
 	-- Never over a shield already up: its guards are still to kill.
 	for index, attack in attacks do
-		if attack.Kind ~= "Summon" or next(boss.Guards) ~= nil then continue end
+		local isGoalChanger = attack.Kind == "Summon" or attack.Kind == "Brood"
+		if not isGoalChanger or next(boss.Guards) ~= nil then continue end
 		if linesPassed(attack, share) <= boss.Summoned or not isOpen(boss, index, attack, share, now) then continue end
 		start(boss, index, now, position, yaw, share)
 		return
@@ -1428,11 +1778,19 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 		return
 	end
 
+	-- Somewhere it cannot walk to: under the floor to them, or a leap onto their floor.
 	if isStranded then
 		for index, attack in attacks do
-			if attack.Kind ~= "Dive" or not isOpen(boss, index, attack, share, now) then continue end
-			beginDive(boss, index, attack, now, position, yaw, feet, share)
-			return
+			if not isOpen(boss, index, attack, share, now) then continue end
+			if attack.Kind == "Dive" then
+				beginDive(boss, index, attack, now, position, yaw, feet, share)
+				return
+			end
+			if attack.Kind ~= "Pounce" then continue end
+			-- False with no floor to land on near them: it looks on.
+			if beginPounce(boss, index, attack, now, position, feet, characterEntity, share, attack.Chains or 0) then
+				return
+			end
 		end
 	end
 
@@ -1443,8 +1801,8 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 		for index, attack in attacks do
 			if attack.Kind ~= "Slam" or attack.IsVolley or distance > attack.Range then continue end
 			if not isOpen(boss, index, attack, share, now) then continue end
-			local aimYaw = slamYaw(kit, attack, position, yaw, feet)
-			if not aimYaw or not wouldHit(attack, position, aimYaw, feet) then continue end
+			local aimYaw = aimedYaw(kit, attack, position, yaw, feet)
+			if not aimYaw then continue end
 			table.insert(options, function()
 				start(boss, index, now, position, aimYaw, share)
 			end)
@@ -1470,6 +1828,12 @@ local function think(boss: TBoss, now: number, position: vector, yaw: number, sh
 			if not canFaceLine(kit, position, yaw, direction) then continue end
 			move = function()
 				beginCharge(boss, index, attack, now, position, direction :: vector, length, tempo)
+			end
+		elseif attack.Kind == "Pounce" and distance <= attack.Range then
+			if distance < (attack.MinRange or 0) and not isChasing then continue end
+			if not pounceSpot(attack, feet, flatVelocity(characterEntity), 0) then continue end
+			move = function()
+				beginPounce(boss, index, attack, now, position, feet, characterEntity, share, attack.Chains or 0)
 			end
 		elseif attack.Kind == "Dive" and distance >= (attack.MinRange or math.huge) then
 			move = function()
@@ -1515,6 +1879,8 @@ local function adopt(entity: any, data: TData.TEnemy, position: vector): TBoss?
 		ShieldEndsAt = 0,
 		Run = nil,
 		Burrow = nil,
+		Leap = nil,
+		Brood = nil,
 		-- Adopted on the first frame the match runs after its intro.
 		NextThinkAt = now + kit.OpeningSeconds,
 		Forced = nil,
@@ -1607,8 +1973,19 @@ RunService.Heartbeat:Connect(function(dt: number)
 		local share = if maxHealth > 0 then health / maxHealth else 1
 		runSteps(boss, now)
 		if not EnemyWorld:contains(entity) then continue end
-		updateShield(boss, now)
+		local brood = boss.Brood
+		if brood then
+			stepBrood(boss, brood, now)
+		else
+			updateShield(boss, now)
+		end
 		stepSlow(boss, now)
+
+		local leap = boss.Leap
+		if leap then
+			stepLeap(boss, leap, now)
+			continue
+		end
 
 		local run = boss.Run
 		if run then

@@ -70,6 +70,7 @@ local function scoreStage(
 	stage: CFrame,
 	floorY: number,
 	shots: { { BossesCore.TShotKey } }?,
+	keyScale: number,
 	intro: TData.TEnemyBossIntro?
 ): number
 	local score = 0
@@ -89,7 +90,7 @@ local function scoreStage(
 	local frame = BossesCore.IntroFrame(stage, intro)
 	local head = stage.Position + Vector3.new(0, Tune.HEAD, 0)
 	for _, shot in shots do
-		local eye = frame:PointToWorldSpace(shot[1].Eye * BossesCore.INTRO_KEY_SCALE)
+		local eye = frame:PointToWorldSpace(shot[1].Eye * keyScale)
 		if Workspace:Raycast(head, eye - head, sightParams) then
 			score -= Tune.SHOT_COST
 		end
@@ -104,6 +105,7 @@ function BossIntroService.PickStage(enemyData: TData.TEnemy): (vector?, number)
 	if not middle then return nil, 0 end
 	local kit = enemyData.Boss
 	local shots = BossesCore.INTRO_SHOTS[enemyData.AnimationSet]
+	local keyScale = BossesCore.INTRO_KEY_SCALES[enemyData.AnimationSet] or 1
 	local best: vector? = nil
 	local bestYaw, bestScore = 0, -math.huge
 
@@ -117,7 +119,7 @@ function BossIntroService.PickStage(enemyData: TData.TEnemy): (vector?, number)
 			local yaw = math.atan2(middle.x - x, middle.z - z)
 			local stage = CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0)
 			-- Ties go to the first distance tried.
-			local score = scoreStage(stage, y, shots, if kit then kit.Intro else nil)
+			local score = scoreStage(stage, y, shots, keyScale, if kit then kit.Intro else nil)
 			if score <= bestScore then continue end
 			bestScore = score
 			best = vector.create(x, y, z)

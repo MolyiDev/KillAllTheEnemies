@@ -208,6 +208,7 @@ tick = {
 	OutPositions = {},
 	OutYaws = {},
 	OutViews = {},
+	OutEveryTick = {},
 	OnAttackStarted = function(enemy, _, attack, center, target)
 		started[attack.Kind] = (started[attack.Kind] or 0) + 1
 		if attack.Kind == "Melee" then return end
@@ -387,31 +388,44 @@ print(
 	)
 )
 
--- Packer round trip on the last tick's output.
+-- Packer round trip on the last tick's output, through baselines the end of the run carries on with.
 local count = #tick.OutIds
-local pkt = EnemyPacker.PackFiltered(
-	tick.OutIds,
-	tick.OutPositions,
-	tick.OutYaws,
-	tick.OutViews,
-	count,
-	0,
-	50,
-	0,
-	0,
-	0,
-	1,
-	-1,
-	0,
-	1e9
-)
+local sentAt, sentQ, netBase = {}, EnemyPacker.CreateBaseline(), EnemyPacker.CreateBaseline()
 local P, Y, M, L = {}, {}, {}, {}
-EnemyPacker.UnpackInto(pkt, P, Y, M, L, 1)
-local maxErr = 0
-for i, id in tick.OutIds do
-	local p = tick.OutPositions[i]
-	maxErr = math.max(maxErr, math.abs(P[id].X - p.x), math.abs(P[id].Y - p.y), math.abs(P[id].Z - p.z))
+local function streamTick(t: number): buffer?
+	local packet = EnemyPacker.PackFiltered(
+		tick.OutIds,
+		tick.OutPositions,
+		tick.OutYaws,
+		tick.OutViews,
+		#tick.OutIds,
+		0,
+		50,
+		0,
+		0,
+		0,
+		1,
+		-1,
+		0,
+		1e9,
+		sentAt,
+		sentQ,
+		tick.OutEveryTick,
+		t
+	)
+	if packet then EnemyPacker.UnpackInto(packet, netBase, P, Y, M, L, t) end
+	return packet
 end
+local function worstError(): number
+	local worst = 0
+	for i, id in tick.OutIds do
+		local p = tick.OutPositions[i]
+		worst = math.max(worst, math.abs(P[id].X - p.x), math.abs(P[id].Y - p.y), math.abs(P[id].Z - p.z))
+	end
+	return worst
+end
+local pkt = streamTick(0) :: buffer
+local maxErr = worstError()
 print(string.format("packet %d bytes for %d; max position error %.3f studs", buffer.len(pkt), count, maxErr))
 
 -- Telegraph footprints: a warning covers the floor it was cast on and what that floor steps onto, never the deck
@@ -461,11 +475,11 @@ local EEnemiesIds = H.require("ReplicatedStorage/Types/Enums/Data/EEnemiesIds")
 local byId = DataCore.Enemies.ById
 local turns = {}
 for _, round in { 15, 30, 45 } do
-	local boss = RoundCore.GetBoss(round, "PirateCove", byId)
+	local boss = RoundCore.GetBoss(round, "Baseplate", byId)
 	turns[#turns + 1] = if boss then boss.Name else "none"
 end
-local onTest = RoundCore.GetBoss(15, "Baseplate", byId)
-local notReady = RoundCore.GetBoss(15, "PirateCove", byId, function()
+local onUnlisted = RoundCore.GetBoss(15, "Nowhere", byId)
+local notReady = RoundCore.GetBoss(15, "Baseplate", byId, function()
 	return false
 end)
 
@@ -489,9 +503,9 @@ local function facingOf(x, z)
 end
 print(
 	string.format(
-		"bosses: Pirate Cove 15/30/45 %s, test map %s, none ready %s | intro %.2f s real, clock at the end %.3f (End %.1f), held from %.2f s, largest step %.4f | arcs front %s behind %s beside %s under %s | skid %.1f studs",
+		"bosses: Baseplate 15/30/45 %s, unlisted map %s, none ready %s | intro %.2f s real, clock at the end %.3f (End %.1f), held from %.2f s, largest step %.4f | arcs front %s behind %s beside %s under %s | skid %.1f studs",
 		table.concat(turns, "/"),
-		if onTest then onTest.Name else "none",
+		if onUnlisted then onUnlisted.Name else "none",
 		if notReady then notReady.Name else "none",
 		introSeconds,
 		endClock,
@@ -636,5 +650,26 @@ print(
 		tostring(hits(Vector3.new(30, 6, 19), Vector3.new(0, 10, 19))),
 		tostring(hits(Vector3.new(0, 10, -40), Vector3.new(0, 10, -20))),
 		tostring(hits(Vector3.new(30, 6, 19), Vector3.new(0, 10, 32)))
+	)
+)
+
+-- Last, as it moves the crowd: six more ticks through the same baselines (the deltas a client decodes from its
+-- netBase), one body thrown 30 studs to force an absolute record among them.
+local deltaErr, deltaBytes = 0, 0
+for t = 1, 6 do
+	table.clear(aggro)
+	expireWarnings()
+	enemiesUpdate(query, tick, aggro)
+	if t == 3 then
+		tick.OutPositions[1] += vector.create(30, 0, 0)
+	end
+	deltaBytes += buffer.len(streamTick(t) :: buffer)
+	deltaErr = math.max(deltaErr, worstError())
+end
+print(
+	string.format(
+		"6 more ticks through the baselines: %d bytes a packet, max position error %.3f studs",
+		deltaBytes / 6,
+		deltaErr
 	)
 )

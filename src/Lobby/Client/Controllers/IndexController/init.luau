@@ -278,7 +278,6 @@ function IndexController.Open()
 	revealPotions()
 	SoundsCore.SetMuffled("Index", true)
 	BlurController.SetBlurred("Index", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function IndexController.Close()
@@ -287,7 +286,6 @@ function IndexController.Close()
 	stamp(state.ToggledAt, os.clock())
 	SoundsCore.SetMuffled("Index", false)
 	BlurController.SetBlurred("Index", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 -- An enemy's own voice from its sound group, nothing when it has none.

@@ -258,7 +258,6 @@ function MutationController.Open()
 	stir(Tune.MOTION_SECONDS)
 	SoundsCore.SetMuffled("Mutation", true)
 	BlurController.SetBlurred("Mutation", true)
-	SoundsCore.PlayUINamed("UI", "MenuIn")
 end
 
 function MutationController.Close()
@@ -272,7 +271,6 @@ function MutationController.Close()
 	stir(Tune.MOTION_SECONDS)
 	SoundsCore.SetMuffled("Mutation", false)
 	BlurController.SetBlurred("Mutation", false)
-	SoundsCore.PlayUINamed("UI", "MenuOut")
 end
 
 local function pickTab(tab: number)

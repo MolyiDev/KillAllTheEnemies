@@ -102,6 +102,8 @@ export type TTick = {
 	OutPositions: { vector },
 	OutYaws: { number },
 	OutViews: { vector },
+	-- Sent every tick whatever their distance from a camera (bosses: EnemyPacker's send tiers).
+	OutEveryTick: { boolean },
 	-- Deferred effects. A target id > 0 is a character, < 0 is -barricadeId.
 	OnAttackStarted: (
 		enemy: any,
@@ -392,6 +394,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 	local kForce = K_FORCE * dt
 	local fallOutY = (if grid then grid.MinY else ArenaCore.FlatY) - FALL_OUT_DEPTH
 	local outIds, outPositions, outYaws, outViews = tick.OutIds, tick.OutPositions, tick.OutYaws, tick.OutViews
+	local outEveryTick = tick.OutEveryTick
 	local viewSphereOf = EnemiesCore.ViewSphere
 	local written = 0
 	local hasTargets = next(charFeet) ~= nil or barricadeCount > 0
@@ -760,6 +763,7 @@ return function(query: any, tick: TTick, aggroCounts: { [number]: number }): num
 		outPositions[written] = newPos
 		outYaws[written] = newYaw
 		outViews[written] = viewSphereOf(data)
+		outEveryTick[written] = data.IsBoss == true or data.Boss ~= nil
 	end
 
 	for i = 1, startCount do

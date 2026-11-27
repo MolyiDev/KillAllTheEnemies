@@ -3,6 +3,7 @@
 -- Blows land at most once per CharacterService's hurt window (0.35 s), so a crowd's never run together.
 --
 -- Down is health 0 during a run (no auto-respawn): the body stays, so read it off the number, never off Humanoid.Died.
+-- Every player's going down is told here too (OnBodyDown), since the health event has one listener.
 --
 -- It also asks for the HEALTH card's levels (Shared/Utils/healthUpgrades) and shows one bought: the cue and the
 -- camera for the buyer, the burst on the buyer's body for everyone (healthUpFx). The HUD reads the stamps.
@@ -12,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local CameraController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CameraController)
 local CharacterController = require(Players.LocalPlayer.PlayerScripts.GlobalClient.Controllers.CharacterController)
@@ -23,9 +25,14 @@ local SoundsCore = require(ReplicatedStorage.GlobalShared.Core.SoundsCore)
 local healthUpgrades = require(ReplicatedStorage.Shared.Utils.healthUpgrades)
 local Components = require(ReplicatedStorage.GlobalShared.ECS.Components)
 local World = require(ReplicatedStorage.GlobalShared.ECS.Worlds.World)
+local getCharacterEntityFromInstanceId =
+	require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterEntityFromInstanceId)
 local getCharacterEntityFromPlayer =
 	require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterEntityFromPlayer)
+local getPlayerFromCharacterEntity =
+	require(ReplicatedStorage.GlobalShared.Utils.Functions.getPlayerFromCharacterEntity)
 local ESoundsIds = require(ReplicatedStorage.Types.Enums.Sounds.ESoundsIds)
+local TPlayerEvents = require(ReplicatedStorage.Types.Events.TPlayerEvents)
 
 local ServerNetworkCharacters = Network.Server.Characters
 local ClientNetworkCharacters = Network.Client.Characters
@@ -71,6 +78,23 @@ HealthController.Level = 0
 HealthController.UpgradedAt = -math.huge
 HealthController.UpgradeAskedAt = -math.huge
 HealthController.UpgradeDeniedAt = -math.huge
+-- (player, character) A body's health reached 0, anyone's: it lies where it fell until a revive brings a new one.
+HealthController.OnBodyDown = Signal.new()
+
+-- The players whose body is down, by the last report for their current character, and every player's last report.
+local downs: { [Player]: boolean } = {}
+local healthOf: { [Player]: Vector2 } = {}
+
+function HealthController.IsPlayerDown(player: Player): boolean
+	return downs[player] == true
+end
+
+-- `player`'s health and max health as last reported (0, 0 before any).
+function HealthController.HealthOf(player: Player): (number, number)
+	local health = healthOf[player]
+	if not health then return 0, 0 end
+	return health.X, health.Y
+end
 
 function HealthController.IsDown(): boolean
 	return HealthController.MaxHealth > 0 and HealthController.Health <= 0
@@ -106,7 +130,26 @@ local function jolt(lost: number, max: number)
 	CameraController.Shake(shake, HIT_SHAKE_ROUGHNESS, Tune.HIT_SHAKE_SECONDS)
 end
 
+-- Any player's body going down or a new one standing.
+local function trackDown(instanceId: number, current: number, max: number)
+	local characterEntity = getCharacterEntityFromInstanceId(instanceId)
+	if not characterEntity then return end
+	local player = getPlayerFromCharacterEntity(characterEntity)
+	if not player then return end
+	healthOf[player] = Vector2.new(current, max)
+	local isDown = max > 0 and current <= 0
+	if isDown == (downs[player] == true) then return end
+	if isDown then
+		downs[player] = true
+	else
+		downs[player] = nil
+	end
+	local character = World:get(characterEntity, Components.Model)
+	if isDown and character then HealthController.OnBodyDown:Fire(player, character) end
+end
+
 ServerNetworkCharacters.Health.On(function(instanceId: number, current: number, max: number)
+	trackDown(instanceId, current, max)
 	if instanceId ~= CharacterController.GetLocalCharacterId() then return end
 	local lost = HealthController.Health - current
 	HealthController.Health = current
@@ -135,6 +178,11 @@ ServerNetworkCharacters.HealthLevel.On(function(player: Player, level: number)
 	SoundsCore.PlayUISound(ESoundsIds.HealthUpgrade)
 	TweensController.PunchFov(Tune.UPGRADE_FOV_PUNCH, Tune.UPGRADE_FOV_RETURN)
 end)
+
+HealthController.OnPlayerDisconnected = function(player: Player)
+	downs[player] = nil
+	healthOf[player] = nil
+end :: TPlayerEvents.OnPlayerDisconnected
 
 HealthController.OnSelfCharacterRemoving = function()
 	HealthController.Health = 0

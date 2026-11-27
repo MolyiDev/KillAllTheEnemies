@@ -12,12 +12,12 @@ local CoinFlight = require(script.Parent.Parent.Parent.Utils.coinFlight)
 local GunPicture = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.GunPicture)
 local HealthBar = require(script.Parent.HealthBar)
 local Motion = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Motion)
+local Hand = require(StarterPlayer.StarterPlayerScripts.GlobalClient.UI.Hand)
 local Types = require(script.Parent.Types)
 local EIcons = require(ReplicatedStorage.Types.Enums.EIcons)
 
 local create = vide.create
 local derive = vide.derive
-local spring = vide.spring
 local Palette = Theme.Palette
 local Font = Theme.Font
 
@@ -293,6 +293,7 @@ local function money(state: Types.THudState): Frame
 				TextColor3 = function()
 					return Palette.Gold:Lerp(Palette.White, 0.45 * pulse()):Lerp(Palette.Pink, state.GoldDenied())
 				end,
+				AutoLocalize = false,
 				Text = function()
 					return `${Components.Commas(state.GoldShown())}`
 				end,
@@ -366,6 +367,7 @@ local function money(state: Types.THudState): Frame
 				return Palette.Gold:Lerp(Palette.White, Motion.Fade(packFor(), 0, Pack.STAMP_WHITE))
 			end,
 			TextTransparency = stampTransparency,
+			AutoLocalize = false,
 			Text = function()
 				return `+${Components.Commas(state.GoldPack.Amount())}`
 			end,
@@ -443,7 +445,7 @@ local function gunSlot(state: Types.THudState): Frame
 	end)
 
 	-- 0 out of the row, 1 in it, past 1 for a moment on the way in.
-	local presence = spring(function(): number
+	local presence = Hand.Spring(function(): number
 		return if state.GunModel() ~= nil or isAwaiting() then 1 else 0
 	end, Arrive.PERIOD, Arrive.DAMPING)
 

@@ -39,10 +39,8 @@ local FLAT_XZ = Vector3.new(1, 0, 1)
 local Tune = table.freeze({
 	-- Who is in the range is looked at this often.
 	CHECK_SECONDS = 0.25,
-	-- WeaponService's: a shot accepted this much early against the gun's interval, and the pad on every gun's
-	-- HitRadius for the bodies the client aimed at a little behind where the server has them.
+	-- WeaponService's: a shot accepted this much early against the gun's interval.
 	RATE_TOLERANCE = 0.8,
-	LAG_PAD = 0.75,
 	-- Picks closer together than this are let go: each one builds a gun.
 	PICK_SECONDS = 0.1,
 	-- A booth with a character this close to it is taken.
@@ -253,7 +251,7 @@ local function shoot(player: Player, entry: TArmed, origin: Vector3, direction: 
 	local level = (if profile then LoadoutCore.LevelOf(profile.Loadout.Owned, gun) else nil) or 1
 	local pellets = math.min(gun.Pellets, GunsTune.MAX_PELLETS)
 	local pelletDamage = LoadoutCore.Damage(gun, level) / gun.Pellets
-	local pad = gun.HitRadius + Tune.LAG_PAD
+	local pad = gun.HitRadius + GunsTune.LAG_PAD
 	local splashRadius = gun.SplashRadius
 	local pierce = gun.Pierce or 0
 	local now = os.clock()

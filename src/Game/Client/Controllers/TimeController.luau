@@ -1,7 +1,8 @@
 -- The client's half of the match clock: TimeCore follows the server's scale (TimeService), eased the same way, and the
 -- local body is slowed with it. The body is the one thing this side leaves to the engine's physics, so its slow
 -- motion is made here: gravity goes with the square of the scale and its speeds with the scale, which keeps every
--- fall and jump the same shape, only slower. While the upgrade cards cover the screen it neither walks nor jumps.
+-- fall and jump the same shape, only slower. While the upgrade cards cover the screen it neither walks nor jumps, and
+-- in a spider's web patch (Utils/spiderFx) it wades. The Speed card is laid on here too: the walk is the client's.
 --
 -- This is the only writer of the local Humanoid's WalkSpeed, JumpPower and JumpHeight, and of Workspace.Gravity.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,7 +12,11 @@ local Workspace = game:GetService("Workspace")
 local Ignis = require(ReplicatedStorage.Packages.Ignis)
 local Network = require(StarterPlayer.StarterPlayerScripts.GlobalClient.Network)
 local UpgradePickController = require(script.Parent.UpgradePickController)
+local spiderFx = require(script.Parent.Parent.Utils.spiderFx)
 local TimeCore = require(ReplicatedStorage.Shared.Core.TimeCore)
+local UpgradesCore = require(ReplicatedStorage.Shared.Core.UpgradesCore)
+local getCharacterFeet = require(ReplicatedStorage.GlobalShared.Utils.Functions.getCharacterFeet)
+local EUpgradesIds = require(ReplicatedStorage.Types.Enums.Data.EUpgradesIds)
 local TCharacter = require(ReplicatedStorage.Types.TCharacter)
 local TCharacterEvents = require(ReplicatedStorage.Types.Events.TCharacterEvents)
 
@@ -20,6 +25,8 @@ local ServerNetworkGame = Network.Server.Game
 -- Under this scale the body's vertical speed is too small to read its full-speed fall back from (contact noise
 -- divided by almost nothing), so the last one read is kept until the clock runs again.
 local READABLE_SCALE = 0.05
+-- A body in a web patch walks at this share of its speed.
+local WEB_SLOW = 0.45
 
 local TimeController = {}
 
@@ -42,8 +49,12 @@ local function stepBody()
 	if not body or not part then return end
 	local scale = TimeCore.TimeScale
 	local isStill = UpgradePickController.IsCovering()
+	local speed = UpgradesCore.WalkScale(UpgradePickController.GetStat(EUpgradesIds.Speed))
 
-	local walkScale = if isStill then 0 else scale
+	local walkScale = if isStill
+		then 0
+		elseif spiderFx.IsInWeb(getCharacterFeet(part, body, 0) :: any) then scale * WEB_SLOW * speed
+		else scale * speed
 	if walkScale ~= writtenWalkScale then
 		writtenWalkScale = walkScale
 		body.WalkSpeed = baseWalkSpeed * walkScale

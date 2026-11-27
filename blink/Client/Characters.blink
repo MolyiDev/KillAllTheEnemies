@@ -1,4 +1,5 @@
 import "../Types/CharacterInstanceId.blink"
+import "../Types/Player.blink"
 
 event CharacterReady {
 	from: Client,
@@ -14,4 +15,13 @@ event UpgradeHealth {
 	type: Reliable,
 	call: SingleAsync,
 	data: ()
+}
+
+-- Buy a downed player's revive during a run (EProducts.QuickRevive): the buyer's own, or a squadmate's. Only the pick:
+-- the server checks it (that player down in a running match), keeps it and prompts the product.
+event Revive {
+	from: Client,
+	type: Reliable,
+	call: SingleAsync,
+	data: Player.Type
 }

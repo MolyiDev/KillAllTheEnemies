@@ -127,7 +127,7 @@ end
 
 -- One fact about the party on his dark plaque, in `color`, sized by a hidden copy of its word as the party screen's
 -- chips are.
-local function chip(order: number, color: any, text: () -> string, dealt: () -> number): Frame
+local function chip(state: Types.TLobbyState, order: number, color: any, text: () -> string, dealt: () -> number): Frame
 	local width = vide.source(0)
 	return create("Frame")({
 		Name = `Chip{order}`,
@@ -143,8 +143,9 @@ local function chip(order: number, color: any, text: () -> string, dealt: () -> 
 			TextSize = Layout.CHIP_TEXT,
 			TextTransparency = 1,
 			Text = text,
+			-- TextBounds is in screen px, under the root's UIScale; the width is in design px.
 			vide.changed("TextBounds", function(bounds: Vector2)
-				width(math.ceil(bounds.X))
+				width(math.ceil(bounds.X / math.max(vide.untrack(state.PageScale), 0.01)))
 			end),
 		}),
 		Parts.Plaque({
@@ -294,8 +295,10 @@ function Invitation.Build(state: Types.TLobbyState, actions: Types.TLobbyActions
 		if left > Gesture.HURRY_SECONDS then return Palette.Gold end
 		return Palette.Pink:Lerp(Palette.Gold, math.max(left, 0) / Gesture.HURRY_SECONDS)
 	end)
+	-- 1 (no flash) until it lands: Progress reads 0 before its start, which would flash the whole slide in.
 	local landed = derive(function(): number
-		return Progress(elapsed(), Gesture.LAND, Gesture.FLASH)
+		local t = elapsed()
+		return if t < Gesture.LAND then 1 else Progress(t, Gesture.LAND, Gesture.FLASH)
 	end)
 	local ringed = derive(function(): number
 		return Progress(elapsed(), Gesture.LAND, Gesture.RING)
@@ -345,8 +348,9 @@ function Invitation.Build(state: Types.TLobbyState, actions: Types.TLobbyActions
 				TextYAlignment = Enum.TextYAlignment.Center,
 				ZIndex = 7,
 				Text = "PARTY INVITE",
+				-- TextBounds is in screen px, under the root's UIScale; the width is in design px.
 				vide.changed("TextBounds", function(bounds: Vector2)
-					tagWidth(math.ceil(bounds.X))
+					tagWidth(math.ceil(bounds.X / math.max(vide.untrack(state.PageScale), 0.01)))
 				end),
 			}),
 		}),
@@ -423,17 +427,17 @@ function Invitation.Build(state: Types.TLobbyState, actions: Types.TLobbyActions
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				Padding = UDim.new(0, Layout.CHIP_GAP),
 			}),
-			chip(1, function()
+			chip(state, 1, function()
 				return Parts.AccentOf(map())
 			end, function()
 				return string.upper(map().DisplayName)
 			end, dealtOf(elapsed, Gesture.CHIPS_DELAY)),
-			chip(2, function()
+			chip(state, 2, function()
 				return Parts.DIFFICULTY_COLORS[difficulty()] or Palette.Green
 			end, function()
 				return string.upper(difficulty())
 			end, dealtOf(elapsed, Gesture.CHIPS_DELAY + Gesture.CHIPS_STAGGER)),
-			chip(3, Palette.White, function()
+			chip(state, 3, Palette.White, function()
 				local current = pad()
 				if not current then return "" end
 				return `{current.Count()}/{current.MaxPlayers()}`

@@ -4,6 +4,7 @@
 -- gets copies of its own, destroyed once they are spent.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ERarities = require(ReplicatedStorage.Types.Enums.ERarities)
+local fxBudget = require(script.Parent.Parent.Parent.GlobalClient.Utils.fxBudget)
 
 local upgradeFx = {}
 
@@ -88,7 +89,7 @@ end
 
 local function emit(attachment: Attachment, layer: string, count: number)
 	local emitter = attachment:FindFirstChild(layer)
-	if emitter and emitter:IsA("ParticleEmitter") then emitter:Emit(count) end
+	if emitter and emitter:IsA("ParticleEmitter") then fxBudget.Emit(emitter, count) end
 end
 
 local function count(range: NumberRange, scale: number): number

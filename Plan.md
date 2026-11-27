@@ -69,7 +69,7 @@ to its economy. Port the logic, restyle the view:
 
 ## The old places
 
-Lobby 105859632802526 and Game 104435679031452 (same universe) hold an earlier version of this game. Dumped offline
+Game 104435679031452 (same universe) and the old lobby (`LobbyOld.rbxl`, published over since) hold an earlier version of this game. Dumped offline
 to `research/OldGame` / `research/OldLobby` (CLAUDE.md, Tooling) and reviewed on 2026-11-20:
 `research/Review-Combat.md`, `Review-Horde.md`, `Review-Lobby.md`. Each has an inventory with numbers, what is good,
 what is unsafe (file:line), a port plan onto this architecture and the assets it uses. The headlines:
